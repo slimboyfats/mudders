@@ -32,6 +32,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   // only our own files: the lobby server, STUN and anything else go straight to the network
   if (url.origin !== self.location.origin) return;
+  // the lobby server proxied through this origin (same-network play) is never cached
+  if (url.pathname.startsWith(new URL('signal/', self.registration.scope).pathname)) return;
   if (req.mode === 'navigate') {
     // the page: network first so an update lands at once; the cached shell when offline
     event.respondWith(

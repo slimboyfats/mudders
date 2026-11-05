@@ -18,6 +18,22 @@ Open `http://localhost:5173` for a local hot-seat match (drag on the map to aim,
 arrows/space on desktop, wheel or pinch to zoom). `#sandbox` opens the content sandbox: fire any
 weapon at a test map and edit manifests live.
 
+## Play on the same Wi-Fi
+
+1. On the computer: `pnpm install`, then `pnpm dev`. Leave it running. Vite prints a `Network:`
+   line such as `http://192.168.1.20:5173/`.
+2. On the computer, open `http://localhost:5173` and choose **Host online game**. The invite link it
+   shows already uses the computer's network address.
+3. On the phone (same Wi-Fi), open that invite link, or the `Network:` address, choose **Join online game** and type the room
+   code. Add AI players in any open seat from the host's lobby, then press **Start**.
+
+If the phone can't load the page, allow Node through the computer's firewall for private networks
+(Windows and macOS ask the first time). Guest Wi-Fi with "client isolation" blocks devices from
+seeing each other; use the main network. The lobby server is reached through the page's own address
+at `/signal`, so only port 5173 has to be reachable. `pnpm build` then
+`pnpm --filter @mudders/client preview` (port 4173) does the same with the built game; keep
+`pnpm --filter @mudders/signal dev` running beside it.
+
 ```sh
 
 ```

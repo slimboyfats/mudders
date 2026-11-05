@@ -388,7 +388,12 @@ Not built yet: `--compare <gitref>` and `--audio` (audio arrives in milestone 6)
 - **Client**: static build (`pnpm --filter @mudders/client build` → `packages/client/dist`) for a free
   static host. Per-branch preview deploys should use the host's own Git integration (e.g. Cloudflare
   Pages builds on its side) rather than GitHub Actions; not wired up yet. Signalling URL comes from
-  `VITE_SIGNAL_URL`.
+  `VITE_SIGNAL_URL`. Without it the client uses `<page origin>/signal`, which the Vite dev and
+  preview servers proxy (WebSocket included) to the local signal server on :8787, so same-network
+  play needs only the page's address. In dev the invite link swaps `localhost` for the machine's
+  LAN address. The page is not a secure context on `http://192.168.x.x`, so client code must not
+  rely on secure-context-only APIs (`crypto.randomUUID`, service worker, clipboard) for anything
+  essential. `pnpm play:net`'s `lan` run covers this path.
 - **Signalling**: Node on Render free tier (`pnpm --filter @mudders/signal start`, `PORT` env). The
   client must handle cold starts ("waking up the lobby server…").
 - **No GitHub Actions**, to save build minutes. `pnpm verify` (lint, format check, typecheck, test,
