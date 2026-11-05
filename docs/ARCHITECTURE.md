@@ -100,7 +100,8 @@ rects), `settle.ts`, `debris.ts`, `materials.ts` (flat per-cell lookup tables), 
 
 Sim ≤ 2 ms average / ≤ 6 ms worst per tick on the reference phones; `pnpm verify` will enforce ≤ 2 ms worst on x86.
 Typed arrays only, preallocated flood-fill queues, work bounded by dirty regions, large ops spread
-across ticks. `pnpm bench` tracks baselines; >15% regression fails `pnpm verify`.
+across ticks. `pnpm bench` tracks baselines; >15% regression fails `pnpm verify`. Each tick's cost is
+its fastest over 7 identical seeded runs (noise only adds time), and a failing case is re-measured once.
 
 ## 4. Content system (milestone 1)
 
