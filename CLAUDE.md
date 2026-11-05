@@ -21,12 +21,14 @@ Run from the repo root. Everything works in a GPU-less, display-less cloud conta
 | `pnpm build`                | Build all packages; client to `packages/client/dist`                                                |
 | `pnpm smoke`                | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
 | `pnpm check:ffmpeg`         | Verifies ffmpeg is installed, with install instructions if not                                      |
+| `pnpm determinism:browsers` | Golden hashes in headless Chromium, Firefox and WebKit must equal `golden.json` (~10 s)             |
+| `pnpm setup:browsers`       | Installs headless Firefox + WebKitGTK from the Ubuntu archive (idempotent; run by the above)        |
 | `pnpm bench`                | §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)           |
 | `pnpm content:validate`     | Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date      |
 | `pnpm content:new <t> <n>`  | Scaffold a content item (manifest, test, scenario stub, behaviour for code types)                   |
 | `pnpm content:docs`         | Regenerate `docs/WEAPONS.md` from manifests                                                         |
 | `pnpm sim:preview [ids]`    | Milestone-1 stand-in for capture: scenarios → CPU debug render → `captures/<id>.{gif,mp4}` + sheet  |
-| `pnpm verify`               | check + bench + build + smoke: **run before every push** (there is no CI on GitHub)                 |
+| `pnpm verify`               | check + bench + build + smoke + determinism:browsers: **run before every push** (no CI on GitHub)   |
 
 Coming in later milestones: `pnpm capture` (milestone 2; until then use `pnpm sim:preview`).
 

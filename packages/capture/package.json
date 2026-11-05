@@ -7,6 +7,7 @@
   "scripts": {
     "smoke": "tsx src/cli/smoke.ts",
     "check:ffmpeg": "tsx src/cli/check-ffmpeg.ts",
+    "determinism": "tsx src/cli/determinism.ts",
     "typecheck": "tsc -p .",
     "build": "tsc -p .",
     "sim:preview": "tsx ../../scripts/vite-run.ts src/cli/sim-preview.ts"
@@ -15,6 +16,7 @@
     "@mudders/content": "workspace:*",
     "@mudders/shared": "workspace:*",
     "@mudders/sim": "workspace:*",
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "vite": "^8.3.6"
   }
 }

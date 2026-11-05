@@ -86,8 +86,12 @@ rects), `settle.ts`, `debris.ts`, `materials.ts` (flat per-cell lookup tables), 
   `FP = 65536`, held in JS numbers with products kept < 2^53. Only `+ - * /`, `Math.trunc/floor/round`
   and `Math.sqrt` are used: IEEE 754 makes these correctly rounded and therefore identical in every
   engine. Trig comes from a 0.1° table built at load with a Taylor series in basic arithmetic. The
-  golden hashes are identical under Node and Vite's runner; a Firefox/WebKit run is still owed
-  (only Chromium exists in the cloud container), tracked as `needs-device`.
+  golden hashes are identical under Node, Vite's runner and the Vite-bundled sim in headless
+  Chromium (V8), Firefox (SpiderMonkey) and WebKitGTK (JavaScriptCore): `pnpm determinism:browsers`,
+  part of `pnpm verify`. Playwright's Firefox/WebKit CDN is blocked in cloud sessions, so
+  `pnpm setup:browsers` installs Ubuntu's Firefox 136 .deb and WebKitGTK's MiniBrowser (under
+  Xvfb) instead; Playwright's own builds are used wherever they are installed. Safari on
+  iOS/macOS is a different WebKit port and build, so a real-device check is still `needs-device`.
 - Deterministic iteration only (arrays, explicit ordering; no `Map`/`Set`/key-order dependence).
 - No wall-clock time; time is the tick counter.
 - Golden tests: recorded seed + input log ⇒ identical state hash on every run and machine.
