@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.convert",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Convert",
+    "description": "Turns the listed materials inside a disc into another material, sweeping outward from the centre with a ragged rim.",
+    "since": "core@0.2.0"
+  },
+  "behaviour": "terrainop.convert",
+  "from": ["material.dirt", "material.sand"],
+  "into": "material.rock",
+  "core": 0.7,
+  "expandTicks": 8
+}

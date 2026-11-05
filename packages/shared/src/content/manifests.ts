@@ -84,6 +84,12 @@ const ref = (prefix: ContentType) =>
 
 // ── material ────────────────────────────────────────────────────────────────────────────────
 
+/** A material id, or "air" for an empty cell. */
+export const MaterialRefSchema = z.union([
+  z.literal('air'),
+  ContentIdSchema.refine((id) => id.startsWith('material.'), 'must be a material.* id or "air"'),
+]);
+
 export const SettleRuleSchema = z.enum(['static', 'fall', 'slide', 'flow']);
 export type SettleRule = z.infer<typeof SettleRuleSchema>;
 
@@ -100,6 +106,34 @@ export const MaterialSchema = z.strictObject({
   cohesion: z.number().min(-1).max(1),
   /** Coatings live in the secondary layer on top of a base material (§4b). */
   coating: z.boolean(),
+  /**
+   * Adjacency rules (§4b), checked on recently changed cells: when this cell touches `with`, with
+   * probability `chance` per tick it becomes `into`, the neighbour becomes `other`, and/or `spawn`
+   * is placed in an air cell next to it. For a coating, `into` replaces the coating. "air" clears.
+   */
+  reactions: z
+    .array(
+      z.strictObject({
+        with: MaterialRefSchema,
+        into: MaterialRefSchema.optional(),
+        other: MaterialRefSchema.optional(),
+        spawn: MaterialRefSchema.optional(),
+        chance: z.number().min(0).max(1),
+      }),
+    )
+    .max(4)
+    .optional(),
+  /** Timed conversion (§4b): after `ticks` ticks (busy, keeps the shot resolving) or `turns` turns. */
+  decay: z
+    .union([
+      z.strictObject({ into: MaterialRefSchema, ticks: z.number().int().min(1).max(255) }),
+      z.strictObject({ into: MaterialRefSchema, turns: z.number().int().min(1).max(3) }),
+    ])
+    .optional(),
+  /** Flow materials: ticks a cell may keep spreading sideways after it last fell (≤ 63). */
+  spread: z.number().int().min(1).max(63).optional(),
+  /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
+  contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
 });
 export type MaterialManifest = z.infer<typeof MaterialSchema>;
 

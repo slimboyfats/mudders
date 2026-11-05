@@ -1,5 +1,6 @@
 import type { Grid } from './grid';
 import {
+  AGE_MASK,
   SETTLE_FALL,
   SETTLE_FLOW,
   SETTLE_SLIDE,
@@ -33,6 +34,10 @@ export function settleStep(
   const state = grid.cellState;
   const vel = grid.fallVel;
   const kind = mats.settle;
+  const density = mats.density;
+  const spread = mats.spread;
+  const act = mats.active;
+  const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
   const x1 = grid.settleMaxX;
   const span = x1 - x0;
@@ -56,7 +61,31 @@ export function settleStep(
       const below = idx + W;
       let dst = -1;
       let dy = 0;
-      if (mat[below] === 0) {
+      const mb = mat[below]!;
+      if (mb !== 0 && kind[mb] === SETTLE_FLOW && density[mb]! < density[m]!) {
+        // heavier cells sink through lighter liquids: swap with the cell below
+        mat[idx] = mb;
+        mat[below] = m;
+        const cs = coat[idx]!;
+        coat[idx] = coat[below]!;
+        coat[below] = cs;
+        const ss = state[idx]!;
+        state[idx] = state[below]!;
+        state[below] = ss;
+        vel[idx] = 0;
+        vel[below] = 1;
+        grid.extendReact(x - 1, y - 1, x + 1, y + 2);
+        if (x < nMinX) nMinX = x;
+        if (x > nMaxX) nMaxX = x;
+        if (y + 1 > nMaxY) nMaxY = y + 1;
+        if (y < nMinY) nMinY = y;
+        if (++moved >= maxCells) {
+          capped = true;
+          break rows;
+        }
+        continue;
+      }
+      if (mb === 0) {
         const v = Math.min(vel[idx]! + 1, MAX_FALL_SPEED);
         dst = below;
         dy = 1;
@@ -85,7 +114,11 @@ export function settleStep(
           if (mat[idx + d] === 0 && mat[below + d] === 0) {
             dst = below + d;
             dy = 1;
-          } else if (k === SETTLE_FLOW && mat[idx + d] === 0) {
+          } else if (
+            k === SETTLE_FLOW &&
+            mat[idx + d] === 0 &&
+            (spread[m] === 0 || (state[idx]! & AGE_MASK) < spread[m]!)
+          ) {
             dst = idx + d;
           }
         }
@@ -97,7 +130,14 @@ export function settleStep(
       mat[idx] = 0;
       coat[dst] = coat[idx]!;
       coat[idx] = 0;
-      state[dst] = state[idx]!;
+      // moved reactive cells (lava, napalm, burning things) must be re-checked where they land
+      if (act[m] !== 0 || turns[m] !== 0 || act[coat[dst]!] !== 0) {
+        const dx0 = dst % W;
+        const dy0 = (dst - dx0) / W;
+        grid.extendReact(Math.min(x, dx0) - 1, y - 1, Math.max(x, dx0) + 1, dy0 + 1);
+      }
+      // a spreading liquid that falls starts spreading afresh
+      state[dst] = dy > 0 && spread[m] !== 0 ? state[idx]! & ~AGE_MASK : state[idx]!;
       state[idx] = 0;
       const dx = (dst % W) - x;
       const lo = dx < 0 ? x + dx : x;

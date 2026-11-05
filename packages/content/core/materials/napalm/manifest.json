@@ -1,0 +1,46 @@
+{
+  "id": "material.napalm",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Napalm",
+    "description": "Burning jelly. Flows downhill, scorches the dirt it runs over into ash, burns tanks it touches at the end of the turn, and burns out after a few seconds.",
+    "since": "core@0.2.0",
+    "color": "#ff9a2a"
+  },
+  "cell": 8,
+  "settle": "flow",
+  "density": 70,
+  "strength": {
+    "blast": 0.3,
+    "kinetic": 0.3,
+    "heat": 8,
+    "shock": 0.3,
+    "dig": 0.3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "air",
+    "ticks": 160
+  },
+  "contact": {
+    "damage": 15
+  },
+  "reactions": [
+    {
+      "with": "material.dirt",
+      "other": "material.ash",
+      "chance": 0.02
+    },
+    {
+      "with": "material.sand",
+      "other": "material.ash",
+      "chance": 0.03
+    },
+    {
+      "with": "material.ice",
+      "other": "air",
+      "chance": 0.05
+    }
+  ]
+}

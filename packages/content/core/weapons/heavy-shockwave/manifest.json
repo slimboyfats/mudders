@@ -1,0 +1,33 @@
+{
+  "id": "weapon.heavy-shockwave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Shockwave",
+    "description": "A huge ring of force. Bulldozes the hill into a rampart, buries anyone close and throws tanks off their perches.",
+    "category": "terrain-dynamics",
+    "since": "core@0.2.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 120,
+        "push": 40,
+        "damage": 25
+      }
+    }
+  ],
+  "shop": {
+    "price": 12000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 25,
+    "terrainValue": 1.0
+  }
+}

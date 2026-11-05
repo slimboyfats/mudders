@@ -1,0 +1,44 @@
+{
+  "id": "weapon.quicksand",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Quicksand",
+    "description": "Turns the ground into flowing mud for a few seconds. The hill slumps, tunnels fill, and tanks on the slope slide to the bottom.",
+    "category": "terrain-dynamics",
+    "since": "core@0.2.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 60,
+        "damage": 5,
+        "damageType": "shock",
+        "terrainOp": {
+          "use": "terrainop.liquefy"
+        },
+        "effects": {
+          "ripple": {
+            "strength": 0.4
+          },
+          "burst": {
+            "count": 10
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 4500,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 10,
+    "terrainValue": 0.9
+  }
+}

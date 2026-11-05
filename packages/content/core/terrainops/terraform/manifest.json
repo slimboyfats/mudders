@@ -1,0 +1,15 @@
+{
+  "id": "terrainop.terraform",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Terraform",
+    "description": "Raises (or lowers) the surface over a span with a tapered profile, a few rows per tick: a wall to hide behind or a trench to drop a tank into.",
+    "since": "core@0.2.0"
+  },
+  "behaviour": "terrainop.terraform",
+  "mode": "raise",
+  "height": 50,
+  "plateau": 0.25,
+  "material": "material.dirt",
+  "rowsPerTick": 3
+}

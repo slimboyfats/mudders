@@ -1,73 +1,173 @@
 {
-  "contentHash": "93d6f32498ead9c4",
+  "contentHash": "9fccc29b80423491",
   "scenarios": {
     "ai.moron": {
-      "ticks": 965,
-      "hash": "73eb893093b70035"
+      "ticks": 822,
+      "hash": "7a878517ccda9910"
     },
     "ai.poolshark": {
       "ticks": 650,
-      "hash": "14b43d95b4613f8f"
+      "hash": "5114cda63e7a5b73"
     },
     "ai.shooter": {
       "ticks": 716,
-      "hash": "a7d4bdb07060c3af"
+      "hash": "b52f8f50c07aafe9"
     },
     "explosion.shockwave": {
       "ticks": 314,
-      "hash": "fc55d5bd451b397a"
+      "hash": "ed444692caf10c9a"
     },
     "explosion.standard": {
       "ticks": 163,
-      "hash": "7ab2db6469b0456d"
+      "hash": "f616e1d1909833f3"
     },
     "flight.ballistic": {
       "ticks": 163,
-      "hash": "7ab2db6469b0456d"
+      "hash": "f616e1d1909833f3"
     },
     "gen.hills": {
       "ticks": 11,
-      "hash": "86397444bc39826c"
+      "hash": "f164131b8de133d2"
+    },
+    "material.ash": {
+      "ticks": 341,
+      "hash": "d56a85a1209be95b"
     },
     "material.dirt": {
       "ticks": 163,
-      "hash": "7ab2db6469b0456d"
+      "hash": "f616e1d1909833f3"
+    },
+    "material.ice": {
+      "ticks": 165,
+      "hash": "a58875a22a930b94"
+    },
+    "material.lava": {
+      "ticks": 337,
+      "hash": "ede2bdfea8bd422d"
+    },
+    "material.liquid-dirt": {
+      "ticks": 368,
+      "hash": "e01f3b8f708cac54"
+    },
+    "material.napalm": {
+      "ticks": 341,
+      "hash": "d56a85a1209be95b"
     },
     "material.rock": {
       "ticks": 143,
-      "hash": "94b5b5afc09c0961"
+      "hash": "267c3a9697ac0714"
     },
     "material.sand": {
       "ticks": 301,
-      "hash": "4ebd29b90f3e4855"
+      "hash": "cd902761250065c3"
     },
     "mode.classic": {
       "ticks": 706,
-      "hash": "cbc07561d41474ed"
+      "hash": "bf0bcc95fc5a883f"
     },
     "terrainop.add": {
       "ticks": 11,
-      "hash": "670c04326d47cb53"
+      "hash": "41cdd108b746fa89"
+    },
+    "terrainop.attract": {
+      "ticks": 214,
+      "hash": "890bda385390354b"
     },
     "terrainop.carve": {
       "ticks": 163,
-      "hash": "7ab2db6469b0456d"
+      "hash": "f616e1d1909833f3"
+    },
+    "terrainop.convert": {
+      "ticks": 165,
+      "hash": "a58875a22a930b94"
     },
     "terrainop.displace": {
       "ticks": 314,
-      "hash": "fc55d5bd451b397a"
+      "hash": "ed444692caf10c9a"
+    },
+    "terrainop.harden": {
+      "ticks": 165,
+      "hash": "a58875a22a930b94"
+    },
+    "terrainop.liquefy": {
+      "ticks": 368,
+      "hash": "e01f3b8f708cac54"
+    },
+    "terrainop.melt": {
+      "ticks": 337,
+      "hash": "ede2bdfea8bd422d"
+    },
+    "terrainop.terraform": {
+      "ticks": 173,
+      "hash": "27ddbd519336e91d"
     },
     "weapon.baby-missile": {
       "ticks": 158,
-      "hash": "2b437f5cad6ba732"
+      "hash": "32681685cb20c736"
+    },
+    "weapon.baby-nuke": {
+      "ticks": 167,
+      "hash": "8b5cb8113cfa3af3"
+    },
+    "weapon.baby-shockwave": {
+      "ticks": 178,
+      "hash": "d759c40ce9b5e999"
+    },
+    "weapon.cryo-shell": {
+      "ticks": 165,
+      "hash": "a58875a22a930b94"
+    },
+    "weapon.dirt-ball": {
+      "ticks": 164,
+      "hash": "97c56d51676c2223"
+    },
+    "weapon.heavy-shockwave": {
+      "ticks": 201,
+      "hash": "c60e54085bedbb06"
+    },
+    "weapon.implosion": {
+      "ticks": 214,
+      "hash": "890bda385390354b"
+    },
+    "weapon.magma-bomb": {
+      "ticks": 337,
+      "hash": "ede2bdfea8bd422d"
     },
     "weapon.missile": {
       "ticks": 163,
-      "hash": "7ab2db6469b0456d"
+      "hash": "f616e1d1909833f3"
+    },
+    "weapon.napalm": {
+      "ticks": 341,
+      "hash": "d56a85a1209be95b"
+    },
+    "weapon.nuke": {
+      "ticks": 171,
+      "hash": "e221c8e620968714"
+    },
+    "weapon.quicksand": {
+      "ticks": 368,
+      "hash": "e01f3b8f708cac54"
+    },
+    "weapon.riot-charge": {
+      "ticks": 166,
+      "hash": "9cdcd7e2690895e1"
     },
     "weapon.shockwave": {
       "ticks": 314,
-      "hash": "fc55d5bd451b397a"
+      "hash": "ed444692caf10c9a"
+    },
+    "weapon.terraformer": {
+      "ticks": 173,
+      "hash": "27ddbd519336e91d"
+    },
+    "weapon.ton-of-dirt": {
+      "ticks": 166,
+      "hash": "0a3aa5013793b94f"
+    },
+    "weapon.trencher": {
+      "ticks": 171,
+      "hash": "23886884d1ee6cbe"
     }
   }
 }

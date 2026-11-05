@@ -1,0 +1,50 @@
+{
+  "id": "weapon.napalm",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Napalm",
+    "description": "Splashes burning jelly that runs downhill, scorches the dirt to ash and burns any tank it reaches.",
+    "category": "incendiary",
+    "since": "core@0.2.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 12,
+        "damage": 15,
+        "damageType": "heat",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 24
+          },
+          "flash": {
+            "strength": 0.8
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.napalm"
+      },
+      "radius": 13,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0.3
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "id": "weapon.implosion",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Implosion",
+    "description": "Pulls the ground in: it heaps into a mound on the impact point and drags nearby tanks toward it, leaving whoever ends up on top exposed.",
+    "category": "terrain-dynamics",
+    "since": "core@0.2.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 70,
+        "damage": 10,
+        "damageType": "shock",
+        "terrainOp": {
+          "use": "terrainop.attract"
+        },
+        "effects": {
+          "ripple": {
+            "strength": 0.6
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 5500,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 10,
+    "terrainValue": 0.8
+  }
+}
