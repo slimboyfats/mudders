@@ -53,5 +53,8 @@
   "ai": {
     "expectedDamage": 40,
     "terrainValue": 0.3
+  },
+  "audio": {
+    "fire": "audio.fire-beam"
   }
 }

@@ -1,0 +1,38 @@
+{
+  "id": "audio.fire-beam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Beam shot",
+    "description": "A falling laser chirp with an octave arpeggio.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 1800,
+        "to": 600,
+        "release": 0.25,
+        "volume": 0.3,
+        "arp": [0, 12]
+      },
+      {
+        "wave": "square",
+        "freq": 900,
+        "to": 300,
+        "release": 0.2,
+        "volume": 0.2,
+        "vibrato": {
+          "rate": 18,
+          "depth": 0.5
+        }
+      }
+    ]
+  }
+}

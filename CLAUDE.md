@@ -31,10 +31,12 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm capture <scenario>`: Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON
 - `pnpm capture weapon-showcase <weapon-id>`: Preset: fire the weapon at three ranges on the standard map (`--help` for options)
 - `pnpm capture theme.<id>` or `pnpm capture <scenario> --theme theme.<id>`: Theme showcase, or any scenario in another theme
+- `pnpm audio:preview`: Render every `audio.*` item in headless Chromium (real worklet), fail on silence, write `captures/audio/*.mp3` + SFX reel
+- `pnpm --filter @mudders/content music`: Rebuild the music modules from `packages/content/scripts/make-music.ts`
 - `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; PWA manifest + offline reload; screenshots
 - `pnpm play:net`: Built client + real signal server, two headless browsers: P2P, relay, copy-paste and public (browse, hidden host, AI takeover, rejoin) matches, reconnect, reload, 0 desyncs; screenshots (`PLAY_NET_RUNS=public` runs one)
 - `pnpm sim:preview [ids]`: CPU debug render of scenarios (sim-only sanity check; not the game's look)
-- `pnpm verify`: check + bench + build + smoke + play:smoke + play:net + determinism:browsers: **run before every push** (no CI on GitHub)
+- `pnpm verify`: check + bench + build + smoke + audio:preview + play:smoke + play:net + determinism:browsers (~15 min): only on special occasions, see rule 11
 
 `pnpm capture` writes MP4 only by default (about 5× smaller than GIF); add `--gif` when a GIF fits
 better. `--diff` compares the sheet with `captures/reference/` (update with `--update-reference` and
@@ -78,9 +80,12 @@ sim results, regenerate with `UPDATE_GOLDEN=1 pnpm test` and bump the behaviour/
 9. **Audio is chiptune only** (§8b): tracker modules via a module player (e.g. `chiptune3`) and/or Web
    Audio synth SFX. No sampled real-world audio, no ripped modules; record each asset's licence.
 10. **Original content only.** No names, art, text or audio from the original game or anything else.
-11. **No GitHub Actions.** To save build minutes nothing runs on GitHub. Run `pnpm verify` locally
-    before every push and before claiming a task done, and say what you ran. If something fails after
-    pushing, fix it in the session; don't add workflows.
+11. **No GitHub Actions; quick iterations.** To save build minutes nothing runs on GitHub. Joel wants
+    quick iterations and PRs: before a push run `pnpm check` plus the targeted check for what changed
+    (`pnpm capture`, `audio:preview`, `play:smoke`, `play:net`, `bench` or `determinism:browsers`),
+    and say what you ran. The full `pnpm verify` is only for special occasions: closing a milestone,
+    or wide changes to the sim, netcode or build. If something fails after pushing, fix it in the
+    session; don't add workflows.
 
 ## Visual review (mandatory)
 
@@ -88,8 +93,7 @@ For any change to a weapon, explosion, terrain op, effect, theme or the renderer
 on the relevant scenario (or `pnpm capture weapon-showcase <weapon-id>`), attach the MP4 and the
 `-sheet.png`, and ask a one-line "approve / refuse?" before calling the task done. For HUD/layout
 changes attach `pnpm play:smoke` screenshots. Post media in the thread as soon as something visible
-works, marked work in progress, before the full verify (Joel's preference); still verify before
-pushing. Effects stay on the pixel grid: snap to map cells, hard bands or dither, no smooth glows.
+works, marked work in progress, before running checks (Joel's preference). Effects stay on the pixel grid: snap to map cells, hard bands or dither, no smooth glows.
 
 ## Things a cloud agent cannot verify
 

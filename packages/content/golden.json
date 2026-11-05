@@ -1,5 +1,5 @@
 {
-  "contentHash": "ae63465c528d8faf",
+  "contentHash": "86cd9a387c7bff5d",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -20,6 +20,110 @@
     "ai.tosser": {
       "ticks": 1051,
       "hash": "ae9106ae1137d6e8"
+    },
+    "audio.boom-heat": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.boom": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.burn": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.collapse": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.creak": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.crunch": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire-beam": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire-dig": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire-heavy": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire-water": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire-zap": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.fire": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.freeze": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.hiss": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.implode": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.land": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.music-battle": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.music-title": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.resonate": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.round-end": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.splash": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.tank-death": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.turn": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.ui-buy": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.ui-click": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
+    },
+    "audio.zap": {
+      "ticks": 158,
+      "hash": "95ed2ed1b78b8beb"
     },
     "explosion.shockwave": {
       "ticks": 314,

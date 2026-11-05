@@ -1,0 +1,19 @@
+{
+  "id": "audio.music-battle",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Battle music",
+    "description": "Ambient, tense A-minor chip tune for matches: long triangle bass, a soft echoing broken-chord pad, a sparse vibrato lead and distant low thuds.",
+    "since": "core@0.9.0"
+  },
+  "bus": "music",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Composed as note data and rendered with synthesised chip samples by packages/content/scripts/make-music.ts (pnpm --filter @mudders/content music)"
+  },
+  "module": {
+    "file": "battle.mod",
+    "loop": true
+  }
+}

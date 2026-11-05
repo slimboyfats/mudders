@@ -47,6 +47,38 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             ))}
           </select>
         </label>
+        <label>
+          Music
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.musicVolume}
+            aria-label="Music volume"
+            onChange={(e) => update({ ...settings, musicVolume: Number(e.target.value) })}
+          />
+        </label>
+        <label>
+          Sound effects
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.sfxVolume}
+            aria-label="Sound effects volume"
+            onChange={(e) => update({ ...settings, sfxVolume: Number(e.target.value) })}
+          />
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.muted}
+            onChange={(e) => update({ ...settings, muted: e.target.checked })}
+          />
+          Mute all sound
+        </label>
         <label className="check">
           <input
             type="checkbox"

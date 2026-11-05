@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Input } from '@mudders/shared';
 import type { HudState } from '../game/match';
+import { sfx } from '../audio/bridge';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -116,7 +117,10 @@ export function Shop({ hud, controls, send }: ShopProps) {
                     <span className="own">{have < 0 ? '∞' : `×${have}`}</span>
                     <button
                       disabled={!can}
-                      onClick={() => send(me.player, { type: 'buy', item: it.id, packs: 1 })}
+                      onClick={() => {
+                        sfx('audio.ui-buy');
+                        send(me.player, { type: 'buy', item: it.id, packs: 1 });
+                      }}
                       aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
                     >
                       +{it.pack} · {money(it.price)}

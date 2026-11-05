@@ -1,0 +1,43 @@
+{
+  "id": "audio.creak",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Creak",
+    "description": "A strained wobble when a structure cracks.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 180,
+        "to": 150,
+        "release": 0.25,
+        "volume": 0.15,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.8
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 800,
+        "to": 400,
+        "release": 0.1,
+        "volume": 0.1
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "creak"
+    }
+  ],
+  "gap": 0.2
+}

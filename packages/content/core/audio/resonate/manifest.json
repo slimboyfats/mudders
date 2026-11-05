@@ -1,0 +1,42 @@
+{
+  "id": "audio.resonate",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Resonance",
+    "description": "A ringing bell as a resonance field amplifies a blast.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 880,
+        "hold": 0.1,
+        "release": 1.2,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 6,
+          "depth": 0.3
+        }
+      },
+      {
+        "wave": "pulse12",
+        "freq": 1320,
+        "delay": 0.02,
+        "release": 1.0,
+        "volume": 0.15
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "resonate"
+    }
+  ]
+}

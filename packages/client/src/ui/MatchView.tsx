@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
+import { effectSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
@@ -45,6 +46,25 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
 
   const active = hud.tanks[hud.activePlayer];
   const canAim = hud.phase === 'aim' && active !== undefined && controls(hud.activePlayer);
+
+  // sound (§8b): battle music while the match is up, effect sounds from every snapshot, a call
+  // when one of this client's players is up, a fanfare when a round ends
+  useEffect(() => {
+    setMusic('audio.music-battle');
+    const off = match.subscribe((s) => effectSounds(s.effectEvents));
+    return () => {
+      off();
+      setMusic('audio.music-title');
+    };
+  }, [match]);
+  const myTurn = hud.phase === 'aim' && hud.activePlayer >= 0 && controls(hud.activePlayer);
+  useEffect(() => {
+    if (myTurn) sfx('audio.turn');
+  }, [myTurn, hud.activePlayer, hud.turn]);
+  const roundOver = hud.phase === 'shop' || hud.phase === 'over';
+  useEffect(() => {
+    if (roundOver) sfx('audio.round-end');
+  }, [roundOver]);
 
   const send = useCallback(
     (input: Input) => {

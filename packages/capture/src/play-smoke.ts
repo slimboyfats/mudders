@@ -123,6 +123,13 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         { timeout: 15000 },
       );
       await shot('4-next-turn');
+      // §8b: the first gesture unlocked audio and the battle tune is playing through the worklet
+      await page
+        .locator('html[data-music="audio.music-battle"]')
+        .waitFor({ state: 'attached', timeout: 10000 })
+        .catch(() => {
+          throw new Error(`${t.name}: battle music did not start after the first tap`);
+        });
       if (errors.length > 0) throw new Error(`${t.name}: page errors: ${errors.join('; ')}`);
       await ctx.close();
     }

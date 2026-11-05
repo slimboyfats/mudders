@@ -1,0 +1,28 @@
+{
+  "id": "audio.ui-buy",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Buy",
+    "description": "A bright up-arpeggio when you buy something.",
+    "since": "core@0.9.0"
+  },
+  "bus": "ui",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 880,
+        "hold": 0.12,
+        "release": 0.1,
+        "volume": 0.2,
+        "arp": [0, 4, 7, 12],
+        "arpRate": 0.04
+      }
+    ]
+  }
+}

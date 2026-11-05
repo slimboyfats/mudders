@@ -1,0 +1,50 @@
+{
+  "id": "audio.zap",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Zap",
+    "description": "An electric crack, for shock damage and lightning bolts.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 2600,
+        "to": 600,
+        "release": 0.35,
+        "volume": 0.45
+      },
+      {
+        "wave": "saw",
+        "freq": 900,
+        "to": 120,
+        "release": 0.3,
+        "volume": 0.3
+      },
+      {
+        "wave": "square",
+        "freq": 440,
+        "release": 0.25,
+        "volume": 0.15,
+        "arp": [0, 12, 24]
+      }
+    ],
+    "radiusRef": 24
+  },
+  "on": [
+    {
+      "event": "flash",
+      "damageType": "shock"
+    },
+    {
+      "event": "bolt"
+    }
+  ]
+}

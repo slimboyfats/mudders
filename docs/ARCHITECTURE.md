@@ -309,14 +309,35 @@ frame, snapshot stream, HUD state), `game/aim.ts` (slingshot maths), `ui/MatchVi
 pointer/keyboard input, aim preview), `ui/Hud.tsx` (wind, players, steppers, weapon strip, FIRE),
 `ui/Sandbox.tsx` (§2c.5). The match and sandbox are code-split from the title screen.
 
-## 6. Audio (planned, milestone 6; requirement §8b)
+## 6. Audio (milestone 6; requirement §8b)
 
-Chiptune only. Music and ambience are tracker modules (MOD/XM/S3M/IT) played by a lazy-loaded module
-player such as `chiptune3` (libopenmpt in an AudioWorklet); SFX are tracker instruments and/or Web
-Audio oscillator + noise synth patches described as data. `audio.*` content items reference a module
-(plus pattern/instrument) or a synth patch. The sim emits audio events in the snapshot alongside
-effect events; the client's audio system consumes them, so audio never affects determinism. Audio
-unlocks on first tap on mobile.
+Chiptune only, and client only: the sim never reads audio, so a muted or audio-less peer stays
+deterministic.
+
+- **Content.** `audio.*` items (`core/audio/<name>/`) are either a synth patch (`synth.voices`: up
+  to 8 voices of square, 25 %/12.5 % pulse, triangle, saw or LFSR noise, each with a stepped pitch
+  sweep, envelope, arpeggio and vibrato; `radiusRef` makes bigger blasts lower and longer) or a
+  tracker module next to the manifest (`module.file`). Every item records its licence (SPDX id,
+  author, how it was made). `on` lists the effect events that play a sound, optionally per damage
+  type; the damage-type match wins over the generic one (`flash` + heat → `audio.boom-heat`).
+  Weapons can override their shot sound with `audio.fire`; the sim's `muzzle` event carries the
+  weapon index for that.
+- **Music** is two original 4-channel ProTracker modules (battle, title), composed as note data in
+  `packages/content/scripts/make-music.ts` with chip waveforms and noise drums the script
+  synthesises (`pnpm --filter @mudders/content music` rebuilds them byte-identically). They play
+  through `chiptune3` (libopenmpt in an AudioWorklet, MIT). A Vite plugin serves its two worklet
+  files under `audio/`, so they are fetched only on the first music play (they are in the PWA
+  precache for offline play, but not in the initial JS).
+- **Client** (`packages/client/src/audio`): `bridge.ts` is the only always-loaded part (a few
+  functions the UI calls). The first pointer or key gesture loads `engine.ts`, creates the
+  AudioContext (unlocked by that gesture, as mobile requires) and sets
+  `navigator.audioSession.type = 'ambient'` where it exists, so iOS follows the silent switch.
+  Buses: sfx, ui and music, then a master gain and a light limiter. The context is suspended while
+  the tab is hidden. `synth.ts` sets pitch and volume in 60 Hz steps like a sound chip. At most 12
+  SFX sound at once, and each sound has a minimum gap, so chain reactions stay readable.
+- **Review and checks.** `pnpm audio:preview` (part of `pnpm verify`) renders every item in
+  headless Chromium through the same code (OfflineAudioContext, the real worklet), fails on
+  silence, and writes `captures/audio/*.mp3` plus an SFX reel with a timestamped index.
 
 ## 7. Networking (milestones 4 and 5)
 

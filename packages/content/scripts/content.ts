@@ -116,9 +116,10 @@ function findInlineDuplicates(c: ResolvedContent): string[] {
         out.push(`${owner}:${path} duplicates ${prev}; extract it into an item and \`use\` it`);
       } else seen[key] = `${owner}:${path}`;
     }
-    // Prices and AI hints are a handful of numbers that coincide by chance, not copied configs.
+    // Prices and AI hints are a handful of numbers that coincide by chance, not copied configs;
+    // a licence is per-item attribution that is meant to repeat.
     for (const k of Object.keys(o))
-      if (k !== 'meta' && !(top && (k === 'shop' || k === 'ai')))
+      if (k !== 'meta' && !(top && (k === 'shop' || k === 'ai' || k === 'licence')))
         walk(o[k], owner, path ? `${path}.${k}` : k, false);
   };
   for (const id of c.ids) walk(c.raw(id), id, '', true);
@@ -150,6 +151,11 @@ export function validate(): string[] {
     const dir = resolve(PACK_DIR, CONTENT_TYPE_FOLDERS[type], id.slice(type.length + 1));
     const tests = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.test.ts')) : [];
     if (tests.length === 0) problems.push(`${id}: no *.test.ts in ${dir}`);
+    if (type === 'audio') {
+      const file = c.get('audio', id).module?.file;
+      if (file && !existsSync(resolve(dir, file)))
+        problems.push(`${id}: module ${file} is missing`);
+    }
     const scen = resolve(SCENARIOS, `${id}.json`);
     if (!existsSync(scen)) {
       problems.push(`${id}: no scenario stub at scenarios/${id}.json`);

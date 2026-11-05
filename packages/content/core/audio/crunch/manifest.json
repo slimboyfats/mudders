@@ -1,0 +1,44 @@
+{
+  "id": "audio.crunch",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crunch",
+    "description": "A gritty low rumble, for digging and quakes.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 400,
+        "to": 80,
+        "hold": 0.1,
+        "release": 0.4,
+        "volume": 0.6
+      },
+      {
+        "wave": "triangle",
+        "freq": 60,
+        "to": 35,
+        "release": 0.5,
+        "volume": 0.6
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "flash",
+      "damageType": "dig"
+    },
+    {
+      "event": "quake"
+    }
+  ],
+  "gap": 0.15
+}

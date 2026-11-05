@@ -1,0 +1,50 @@
+{
+  "id": "audio.boom-heat",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fire blast",
+    "description": "A fizzing burst with crackles, for heat damage.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2000,
+        "to": 300,
+        "hold": 0.1,
+        "release": 0.7,
+        "volume": 0.55
+      },
+      {
+        "wave": "square",
+        "freq": 150,
+        "to": 50,
+        "release": 0.4,
+        "volume": 0.4
+      },
+      {
+        "wave": "metal",
+        "freq": 4000,
+        "to": 2000,
+        "delay": 0.05,
+        "release": 0.5,
+        "volume": 0.15
+      }
+    ],
+    "radiusRef": 24
+  },
+  "on": [
+    {
+      "event": "flash",
+      "damageType": "heat"
+    }
+  ],
+  "gap": 0.08
+}

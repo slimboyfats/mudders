@@ -42,6 +42,7 @@ uniform vec3 u_flash;
 uniform float u_vignette;
 uniform float u_time;
 uniform float u_haze;
+uniform float u_anim;
 uniform float u_stars;
 uniform vec3 u_starColor;
 out vec4 o;
@@ -95,10 +96,12 @@ void main() {
     vec4 t = texelFetch(u_color, ivec2(cell.x, int(u_map.y) - 1 - cell.y), 0);
     if (t.a > 0.5) {
       c = t.rgb;
-      uint mm = mat(cell);
-      uint cm = texelFetch(u_coat, cell, 0).r;
-      if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
-      else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
+      if (u_anim > 0.0) {
+        uint mm = mat(cell);
+        uint cm = texelFetch(u_coat, cell, 0).r;
+        if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
+        else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
+      }
     } else {
       float k = clamp(m.y / u_map.y, 0.0, 1.0);
       c = mix(u_top, u_bottom, k * k * (3.0 - 2.0 * k)) + u_flash;

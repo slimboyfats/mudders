@@ -119,8 +119,19 @@ async function resilience(
   // the guest walks away (same tab, so its seat token survives in sessionStorage)
   await guest.goto('about:blank');
   await host.getByText('is away · AI playing').waitFor({ timeout: TAKEOVER_TEST_MS + 8000 });
-  const bots = await dbg<number[]>(host, 'bots');
-  if ((bots[1] ?? -1) < 0) throw new Error(`public: no AI stood in for the guest (${bots})`);
+  // the banner can show a frame before the takeover input reaches the sim
+  await host
+    .waitForFunction(
+      () =>
+        ((window as unknown as { __muddersNet: { bots: () => number[] } }).__muddersNet.bots()[1] ??
+          -1) >= 0,
+      undefined,
+      { timeout: 5000 },
+    )
+    .catch(async () => {
+      const bots = await dbg<number[]>(host, 'bots');
+      throw new Error(`public: no AI stood in for the guest (${bots})`);
+    });
   // the stand-in plays the guest's turn: wait until player 1 has had the turn and fired (a tank
   // that is already dead has no turn until the next round, so there is nothing to wait for)
   const deadline = Date.now() + 40_000;
@@ -309,9 +320,11 @@ async function runOne(
     const path = await dbg<string | null>(guest, 'path');
     if (path !== expected) throw new Error(`${run}: guest link path is ${path}, want ${expected}`);
 
-    // play: each human fires on their turn until both have fired twice
+    // play: each human fires on their turn until both have fired twice. The AI seat can knock a
+    // human out early, and then that human's next shot only comes in the next round, after the
+    // others have finished this one: allow for a whole round plus the shop.
     const fired = { host: 0, guest: 0 };
-    const deadline = Date.now() + 90_000;
+    const deadline = Date.now() + 240_000;
     let inflight = '';
     while (fired.host < 2 || fired.guest < 2) {
       if (Date.now() > deadline)
@@ -329,8 +342,14 @@ async function runOne(
           .catch(() => '')}:${Math.floor(tick / 60)}`;
         if (phase === 'aim' && active === me && inflight !== key) {
           const fire = p.getByTestId('fire');
-          if (await fire.isEnabled().catch(() => false)) {
-            await fire.click();
+          // the turn can end between the check and the click (turn timer): then try again later
+          const clicked =
+            (await fire.isEnabled().catch(() => false)) &&
+            (await fire.click({ timeout: 3000 }).then(
+              () => true,
+              () => false,
+            ));
+          if (clicked) {
             inflight = key;
             fired[who]++;
             if (fired[who] === 1) {
@@ -391,7 +410,25 @@ async function runOne(
   } catch (e) {
     for (const [i, c] of contexts.entries()) {
       const p = c.pages()[0];
-      if (p) await shot(p, `fail-${i}`).catch(() => {});
+      if (!p) continue;
+      await shot(p, `fail-${i}`).catch(() => {});
+      // the state each side is in, for diagnosing stalls
+      const state = await p
+        .evaluate(() => {
+          const n = (window as unknown as { __muddersNet?: Record<string, unknown> }).__muddersNet;
+          if (!n) return 'no match';
+          const call = (k: string) =>
+            typeof n[k] === 'function' ? (n[k] as () => unknown)() : n[k];
+          return JSON.stringify(
+            Object.fromEntries(
+              ['me', 'tick', 'phase', 'active', 'alive', 'bots', 'status', 'path', 'lag'].map(
+                (k) => [k, call(k)],
+              ),
+            ),
+          );
+        })
+        .catch((err: unknown) => `unreadable: ${String(err)}`);
+      console.error(`${run} page ${i}: ${state}`);
     }
     throw e;
   } finally {

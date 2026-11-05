@@ -1,0 +1,26 @@
+{
+  "id": "audio.fire-water",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Water shot",
+    "description": "A short hiss of spray.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 3000,
+        "to": 2000,
+        "release": 0.15,
+        "volume": 0.25
+      }
+    ]
+  }
+}
