@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { networkInterfaces } from 'node:os';
 import { resolve } from 'node:path';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { preview } from 'vite';
@@ -16,6 +17,10 @@ import { REPO_ROOT, capturesDir } from './paths';
  * - `public` (milestone 5): the host lists the room publicly, the guest finds it on the browse
  *   screen; then the host tab is hidden (the match must keep going), the guest leaves for longer
  *   than the takeover window (an AI must play its turns), and the guest comes back to its tank.
+ * - `lan`: same-network play as on a home Wi-Fi. Both pages open the machine's network address
+ *   (not loopback, so not a secure context) with no `?signal=` override: the client must find
+ *   the signal server through the page's own `/signal` proxy, and the share link must carry the
+ *   network address.
  *
  * Every run checks the guest never desynced (host-side hash checks) and screenshots both screens.
  * Real NATs, phones and cell handovers are `needs-device`.
@@ -42,7 +47,7 @@ interface NetDebug {
   dropLink?: () => void;
 }
 type DebugKey = Exclude<keyof NetDebug, 'me' | 'dropLink'>;
-type Run = 'p2p' | 'relay' | 'direct' | 'public';
+type Run = 'p2p' | 'relay' | 'direct' | 'public' | 'lan';
 
 async function dbg<T>(page: Page, key: DebugKey): Promise<T> {
   return page.evaluate(
@@ -152,28 +157,48 @@ async function resilience(
 
 const LAPTOP = { viewport: { width: 1200, height: 700 }, deviceScaleFactor: 1 };
 
+/** First non-loopback IPv4 address of this machine: what a phone on the same Wi-Fi would open. */
+function networkAddress(): string {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const a of list ?? []) if (a.family === 'IPv4' && !a.internal) return a.address;
+  }
+  throw new Error('lan: this machine has no non-loopback IPv4 address');
+}
+
 export async function runPlayNet(): Promise<PlayNetResult> {
+  const signal = await startSignal();
+  // the client's /signal proxy (vite.config.ts) forwards to this run's signal server
+  process.env.SIGNAL_TARGET = signal.url;
   const server = await preview({
     root: resolve(REPO_ROOT, 'packages/client'),
     configFile: resolve(REPO_ROOT, 'packages/client/vite.config.ts'),
     logLevel: 'error',
-    preview: { port: 0, strictPort: false, host: '127.0.0.1' },
+    preview: { port: 0, strictPort: false, host: '0.0.0.0' },
   });
-  const base = server.resolvedUrls?.local[0];
-  if (!base) throw new Error('vite preview did not start (run pnpm build first)');
-  const signal = await startSignal();
+  const addr = server.httpServer.address();
+  if (!addr || typeof addr === 'string') throw new Error('vite preview did not start');
+  const base = `http://127.0.0.1:${addr.port}/`;
+  const lanBase = `http://${networkAddress()}:${addr.port}/`;
   const out = capturesDir();
   const shots: string[] = [];
   const lines: string[] = [];
   const browser = await chromium.launch({
     headless: true,
-    args: [...SWIFTSHADER_ARGS, '--disable-features=WebRtcHideLocalIpsWithMdns'],
+    args: [
+      ...SWIFTSHADER_ARGS,
+      '--disable-features=WebRtcHideLocalIpsWithMdns',
+      // the `lan` run talks to this machine's network address; a cloud session's outbound proxy
+      // would otherwise take those requests (and refuse WebSocket upgrades)
+      '--proxy-server=direct://',
+    ],
   });
   try {
     const only = process.env.PLAY_NET_RUNS?.split(',');
-    for (const run of ['p2p', 'relay', 'direct', 'public'] as const) {
+    for (const run of ['p2p', 'relay', 'direct', 'public', 'lan'] as const) {
       if (only && !only.includes(run)) continue;
-      lines.push(await runOne(browser, base, signal.url, run, out, shots));
+      lines.push(
+        await runOne(browser, run === 'lan' ? lanBase : base, signal.url, run, out, shots),
+      );
     }
   } finally {
     await browser.close();
@@ -192,7 +217,10 @@ async function runOne(
   shots: string[],
 ): Promise<string> {
   const t0 = Date.now();
-  const q = `?ice=none&signal=${encodeURIComponent(signalUrl)}${run === 'relay' ? '&relay=1' : ''}`;
+  const q =
+    run === 'lan'
+      ? '?ice=none'
+      : `?ice=none&signal=${encodeURIComponent(signalUrl)}${run === 'relay' ? '&relay=1' : ''}`;
   const contexts: BrowserContext[] = [];
   const errors: string[] = [];
   const page = async (name: string) => {
@@ -247,6 +275,11 @@ async function runOne(
       const link = await host.getByTestId('share-link').inputValue();
       if (!link.endsWith(`#join/${code}`)) throw new Error(`bad share link ${link}`);
       joinUrl = `${base}${q}#join/${code}`;
+      if (run === 'lan') {
+        // what a phone gets: the link as shown, on the network address
+        if (!link.startsWith(base)) throw new Error(`lan: share link ${link} is not on ${base}`);
+        joinUrl = link;
+      }
       if (run === 'public') {
         await guest.goto(`${base}${q}#browse`);
         await guest.getByTestId('no-rooms').waitFor({ timeout: 15_000 });

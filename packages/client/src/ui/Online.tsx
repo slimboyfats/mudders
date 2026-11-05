@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadContent } from '@mudders/content';
 import { MAX_PLAYERS, type LobbySeat, type RoomInfo } from '@mudders/shared';
-import { SIGNAL_URL } from '../config';
+import { LAN_HOSTS, SIGNAL_URL, shareOrigin } from '../config';
 import type { SimMatch } from '../game/match';
 import type { Settings } from '../game/settings';
 import { loadSetup, saveSetup } from '../game/setup';
@@ -359,7 +359,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
     );
   }
 
-  const link = code ? `${location.origin}${location.pathname}#join/${code}` : '';
+  const link = code ? `${shareOrigin(location, LAN_HOSTS)}${location.pathname}#join/${code}` : '';
   return (
     <main className="setup online">
       <h2>{mode === 'online' ? 'Host an online game' : 'Host a direct game'}</h2>

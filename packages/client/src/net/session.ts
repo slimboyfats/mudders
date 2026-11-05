@@ -49,7 +49,11 @@ export interface SessionEnv {
 
 const browserEnv: SessionEnv = {
   now: () => performance.now(),
-  token: () => crypto.randomUUID().replaceAll('-', '').slice(0, 20),
+  // not randomUUID: that only exists in secure contexts, and a phone on http://192.168.x.x isn't one
+  token: () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join(''),
 };
 
 /** Why a guest is refused at the door (§2c.4: protocol and content must match exactly). */
