@@ -25,6 +25,8 @@ export class ScenarioDriver {
       tankSetup: scenario.tanks?.map((t) => ({ health: t.health, inventory: t.inventory })),
       wind: scenario.wind,
       turnOrder: scenario.turnOrder,
+      bots: scenario.bots,
+      rules: scenario.rules,
     });
     this.queue = [...scenario.inputs].sort((a, b) => a.t - b.t);
   }
@@ -45,7 +47,10 @@ export class ScenarioDriver {
     for (let i = 0; i < this.queue.length;) {
       const next = this.queue[i]!;
       if (next.t > w.tick) break;
-      const ready = w.phase === 'over' || (w.phase === 'aim' && w.activePlayer === next.player);
+      const shopInput = next.action.type === 'buy' || next.action.type === 'ready';
+      const ready =
+        w.phase === 'over' ||
+        (shopInput ? w.phase === 'shop' : w.phase === 'aim' && w.activePlayer === next.player);
       if (!ready) {
         i++;
         continue;
@@ -55,7 +60,9 @@ export class ScenarioDriver {
       if (next.action.type === 'fire') break;
     }
     w.step();
-    const settled = (w.phase !== 'resolve' && w.quiet) || w.phase === 'over';
+    const botUp = w.phase === 'aim' && (w.tanks[w.activePlayer]?.bot ?? -1) >= 0;
+    const settled =
+      ((w.phase !== 'resolve' && w.quiet) || w.phase === 'over' || w.phase === 'shop') && !botUp;
     if (settled && this.queue.length === 0) {
       if (this.quietSince < 0) this.quietSince = w.tick;
     } else {

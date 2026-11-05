@@ -1,61 +1,73 @@
 {
-  "contentHash": "6451f269d8676cf9",
+  "contentHash": "93d6f32498ead9c4",
   "scenarios": {
+    "ai.moron": {
+      "ticks": 965,
+      "hash": "73eb893093b70035"
+    },
+    "ai.poolshark": {
+      "ticks": 650,
+      "hash": "14b43d95b4613f8f"
+    },
+    "ai.shooter": {
+      "ticks": 716,
+      "hash": "a7d4bdb07060c3af"
+    },
     "explosion.shockwave": {
       "ticks": 314,
-      "hash": "290eff8097247d0a"
+      "hash": "fc55d5bd451b397a"
     },
     "explosion.standard": {
       "ticks": 163,
-      "hash": "182baaeeef87a2a3"
+      "hash": "7ab2db6469b0456d"
     },
     "flight.ballistic": {
       "ticks": 163,
-      "hash": "182baaeeef87a2a3"
+      "hash": "7ab2db6469b0456d"
     },
     "gen.hills": {
       "ticks": 11,
-      "hash": "20645cea00467005"
+      "hash": "86397444bc39826c"
     },
     "material.dirt": {
       "ticks": 163,
-      "hash": "182baaeeef87a2a3"
+      "hash": "7ab2db6469b0456d"
     },
     "material.rock": {
       "ticks": 143,
-      "hash": "1b3eb3a4b61db51a"
+      "hash": "94b5b5afc09c0961"
     },
     "material.sand": {
       "ticks": 301,
-      "hash": "7440b12bd25249a9"
+      "hash": "4ebd29b90f3e4855"
     },
     "mode.classic": {
       "ticks": 706,
-      "hash": "462a770f2b6b0a36"
+      "hash": "cbc07561d41474ed"
     },
     "terrainop.add": {
       "ticks": 11,
-      "hash": "e730412577a3c49d"
+      "hash": "670c04326d47cb53"
     },
     "terrainop.carve": {
       "ticks": 163,
-      "hash": "182baaeeef87a2a3"
+      "hash": "7ab2db6469b0456d"
     },
     "terrainop.displace": {
       "ticks": 314,
-      "hash": "290eff8097247d0a"
+      "hash": "fc55d5bd451b397a"
     },
     "weapon.baby-missile": {
       "ticks": 158,
-      "hash": "a56d9a8c4abf83cf"
+      "hash": "2b437f5cad6ba732"
     },
     "weapon.missile": {
       "ticks": 163,
-      "hash": "182baaeeef87a2a3"
+      "hash": "7ab2db6469b0456d"
     },
     "weapon.shockwave": {
       "ticks": 314,
-      "hash": "290eff8097247d0a"
+      "hash": "fc55d5bd451b397a"
     }
   }
 }

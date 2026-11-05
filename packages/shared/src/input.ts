@@ -14,6 +14,14 @@ export const InputSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ type: z.literal('selectWeapon'), weapon: ContentIdSchema }),
   z.strictObject({ type: z.literal('fire') }),
+  /** Shop (§3.6): buy `packs` packs of a weapon at this round's price. */
+  z.strictObject({
+    type: z.literal('buy'),
+    item: ContentIdSchema,
+    packs: z.number().int().min(1).max(99),
+  }),
+  /** Shop: done shopping. The next round starts when every human is ready or the timer runs out. */
+  z.strictObject({ type: z.literal('ready') }),
 ]);
 export type Input = z.infer<typeof InputSchema>;
 

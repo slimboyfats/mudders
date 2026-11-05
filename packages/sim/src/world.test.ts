@@ -279,3 +279,130 @@ describe('ScenarioDriver', () => {
     expect(d.world.tick).toBeLessThan(3000);
   });
 });
+
+describe('match loop', () => {
+  const matchContent = resolveContent(
+    fixtureSource({
+      'modes/test': {
+        rounds: 3,
+        turnTimer: 1,
+        shopTimer: 2,
+        suddenDeath: { fromTurn: 2, damageScale: 2, edgeCells: 10 },
+        scoring: { damage: 1, kill: 50, selfDamage: 1, survival: 25, roundWin: 100 },
+        economy: { startingCash: 100, moneyPerPoint: 2, interest: 0.1, priceJitter: 0.2 },
+        loadout: [{ weapon: 'weapon.shell', count: 2 }],
+      },
+    }),
+  );
+  const mk = (o: Partial<WorldOptions> = {}) =>
+    new World(matchContent, { seed: 3, mode: 'mode.test', players: 2, ...o });
+  const SHELL = mk().weaponByIndex('weapon.shell');
+
+  it('fires on its own when the turn timer runs out', () => {
+    const w = mk();
+    w.run(59);
+    expect(w.phase).toBe('aim');
+    w.step();
+    expect(w.phase).toBe('resolve');
+    expect(w.tanks[0]!.inventory[SHELL]).toBe(1);
+  });
+
+  it('scores the round, pays money with interest, then shops and starts a fresh map', () => {
+    const w = mk();
+    w.tanks[1]!.health = 10;
+    const pre = w.grid.material.slice();
+    shoot(w, 90, 0);
+    w.tanks[1]!.health = 0;
+    w.tanks[1]!.alive = false;
+    untilQuiet(w);
+    expect(w.phase).toBe('shop');
+    const r = w.results[0]!;
+    expect(r.winner).toBe(0);
+    expect(r.points[0]).toBe(25 + 100 - w.tanks[0]!.selfDamage);
+    expect(w.tanks[0]!.money).toBe(100 + 10 + r.points[0]! * 2);
+    expect(w.tanks[1]!.money).toBe(110);
+    // jittered prices within ±20%
+    expect(w.prices[SHELL]).toBeGreaterThanOrEqual(1);
+    // buying: validation and inventory
+    w.tanks[1]!.money = 50;
+    const before = w.tanks[1]!.money;
+    w.applyInput(1, { type: 'buy', item: 'weapon.shell', packs: 3 });
+    w.applyInput(1, { type: 'buy', item: 'weapon.nope', packs: 1 });
+    w.applyInput(1, { type: 'buy', item: 'weapon.shell', packs: 99 });
+    w.step();
+    expect(w.tanks[1]!.money).toBe(before - 3 * w.prices[SHELL]!);
+    expect(w.tanks[1]!.inventory[SHELL]).toBe(2 + 3);
+    // aim inputs are ignored while shopping
+    w.applyInput(0, { type: 'fire' });
+    w.applyInput(0, { type: 'ready' });
+    w.applyInput(1, { type: 'ready' });
+    w.step();
+    w.step();
+    expect(w.phase).toBe('aim');
+    expect(w.round).toBe(1);
+    expect(w.tanks.every((t) => t.alive && t.health === 100)).toBe(true);
+    expect(w.tanks[1]!.inventory[SHELL]).toBe(5);
+    expect(w.grid.material).toEqual(pre);
+  });
+
+  it('auto-readies when the shop timer runs out and ends the match after the last round', () => {
+    const w = mk({ rules: { rounds: 2, turnTimer: 0 } });
+    for (let round = 0; round < 2; round++) {
+      w.tanks[1]!.alive = false;
+      shoot(w, 90, 0);
+      untilQuiet(w);
+      if (round === 0) {
+        expect(w.phase).toBe('shop');
+        w.run(121);
+      }
+    }
+    expect(w.phase).toBe('over');
+    expect(w.results).toHaveLength(2);
+    expect(w.matchWinner).toBe(0);
+  });
+
+  it('sudden death doubles damage and collapses the map edges into the void', () => {
+    const w = mk({ rules: { turnTimer: 0 }, tankColumns: [8, 150] });
+    for (const t of w.tanks) t.health = 1000;
+    expect(w.suddenDeathActive).toBe(false);
+    shoot(w, 90, 0);
+    untilQuiet(w);
+    shoot(w, 90, 0);
+    untilQuiet(w);
+    // turn 2 of each player: edges collapse
+    expect(w.suddenDeathActive).toBe(true);
+    expect(w.edge).toBe(10);
+    expect(w.grid.get(5, 110)).toBe(0);
+    expect(w.grid.get(w.grid.width - 5, 110)).toBe(0);
+    // one more collapse and the tank at the edge falls out of the map
+    w.run(30);
+    shoot(w, 0, 0);
+    untilQuiet(w);
+    for (let i = 0; i < 200 && w.tanks[0]!.alive; i++) w.step();
+    expect(w.edge).toBe(20);
+    expect(w.tanks[0]!.alive).toBe(false);
+  });
+
+  it('applies the sudden-death damage scale', () => {
+    const hit = (rules: WorldOptions['rules']) => {
+      const w = mk({ rules: { turnTimer: 0, ...rules }, tankColumns: [60, 140] });
+      w.turn = 2;
+      w.projectiles.push({
+        id: 1,
+        weapon: SHELL,
+        owner: 0,
+        x: 140 * FP,
+        y: 95 * FP,
+        vx: 0,
+        vy: FP,
+        age: 10,
+        alive: true,
+        data: [],
+      });
+      w.phase = 'resolve';
+      untilQuiet(w);
+      return 100 - w.tanks[1]!.health;
+    };
+    expect(hit({ suddenDeath: true })).toBe(2 * hit({ suddenDeath: false }));
+  });
+});

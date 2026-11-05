@@ -34,6 +34,7 @@ describe('mode.classic', () => {
     w.grid.markDirty(target.x - 8, 0, target.x + 8, w.grid.height - 1);
     target.y = 10;
     fireAndSettle(w, 'weapon.baby-missile', 90, 10);
-    expect(w.phase).toBe('over');
+    expect(w.phase).toBe('shop');
+    expect(w.results).toHaveLength(1);
   });
 });

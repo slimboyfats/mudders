@@ -307,6 +307,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side }
         hud={hud}
         canAim={canAim}
         send={send}
+        sendAs={(p, input) => match.input(p, input)}
+        controls={controls}
         renderer={rendererRef}
         {...(onExit ? { onExit } : {})}
         {...(onRematch ? { onRematch } : {})}

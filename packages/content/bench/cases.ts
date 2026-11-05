@@ -155,7 +155,7 @@ export const CASES: BenchCase[] = [
       const rng = new Prng(77);
       const weapons = ['weapon.missile', 'weapon.baby-missile', 'weapon.shockwave'];
       const ticks: number[] = [];
-      for (let i = 0; i < 20000 && w.phase !== 'over'; i++) {
+      for (let i = 0; i < 20000 && w.round === 0; i++) {
         if (w.phase === 'aim') {
           const p = w.activePlayer;
           w.applyInput(p, { type: 'selectWeapon', weapon: weapons[rng.int(3)]! });

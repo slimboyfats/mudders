@@ -35,6 +35,24 @@ export class Grid {
     this.fallVel = new Uint8Array(this.size);
   }
 
+  /** Empty every layer and region (new round). */
+  reset(): void {
+    this.material.fill(0);
+    this.coating.fill(0);
+    this.cellState.fill(0);
+    this.fallVel.fill(0);
+    this.clearSettle();
+    this.renderRects = [];
+  }
+
+  /** Turn a cell into air (every layer). Call `markDirty` afterwards. */
+  clearCell(i: number): void {
+    this.material[i] = 0;
+    this.coating[i] = 0;
+    this.cellState[i] = 0;
+    this.fallVel[i] = 0;
+  }
+
   inBounds(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.width && y < this.height;
   }

@@ -1,41 +1,33 @@
 import { useMemo, useState } from 'react';
 import { loadContent } from '@mudders/content';
-import { MAP_SIZES } from '@mudders/shared';
 import { LocalMatch } from '../game/match';
 import type { Settings } from '../game/settings';
+import { toWorldOptions, type MatchSetup } from '../game/setup';
 import { MatchView } from './MatchView';
 
-export type MapSize = keyof typeof MAP_SIZES;
-
 interface Props {
-  players: number;
-  size: MapSize;
+  setup: MatchSetup;
   settings: Settings;
   onExit: () => void;
 }
 
-/** Local hot-seat match (milestone 2): every player shares this device and takes turns. */
-export function Play({ players, size, settings, onExit }: Props) {
-  const [round, setRound] = useState(0);
+/** Local match: humans share this device (hot-seat) and AI players take their own turns. */
+export function Play({ setup, settings, onExit }: Props) {
+  const [game, setGame] = useState(0);
   const [seed] = useState(() => (Math.random() * 0xffffffff) >>> 0);
   const match = useMemo(
-    () =>
-      new LocalMatch(loadContent(), {
-        seed: (seed + round * 7919) >>> 0,
-        mode: 'mode.classic',
-        players,
-        map: MAP_SIZES[size],
-      }),
-    [seed, round, players, size],
+    () => new LocalMatch(loadContent(), toWorldOptions(setup, (seed + game * 7919) >>> 0)),
+    [seed, game, setup],
   );
+  const humans = useMemo(() => match.world.tanks.map((t) => t.bot < 0), [match]);
   return (
     <MatchView
-      key={round}
+      key={game}
       match={match}
       settings={settings}
-      controls={() => true}
+      controls={(p) => humans[p] ?? false}
       onExit={onExit}
-      onRematch={() => setRound((r) => r + 1)}
+      onRematch={() => setGame((g) => g + 1)}
     />
   );
 }

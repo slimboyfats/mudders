@@ -25,6 +25,7 @@ export const CONTENT_TYPES = [
   'terrainop',
   'weapon',
   'mode',
+  'ai',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -37,6 +38,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   terrainop: 'terrainops',
   weapon: 'weapons',
   mode: 'modes',
+  ai: 'ai',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -218,8 +220,49 @@ export const ModeSchema = z.looseObject({
   /** count -1 = unlimited. */
   loadout: z.array(z.strictObject({ weapon: ContentIdSchema, count: z.number().int().min(-1) })),
   deathExplosion: EmbeddedExplosionSchema,
+  /** Seconds to aim before the shot fires itself with the current settings (§3.3). 0 = off. */
+  turnTimer: z.number().min(0).max(600).default(0),
+  /** Seconds in the between-round shop before everyone is auto-ready (§3.6). */
+  shopTimer: z.number().min(1).max(600).default(30),
+  /**
+   * Sudden death (§3.1): from the player's `fromTurn`-th turn, weapon damage × `damageScale` and
+   * `edgeCells` columns at each map edge collapse into the void at the start of every turn.
+   */
+  suddenDeath: z
+    .strictObject({
+      fromTurn: z.number().int().min(1),
+      damageScale: z.number().min(1).max(10),
+      edgeCells: z.number().int().min(0).max(512),
+    })
+    .nullable()
+    .default(null),
+  /** Points per round (§3.5): per hp dealt, per kill, per hp of self-damage (subtracted), bonuses. */
+  scoring: z
+    .strictObject({
+      damage: z.number().min(0),
+      kill: z.number().int().min(0),
+      selfDamage: z.number().min(0),
+      survival: z.number().int().min(0),
+      roundWin: z.number().int().min(0),
+    })
+    .default({ damage: 1, kill: 50, selfDamage: 1, survival: 25, roundWin: 100 }),
+  /** Money (§3.6): earned from points, interest on unspent cash, per-round price jitter. */
+  economy: z
+    .strictObject({
+      startingCash: z.number().int().min(0),
+      moneyPerPoint: z.number().int().min(0),
+      interest: z.number().min(0).max(1),
+      priceJitter: z.number().min(0).max(0.9),
+    })
+    .default({ startingCash: 0, moneyPerPoint: 10, interest: 0, priceJitter: 0 }),
 });
 export type ModeManifest = z.infer<typeof ModeSchema>;
+
+// ── ai ──────────────────────────────────────────────────────────────────────────────────────
+
+/** AI personality (§3.7): a behaviour module plus its tuning; runs inside the sim. */
+export const AiSchema = z.looseObject({ ...behaviourBacked });
+export type AiManifest = z.infer<typeof AiSchema>;
 
 // ── packs ───────────────────────────────────────────────────────────────────────────────────
 
@@ -241,6 +284,7 @@ export const MANIFEST_SCHEMAS = {
   terrainop: TerrainOpSchema,
   weapon: WeaponSchema,
   mode: ModeSchema,
+  ai: AiSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -251,6 +295,7 @@ export interface ManifestByType {
   terrainop: TerrainOpManifest;
   weapon: WeaponManifest;
   mode: ModeManifest;
+  ai: AiManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

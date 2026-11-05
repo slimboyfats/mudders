@@ -4,11 +4,15 @@ import { clampAim } from '../game/aim';
 import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { Scoreboard, Shop } from './Shop';
 
 interface Props {
   hud: HudState;
   canAim: boolean;
   send: (input: Input) => void;
+  /** Send for a specific player (shop: every hot-seat human shops). */
+  sendAs: (player: number, input: Input) => void;
+  controls: (player: number) => boolean;
   renderer: RefObject<Renderer | null>;
   onExit?: () => void;
   onRematch?: () => void;
@@ -90,7 +94,7 @@ function Stepper(props: {
   );
 }
 
-export function Hud({ hud, canAim, send, renderer, onExit, onRematch }: Props) {
+export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onRematch }: Props) {
   const t = hud.tanks[hud.activePlayer];
   const aim = (angle: number, power: number) =>
     send({ type: 'aim', ...clampAim({ angle, power }) });
@@ -106,8 +110,17 @@ export function Hud({ hud, canAim, send, renderer, onExit, onRematch }: Props) {
               <span className="swatch" style={{ background: pcolor(p.player) }} />
               <span className="pname">P{p.player + 1}</span>
               <span className="hp">{p.alive ? `${p.health}` : '✕'}</span>
+              <span className="pscore" aria-label="score">
+                {p.score}
+              </span>
             </div>
           ))}
+        </div>
+        <div className="round-info">
+          <span className="badge" aria-label="Round">
+            R{Math.min(hud.round, hud.rounds)}/{hud.rounds}
+          </span>
+          {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
         </div>
         <Wind wind={hud.wind} max={hud.windMax} />
         <div className="cam">
@@ -128,20 +141,25 @@ export function Hud({ hud, canAim, send, renderer, onExit, onRematch }: Props) {
         </div>
       </div>
 
+      {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
+
       {hud.phase === 'over' && (
         <div className="round-over" role="dialog">
           <h2>
             {hud.winner >= 0 ? (
               <>
                 <span className="swatch" style={{ background: pcolor(hud.winner) }} /> Player{' '}
-                {hud.winner + 1} wins
+                {hud.winner + 1} wins the match
               </>
             ) : (
               'Draw'
             )}
           </h2>
-          {onRematch && <button onClick={onRematch}>New round</button>}
-          {onExit && <button onClick={onExit}>Menu</button>}
+          <Scoreboard hud={hud} final />
+          <div className="row">
+            {onRematch && <button onClick={onRematch}>Play again</button>}
+            {onExit && <button onClick={onExit}>Menu</button>}
+          </div>
         </div>
       )}
 
@@ -151,11 +169,19 @@ export function Hud({ hud, canAim, send, renderer, onExit, onRematch }: Props) {
             <>
               <span className="swatch" style={{ background: pcolor(t.player) }} />
               Player {t.player + 1}
+              {t.bot ? <small className="thinking"> {t.bot} is aiming…</small> : null}
+              {hud.seconds >= 0 && (
+                <span className={`timer${hud.seconds <= 5 ? ' low' : ''}`} aria-label="Time left">
+                  {hud.seconds}s
+                </span>
+              )}
             </>
           ) : hud.phase === 'resolve' ? (
             'Incoming…'
+          ) : hud.phase === 'shop' ? (
+            'Shop'
           ) : (
-            'Round over'
+            'Match over'
           )}
         </div>
         <div className="aim">

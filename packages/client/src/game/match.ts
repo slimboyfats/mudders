@@ -1,5 +1,11 @@
 import type { Input, RenderSnapshot } from '@mudders/shared';
-import { TICK_RATE, World, type ResolvedContent, type WorldOptions } from '@mudders/sim';
+import {
+  TICK_RATE,
+  World,
+  type ResolvedContent,
+  type RoundResult,
+  type WorldOptions,
+} from '@mudders/sim';
 import type { SnapshotStream } from '../render/types';
 
 const STEP_MS = 1000 / TICK_RATE;
@@ -14,17 +20,39 @@ export interface HudTank {
   power: number;
   weapon: string;
   inventory: { id: string; name: string; count: number }[];
+  /** AI personality name, or '' for a human. */
+  bot: string;
+  money: number;
+  score: number;
+  ready: boolean;
+}
+
+export interface ShopItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  pack: number;
 }
 
 export interface HudState {
-  phase: 'aim' | 'resolve' | 'over';
+  phase: 'aim' | 'resolve' | 'shop' | 'over';
   activePlayer: number;
   turn: number;
+  /** 1-based round being played (or just finished while shopping). */
+  round: number;
+  rounds: number;
+  /** Whole seconds left on the turn or shop timer; -1 = no timer. */
+  seconds: number;
+  suddenDeath: boolean;
   wind: number;
   windMax: number;
   tanks: HudTank[];
-  /** Winner when the round is over (-1 = draw). */
+  /** Winner of the last finished round (-1 = draw), or of the match once it is over. */
   winner: number;
+  results: RoundResult[];
+  shop: ShopItem[];
 }
 
 /**
@@ -37,13 +65,30 @@ export class LocalMatch implements SnapshotStream {
   private listeners: ((s: RenderSnapshot) => void)[] = [];
   private acc = 0;
   private readonly names: Record<string, string> = {};
+  private readonly botNames: string[];
+  private readonly shopItems: (ShopItem & { index: number })[] = [];
 
   constructor(
     readonly content: ResolvedContent,
     options: WorldOptions,
   ) {
     this.world = new World(content, options);
-    for (const w of content.list('weapon')) this.names[w.id] = w.meta.name;
+    for (const w of content.list('weapon')) {
+      this.names[w.id] = w.meta.name;
+      if (w.shop.price > 0) {
+        this.shopItems.push({
+          index: this.world.weaponByIndex(w.id),
+          id: w.id,
+          name: w.meta.name,
+          description: w.meta.description,
+          category: w.meta.category ?? '',
+          price: w.shop.price,
+          pack: w.shop.pack,
+        });
+      }
+    }
+    this.shopItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
+    this.botNames = (options.bots ?? []).map((id) => (id ? content.get('ai', id).meta.name : ''));
   }
 
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
@@ -80,15 +125,25 @@ export class LocalMatch implements SnapshotStream {
 
   hud(): HudState {
     const w = this.world;
-    const alive = w.tanks.filter((t) => t.alive);
+    const last = w.results[w.results.length - 1];
     return {
       phase: w.phase,
       activePlayer: w.activePlayer,
       turn: w.turn,
+      round: w.phase === 'shop' || w.phase === 'over' ? w.round : w.round + 1,
+      rounds: w.rounds,
+      seconds: w.timer > 0 ? Math.ceil(w.timer / TICK_RATE) : -1,
+      suddenDeath: w.phase !== 'shop' && w.suddenDeathActive,
       wind: w.wind / 65536,
       windMax: w.mode.wind.max,
-      winner: w.phase === 'over' && alive.length === 1 ? (alive[0]?.player ?? -1) : -1,
+      winner: w.phase === 'over' ? w.matchWinner : (last?.winner ?? -1),
+      results: w.results,
+      shop: this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
       tanks: w.tanks.map((t) => ({
+        bot: this.botNames[t.player] ?? '',
+        money: t.money,
+        score: t.score,
+        ready: t.ready,
         player: t.player,
         alive: t.alive,
         health: t.health,
@@ -105,9 +160,10 @@ export class LocalMatch implements SnapshotStream {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.wind}|${h.winner}`;
+  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
+  for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.alive ? 1 : 0},${t.health},${t.angle},${t.power},${t.weapon}`;
+    k += `|${t.alive ? 1 : 0},${t.health},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
     for (const i of t.inventory) k += `,${i.count}`;
   }
   return k;

@@ -478,3 +478,290 @@ button.primary,
   color: var(--muted);
   margin: 0;
 }
+
+/* ── setup / settings ──────────────────────────────────────────────── */
+
+.setup {
+  min-height: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+}
+
+.setup h2 {
+  margin: 0;
+  color: var(--accent);
+}
+
+.slots,
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot,
+.rules label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #241a14;
+}
+
+.slot.off {
+  opacity: 0.55;
+}
+
+.slot-name,
+.rules label {
+  flex: 1;
+}
+
+.rules label {
+  justify-content: space-between;
+}
+
+.rules label.check {
+  justify-content: flex-start;
+}
+
+.slot select,
+.rules select {
+  min-height: 40px;
+  min-width: 9em;
+  background: #2a1f18;
+  border: 1px solid #4a3a2c;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.seg {
+  display: flex;
+  gap: 6px;
+}
+
+.seg button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+}
+
+.seg button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.seg small {
+  color: var(--muted);
+}
+
+button.link {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--muted);
+  text-decoration: underline;
+  padding: 0;
+}
+
+.about {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.setup-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.setup-actions .primary {
+  flex: 1;
+  min-height: 56px;
+  font-size: 1.15rem;
+}
+
+/* ── match hud extras ──────────────────────────────────────────────── */
+
+.round-info {
+  display: flex;
+  gap: 6px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge.sudden {
+  background: #8a1c12;
+  color: #ffe0c8;
+  font-weight: 700;
+}
+
+.player .pscore {
+  margin-left: 6px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.turn .timer {
+  margin-left: 8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.turn .timer.low {
+  color: #ff8a5c;
+  font-weight: 700;
+}
+
+.turn .thinking {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.round-over .row {
+  display: flex;
+  gap: 10px;
+}
+
+/* ── shop + scores ─────────────────────────────────────────────────── */
+
+.shop {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px calc(env(safe-area-inset-bottom) + 12px);
+  background: rgb(20 14 10 / 0.96);
+}
+
+.shop header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shop h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.shop .timer {
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.scores {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.scores th,
+.scores td {
+  padding: 4px 8px;
+  text-align: right;
+  border-bottom: 1px solid #3a2c22;
+}
+
+.scores th:first-child,
+.scores td:first-child {
+  text-align: left;
+}
+
+.scores tr.win td {
+  color: var(--accent);
+}
+
+.scores small {
+  color: var(--muted);
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tabs button.on {
+  border-color: var(--fg);
+}
+
+.tabs .cash {
+  margin-left: auto;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 8px;
+  background: #241a14;
+  border: 1px solid #3a2c22;
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card-top small {
+  color: var(--muted);
+}
+
+.card p {
+  margin: 0;
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card-bottom .own {
+  font-variant-numeric: tabular-nums;
+}
+
+.shop .ready {
+  position: sticky;
+  bottom: 0;
+  min-height: 56px;
+  font-size: 1.15rem;
+}
