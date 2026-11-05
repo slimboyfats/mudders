@@ -1,0 +1,13 @@
+{
+  "id": "flight.ballistic",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ballistic",
+    "description": "Plain artillery arc: semi-implicit Euler under gravity and wind.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "flight.ballistic",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500
+}

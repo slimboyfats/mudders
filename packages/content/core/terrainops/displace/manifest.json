@@ -1,0 +1,16 @@
+{
+  "id": "terrainop.displace",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Displace",
+    "description": "Shockwave: a ring expands over several ticks and knocks every loose cell in it outward and up as debris, bulldozing the hill into a rim. Cohesive bodies are shoved as one blob. Nothing is destroyed.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "terrainop.displace",
+  "expandTicks": 10,
+  "maxBlob": 40000,
+  "speed": 6.0,
+  "lift": 0.6,
+  "minSpeed": 0.4,
+  "blobPush": 16
+}

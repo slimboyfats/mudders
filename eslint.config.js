@@ -55,9 +55,23 @@ export default tseslint.config(
     },
   },
   {
-    files: ['packages/sim/src/**/*.ts', 'packages/content/**/*.ts'],
+    files: [
+      'packages/sim/src/**/*.ts',
+      'packages/content/core/**/*.ts',
+      'packages/content/src/**/*.ts',
+    ],
     ignores: ['**/*.test.ts'],
     rules: determinism,
+  },
+  {
+    // Hot loops index typed arrays constantly; with noUncheckedIndexedAccess every read is
+    // `number | undefined`, and `!` is the zero-cost way to say "in bounds by construction".
+    files: [
+      'packages/sim/**/*.ts',
+      'packages/content/**/*.ts',
+      'packages/capture/src/preview/**/*.ts',
+    ],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   {
     // The kernel never imports content (§2c.1).
@@ -84,7 +98,13 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
-    files: ['packages/{signal,capture}/**/*.ts', '*.{js,ts}', 'packages/*/*.{js,ts}'],
+    files: [
+      'packages/{signal,capture}/**/*.ts',
+      'packages/content/{bench,scripts}/**/*.ts',
+      'scripts/**/*.ts',
+      '*.{js,ts}',
+      'packages/*/*.{js,ts}',
+    ],
     languageOptions: { globals: globals.node },
   },
 );

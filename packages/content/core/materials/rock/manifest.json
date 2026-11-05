@@ -1,0 +1,23 @@
+{
+  "id": "material.rock",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rock",
+    "description": "Bedrock and boulders. Never moves, carves at half radius and shrugs off shockwaves.",
+    "since": "core@0.1.0",
+    "color": "#6d6a73"
+  },
+  "cell": 3,
+  "settle": "static",
+  "density": 200,
+  "strength": {
+    "blast": 2,
+    "kinetic": 2.5,
+    "heat": 1.5,
+    "shock": 3,
+    "dig": 3,
+    "corrosive": 1.5
+  },
+  "cohesion": 0,
+  "coating": false
+}

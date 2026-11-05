@@ -1,0 +1,10 @@
+{
+  "id": "terrainop.carve",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Carve",
+    "description": "Removes cells in a disc. Each material's strength against the damage type shrinks the radius it is carved at.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "terrainop.carve"
+}

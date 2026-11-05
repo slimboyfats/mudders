@@ -1,4 +1,12 @@
-import corePack from '../core/pack.json' with { type: 'json' };
+import { resolveContent, type ResolvedContent } from '@mudders/sim';
+import { discoverContent } from './glob';
 
-/** Content packs shipped with the game. Items are added from milestone 1. */
-export const packs = [corePack] as const;
+export { discoverContent, behaviourPaths } from './glob';
+
+let cached: ResolvedContent | undefined;
+
+/** Resolve every shipped pack once (throws ContentError listing every problem). */
+export function loadContent(): ResolvedContent {
+  cached ??= resolveContent(discoverContent());
+  return cached;
+}

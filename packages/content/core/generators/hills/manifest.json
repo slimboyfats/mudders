@@ -1,0 +1,19 @@
+{
+  "id": "gen.hills",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rolling hills",
+    "description": "Layered value-noise hills over a bedrock band, with rock pockets and sand drifts. Tanks spawn evenly spaced on small flattened pads.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "gen.hills",
+  "baseLevel": 0.58,
+  "amplitude": 0.22,
+  "octaves": 4,
+  "roughness": 0.5,
+  "sandChance": 0.45,
+  "sandDepth": 7,
+  "rockDepth": 0.32,
+  "rockPockets": 6,
+  "spawnMargin": 0.08
+}

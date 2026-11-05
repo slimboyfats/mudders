@@ -14,12 +14,17 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
-    "verify": "pnpm check && pnpm build && pnpm smoke",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm content:validate && pnpm test",
+    "verify": "pnpm check && pnpm bench && pnpm build && pnpm smoke",
     "smoke": "pnpm --filter @mudders/capture smoke",
-    "check:ffmpeg": "pnpm --filter @mudders/capture check:ffmpeg"
+    "check:ffmpeg": "pnpm --filter @mudders/capture check:ffmpeg",
+    "bench": "pnpm --filter @mudders/content bench",
+    "content:validate": "pnpm --filter @mudders/content content:validate",
+    "content:docs": "pnpm --filter @mudders/content content:docs",
+    "content:new": "pnpm --filter @mudders/content content:new",
+    "sim:preview": "pnpm --filter @mudders/capture sim:preview"
   },
   "browserslist": [
     "baseline 2026"
@@ -35,6 +40,7 @@
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6",
     "vitest": "^5.1.0"
   }
 }

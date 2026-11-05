@@ -1,0 +1,61 @@
+{
+  "contentHash": "6451f269d8676cf9",
+  "scenarios": {
+    "explosion.shockwave": {
+      "ticks": 314,
+      "hash": "290eff8097247d0a"
+    },
+    "explosion.standard": {
+      "ticks": 163,
+      "hash": "182baaeeef87a2a3"
+    },
+    "flight.ballistic": {
+      "ticks": 163,
+      "hash": "182baaeeef87a2a3"
+    },
+    "gen.hills": {
+      "ticks": 11,
+      "hash": "20645cea00467005"
+    },
+    "material.dirt": {
+      "ticks": 163,
+      "hash": "182baaeeef87a2a3"
+    },
+    "material.rock": {
+      "ticks": 143,
+      "hash": "1b3eb3a4b61db51a"
+    },
+    "material.sand": {
+      "ticks": 301,
+      "hash": "7440b12bd25249a9"
+    },
+    "mode.classic": {
+      "ticks": 706,
+      "hash": "462a770f2b6b0a36"
+    },
+    "terrainop.add": {
+      "ticks": 11,
+      "hash": "e730412577a3c49d"
+    },
+    "terrainop.carve": {
+      "ticks": 163,
+      "hash": "182baaeeef87a2a3"
+    },
+    "terrainop.displace": {
+      "ticks": 314,
+      "hash": "290eff8097247d0a"
+    },
+    "weapon.baby-missile": {
+      "ticks": 158,
+      "hash": "a56d9a8c4abf83cf"
+    },
+    "weapon.missile": {
+      "ticks": 163,
+      "hash": "182baaeeef87a2a3"
+    },
+    "weapon.shockwave": {
+      "ticks": 314,
+      "hash": "290eff8097247d0a"
+    }
+  }
+}

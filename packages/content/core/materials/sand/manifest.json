@@ -1,0 +1,21 @@
+{
+  "id": "material.sand",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sand",
+    "description": "Loose surface layer. Slides diagonally like an hourglass and gives way easily to blasts, shocks and diggers.",
+    "since": "core@0.1.0",
+    "color": "#d9b65f"
+  },
+  "cell": 2,
+  "settle": "slide",
+  "density": 90,
+  "strength": {
+    "blast": 0.8,
+    "kinetic": 0.7,
+    "shock": 0.6,
+    "dig": 0.5
+  },
+  "cohesion": 0,
+  "coating": false
+}

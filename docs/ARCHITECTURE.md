@@ -47,7 +47,7 @@ signal ──▶ shared
 Lint enforces the arrows that matter: `sim` cannot import `content`, React, Pixi or the client;
 `sim` and `content` cannot use `Math.random`, `Date`, timers or the DOM.
 
-## 3. Simulation kernel (planned, milestone 1)
+## 3. Simulation kernel (milestone 1)
 
 ### 3.1 State
 
@@ -56,8 +56,8 @@ All match state lives in one plain structure that is hashed for desync detection
 - **Grid**: `material: Uint8Array` (W×H), `coating: Uint8Array`, `cellState: Uint8Array` (timers,
   heat). Map sizes 800×400, 1200×600 (default), 1600×800.
 - **Group records**: per prop group integrity, cell count, fallen flag (§4c), in typed arrays.
-- **Entities**: tanks, projectiles, sim particles (debris that becomes terrain), zones. Stored as
-  struct-of-arrays where hot.
+- **Entities**: tanks, projectiles, sim debris particles (`DebrisPool`: struct-of-arrays, fixed-point,
+  cells in flight that become terrain where they land), zones (later).
 - **Match**: PRNG state, tick, turn/round, wind, scores, money, inventories.
 
 ### 3.2 Tick
@@ -68,16 +68,26 @@ Fixed 60 Hz. The client runs an accumulator so a 120 Hz display never speeds up 
 2. Integrate projectiles (semi-implicit Euler, fixed-point), applying gravity, wind and zones.
 3. Evaluate triggers; run impact pipelines (explosions, spawns, terrain ops, statuses).
 4. Advance continuing terrain ops (shockwave rings, liquefy timers) within per-tick budgets.
-5. Settle + cohesion + reactions + decay, **only over dirty rects**, bounded cells per tick.
-6. Tanks: support, falling, burial, contact effects, damage, death explosions (with kill attribution).
-7. Emit the render snapshot and effect/audio events.
+5. Step debris particles; landed debris becomes terrain.
+6. Settle + cohesion + reactions + decay, **only over the settle region**, bounded cells per tick.
+7. Tanks: support, falling, burial, contact effects, damage, death explosions (with kill attribution).
+8. When the shot has resolved (`quiet`), the next turn starts. `world.snapshot()` returns the render
+   snapshot (terrain, coating, dirty rects, entities, debris, effect events) since the last call.
+
+Code map (`packages/sim/src`): `world.ts` (state + tick), `grid.ts` (layers, settle region, render
+rects), `settle.ts`, `debris.ts`, `materials.ts` (flat per-cell lookup tables), `scratch.ts`
+(preallocated flood-fill buffers), `prng.ts` (sfc32), `fixed.ts` (fixed-point trig table), `hash.ts`,
+`behaviours.ts` (behaviour interfaces + registry), `content/resolve.ts`, `replay.ts`, `scenario.ts`.
 
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.
-- Integer / fixed-point math for everything that touches the grid; trig via lookup tables. The
-  fixed-point vs. verified-float question for trajectories is settled in milestone 1 with a
-  cross-browser test.
+- **Decided in milestone 1: fixed-point everywhere.** Positions/velocities are integers scaled by
+  `FP = 65536`, held in JS numbers with products kept < 2^53. Only `+ - * /`, `Math.trunc/floor/round`
+  and `Math.sqrt` are used: IEEE 754 makes these correctly rounded and therefore identical in every
+  engine. Trig comes from a 0.1° table built at load with a Taylor series in basic arithmetic. The
+  golden hashes are identical under Node and Vite's runner; a Firefox/WebKit run is still owed
+  (only Chromium exists in the cloud container), tracked as `needs-device`.
 - Deterministic iteration only (arrays, explicit ordering; no `Map`/`Set`/key-order dependence).
 - No wall-clock time; time is the tick counter.
 - Golden tests: recorded seed + input log ⇒ identical state hash on every run and machine.
@@ -88,10 +98,14 @@ Sim ≤ 2 ms average / ≤ 6 ms worst per tick on the reference phones; `pnpm ve
 Typed arrays only, preallocated flood-fill queues, work bounded by dirty regions, large ops spread
 across ticks. `pnpm bench` tracks baselines; >15% regression fails `pnpm verify`.
 
-## 4. Content system (planned, milestone 1)
+## 4. Content system (milestone 1)
 
-- **Discovery**: `import.meta.glob` over `packages/content/*/**/manifest.json`; adding a folder
-  registers the item with no other edits.
+- **Discovery**: `import.meta.glob` over `packages/content/*/**/manifest.json` and `behaviour.ts`
+  (`packages/content/src/glob.ts`); adding a folder registers the item with no other edits. Node
+  tooling (bench, content scripts, preview) runs through Vite's module runner (`scripts/vite-run.ts`)
+  so it sees exactly the same discovery.
+- **Behaviour modules** (`behaviour.ts`, `export default defineFlight/defineTerrainOp/…`) carry an
+  id, a `version` (hashed) and a Zod schema for their manifest parameters.
 - **Validation**: each manifest type has a Zod schema in `shared` with a `schemaVersion` and
   migrations for older versions.
 - **Resolution**: at startup the loader resolves every `use` and `extends` reference into a flat,
@@ -99,7 +113,8 @@ across ticks. `pnpm bench` tracks baselines; >15% regression fails `pnpm verify`
   startup errors. The sim only ever sees resolved manifests.
 - **Content hash**: hash of all enabled packs' resolved manifests + behaviour-module versions. Peers
   must match it to join.
-- **Behaviour modules** receive the match RNG and the grid API only.
+- **Behaviour modules** receive the `SimApi` only: grid, material tables, match RNG, scratch buffers,
+  tanks, wind/gravity, `launch` (cell → debris) and `emit` (effect events).
 - **Ids are permanent** (`weapon.shockwave`, `material.lava`, `flight.ballistic`, …); changes that alter
   results need a new id or a pack version bump.
 

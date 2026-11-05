@@ -1,0 +1,25 @@
+{
+  "id": "explosion.shockwave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shockwave",
+    "description": "No crater: displaces terrain outward in an expanding ring and shoves tanks sideways. Light shock damage.",
+    "since": "core@0.1.0"
+  },
+  "radius": 60,
+  "damage": 15,
+  "damageType": "shock",
+  "falloff": "linear",
+  "push": 24,
+  "terrainOp": {
+    "use": "terrainop.displace"
+  },
+  "effects": {
+    "ripple": {
+      "strength": 1
+    },
+    "burst": {
+      "count": 16
+    }
+  }
+}

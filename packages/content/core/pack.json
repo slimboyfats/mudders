@@ -1,6 +1,22 @@
 {
   "name": "core",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "schemaVersion": 1,
-  "items": []
+  "description": "The base game.",
+  "items": [
+    "explosion.shockwave",
+    "explosion.standard",
+    "flight.ballistic",
+    "gen.hills",
+    "material.dirt",
+    "material.rock",
+    "material.sand",
+    "mode.classic",
+    "terrainop.add",
+    "terrainop.carve",
+    "terrainop.displace",
+    "weapon.baby-missile",
+    "weapon.missile",
+    "weapon.shockwave"
+  ]
 }

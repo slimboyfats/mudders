@@ -1,0 +1,29 @@
+{
+  "id": "terrainop.add",
+  "schemaVersion": 1,
+  "description": "Stub: no milestone-1 weapon uses terrainop.add yet; shows the map a dirt-adder will be tested on.",
+  "subject": "terrainop.add",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 30,
+    "untilSettled": true,
+    "extraTicks": 10
+  }
+}

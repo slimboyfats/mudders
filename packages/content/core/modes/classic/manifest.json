@@ -1,0 +1,53 @@
+{
+  "id": "mode.classic",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Classic",
+    "description": "Sequential turns in a random order, wind that changes every turn, last tank standing wins the round.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "mode.classic",
+  "rounds": 3,
+  "turnCap": 12,
+  "startingHealth": 100,
+  "physics": {
+    "gravity": 0.12,
+    "maxSpeed": 12
+  },
+  "wind": {
+    "type": "perTurn",
+    "max": 0.012
+  },
+  "walls": "absorb",
+  "fallDamage": {
+    "safeCells": 4,
+    "perCell": 1
+  },
+  "map": {
+    "generator": "gen.hills",
+    "width": 1200,
+    "height": 600
+  },
+  "settle": {
+    "maxCellsPerTick": 60000
+  },
+  "loadout": [
+    {
+      "weapon": "weapon.missile",
+      "count": -1
+    },
+    {
+      "weapon": "weapon.baby-missile",
+      "count": 10
+    },
+    {
+      "weapon": "weapon.shockwave",
+      "count": 3
+    }
+  ],
+  "deathExplosion": {
+    "use": "explosion.standard",
+    "radius": 20,
+    "damage": 35
+  }
+}

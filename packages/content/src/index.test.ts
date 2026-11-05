@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { packs } from './index';
+import { loadContent } from './index';
 
 describe('content packs', () => {
-  it('ships the core pack with a semver version', () => {
-    const core = packs.find((p) => p.name === 'core');
-    expect(core?.version).toMatch(/^\d+\.\d+\.\d+$/);
+  it('loads and resolves the core pack', () => {
+    const c = loadContent();
+    expect(c.packs.map((p) => p.name)).toEqual(['core']);
+    expect(c.hash).toMatch(/^[0-9a-f]{16}$/);
+    expect(c.list('weapon').map((w) => w.id)).toEqual([
+      'weapon.baby-missile',
+      'weapon.missile',
+      'weapon.shockwave',
+    ]);
   });
 });

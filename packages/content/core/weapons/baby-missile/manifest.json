@@ -1,0 +1,29 @@
+{
+  "id": "weapon.baby-missile",
+  "schemaVersion": 1,
+  "extends": "weapon.missile",
+  "meta": {
+    "name": "Baby Missile",
+    "description": "A Missile with half the bang. Cheap and plentiful.",
+    "category": "explosive",
+    "since": "core@0.1.0"
+  },
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 12,
+        "damage": 30
+      }
+    }
+  ],
+  "shop": {
+    "price": 400,
+    "pack": 10,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 20,
+    "terrainValue": 0.1
+  }
+}
