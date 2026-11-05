@@ -1,23 +1,20 @@
+/// <reference types="vite/client" />
 import type { AnyBehaviour, ContentSource, RawManifest } from '@mudders/sim';
-
-// Minimal typing for Vite's import.meta.glob, so this package doesn't need vite/client types.
-declare global {
-  interface ImportMeta {
-    glob<T>(pattern: string, options: { eager: true; import: 'default' }): Record<string, T>;
-  }
-}
 
 /**
  * Content discovery (§2c.1): every `manifest.json` and `behaviour.ts` under a pack folder is picked
  * up by Vite's `import.meta.glob`, so adding a folder registers the item with no other edits.
  * Node tooling loads this module through Vite's module runner (see `scripts/vite-run.ts`).
  */
-const packFiles = import.meta.glob<unknown>('../*/pack.json', { eager: true, import: 'default' });
-const manifestFiles = import.meta.glob<unknown>('../*/**/manifest.json', {
+const packFiles: Record<string, unknown> = import.meta.glob('../*/pack.json', {
   eager: true,
   import: 'default',
 });
-const behaviourFiles = import.meta.glob<AnyBehaviour>('../*/**/behaviour.ts', {
+const manifestFiles: Record<string, unknown> = import.meta.glob('../*/**/manifest.json', {
+  eager: true,
+  import: 'default',
+});
+const behaviourFiles: Record<string, AnyBehaviour> = import.meta.glob('../*/**/behaviour.ts', {
   eager: true,
   import: 'default',
 });

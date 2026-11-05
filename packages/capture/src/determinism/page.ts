@@ -8,13 +8,7 @@ import { ScenarioSchema } from '@mudders/shared';
 import { ScenarioDriver } from '@mudders/sim';
 import type { BrowserRun, GoldenHashes } from './protocol';
 
-// Minimal typing for Vite's import.meta.glob (same as packages/content/src/glob.ts).
-declare global {
-  interface ImportMeta {
-    glob<T>(pattern: string, options: { eager: true; import: 'default' }): Record<string, T>;
-  }
-}
-
+// `import.meta.glob` is typed by the global declaration in @mudders/content (src/glob.ts).
 const scenarioFiles = import.meta.glob<unknown>('../../../../scenarios/*.json', {
   eager: true,
   import: 'default',
