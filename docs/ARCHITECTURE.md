@@ -84,9 +84,9 @@ Fixed 60 Hz. The client runs an accumulator so a 120 Hz display never speeds up 
 
 ### 3.4 Performance (§9)
 
-Sim ≤ 2 ms average / ≤ 6 ms worst per tick on the reference phones; CI enforces ≤ 2 ms worst on x86.
+Sim ≤ 2 ms average / ≤ 6 ms worst per tick on the reference phones; `pnpm verify` will enforce ≤ 2 ms worst on x86.
 Typed arrays only, preallocated flood-fill queues, work bounded by dirty regions, large ops spread
-across ticks. `pnpm bench` tracks baselines; >15% regression fails a PR.
+across ticks. `pnpm bench` tracks baselines; >15% regression fails `pnpm verify`.
 
 ## 4. Content system (planned, milestone 1)
 
@@ -175,11 +175,13 @@ enabling `--diff` visual regression against `captures/reference/` and `--compare
 
 ## 9. Infrastructure
 
-- **Client**: static build deployed to Cloudflare Pages. `.github/workflows/preview.yml` deploys every
-  PR/branch to a preview URL and comments it on the PR (needs `CLOUDFLARE_API_TOKEN` and
-  `CLOUDFLARE_ACCOUNT_ID` secrets; skips without them). Signalling URL comes from `VITE_SIGNAL_URL`.
+- **Client**: static build (`pnpm --filter @mudders/client build` → `packages/client/dist`) for a free
+  static host. Per-branch preview deploys should use the host's own Git integration (e.g. Cloudflare
+  Pages builds on its side) rather than GitHub Actions; not wired up yet. Signalling URL comes from
+  `VITE_SIGNAL_URL`.
 - **Signalling**: Node on Render free tier (`pnpm --filter @mudders/signal start`, `PORT` env). The
   client must handle cold starts ("waking up the lobby server…").
-- **CI** (`.github/workflows/ci.yml`): lint, format check, typecheck, test, build, plus a smoke job that
-  installs ffmpeg and Chromium and runs `pnpm smoke`, uploading the PNG/GIF as an artifact.
+- **No GitHub Actions**, to save build minutes. `pnpm verify` (lint, format check, typecheck, test,
+  build, smoke) runs locally in the dev session before every push; failures are fixed there. Where the
+  requirements say "CI", read "`pnpm verify`".
 - **Browser target**: root `browserslist` is `baseline 2026`; Vite's esbuild target is derived from it.

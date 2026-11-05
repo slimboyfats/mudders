@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test",
+    "verify": "pnpm check && pnpm build && pnpm smoke",
     "smoke": "pnpm --filter @mudders/capture smoke",
     "check:ffmpeg": "pnpm --filter @mudders/capture check:ffmpeg"
   },

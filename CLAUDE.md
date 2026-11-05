@@ -21,6 +21,7 @@ Run from the repo root. Everything works in a GPU-less, display-less cloud conta
 | `pnpm build`                | Build all packages; client to `packages/client/dist`                                                |
 | `pnpm smoke`                | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
 | `pnpm check:ffmpeg`         | Verifies ffmpeg is installed, with install instructions if not                                      |
+| `pnpm verify`               | check + build + smoke: **run before every push** (there is no CI on GitHub)                         |
 
 Coming in later milestones: `pnpm bench`, `pnpm content:new`, `pnpm content:validate`, `pnpm capture`.
 
@@ -59,7 +60,9 @@ Coming in later milestones: `pnpm bench`, `pnpm content:new`, `pnpm content:vali
 9. **Audio is chiptune only** (§8b): tracker modules via a module player (e.g. `chiptune3`) and/or Web
    Audio synth SFX. No sampled real-world audio, no ripped modules; record each asset's licence.
 10. **Original content only.** No names, art, text or audio from the original game or anything else.
-11. **Run `pnpm check` before claiming a task done**, and say what you ran.
+11. **No GitHub Actions.** To save build minutes nothing runs on GitHub. Run `pnpm verify` locally
+    before every push and before claiming a task done, and say what you ran. If something fails after
+    pushing, fix it in the session; don't add workflows.
 
 ## Visual review (mandatory once `pnpm capture` exists, milestone 2+)
 
@@ -76,8 +79,8 @@ task `needs-device`, give the deploy preview URL, and list what to check by hand
 ## Workflow notes
 
 - Captures go to `captures/` (gitignored). Only `captures/reference/` (regression baselines) is committed.
-- Deploy previews: `.github/workflows/preview.yml` deploys the client to Cloudflare Pages per branch
-  when the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets are set; it skips otherwise.
+- Deploy previews are not wired up yet. When they are, use the static host's own Git integration
+  (e.g. Cloudflare Pages builds on its side), not GitHub Actions.
 - TypeScript is pinned to 6.x because typescript-eslint does not support TS 7 yet.
 - Playwright is pinned to the version preinstalled in cloud sessions (`PLAYWRIGHT_BROWSERS_PATH`);
-  do not run `playwright install` locally there. CI installs Chromium itself.
+  do not run `playwright install` there.
