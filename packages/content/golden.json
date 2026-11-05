@@ -1,5 +1,5 @@
 {
-  "contentHash": "95cb7344d367257f",
+  "contentHash": "a9d0e7af97336c86",
   "scenarios": {
     "ai.moron": {
       "ticks": 822,
@@ -24,6 +24,10 @@
     "flight.ballistic": {
       "ticks": 163,
       "hash": "efda2d0382ec3d55"
+    },
+    "gen.badlands": {
+      "ticks": 64,
+      "hash": "e33d524128434afb"
     },
     "gen.hills": {
       "ticks": 11,
@@ -124,6 +128,18 @@
     "prop.house": {
       "ticks": 531,
       "hash": "47fa6bdb43f15353"
+    },
+    "prop.rock-arch": {
+      "ticks": 1134,
+      "hash": "28ed0758ea20eea7"
+    },
+    "prop.rock-ledge": {
+      "ticks": 1017,
+      "hash": "736ebea71a367ef1"
+    },
+    "prop.rock-outcrop": {
+      "ticks": 651,
+      "hash": "24cae38092f949f9"
     },
     "prop.tree": {
       "ticks": 325,

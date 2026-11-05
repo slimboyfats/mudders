@@ -1,0 +1,77 @@
+{
+  "id": "prop.rock-arch",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rock Arch",
+    "description": "A natural stone arch a tank can shelter under. The rock is glued only until hit: each hit knocks the stone around it loose, and any piece cut off from the ground comes down as rubble on whatever is beneath.",
+    "since": "core@0.5.0"
+  },
+  "shape": [
+    " ",
+    " ",
+    "                                     SS",
+    "                                    SSSSSSS         S",
+    "                       SSSSSS   SSSSSSSSSSSS   S   SSS",
+    "                      SSSSSSSS SSSSSSSSSSSSSS SSSSSSSS",
+    "                      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "                  SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "             SS  SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "         SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS  SSS  S",
+    "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "    SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "S SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS              SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSS                    SSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSS                        SSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSS                            SSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSS                                SSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSS                                    SSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSS                                      SSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSS                                    SSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSS                                    SSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSS                                  SSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSS                                SSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSS                              SSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSS                              SSSSSSSSSSSSSSSSSSSSSSS"
+  ],
+  "legend": {
+    "S": "stone"
+  },
+  "materials": {
+    "stone": "material.rock"
+  },
+  "groups": [
+    {
+      "name": "stone",
+      "roles": ["stone"],
+      "glue": "local",
+      "loosen": 2,
+      "breakInto": {
+        "material.rock": "material.rubble"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 10,
+    "clearance": 20,
+    "roughen": 3,
+    "mirror": true,
+    "shelter": true
+  }
+}

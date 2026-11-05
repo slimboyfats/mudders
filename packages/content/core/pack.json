@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -10,6 +10,7 @@
     "explosion.shockwave",
     "explosion.standard",
     "flight.ballistic",
+    "gen.badlands",
     "gen.hills",
     "gen.village",
     "material.ash",
@@ -35,6 +36,9 @@
     "mode.classic",
     "prop.boulder",
     "prop.house",
+    "prop.rock-arch",
+    "prop.rock-ledge",
+    "prop.rock-outcrop",
     "prop.tree",
     "terrainop.add",
     "terrainop.attract",
