@@ -5,11 +5,16 @@
   "type": "module",
   "description": "Content packs: one folder per weapon, material, generator, terrain op, AI, mode, theme, effect and sound.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "bench": "tsx ../../scripts/vite-run.ts bench/bench.ts",
+    "content:validate": "tsx ../../scripts/vite-run.ts scripts/content.ts validate",
+    "content:docs": "tsx ../../scripts/vite-run.ts scripts/content.ts docs",
+    "content:new": "tsx ../../scripts/vite-run.ts scripts/content.ts new"
   },
   "dependencies": {
     "@mudders/shared": "workspace:*",

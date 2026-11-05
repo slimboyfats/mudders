@@ -3,3 +3,6 @@ dist
 coverage
 captures
 docs/REQUIREMENTS.md
+docs/WEAPONS.md
+packages/content/golden.json
+packages/content/bench/baseline.json

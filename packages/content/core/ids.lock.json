@@ -1,0 +1,16 @@
+[
+  "explosion.shockwave",
+  "explosion.standard",
+  "flight.ballistic",
+  "gen.hills",
+  "material.dirt",
+  "material.rock",
+  "material.sand",
+  "mode.classic",
+  "terrainop.add",
+  "terrainop.carve",
+  "terrainop.displace",
+  "weapon.baby-missile",
+  "weapon.missile",
+  "weapon.shockwave"
+]

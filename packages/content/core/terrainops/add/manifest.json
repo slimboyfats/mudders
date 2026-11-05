@@ -1,0 +1,11 @@
+{
+  "id": "terrainop.add",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Add",
+    "description": "Fills the air cells of a disc with a material, burying whatever is there. The new cells then settle.",
+    "since": "core@0.1.0"
+  },
+  "behaviour": "terrainop.add",
+  "material": "material.dirt"
+}

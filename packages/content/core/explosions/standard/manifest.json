@@ -1,0 +1,28 @@
+{
+  "id": "explosion.standard",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Standard explosion",
+    "description": "Round blast: carves a crater and deals linear-falloff blast damage.",
+    "since": "core@0.1.0"
+  },
+  "radius": 24,
+  "damage": 60,
+  "damageType": "blast",
+  "falloff": "linear",
+  "push": 0,
+  "terrainOp": {
+    "use": "terrainop.carve"
+  },
+  "effects": {
+    "burst": {
+      "count": 40
+    },
+    "flash": {
+      "strength": 1
+    },
+    "shake": {
+      "strength": 2
+    }
+  }
+}

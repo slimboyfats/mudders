@@ -1,0 +1,21 @@
+{
+  "id": "gen.hills",
+  "schemaVersion": 1,
+  "description": "Four maps worth of hills: generator output with 4 spawns, no shots.",
+  "subject": "gen.hills",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 4,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "turnOrder": [0, 1, 2, 3],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 30,
+    "untilSettled": true,
+    "extraTicks": 10
+  }
+}

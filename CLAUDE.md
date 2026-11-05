@@ -14,16 +14,24 @@ Run from the repo root. Everything works in a GPU-less, display-less cloud conta
 | Command                     | What it does                                                                                        |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | `pnpm dev`                  | Client (Vite, :5173) + signalling server (:8787) together                                           |
-| `pnpm test`                 | Vitest across all packages                                                                          |
+| `pnpm test`                 | Vitest across all packages, with the sim coverage gate (≥ 80%)                                      |
 | `pnpm lint` / `pnpm format` | ESLint (incl. determinism rules) / Prettier write                                                   |
 | `pnpm typecheck`            | `tsc` in every package                                                                              |
-| `pnpm check`                | lint + format check + typecheck + test (run before calling anything done)                           |
+| `pnpm check`                | lint + format check + typecheck + content:validate + test (run before calling anything done)        |
 | `pnpm build`                | Build all packages; client to `packages/client/dist`                                                |
 | `pnpm smoke`                | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
 | `pnpm check:ffmpeg`         | Verifies ffmpeg is installed, with install instructions if not                                      |
-| `pnpm verify`               | check + build + smoke: **run before every push** (there is no CI on GitHub)                         |
+| `pnpm bench`                | §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)           |
+| `pnpm content:validate`     | Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date      |
+| `pnpm content:new <t> <n>`  | Scaffold a content item (manifest, test, scenario stub, behaviour for code types)                   |
+| `pnpm content:docs`         | Regenerate `docs/WEAPONS.md` from manifests                                                         |
+| `pnpm sim:preview [ids]`    | Milestone-1 stand-in for capture: scenarios → CPU debug render → `captures/<id>.{gif,mp4}` + sheet  |
+| `pnpm verify`               | check + bench + build + smoke: **run before every push** (there is no CI on GitHub)                 |
 
-Coming in later milestones: `pnpm bench`, `pnpm content:new`, `pnpm content:validate`, `pnpm capture`.
+Coming in later milestones: `pnpm capture` (milestone 2; until then use `pnpm sim:preview`).
+
+Golden determinism hashes live in `packages/content/golden.json`. If a change is _meant_ to alter
+sim results, regenerate with `UPDATE_GOLDEN=1 pnpm test` and bump the behaviour/pack version.
 
 ## Packages
 
@@ -64,12 +72,13 @@ Coming in later milestones: `pnpm bench`, `pnpm content:new`, `pnpm content:vali
     before every push and before claiming a task done, and say what you ran. If something fails after
     pushing, fix it in the session; don't add workflows.
 
-## Visual review (mandatory once `pnpm capture` exists, milestone 2+)
+## Visual review (mandatory; `pnpm sim:preview` until `pnpm capture` exists in milestone 2)
 
 For any change to a weapon, explosion, terrain op, effect, theme or the renderer: run `pnpm capture`
 on the relevant scenario, attach the GIF/MP4 and the `--sheet` PNG, and ask a one-line
-"approve / refuse?" before calling the task done. Until then, `pnpm smoke` output is the visual proof
-that headless rendering works.
+"approve / refuse?" before calling the task done. Until then, use `pnpm sim:preview <scenario>` (CPU
+debug renderer, not the game's look). Post media in the thread as soon as something visible works,
+marked work in progress, before the full verify (Joel's preference); still verify before pushing.
 
 ## Things a cloud agent cannot verify
 

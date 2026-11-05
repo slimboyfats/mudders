@@ -1,0 +1,31 @@
+{
+  "id": "weapon.shockwave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shockwave",
+    "description": "Leaves no crater. A ring of force shoves the hill outward, fills nearby holes and pushes tanks off their perches.",
+    "category": "terrain-dynamics",
+    "since": "core@0.1.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 80
+      }
+    }
+  ],
+  "shop": {
+    "price": 6000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 15,
+    "terrainValue": 0.8
+  }
+}

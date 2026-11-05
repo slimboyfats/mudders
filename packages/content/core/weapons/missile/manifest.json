@@ -1,0 +1,30 @@
+{
+  "id": "weapon.missile",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Missile",
+    "description": "The workhorse shell. A standard blast where it lands.",
+    "category": "explosive",
+    "since": "core@0.1.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard"
+      }
+    }
+  ],
+  "shop": {
+    "price": 1500,
+    "pack": 5,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 40,
+    "terrainValue": 0.2
+  }
+}
