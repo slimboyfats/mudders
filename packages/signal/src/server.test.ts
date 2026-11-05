@@ -59,7 +59,14 @@ describe('signal server', () => {
     const hw = await host.next('welcome');
     const gw = await guest.next('welcome');
     expect(hw.ok && gw.ok).toBe(true);
-    host.send({ type: 'createRoom', name: 'Mud', public: false, maxPlayers: 2, summary: '' });
+    host.send({
+      type: 'createRoom',
+      name: 'Mud',
+      public: false,
+      maxPlayers: 2,
+      summary: '',
+      region: '',
+    });
     const { code } = await host.next('roomUpdate');
     guest.send({ type: 'joinRoom', code });
     expect((await guest.next('roomUpdate')).members).toHaveLength(2);

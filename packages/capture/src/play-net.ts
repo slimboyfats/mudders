@@ -13,6 +13,9 @@ import { REPO_ROOT, capturesDir } from './paths';
  *   then the guest's link is cut (reconnect) and the guest page reloads (rejoin from the log).
  * - `relay`: the same with WebRTC disabled, so everything goes through the WebSocket relay.
  * - `direct`: server-less copy-paste of invite and reply codes.
+ * - `public` (milestone 5): the host lists the room publicly, the guest finds it on the browse
+ *   screen; then the host tab is hidden (the match must keep going), the guest leaves for longer
+ *   than the takeover window (an AI must play its turns), and the guest comes back to its tank.
  *
  * Every run checks the guest never desynced (host-side hash checks) and screenshots both screens.
  * Real NATs, phones and cell handovers are `needs-device`.
@@ -28,6 +31,8 @@ interface NetDebug {
   hash: () => string;
   phase: () => string;
   active: () => number;
+  bots: () => number[];
+  alive: () => boolean[];
   desyncs?: () => number;
   paths?: () => (string | null)[];
   rebuilds?: () => number;
@@ -37,6 +42,7 @@ interface NetDebug {
   dropLink?: () => void;
 }
 type DebugKey = Exclude<keyof NetDebug, 'me' | 'dropLink'>;
+type Run = 'p2p' | 'relay' | 'direct' | 'public';
 
 async function dbg<T>(page: Page, key: DebugKey): Promise<T> {
   return page.evaluate(
@@ -68,6 +74,82 @@ function startSignal(): Promise<{ proc: ChildProcess; url: string }> {
   });
 }
 
+/** The takeover window the `public` run picks in the host lobby (one of its options). */
+const TAKEOVER_TEST_MS = 10_000;
+
+/**
+ * Milestone 5 resilience, on a running match:
+ * 1. Hide the host tab. Its animation frames stop (the page's own visibility handler cancels
+ *    them), so only the background worker can keep the match going: ticks must still advance
+ *    on both sides.
+ * 2. The guest leaves for longer than the takeover window: an AI must stand in and take the
+ *    guest's turn.
+ * 3. The guest comes back on the same tab (same seat token): it gets its tank back.
+ */
+async function resilience(
+  host: Page,
+  guest: Page,
+  joinUrl: string,
+  shot: (p: Page, step: string) => Promise<void>,
+): Promise<void> {
+  const setHidden = (hidden: boolean) =>
+    host.evaluate((h) => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        get: () => (h ? 'hidden' : 'visible'),
+      });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, hidden);
+  await setHidden(true);
+  const h0 = await dbg<number>(host, 'tick');
+  await host.waitForTimeout(3000);
+  const h1 = await dbg<number>(host, 'tick');
+  const g1 = await dbg<number>(guest, 'tick');
+  await setHidden(false);
+  // ~180 ticks in 3 s at 60 Hz; allow for a slow container
+  if (h1 - h0 < 90) throw new Error(`public: hidden host advanced only ${h1 - h0} ticks in 3 s`);
+  if (h1 - g1 > 90) throw new Error(`public: guest fell ${h1 - g1} ticks behind a hidden host`);
+
+  // the guest walks away (same tab, so its seat token survives in sessionStorage)
+  await guest.goto('about:blank');
+  await host.getByText('is away · AI playing').waitFor({ timeout: TAKEOVER_TEST_MS + 8000 });
+  const bots = await dbg<number[]>(host, 'bots');
+  if ((bots[1] ?? -1) < 0) throw new Error(`public: no AI stood in for the guest (${bots})`);
+  // the stand-in plays the guest's turn: wait until player 1 has had the turn and fired (a tank
+  // that is already dead has no turn until the next round, so there is nothing to wait for)
+  const deadline = Date.now() + 40_000;
+  let sawTurn = false;
+  for (;;) {
+    if (!(await dbg<boolean[]>(host, 'alive'))[1]) break;
+    if (Date.now() > deadline) throw new Error('public: the stand-in AI never took its turn');
+    const active = await dbg<number>(host, 'active');
+    const phase = await dbg<string>(host, 'phase');
+    if (active === 1 && phase === 'aim') sawTurn = true;
+    if (sawTurn && (phase === 'resolve' || active !== 1)) break;
+    await host.waitForTimeout(200);
+  }
+  await shot(host, '8-ai-stand-in');
+
+  await guest.goto(joinUrl);
+  await guest.locator('.game-canvas').waitFor({ timeout: 20_000 });
+  await guest.waitForFunction(
+    () =>
+      (window as unknown as { __muddersNet: { status: () => string } }).__muddersNet.status() ===
+      'playing',
+    undefined,
+    { timeout: 20_000 },
+  );
+  await host.waitForFunction(
+    () =>
+      (window as unknown as { __muddersNet: { bots: () => number[] } }).__muddersNet.bots()[1] ===
+      -1,
+    undefined,
+    { timeout: 10_000 },
+  );
+  await shot(guest, '9-back');
+}
+
 const LAPTOP = { viewport: { width: 1200, height: 700 }, deviceScaleFactor: 1 };
 
 export async function runPlayNet(): Promise<PlayNetResult> {
@@ -89,7 +171,7 @@ export async function runPlayNet(): Promise<PlayNetResult> {
   });
   try {
     const only = process.env.PLAY_NET_RUNS?.split(',');
-    for (const run of ['p2p', 'relay', 'direct'] as const) {
+    for (const run of ['p2p', 'relay', 'direct', 'public'] as const) {
       if (only && !only.includes(run)) continue;
       lines.push(await runOne(browser, base, signal.url, run, out, shots));
     }
@@ -105,7 +187,7 @@ async function runOne(
   browser: Browser,
   base: string,
   signalUrl: string,
-  run: 'p2p' | 'relay' | 'direct',
+  run: Run,
   out: string,
   shots: string[],
 ): Promise<string> {
@@ -124,6 +206,8 @@ async function runOne(
     });
     // first-run state: a small, quick map so the test is fast
     await p.addInitScript(() => {
+      // about:blank (the `public` run's guest walking away) has no storage
+      if (location.protocol === 'about:') return;
       if (!localStorage.getItem('mudders.setup.v1')) {
         localStorage.setItem(
           'mudders.setup.v1',
@@ -139,6 +223,7 @@ async function runOne(
     shots.push(file);
   };
 
+  let joinUrl = '';
   try {
     const host = await page('host');
     const guest = await page('guest');
@@ -161,7 +246,20 @@ async function runOne(
       const code = (await host.getByTestId('room-code').textContent({ timeout: 15_000 }))!.trim();
       const link = await host.getByTestId('share-link').inputValue();
       if (!link.endsWith(`#join/${code}`)) throw new Error(`bad share link ${link}`);
-      await guest.goto(`${base}${q}#join/${code}`);
+      joinUrl = `${base}${q}#join/${code}`;
+      if (run === 'public') {
+        await guest.goto(`${base}${q}#browse`);
+        await guest.getByTestId('no-rooms').waitFor({ timeout: 15_000 });
+        await host.getByTestId('public').check();
+        await host.getByTestId('takeover').selectOption(String(TAKEOVER_TEST_MS));
+        // the list refreshes every few seconds; the room shows with the host's name and rules
+        const room = guest.getByTestId('room').filter({ hasText: "Hosty's game" });
+        await room.waitFor({ timeout: 15_000 });
+        await shot(guest, '1-browse');
+        await room.click();
+      } else {
+        await guest.goto(joinUrl);
+      }
     }
     // the guest is seated and connected: Start enables
     await host.locator('[data-testid=start]:not([disabled])').waitFor({ timeout: 20_000 });
@@ -240,6 +338,8 @@ async function runOne(
         { timeout: 20_000 },
       );
     }
+
+    if (run === 'public') await resilience(host, guest, joinUrl, shot);
 
     // let a hash check or two go by, then check nobody desynced
     await host.waitForTimeout(4500);

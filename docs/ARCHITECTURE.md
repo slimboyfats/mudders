@@ -266,7 +266,7 @@ Audio oscillator + noise synth patches described as data. `audio.*` content item
 effect events; the client's audio system consumes them, so audio never affects determinism. Audio
 unlocks on first tap on mobile.
 
-## 7. Networking (milestone 4)
+## 7. Networking (milestones 4 and 5)
 
 Code: `packages/shared/src/protocol.ts` (every message, Zod), `packages/signal/src/lobby.ts` (rooms,
 relay), `packages/client/src/net/` (`link`, `lockstep`, `session`, `signal`, `rtc`) and
@@ -300,17 +300,68 @@ relay), `packages/client/src/net/` (`link`, `lockstep`, `session`, `signal`, `rt
   died asks the host to re-dial and sends `haveTick`; the host re-sends the log from that tick (or
   everything after a reload). The server keeps a dropped member seated for 30 s and closes a room
   when its host is gone that long or it idles for 2 h.
-- **Lobby** (`signal/src/lobby.ts`): `hello`, `createRoom`, `joinRoom(code)`, `leaveRoom`,
-  `listRooms`, `startMatch`, `offer`/`answer`/`ice`, `relay`, `path`; replies `welcome`,
+- **Lobby** (`signal/src/lobby.ts`): `hello`, `createRoom`, `roomSettings`, `joinRoom(code)`,
+  `leaveRoom`, `listRooms`, `startMatch`, `offer`/`answer`/`ice`, `relay`, `path`; replies `welcome`,
   `roomUpdate`, `rooms`, `error`. 6-character codes without look-alike characters, room creation
   rate-limited per address, a per-connection message cap. Seats, rules and names are host state sent
   over the links (`lobby`), so the copy-paste mode needs no server at all.
 - **Server-less mode**: `directOffer`/`directAnswer` wait for ICE gathering and encode the session
   description as `MUD1.` + base64url(deflate-raw). One invite per guest. No relay or reconnect in this
   mode (there is no server to fall back on).
-- **Not yet** (milestone 5): AI takeover of a disconnected human (the turn timer covers it for now),
-  public room browser UI (`listRooms` exists), TURN. The host's tab must stay in the foreground: a
-  hidden host stops the clock for everyone.
+- **Not yet**: host migration (if the host leaves, the match ends) and TURN (see §7.1).
+
+### 7.1 Public games and resilience (milestone 5)
+
+- **Public rooms** (§6.1, §6.5): `createRoom` carries a rough `region` (from the host's time zone,
+  so no geolocation lookup) and the host keeps the listing current with `roomSettings` (public or
+  private, name, one-line rules summary, and `maxPlayers` = seats not taken by bots). `listRooms`
+  returns rooms that are public, not started, not full and whose host is online, oldest first, at
+  most 50. The client's **Browse public games** screen (`#browse`) polls it every 4 s; a row is a
+  `#join/<code>` link, so joining is the same path as a share link.
+- **AI takeover** (§6.1): `{ type: 'takeover', bot: 'ai.*' | null }` is a sim input. The world
+  binds the personality and, if it's that tank's turn, restarts the turn for the new controller (a
+  bot's think time, or the human's turn timer); in the shop a bot shops and readies at once. Only
+  the host issues it (`HostMatch.handle` drops one sent by a guest): `HostSession.heartbeat` seats
+  `ai.shooter` for a human whose link has been gone for `takeoverMs` (host setting: 10, 20 (default)
+  or 60 s, or never), and a rejoin hands the tank back. Because it is stamped and logged like any
+  input, every peer and every rebuild from the log agrees on when it happened. The lobby seat shows
+  `standIn` and the host's banner says "X is away · AI playing".
+- **Hidden host tab**: a hidden page gets no animation frames and its timers are throttled to once
+  a second (once a minute after five minutes), which used to freeze the match for everyone. The host
+  now drives its heartbeat, and while hidden its match, from a dedicated worker's timer
+  (`net/ticker.ts`), which browsers don't throttle that way. A host hidden longer than the takeover
+  window gets a stand-in for its own turns until it is back. A phone that suspends the whole page
+  still stops the host; guests then see a dropped host (`needs-device`). Guests use the same ticker
+  for their pings, so a briefly hidden guest keeps its link.
+- **PWA**: `public/manifest.webmanifest` (landscape, fullscreen, pixel-art icons rendered by
+  `packages/capture/make-icons.mjs`), and a service worker generated at build time by the `pwa`
+  plugin in `vite.config.ts` from `pwa/sw-template.js`: it precaches every build file under a cache
+  named by a hash of the file list, serves the page network-first (cached shell offline) and hashed
+  assets cache-first, and never touches other origins (lobby server, STUN). After one visit, local
+  play works offline. The title screen shows **Install app** when the browser offers the prompt
+  (Chromium), and an "Add to Home Screen" hint on iOS Safari. `pnpm play:smoke` checks the manifest
+  and an offline reload into a local match. `?sw=0` skips registration.
+
+### 7.2 TURN decision (§6.4)
+
+**Decision: no TURN server for now.** The WebSocket relay is the guaranteed path; TURN would only
+move relay load off the signalling server, and relay load is tiny: a 4-player match sends about 20
+small frames a second per guest (≈ 1–3 kB/s per guest), so even dozens of concurrent relayed
+matches fit the free tier's bandwidth. A turn-based game also doesn't need TURN's lower latency.
+
+The server measures what the decision needs, at `GET /stats`:
+
+- `paths.p2p`, `paths.relay`, `paths.relayShare`: how links ended up connected (the host reports
+  each link), and `paths.meanMs` time to open.
+- `relay.bytes`, `relay.bytesLastMinute`, `relay.peakBytesPerMinute`, `relay.frames`: relay load.
+
+Revisit when either holds over a week of real play: `peakBytesPerMinute` above ~50 MB (≈ 7 Mbit/s,
+the point where a free instance's bandwidth or CPU starts to matter), or `relayShare` above ~60%
+with players reporting lag. Then add a TURN server through `VITE_ICE_SERVERS` (JSON
+`RTCIceServer[]`, credentials included): a hosted free tier (e.g. a metered TURN service's free
+quota) first, `coturn` on a UDP-capable free host second. No code change is needed beyond that
+variable. The counters are in memory and reset when the free instance restarts, so read them often
+(stats in a database are an optional §7 item, not built).
 
 ## 8. Capture and visual review (milestone 0 smoke, full CLI in milestone 2)
 

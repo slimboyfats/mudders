@@ -30,8 +30,8 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm content:docs`: Regenerate `docs/WEAPONS.md` from manifests
 - `pnpm capture <scenario>`: Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON
 - `pnpm capture weapon-showcase <weapon-id>`: Preset: fire the weapon at three ranges on the standard map (`--help` for options)
-- `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; screenshots
-- `pnpm play:net`: Built client + real signal server, two headless browsers: P2P, relay and copy-paste matches, reconnect, reload, 0 desyncs; screenshots
+- `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; PWA manifest + offline reload; screenshots
+- `pnpm play:net`: Built client + real signal server, two headless browsers: P2P, relay, copy-paste and public (browse, hidden host, AI takeover, rejoin) matches, reconnect, reload, 0 desyncs; screenshots (`PLAY_NET_RUNS=public` runs one)
 - `pnpm sim:preview [ids]`: CPU debug render of scenarios (sim-only sanity check; not the game's look)
 - `pnpm verify`: check + bench + build + smoke + play:smoke + play:net + determinism:browsers: **run before every push** (no CI on GitHub)
 

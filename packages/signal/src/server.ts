@@ -21,7 +21,15 @@ export function createApp(opts: Partial<LobbyOptions> = {}) {
   app.use('*', cors());
   app.get('/health', (c) => c.json({ ok: true, protocolVersion: PROTOCOL_VERSION }));
   // §6.4: which path links ended up on, so the TURN decision is data-driven
-  app.get('/stats', (c) => c.json({ rooms: lobby.roomCount, paths: lobby.stats() }));
+  app.get('/stats', (c) =>
+    c.json({
+      rooms: lobby.roomCount,
+      publicRooms: lobby.publicRooms().length,
+      paths: lobby.stats(),
+      relay: lobby.relayStats(),
+      uptimeS: Math.round(process.uptime()),
+    }),
+  );
 
   app.get(
     '/ws',

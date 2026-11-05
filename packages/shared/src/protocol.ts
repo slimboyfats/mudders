@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -39,6 +39,19 @@ export const CreateRoomSchema = z.object({
   public: z.boolean(),
   maxPlayers: z.number().int().min(2).max(8),
   /** One-line settings summary for the public list ("Medium · 3 rounds · village"). */
+  summary: z.string().max(80),
+  /** Rough host region for the public list (§6.5), from the host's time zone ("Europe"). */
+  region: z.string().max(24),
+});
+/**
+ * Host only: change how the room shows in the public list (§6.5) after creating it: the host
+ * toggled public/private, renamed, changed the rules, or seated bots (fewer seats for humans).
+ */
+export const RoomSettingsSchema = z.object({
+  type: z.literal('roomSettings'),
+  name: z.string().min(1).max(32),
+  public: z.boolean(),
+  maxPlayers: z.number().int().min(1).max(8),
   summary: z.string().max(80),
 });
 export const JoinRoomSchema = z.object({ type: z.literal('joinRoom'), code: RoomCodeSchema });
@@ -72,6 +85,7 @@ export const PathReportSchema = z.object({
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   HelloSchema,
   CreateRoomSchema,
+  RoomSettingsSchema,
   JoinRoomSchema,
   LeaveRoomSchema,
   ListRoomsSchema,
@@ -116,6 +130,7 @@ export const RoomInfoSchema = z.object({
   players: z.number().int(),
   maxPlayers: z.number().int(),
   summary: z.string(),
+  region: z.string(),
 });
 export const RoomsSchema = z.object({ type: z.literal('rooms'), rooms: z.array(RoomInfoSchema) });
 export const ServerErrorSchema = z.object({
@@ -197,6 +212,8 @@ export const LobbySeatSchema = z.object({
   bot: z.string().optional(),
   connected: z.boolean(),
   path: LinkPathSchema.optional(),
+  /** `ai.*` personality playing for this human while they are away (§6.1 takeover). */
+  standIn: z.string().optional(),
   /** Round trip in ms, if measured. */
   rtt: z.number().int().optional(),
 });

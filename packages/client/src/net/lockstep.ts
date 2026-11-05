@@ -151,7 +151,8 @@ export class HostMatch extends SimMatch {
   /** Game messages from a guest (the session layer routes lobby/ping messages elsewhere). */
   handle(player: number, msg: PeerMessage): void {
     if (msg.type === 'input') {
-      this.submit(player, msg.action);
+      // only the host decides who an AI stands in for (§6.1)
+      if (msg.action.type !== 'takeover') this.submit(player, msg.action);
     } else if (msg.type === 'hash') {
       const mine = this.hashes.get(msg.t);
       if (msg.h === RESYNC || (mine !== undefined && mine !== msg.h)) {
