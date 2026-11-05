@@ -69,7 +69,9 @@ export default tseslint.config(
     files: [
       'packages/sim/**/*.ts',
       'packages/content/**/*.ts',
-      'packages/capture/src/preview/**/*.ts',
+      'packages/capture/src/**/*.ts',
+      'packages/client/src/render/**/*.ts',
+      'packages/client/src/capture/**/*.ts',
     ],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },

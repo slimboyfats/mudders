@@ -1,0 +1,374 @@
+import type { EffectEvent } from '@mudders/shared';
+import type { Quality } from '../types';
+import { Shape, type QuadBatch } from './batch';
+import { FxRng } from './gl';
+import { PKind, type Particles } from './particles';
+import { shade } from './theme';
+
+/**
+ * Pixel-renderer implementations of renderer-agnostic effect events (§2b, §2c.3 `effect.*`).
+ * Each event type maps to a handler; unknown types are ignored. Everything is seeded from the
+ * event itself, so the same snapshot stream always produces the same frames.
+ */
+
+export interface Ripple {
+  x: number;
+  y: number;
+  start: number;
+  dur: number;
+  maxR: number;
+  width: number;
+  strength: number;
+}
+
+interface Glow {
+  x: number;
+  y: number;
+  r: number;
+  start: number;
+  dur: number;
+  color: number;
+  strength: number;
+}
+
+interface Front {
+  x: number;
+  y: number;
+  maxR: number;
+  start: number;
+  dur: number;
+  rng: FxRng;
+}
+
+export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> = {
+  low: { cap: 800, mult: 0.35 },
+  medium: { cap: 2500, mult: 0.7 },
+  high: { cap: 6000, mult: 1 },
+};
+
+/** Reads terrain for effects (e.g. chunk colour); renderer-provided. */
+export interface TerrainProbe {
+  material(x: number, y: number): number;
+  color(material: number): number;
+  width: number;
+  height: number;
+}
+
+export class EffectSystem {
+  ripples: Ripple[] = [];
+  private glows: Glow[] = [];
+  private fronts: Front[] = [];
+  private shakeAmp = 0;
+  private shakeStart = 0;
+  skyFlash = 0;
+  mult = 1;
+
+  constructor(
+    private readonly particles: Particles,
+    private readonly probe: TerrainProbe,
+  ) {}
+
+  private rngFor(e: EffectEvent, salt: number): FxRng {
+    return new FxRng(
+      (Math.imul(e.tick + 1, 2654435761) ^ Math.imul(e.x + 7, 40503) ^ Math.imul(e.y + 3, 9973)) +
+        salt,
+    );
+  }
+
+  /** Spawn the visual for one effect event. */
+  handle(e: EffectEvent): void {
+    switch (e.type) {
+      case 'burst':
+        this.burst(e, e.params.count ?? 24);
+        break;
+      case 'flash':
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: e.radius * 2.2,
+          start: e.tick,
+          dur: 14,
+          color: 0xffc070,
+          strength: e.params.strength ?? 1,
+        });
+        this.skyFlash = Math.min(0.5, this.skyFlash + 0.004 * e.radius * (e.params.strength ?? 1));
+        break;
+      case 'shake':
+        this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
+        this.shakeStart = e.tick;
+        break;
+      case 'ripple':
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 45,
+          maxR: e.radius * 2,
+          width: 16,
+          strength: e.params.strength ?? 1,
+        });
+        break;
+      case 'shockwave':
+        this.fronts.push({
+          x: e.x,
+          y: e.y,
+          maxR: e.radius,
+          start: e.tick,
+          dur: Math.max(4, e.params.ticks ?? 20),
+          rng: this.rngFor(e, 11),
+        });
+        break;
+      case 'muzzle': {
+        const rng = this.rngFor(e, 3);
+        const a = ((e.params.angle ?? 90) * Math.PI) / 180;
+        const n = Math.round(10 * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          const s = rng.range(0.6, 2.2);
+          const da = rng.range(-0.35, 0.35);
+          this.particles.add({
+            x: e.x,
+            y: e.y,
+            vx: Math.cos(a + da) * s,
+            vy: -Math.sin(a + da) * s,
+            life: rng.range(6, 14),
+            size: rng.range(0.5, 1),
+            color: 0xffb040,
+            kind: PKind.Spark,
+          });
+        }
+        for (let i = 0; i < 3; i++) {
+          this.particles.add({
+            x: e.x,
+            y: e.y,
+            vx: Math.cos(a) * 0.4 + rng.range(-0.1, 0.1),
+            vy: -Math.sin(a) * 0.4,
+            life: rng.range(25, 40),
+            size: rng.range(2, 3.5),
+            color: 0x8a8090,
+            kind: PKind.Smoke,
+          });
+        }
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: 6,
+          start: e.tick,
+          dur: 5,
+          color: 0xffd080,
+          strength: 1,
+        });
+        break;
+      }
+      case 'land': {
+        const rng = this.rngFor(e, 5);
+        const n = Math.round(Math.min(20, 4 + (e.params.distance ?? 0)) * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          const side = i % 2 === 0 ? -1 : 1;
+          this.particles.add({
+            x: e.x + side * rng.range(4, 9),
+            y: e.y - 1,
+            vx: side * rng.range(0.2, 0.9),
+            vy: -rng.range(0, 0.25),
+            life: rng.range(20, 40),
+            size: rng.range(2, 4),
+            color: this.dustColor(e.x, e.y),
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
+      case 'tankDeath':
+        this.burst(e, 70);
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: 40,
+          start: e.tick,
+          dur: 20,
+          color: 0xff9040,
+          strength: 1.2,
+        });
+        this.skyFlash = Math.min(0.5, this.skyFlash + 0.25);
+        this.shakeAmp = Math.max(this.shakeAmp, 7);
+        this.shakeStart = e.tick;
+        break;
+      default:
+        break; // unknown effect: ignored by contract
+    }
+  }
+
+  /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
+  private dustColor(x: number, y: number): number {
+    const p = this.probe;
+    for (let r = 0; r < 12; r += 2) {
+      for (const [dx, dy] of [
+        [0, r],
+        [r, 0],
+        [-r, 0],
+        [0, -r],
+        [r, r],
+        [-r, r],
+      ] as const) {
+        const m = p.material(Math.round(x + dx), Math.round(y + dy));
+        if (m !== 0) return p.color(m);
+      }
+    }
+    return 0x7a5a3a;
+  }
+
+  private burst(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 1);
+    const r = Math.max(4, e.radius);
+    const nSpark = Math.round(count * 1.4 * this.mult);
+    const speed = 0.8 + r / 14;
+    for (let i = 0; i < nSpark; i++) {
+      const a = rng.range(Math.PI * 0.05, Math.PI * 0.95);
+      const s = rng.range(0.3, 1) * speed;
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y + rng.range(-2, 2),
+        vx: Math.cos(a) * s * 1.2,
+        vy: -Math.sin(a) * s,
+        life: rng.range(14, 36),
+        size: rng.range(0.5, 1.1),
+        color: rng.next() < 0.3 ? 0xfff0a0 : 0xff7a1a,
+        kind: PKind.Spark,
+      });
+    }
+    // chunks of whatever the blast was in, thrown from the crater rim
+    const base = this.dustColor(e.x, e.y + r * 0.5);
+    const nChunk = Math.round(count * this.mult);
+    for (let i = 0; i < nChunk; i++) {
+      const a = rng.range(Math.PI * 0.1, Math.PI * 0.9);
+      const s = rng.range(0.4, 1) * speed * 1.1;
+      this.particles.add({
+        x: e.x + Math.cos(a) * r * 0.6,
+        y: e.y - Math.sin(a) * r * 0.4,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(30, 60),
+        size: 1,
+        color: shade(base, rng.range(0.75, 1.15)),
+        kind: PKind.Chunk,
+      });
+    }
+    const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nSmoke; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.5,
+        y: e.y + rng.range(-r, r) * 0.3,
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(0.05, 0.4),
+        life: rng.range(50, 90),
+        size: rng.range(r * 0.25, r * 0.5),
+        color: rng.next() < 0.5 ? 0x4a4048 : 0x6a5e62,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
+  /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
+  tick(t: number): void {
+    // shockwave fronts: dust and grit kicked up along the ground as the ring passes
+    this.fronts = this.fronts.filter((f) => {
+      const k = (t - f.start) / f.dur;
+      if (k > 1) return false;
+      const r = f.maxR * k;
+      for (const side of [-1, 1]) {
+        const x = Math.round(f.x + side * r);
+        const y = this.surfaceNear(x, f.y, f.maxR);
+        if (y < 0) continue;
+        const n = Math.max(1, Math.round(3 * this.mult));
+        const col = this.dustColor(x, y + 1);
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: x + f.rng.range(-1.5, 1.5),
+            y: y - f.rng.range(0, 2),
+            vx: side * f.rng.range(0.3, 1.2),
+            vy: -f.rng.range(0.1, 0.7),
+            life: f.rng.range(24, 48),
+            size: f.rng.range(2.5, 5),
+            color: shade(col, 1.15),
+            kind: PKind.Dust,
+          });
+        }
+        if (f.rng.next() < 0.6 * this.mult) {
+          this.particles.add({
+            x,
+            y: y - 1,
+            vx: side * f.rng.range(0.4, 1.4),
+            vy: -f.rng.range(0.8, 2),
+            life: 40,
+            size: 1,
+            color: col,
+            kind: PKind.Chunk,
+          });
+        }
+      }
+      return true;
+    });
+    this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
+    this.glows = this.glows.filter((g) => t - g.start <= g.dur);
+    this.skyFlash *= 0.86;
+    if (this.skyFlash < 0.002) this.skyFlash = 0;
+  }
+
+  /** Top surface row near (x, y): first solid cell with air above, scanning ±range. */
+  private surfaceNear(x: number, y: number, range: number): number {
+    const p = this.probe;
+    if (x < 0 || x >= p.width) return -1;
+    const y0 = Math.max(1, Math.round(y - range));
+    const y1 = Math.min(p.height - 1, Math.round(y + range));
+    for (let yy = y0; yy <= y1; yy++) {
+      if (p.material(x, yy) !== 0 && p.material(x, yy - 1) === 0) return yy;
+    }
+    return -1;
+  }
+
+  /** Screen shake offset in cells at render time `t`. */
+  shake(t: number): [number, number] {
+    const age = t - this.shakeStart;
+    if (this.shakeAmp <= 0 || age > 18 || age < 0) return [0, 0];
+    const a = this.shakeAmp * (1 - age / 18) ** 2;
+    return [Math.sin(age * 2.1) * a, Math.cos(age * 2.9) * a * 0.6];
+  }
+
+  drawGlows(additive: QuadBatch, t: number): void {
+    for (const g of this.glows) {
+      const k = Math.max(0, (t - g.start) / g.dur);
+      if (k > 1) continue;
+      const a = (1 - k) * (1 - k) * g.strength;
+      // hard-banded, cell-snapped blobs instead of smooth gradients (pixel look, §2a)
+      const r = g.r * (0.55 + 0.45 * k);
+      additive.push(g.x, g.y, r * 2, r * 2, g.color, 0.75 * a, Shape.Pixel);
+      additive.push(g.x, g.y, r * 0.8, r * 0.8, 0xfff6e0, 0.9 * a, Shape.Pixel);
+    }
+  }
+
+  /** Low quality has no distortion pass: draw ripples as plain rings instead. */
+  drawRippleRings(additive: QuadBatch, t: number): void {
+    for (const r of this.ripples) {
+      const k = (t - r.start) / r.dur;
+      if (k < 0 || k > 1) continue;
+      const rad = r.maxR * Math.sqrt(k);
+      additive.push(
+        r.x,
+        r.y,
+        rad * 2.35,
+        rad * 2.35,
+        0xb0d0ff,
+        0.35 * (1 - k) * r.strength,
+        Shape.Ring,
+      );
+      // (low quality only; medium/high get the cell-snapped refraction pass)
+    }
+  }
+
+  clear(): void {
+    this.ripples = [];
+    this.glows = [];
+    this.fronts = [];
+    this.shakeAmp = 0;
+    this.skyFlash = 0;
+  }
+}

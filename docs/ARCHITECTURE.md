@@ -2,7 +2,7 @@
 
 Derived from [`REQUIREMENTS.md`](REQUIREMENTS.md) (section numbers like §6.3 refer to it). This file
 describes _how_ the pieces fit; the requirements say _what_ and _why_. Sections marked **(planned)**
-describe milestone 1+ work that is not built yet.
+describe work that is not built yet.
 
 ## 1. Big picture
 
@@ -123,33 +123,59 @@ Weapons compose slots: `flight`, `triggers`, `impact[]`, `damage`, `effects`, `a
 `contact`, `decay`. Props are multi-material stamps with optional integrity groups that are written
 into the grid at round start and are ordinary terrain from then on.
 
-## 5. Rendering (planned, milestone 2)
+## 5. Rendering (milestone 2)
+
+**Decision (open question §12): raw WebGL2, no PixiJS.** The pipeline is one palette shader, one
+instanced quad batch and one post pass; Pixi would add ~150 kB for features we don't use, and owning
+the GL makes captures byte-identical under SwiftShader. WebGPU stays a possible later enhancement
+behind a runtime check. Revisit if the effect library (milestone 6) outgrows hand-written passes.
 
 ```ts
-interface RenderSnapshot {
-  terrain: Uint8Array;
-  dirtyRects: Rect[];
-  entities: EntityView[];
-  effectEvents: EffectEvent[];
-  wind: number;
-  theme: string;
-}
+// packages/client/src/render/types.ts (abridged)
 interface Renderer {
-  mount(canvas: HTMLCanvasElement, snapshots: SnapshotStream, quality: Quality): void;
-  resize(): void;
-  setTheme(id: string): void;
+  mount(canvas, snapshots: SnapshotStream, options: { quality; theme; palette; shake? }): void;
+  resize(cssWidth, cssHeight, dpr): void;
+  setTheme(id): void;
+  setQuality(q): void;
+  render(time: number): void; // time in ticks; no wall clock, so captures replay exactly
+  readonly camera: CameraControl; // fit, integer zoom steps, pan
+  unproject(screen): Vec2; // screen (CSS px) → map
+  project(map): Vec2;
   unmount(): void;
-  unproject(screen: Vec2): Vec2; // screen → map coords
 }
 ```
 
-Pixel renderer pipeline: sky → terrain grid as an `R8` texture through a palette-lookup shader at an
-integer scale, nearest-neighbour, dirty-rect sub-uploads (< 1 ms) → coating overlay → entities and
-trails at native resolution → GPU particles → post-process effect passes driven by effect events →
-React/DOM HUD outside the canvas. Effect events (`shockwave`, `flash`, `haze`, `burst`, …) are
-renderer-agnostic and fire-and-forget: dropping one never changes sim state. Quality low/medium/high
-scales particles and disables heavy filters. Everything must run on WebGL2 via SwiftShader for capture.
-PixiJS v8 vs. raw WebGL2 is decided in milestone 2 with a shockwave-filter spike.
+`RenderSnapshot` (in `shared`) carries terrain + dirty rects, entities (tanks with `active`/`power`,
+projectiles), debris, effect events, wind, theme and `turn`. The host (local match, capture page,
+later the net client) pushes one snapshot per tick through a `SnapshotStream` and calls `render()`
+per display frame. `loadRenderer('pixel', w, h)` lazy-loads the implementation.
+
+Pixel renderer (`packages/client/src/render/pixel`):
+
+1. Terrain grid as an `R8UI` texture, dirty-rect sub-uploads (`UNPACK_ROW_LENGTH`/`SKIP_*`).
+2. A shading pass re-colours only the dirty cells into a map-sized RGBA cache (palette lookup,
+   per-cell grain, lit surface rows, darker overhangs, depth). Cells are never smoothed.
+3. One fullscreen background pass: letterbox, sky gradient, terrain cache at the camera scale
+   (nearest-neighbour), sky flash, vignette.
+4. Instanced quads (`QuadBatch`) in map space: trails, debris, tanks, cosmetic particles, projectiles
+   and impact flashes (normal and additive batches). Effects use the cell-snapped "pixel" shape with
+   hard bands and ordered dither, never smooth glows.
+5. Post pass, only while needed: shockwave distortion (a lens band evaluated per map cell that moves
+   whole cells), flash tint and whole-cell screen shake.
+
+Effect events map to handlers in `effects.ts` (`burst`, `flash`, `shake`, `ripple`, `shockwave`,
+`muzzle`, `land`, `tankDeath`); unknown types are ignored. Cosmetic particles are typed-array pools
+stepped once per sim tick and seeded from the event (`FxRng`), never `Math.random`. Quality scales
+particle caps (800 / 2,500 / 6,000) and turns the distortion pass and vignette off on `low`.
+
+Camera: the fit view uses an integer scale on standard-density screens and a fractional fit on
+DPR ≥ 2 (a one-device-pixel difference between cells is invisible there; rounding down would waste
+half a phone screen). Zoom steps are integers; the origin snaps to whole device pixels.
+
+Client (`packages/client/src`): `game/match.ts` (`LocalMatch`: 60 Hz accumulator, max 8 ticks per
+frame, snapshot stream, HUD state), `game/aim.ts` (slingshot maths), `ui/MatchView.tsx` (canvas,
+pointer/keyboard input, aim preview), `ui/Hud.tsx` (wind, players, steppers, weapon strip, FIRE),
+`ui/Sandbox.tsx` (§2c.5). The match and sandbox are code-split from the title screen.
 
 ## 6. Audio (planned, milestone 6; requirement §8b)
 
@@ -183,10 +209,18 @@ Built in milestone 0: `pnpm smoke` launches headless Chromium with SwiftShader
 fixed step, checks pixels, screenshots, and encodes a palette-quantised GIF with ffmpeg. This proves
 the full capture path in a GPU-less container.
 
-Planned `pnpm capture <scenario>`: Node runs the sim headlessly from a Zod-validated scenario file
-(`scenarios/*.json`) → the snapshot stream is played through the real renderer in Chromium at a fixed
-step → frames → ffmpeg GIF/MP4 + `--sheet` PNG + JSON sidecar. Same inputs give byte-identical frames,
-enabling `--diff` visual regression against `captures/reference/` and `--compare <gitref>`.
+`pnpm capture` (milestone 2, `packages/capture/src/capture`): Node runs the scenario through the
+sim (`ScenarioDriver`); `toWire` packs each tick's snapshot (dirty rects as base64 patches); the real
+pixel renderer, bundled from `packages/client/src/capture/entry.ts` with Vite, runs in headless
+Chromium. Two pages receive every snapshot and each draws alternate frames (rendering never mutates
+renderer state, so this is exact). Frames come back as PNG and ffmpeg writes the MP4 (default), GIF
+(`--gif`), a sheet (impact, +0.5 s, settled) and a JSON sidecar (seed, content hash, renderer hash,
+state hash, git sha). A cache keyed on scenario + content hash + renderer bundle hash + options skips
+unchanged captures. `--diff` compares the sheet against `captures/reference/`. Presets live in
+`presets.ts` (`weapon-showcase` solves the aim by running the sim). `pnpm play:smoke` drives the
+built client on emulated phones and a laptop with real touch/mouse input.
+
+Not built yet: `--compare <gitref>` and `--audio` (audio arrives in milestone 6).
 
 ## 9. Infrastructure
 

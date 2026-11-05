@@ -9,12 +9,16 @@
     "check:ffmpeg": "tsx src/cli/check-ffmpeg.ts",
     "typecheck": "tsc -p .",
     "build": "tsc -p .",
-    "sim:preview": "tsx ../../scripts/vite-run.ts src/cli/sim-preview.ts"
+    "sim:preview": "tsx ../../scripts/vite-run.ts src/cli/sim-preview.ts",
+    "capture": "tsx ../../scripts/vite-run.ts src/cli/capture.ts",
+    "play:smoke": "tsx ../../scripts/vite-run.ts src/cli/play-smoke.ts"
   },
   "dependencies": {
     "@mudders/content": "workspace:*",
     "@mudders/shared": "workspace:*",
     "@mudders/sim": "workspace:*",
-    "playwright": "1.63.0"
+    "playwright": "1.63.0",
+    "@mudders/client": "workspace:*",
+    "vite": "^8.3.6"
   }
 }

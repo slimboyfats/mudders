@@ -47,6 +47,16 @@ export interface WorldOptions {
     | undefined;
   /** Force tank columns instead of the generator's spawns. */
   tankColumns?: readonly number[] | undefined;
+  /** Per-player overrides (scenarios, sandbox): starting health and inventory by weapon id. */
+  tankSetup?:
+    | readonly (
+        | {
+            health?: number | undefined;
+            inventory?: Readonly<Record<string, number>> | undefined;
+          }
+        | undefined
+      )[]
+    | undefined;
   /** Force wind (cells/tick²) for the whole match. */
   wind?: number | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
@@ -270,13 +280,22 @@ export class World implements SimApi {
       const x = Math.max(TANK_HALF, Math.min(this.grid.width - TANK_HALF - 1, col));
       const inventory = new Array<number>(this.weapons.length).fill(0);
       for (const l of loadout) inventory[this.weaponIndex[l.weapon]!] = l.count;
+      const setup = this.options.tankSetup?.[p];
+      if (setup?.inventory) {
+        // order-independent: each key sets its own slot
+        for (const id of Object.keys(setup.inventory)) {
+          const w = Object.hasOwn(this.weaponIndex, id) ? this.weaponIndex[id] : undefined;
+          if (w === undefined) throw new Error(`unknown weapon in tank setup: ${id}`);
+          inventory[w] = setup.inventory[id]!;
+        }
+      }
       const first = loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0;
       const tank: Tank = {
         player: p,
         alive: true,
         x,
         y: 0,
-        health: this.mode.startingHealth,
+        health: setup?.health ?? this.mode.startingHealth,
         angle: x < this.grid.width / 2 ? 45 : 135,
         power: 500,
         weapon: first,
@@ -682,6 +701,8 @@ export class World implements SimApi {
         angle: t.angle,
         health: t.health,
         alive: t.alive,
+        power: t.power,
+        active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
     for (const p of this.projectiles) {
@@ -697,6 +718,7 @@ export class World implements SimApi {
     this.effects = [];
     return {
       tick: this.tick,
+      turn: this.turn,
       width: this.grid.width,
       height: this.grid.height,
       terrain: this.grid.material,
