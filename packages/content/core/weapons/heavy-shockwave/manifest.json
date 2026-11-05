@@ -5,7 +5,7 @@
     "name": "Heavy Shockwave",
     "description": "A huge ring of force. Bulldozes the hill into a rampart, buries anyone close and throws tanks off their perches.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

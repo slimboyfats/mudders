@@ -5,7 +5,7 @@
     "name": "Baby Nuke",
     "description": "A very big bang. Carves a deep crater and hurts everything in it.",
     "category": "explosive",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

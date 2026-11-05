@@ -5,7 +5,7 @@
     "name": "Baby Shockwave",
     "description": "A small ring of force: enough to fill a crater or nudge a tank off a ledge.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Attract",
     "description": "Implosion: sweeps from the rim to the centre, throwing loose surface cells onto the impact point. The ground heaps into a mound with a hollow around it, and tanks are dragged inward.",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "behaviour": "terrainop.attract",
   "expandTicks": 8,

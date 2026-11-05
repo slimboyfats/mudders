@@ -5,7 +5,7 @@
     "name": "Trencher",
     "description": "Digs a deep trench where it lands. Drop a tank into a pit it has to shoot its way out of.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

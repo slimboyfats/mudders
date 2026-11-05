@@ -4,7 +4,7 @@
   "meta": {
     "name": "Liquid dirt",
     "description": "Quicksand: dirt shaken loose enough to flow. Runs downhill, carries tanks with it, and sets back into dirt after a few seconds.",
-    "since": "core@0.2.0",
+    "since": "core@0.3.0",
     "color": "#6e4424"
   },
   "cell": 7,

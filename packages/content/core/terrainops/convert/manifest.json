@@ -4,7 +4,7 @@
   "meta": {
     "name": "Convert",
     "description": "Turns the listed materials inside a disc into another material, sweeping outward from the centre with a ragged rim.",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "behaviour": "terrainop.convert",
   "from": ["material.dirt", "material.sand"],

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Ash",
     "description": "What burning leaves behind. Light and loose: it slides like sand and gives way to almost anything.",
-    "since": "core@0.2.0",
+    "since": "core@0.3.0",
     "color": "#5b5550"
   },
   "cell": 6,

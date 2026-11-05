@@ -5,7 +5,7 @@
     "name": "Implosion",
     "description": "Pulls the ground in: it heaps into a mound on the impact point and drags nearby tanks toward it, leaving whoever ends up on top exposed.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

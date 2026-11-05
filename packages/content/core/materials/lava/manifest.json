@@ -4,7 +4,7 @@
   "meta": {
     "name": "Lava",
     "description": "Molten rock. Runs downhill and pools, burns any tank sitting in it at the end of every turn, melts ice, and cools to rock after three turns.",
-    "since": "core@0.2.0",
+    "since": "core@0.3.0",
     "color": "#ff5a1f"
   },
   "cell": 5,

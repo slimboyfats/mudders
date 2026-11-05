@@ -5,7 +5,7 @@
   "meta": {
     "name": "Melt",
     "description": "Turns dirt, sand and ash into lava, which runs downhill, burns tanks that sit in it and cools to rock over a few turns.",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "from": ["material.dirt", "material.sand", "material.ash", "material.liquid-dirt"],
   "into": "material.lava",

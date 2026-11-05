@@ -5,7 +5,7 @@
     "name": "Terraformer",
     "description": "Grows a wall of dirt where it lands: cover between you and the shooter, or a ramp up to the high ground.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

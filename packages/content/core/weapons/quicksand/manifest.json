@@ -5,7 +5,7 @@
     "name": "Quicksand",
     "description": "Turns the ground into flowing mud for a few seconds. The hill slumps, tunnels fill, and tanks on the slope slide to the bottom.",
     "category": "terrain-dynamics",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

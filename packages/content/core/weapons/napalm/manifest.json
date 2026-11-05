@@ -5,7 +5,7 @@
     "name": "Napalm",
     "description": "Splashes burning jelly that runs downhill, scorches the dirt to ash and burns any tank it reaches.",
     "category": "incendiary",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

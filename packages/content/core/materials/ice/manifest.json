@@ -4,7 +4,7 @@
   "meta": {
     "name": "Ice",
     "description": "Frozen ground. Never falls, resists blasts and shocks, but heat cuts straight through it.",
-    "since": "core@0.2.0",
+    "since": "core@0.3.0",
     "color": "#a9d8f0"
   },
   "cell": 4,

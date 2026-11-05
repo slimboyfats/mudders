@@ -5,7 +5,7 @@
     "name": "Nuke",
     "description": "The biggest bang in the shop. Clears a hillside and anyone standing on it.",
     "category": "explosive",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

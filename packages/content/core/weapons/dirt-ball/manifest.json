@@ -5,7 +5,7 @@
     "name": "Dirt Ball",
     "description": "Drops a ball of dirt where it lands. Bury a tank, plug a crater or build cover.",
     "category": "earthmover",
-    "since": "core@0.2.0"
+    "since": "core@0.3.0"
   },
   "flight": {
     "use": "flight.ballistic"

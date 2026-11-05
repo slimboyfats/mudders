@@ -4,7 +4,7 @@
   "meta": {
     "name": "Napalm",
     "description": "Burning jelly. Flows downhill, scorches the dirt it runs over into ash, burns tanks it touches at the end of the turn, and burns out after a few seconds.",
-    "since": "core@0.2.0",
+    "since": "core@0.3.0",
     "color": "#ff9a2a"
   },
   "cell": 8,
