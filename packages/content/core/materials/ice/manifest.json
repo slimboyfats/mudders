@@ -1,0 +1,22 @@
+{
+  "id": "material.ice",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ice",
+    "description": "Frozen ground. Never falls, resists blasts and shocks, but heat cuts straight through it.",
+    "since": "core@0.3.0",
+    "color": "#a9d8f0"
+  },
+  "cell": 4,
+  "settle": "static",
+  "density": 150,
+  "strength": {
+    "blast": 1.8,
+    "kinetic": 1.5,
+    "heat": 0.2,
+    "shock": 2,
+    "dig": 1.5
+  },
+  "cohesion": 0,
+  "coating": false
+}

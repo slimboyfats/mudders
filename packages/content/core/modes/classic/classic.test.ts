@@ -21,7 +21,9 @@ describe('mode.classic', () => {
 
   it('gives every tank the loadout and ends when one tank is left', () => {
     const w = makeWorld({ seed: 4 });
-    expect(w.tanks[0]!.inventory.slice().sort()).toEqual([-1, 10, 3].sort());
+    expect(w.tanks[0]!.inventory.filter((n) => n !== 0).sort()).toEqual(
+      [-1, 10, 3, 2, 1, 1].sort(),
+    );
     w.tanks[1]!.health = 1;
     w.tanks[1]!.alive = true;
     // a tank killed by any means ends the 2-player round

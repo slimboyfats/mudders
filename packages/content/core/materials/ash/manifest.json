@@ -1,0 +1,21 @@
+{
+  "id": "material.ash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ash",
+    "description": "What burning leaves behind. Light and loose: it slides like sand and gives way to almost anything.",
+    "since": "core@0.3.0",
+    "color": "#5b5550"
+  },
+  "cell": 6,
+  "settle": "slide",
+  "density": 60,
+  "strength": {
+    "blast": 0.5,
+    "kinetic": 0.5,
+    "shock": 0.5,
+    "dig": 0.4
+  },
+  "cohesion": 0,
+  "coating": false
+}

@@ -1,0 +1,33 @@
+{
+  "id": "weapon.baby-shockwave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Baby Shockwave",
+    "description": "A small ring of force: enough to fill a crater or nudge a tank off a ledge.",
+    "category": "terrain-dynamics",
+    "since": "core@0.3.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 50,
+        "push": 14,
+        "damage": 8
+      }
+    }
+  ],
+  "shop": {
+    "price": 3000,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 8,
+    "terrainValue": 0.6
+  }
+}

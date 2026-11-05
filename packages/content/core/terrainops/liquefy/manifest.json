@@ -1,0 +1,13 @@
+{
+  "id": "terrainop.liquefy",
+  "schemaVersion": 1,
+  "extends": "terrainop.convert",
+  "meta": {
+    "name": "Liquefy",
+    "description": "Turns dirt, sand and ash into liquid dirt that flows downhill for a few seconds and then sets as dirt again.",
+    "since": "core@0.3.0"
+  },
+  "from": ["material.dirt", "material.sand", "material.ash"],
+  "into": "material.liquid-dirt",
+  "expandTicks": 12
+}

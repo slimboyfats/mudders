@@ -1,5 +1,6 @@
 import { FP } from '@mudders/shared';
 import type { Grid } from './grid';
+import type { MaterialTable } from './materials';
 
 /** Upper bound on simultaneous debris particles. */
 export const DEBRIS_CAP = 32768;
@@ -61,7 +62,7 @@ export class DebrisPool {
    * that would enter a solid cell or the floor lands in the last free cell it passed (or the
    * nearest air above it); one that leaves the map sideways is lost.
    */
-  step(grid: Grid, gravity: number): void {
+  step(grid: Grid, gravity: number, mats?: MaterialTable): void {
     const W = grid.width;
     const H = grid.height;
     const m = grid.material;
@@ -130,6 +131,13 @@ export class DebrisPool {
         // Landed cells rest on solid ground by construction; only one that ran out of roll
         // steps mid-air needs the settle pass. Render-wise the whole landing box is dirty.
         if (y < H - 1 && m[t + W] === 0) grid.markDirty(lx, y, lx, y);
+        else if (
+          mats &&
+          (mats.active[m[t]!] !== 0 ||
+            mats.decayTurns[m[t]!] !== 0 ||
+            mats.active[grid.coating[t]!] !== 0)
+        )
+          grid.extendReact(lx - 1, y - 1, lx + 1, y + 1);
         if (lx < minX) minX = lx;
         if (lx > maxX) maxX = lx;
         if (y < minY) minY = y;

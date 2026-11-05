@@ -36,6 +36,8 @@ import { MaterialTable, damageTypeIndex } from './materials';
 import { Prng } from './prng';
 import { Scratch } from './scratch';
 import { settleStep } from './settle';
+import { reactStep, turnDecay } from './reactions';
+import { SETTLE_FLOW } from './materials';
 
 /** Tank footprint (§2a: ~16×10). x is the centre column, y the row the tank stands on. */
 export const TANK_W = 16;
@@ -112,6 +114,8 @@ export interface Tank extends TankHandle {
   falling: boolean;
   fallFrom: number;
   fallVel: number;
+  /** Cells sunk into quicksand-like ground since the tank last fell or the round started. */
+  sunk: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -238,6 +242,7 @@ export class World implements SimApi {
   private nextProjectileId = 1;
   private shooter = -1;
   private pendingInputs: { player: number; input: Input }[] = [];
+  private contactDone = false;
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
@@ -385,6 +390,7 @@ export class World implements SimApi {
         falling: false,
         fallFrom: 0,
         fallVel: 0,
+        sunk: 0,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -426,6 +432,7 @@ export class World implements SimApi {
     g.clearSettle();
     g.takeRenderRects();
     g.addRenderRect(0, 0, g.width, g.height);
+    g.clearReact();
     g.fallVel.fill(0);
 
     for (const tank of this.tanks) {
@@ -439,6 +446,7 @@ export class World implements SimApi {
       tank.falling = false;
       tank.fallFrom = 0;
       tank.fallVel = 0;
+      tank.sunk = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -488,6 +496,7 @@ export class World implements SimApi {
       this.ops.length === 0 &&
       this.debris.count === 0 &&
       !this.grid.settling &&
+      !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
       !this.tanks.some((t) => t.falling)
     );
@@ -542,11 +551,19 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     this.stepOps();
-    this.debris.step(this.grid, this.gravity);
+    this.debris.step(this.grid, this.gravity, this.mats);
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
+    reactStep(this.grid, this.mats, this.tick);
     this.stepTanks();
 
-    if (this.phase === 'resolve' && this.quiet) this.endTurn();
+    if (this.phase === 'resolve' && this.quiet) {
+      // Contact damage (lava, napalm) once the shot has settled; deaths may need resolving first.
+      if (!this.contactDone) {
+        this.contactDone = true;
+        this.applyContact();
+      }
+      if (this.quiet) this.endTurn();
+    }
     this.tick++;
   }
 
@@ -927,6 +944,77 @@ export class World implements SimApi {
 
   // ── tanks ───────────────────────────────────────────────────────────────────────────────
 
+  /** Worst contact damage of any cell in or directly under each tank's footprint (§4b). */
+  private applyContact(): void {
+    const g = this.grid;
+    const cd = this.mats.contactDamage;
+    for (const t of this.tanks) {
+      if (!t.alive) continue;
+      let worst = 0;
+      for (let y = Math.max(0, t.y - TANK_H); y <= Math.min(g.height - 1, t.y); y++) {
+        const row = y * g.width;
+        for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+          const d = cd[g.material[row + x]!]!;
+          if (d > worst) worst = d;
+        }
+      }
+      if (worst > 0) {
+        this.emit('burn', t.x, t.y - TANK_H / 2, TANK_HALF, { damage: worst });
+        this.damageTank(t, worst, t.lastHitBy);
+      }
+    }
+  }
+
+  /** On a flowing slope (quicksand) the tank slides one cell toward the lower side. */
+  private slide(t: Tank): void {
+    const g = this.grid;
+    if (t.y >= g.height || (this.tick & 3) !== 0) return;
+    const row = t.y * g.width;
+    let flow = 0;
+    let solid = 0;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      const m = g.material[row + x]!;
+      if (m === 0) continue;
+      solid++;
+      if (this.mats.settle[m] === SETTLE_FLOW) flow++;
+    }
+    if (flow * 2 < solid || solid === 0) return;
+    const l = g.surfaceY(t.x - TANK_HALF - 1);
+    const r = g.surfaceY(t.x + TANK_HALF);
+    if (l === r) return;
+    const nx = t.x + (l > r ? -1 : 1);
+    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return;
+    t.x = nx;
+  }
+
+  /**
+   * On `sink` ground (quicksand) the tank settles into it: one cell every `sink.ticks` ticks, up to
+   * `sink.depth` cells. Its lower body then sits inside the terrain, which the renderer draws over
+   * it. It needs sink material under at least half the treads.
+   */
+  private sink(t: Tank): void {
+    const g = this.grid;
+    if (t.y >= g.height - 1) return;
+    const row = t.y * g.width;
+    const st = this.mats.sinkTicks;
+    let n = 0;
+    let solid = 0;
+    let best = 0;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      const m = g.material[row + x]!;
+      if (m === 0) continue;
+      solid++;
+      if (st[m] !== 0) {
+        n++;
+        best = m;
+      }
+    }
+    if (n * 2 < solid || n * 2 < TANK_W) return;
+    if (t.sunk >= this.mats.sinkDepth[best]! || this.tick % st[best]! !== 0) return;
+    t.y++;
+    t.sunk++;
+  }
+
   private supported(t: Tank): boolean {
     if (t.y >= this.grid.height) return true;
     const m = this.grid.material;
@@ -950,10 +1038,15 @@ export class World implements SimApi {
           t.falling = true;
           t.fallFrom = t.y;
           t.fallVel = 0;
+          t.sunk = 0;
         }
         t.fallVel = Math.min(t.fallVel + 1, MAX_TANK_FALL);
         for (let i = 0; i < t.fallVel && !this.supported(t); i++) t.y++;
-      } else if (t.falling) {
+      } else if (!t.falling) {
+        // once it has started to sink the tank is bogged down and no longer slides
+        this.sink(t);
+        if (t.sunk === 0 && this.grid.settling) this.slide(t);
+      } else {
         t.falling = false;
         const dist = t.y - t.fallFrom;
         const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
@@ -981,6 +1074,7 @@ export class World implements SimApi {
   // ── turns and rounds ────────────────────────────────────────────────────────────────────
 
   private beginTurn(): void {
+    this.contactDone = false;
     this.shooter = -1;
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
@@ -1014,6 +1108,7 @@ export class World implements SimApi {
 
   private endTurn(): void {
     this.turn++;
+    turnDecay(this.grid, this.mats);
     const alive = this.tanks.filter((t) => t.alive).length;
     if (alive <= 1 || this.turn >= this.turnCap * this.tanks.length) {
       this.endRound();
@@ -1190,6 +1285,9 @@ export class World implements SimApi {
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.cellState).bytes(g.fallVel);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);
+    h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
+    h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);
+    h.num(this.contactDone ? 1 : 0);
     for (const t of this.tanks) {
       h.num(t.player)
         .num(t.alive ? 1 : 0)
@@ -1202,6 +1300,7 @@ export class World implements SimApi {
         .num(t.falling ? 1 : 0)
         .num(t.fallFrom)
         .num(t.fallVel)
+        .num(t.sunk)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)

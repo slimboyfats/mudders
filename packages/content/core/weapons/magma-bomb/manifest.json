@@ -1,0 +1,47 @@
+{
+  "id": "weapon.magma-bomb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magma Bomb",
+    "description": "Melts the ground into lava that runs downhill and pools. Tanks sitting in it burn every turn until it cools to rock three turns later.",
+    "category": "terrain-dynamics",
+    "since": "core@0.3.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 36,
+        "damage": 25,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.melt"
+        },
+        "effects": {
+          "burst": {
+            "count": 30
+          },
+          "flash": {
+            "strength": 1
+          },
+          "shake": {
+            "strength": 2
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 35,
+    "terrainValue": 0.9
+  }
+}

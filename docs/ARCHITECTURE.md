@@ -94,6 +94,19 @@ AI players are `ai.*` content (behaviour kind `ai`). When a bot is up the kernel
 own flight behaviour and the kernel's tracer against the current terrain (no side effects), so
 solvers like `ai.poolshark` account for wind and terrain exactly. Bot memory is a hashed `number[]`.
 
+### 3.2b Reactions and decay (milestone 3)
+
+`reactions.ts` runs after settle, over the **react region**: a box the grid grows whenever
+`markDirty` touches cells, a moved cell is active, or debris of an active material lands.
+`MaterialTable.active` flags materials (and coatings) that need it: `reactions` (per-tick chance
+of turning into `into` and the neighbour into `other`, with an optional `spawn` into adjacent
+air), tick `decay`, and `spread` (flow ageing that limits how far lava creeps). Cells still alive
+re-extend the region by one cell, so it shrinks to nothing once everything is inert and `quiet`
+can end the turn. Turn `decay` (lava → rock after N turns) is applied at `endTurn` over a separate
+turn region; `cellState` holds age (low 6 bits) and turns (high 2 bits). Randomness is an integer
+hash of (cell, tick, k), not the match PRNG, so the pass order never shifts other rolls. When the
+shot is quiet, `contact.damage` materials (lava, napalm) under or beside a tank hurt it once.
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.

@@ -1,0 +1,43 @@
+{
+  "id": "weapon.nuke",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Nuke",
+    "description": "The biggest bang in the shop. Clears a hillside and anyone standing on it.",
+    "category": "explosive",
+    "since": "core@0.3.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 72,
+        "damage": 100,
+        "effects": {
+          "burst": {
+            "count": 110
+          },
+          "flash": {
+            "strength": 2
+          },
+          "shake": {
+            "strength": 6
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 15000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 80,
+    "terrainValue": 0.6
+  }
+}

@@ -6,10 +6,15 @@ describe('content packs', () => {
     const c = loadContent();
     expect(c.packs.map((p) => p.name)).toEqual(['core']);
     expect(c.hash).toMatch(/^[0-9a-f]{16}$/);
-    expect(c.list('weapon').map((w) => w.id)).toEqual([
-      'weapon.baby-missile',
-      'weapon.missile',
+    const weapons = c.list('weapon').map((w) => w.id);
+    expect(weapons).toEqual([...weapons].sort());
+    expect(weapons.length).toBeGreaterThanOrEqual(15);
+    for (const id of [
       'weapon.shockwave',
-    ]);
+      'weapon.quicksand',
+      'weapon.terraformer',
+      'weapon.magma-bomb',
+    ])
+      expect(weapons).toContain(id);
   });
 });

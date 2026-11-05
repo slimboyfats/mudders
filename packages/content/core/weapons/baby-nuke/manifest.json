@@ -1,0 +1,43 @@
+{
+  "id": "weapon.baby-nuke",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Baby Nuke",
+    "description": "A very big bang. Carves a deep crater and hurts everything in it.",
+    "category": "explosive",
+    "since": "core@0.3.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 45,
+        "damage": 80,
+        "effects": {
+          "burst": {
+            "count": 70
+          },
+          "flash": {
+            "strength": 1.5
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 8000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 60,
+    "terrainValue": 0.4
+  }
+}

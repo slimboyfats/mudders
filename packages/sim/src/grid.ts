@@ -22,6 +22,17 @@ export class Grid {
   settleMaxX = -1;
   settleMaxY = -1;
 
+  /** Reaction region (inclusive rect): recently changed cells, checked by `reactStep`. */
+  reactMinX = 0;
+  reactMaxX = -1;
+  reactMinY = 0;
+  reactMaxY = -1;
+  /** Bounding box of cells with turn-based decay (lava cooling), checked once per turn. */
+  turnMinX = 0;
+  turnMaxX = -1;
+  turnMinY = 0;
+  turnMaxY = -1;
+
   private renderRects: Rect[] = [];
 
   constructor(
@@ -42,7 +53,52 @@ export class Grid {
     this.cellState.fill(0);
     this.fallVel.fill(0);
     this.clearSettle();
+    this.clearReact();
+    this.turnMaxX = -1;
     this.renderRects = [];
+  }
+
+  get reacting(): boolean {
+    return this.reactMaxX >= this.reactMinX && this.reactMaxY >= this.reactMinY;
+  }
+
+  clearReact(): void {
+    this.reactMinX = 0;
+    this.reactMaxX = -1;
+    this.reactMinY = 0;
+    this.reactMaxY = -1;
+  }
+
+  /** Grow the reaction region by an inclusive rect (clamped). */
+  extendReact(x0: number, y0: number, x1: number, y1: number): void {
+    const ax = Math.max(0, x0);
+    const bx = Math.min(this.width - 1, x1);
+    const ay = Math.max(0, y0);
+    const by = Math.min(this.height - 1, y1);
+    if (bx < ax || by < ay) return;
+    if (this.reacting) {
+      if (ax < this.reactMinX) this.reactMinX = ax;
+      if (bx > this.reactMaxX) this.reactMaxX = bx;
+      if (ay < this.reactMinY) this.reactMinY = ay;
+      if (by > this.reactMaxY) this.reactMaxY = by;
+    } else {
+      this.reactMinX = ax;
+      this.reactMaxX = bx;
+      this.reactMinY = ay;
+      this.reactMaxY = by;
+    }
+  }
+
+  extendTurn(x: number, y: number): void {
+    if (this.turnMaxX < this.turnMinX) {
+      this.turnMinX = this.turnMaxX = x;
+      this.turnMinY = this.turnMaxY = y;
+      return;
+    }
+    if (x < this.turnMinX) this.turnMinX = x;
+    if (x > this.turnMaxX) this.turnMaxX = x;
+    if (y < this.turnMinY) this.turnMinY = y;
+    if (y > this.turnMaxY) this.turnMaxY = y;
   }
 
   /** Turn a cell into air (every layer). Call `markDirty` afterwards. */
@@ -70,7 +126,7 @@ export class Grid {
     return this.settleMaxX >= this.settleMinX && this.settleMaxY >= 0;
   }
 
-  /** Mark an inclusive rect as changed: it will be settled and re-uploaded by renderers. */
+  /** Mark an inclusive rect as changed: it will be settled, re-checked for reactions and re-uploaded. */
   markDirty(x0: number, y0: number, x1: number, y1: number): void {
     const ax = Math.max(0, Math.min(x0, x1));
     const bx = Math.min(this.width - 1, Math.max(x0, x1));
@@ -78,6 +134,7 @@ export class Grid {
     const by = Math.min(this.height - 1, Math.max(y0, y1));
     if (bx < ax || by < ay) return;
     this.extendSettle(ax - 1, bx + 1, by + 1);
+    this.extendReact(ax - 1, ay - 1, bx + 1, by + 1);
     this.addRenderRect(ax, ay, bx - ax + 1, by - ay + 1);
   }
 

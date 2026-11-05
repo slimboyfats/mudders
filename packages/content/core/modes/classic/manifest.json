@@ -43,6 +43,18 @@
     {
       "weapon": "weapon.shockwave",
       "count": 3
+    },
+    {
+      "weapon": "weapon.dirt-ball",
+      "count": 2
+    },
+    {
+      "weapon": "weapon.quicksand",
+      "count": 1
+    },
+    {
+      "weapon": "weapon.terraformer",
+      "count": 1
     }
   ],
   "deathExplosion": {

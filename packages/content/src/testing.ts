@@ -48,3 +48,43 @@ export function flatten(world: World, surface: number, materialId = 'material.di
   g.clearSettle();
   for (const t of world.tanks) t.y = surface;
 }
+
+/** Drop a shell of `weapon` (owned by the active player) straight down onto column x, then settle. */
+export function dropAt(world: World, weapon: string, x: number, max = 2000): number {
+  const idx = world.weaponByIndex(weapon);
+  if (idx < 0) throw new Error(`unknown weapon ${weapon}`);
+  const y = Math.max(0, world.grid.surfaceY(x) - 6);
+  world.projectiles.push({
+    id: 1000 + world.tick,
+    weapon: idx,
+    owner: world.activePlayer,
+    x: x * 65536 + 32768,
+    y: y * 65536,
+    vx: 0,
+    vy: 65536,
+    age: 10,
+    alive: true,
+    data: [],
+  });
+  world.phase = 'resolve';
+  let n = 0;
+  while (n < max && world.phase === 'resolve') {
+    world.step();
+    n++;
+  }
+  return n;
+}
+
+/** A small flat dirt world with two tanks far apart and no wind or timers. */
+export function flatWorld(surface = 150, opts: Partial<WorldOptions> = {}): World {
+  const w = makeWorld({
+    map: { width: 400, height: 200 },
+    tankColumns: [40, 360],
+    wind: 0,
+    turnOrder: [0, 1],
+    rules: { turnTimer: 0, suddenDeath: false },
+    ...opts,
+  });
+  flatten(w, surface);
+  return w;
+}

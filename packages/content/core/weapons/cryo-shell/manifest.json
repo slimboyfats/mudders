@@ -1,0 +1,44 @@
+{
+  "id": "weapon.cryo-shell",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cryo Shell",
+    "description": "Freezes the ground into ice: a bunker that shrugs off blasts, or a block a tank cannot get out of.",
+    "category": "terrain-dynamics",
+    "since": "core@0.3.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 40,
+        "damage": 10,
+        "damageType": "cold",
+        "terrainOp": {
+          "use": "terrainop.harden"
+        },
+        "effects": {
+          "burst": {
+            "count": 20
+          },
+          "flash": {
+            "strength": 0.5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 4000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 10,
+    "terrainValue": 0.6
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "material.liquid-dirt",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Liquid dirt",
+    "description": "Quicksand: dirt shaken loose enough to flow. Runs downhill, carries tanks with it, and sets back into dirt after a few seconds.",
+    "since": "core@0.3.0",
+    "color": "#6e4424"
+  },
+  "cell": 7,
+  "settle": "flow",
+  "density": 120,
+  "strength": {
+    "blast": 0.7,
+    "kinetic": 0.6,
+    "shock": 0.5,
+    "dig": 0.5
+  },
+  "cohesion": 0,
+  "coating": false,
+  "sink": {
+    "ticks": 18,
+    "depth": 4
+  },
+  "decay": {
+    "into": "material.dirt",
+    "ticks": 200
+  }
+}

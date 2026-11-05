@@ -1,0 +1,38 @@
+{
+  "id": "material.lava",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lava",
+    "description": "Molten rock. Runs downhill and pools, burns any tank sitting in it at the end of every turn, melts ice, and cools to rock after three turns.",
+    "since": "core@0.3.0",
+    "color": "#ff5a1f"
+  },
+  "cell": 5,
+  "settle": "flow",
+  "density": 220,
+  "strength": {
+    "blast": 0.6,
+    "kinetic": 0.5,
+    "heat": 8,
+    "shock": 0.8,
+    "dig": 0.4
+  },
+  "cohesion": 0,
+  "coating": false,
+  "spread": 40,
+  "decay": {
+    "into": "material.rock",
+    "turns": 3
+  },
+  "contact": {
+    "damage": 20
+  },
+  "reactions": [
+    {
+      "with": "material.ice",
+      "into": "material.rock",
+      "other": "air",
+      "chance": 0.25
+    }
+  ]
+}
