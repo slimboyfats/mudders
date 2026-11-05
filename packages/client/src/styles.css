@@ -1,0 +1,51 @@
+:root {
+  color-scheme: dark;
+  --bg: #1b1410;
+  --fg: #f3e6d4;
+  --accent: #ff7a2f;
+  --muted: #a8957f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+}
+
+.title {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+  text-align: center;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 12vw, 5rem);
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.tagline {
+  margin: 0.25rem 0 2rem;
+  color: var(--muted);
+}
+
+.status {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1.8;
+  color: var(--muted);
+}

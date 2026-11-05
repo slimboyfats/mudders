@@ -1,0 +1,26 @@
+{
+  "name": "@mudders/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Vite + React client: renderer, HUD, menus, WebRTC client, audio.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p . && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@mudders/shared": "workspace:*",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "browserslist": "^4.29.5",
+    "browserslist-to-esbuild": "^2.1.1",
+    "vite": "^8.3.6"
+  }
+}

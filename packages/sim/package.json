@@ -1,0 +1,17 @@
+{
+  "name": "@mudders/sim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic simulation kernel. No content, no DOM, no React, no wall-clock time.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@mudders/shared": "workspace:*"
+  }
+}

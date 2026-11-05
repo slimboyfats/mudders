@@ -1,0 +1,16 @@
+{
+  "name": "@mudders/capture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Headless capture CLI: runs scenarios through the real renderer in headless Chromium (SwiftShader) and encodes GIF/MP4 with ffmpeg.",
+  "scripts": {
+    "smoke": "tsx src/cli/smoke.ts",
+    "check:ffmpeg": "tsx src/cli/check-ffmpeg.ts",
+    "typecheck": "tsc -p .",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}
