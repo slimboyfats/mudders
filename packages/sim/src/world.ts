@@ -236,6 +236,7 @@ export class World implements SimApi {
 
   private readonly opSites: OpSite[] = [];
   private readonly bots: RtBot[] = [];
+  private readonly botIds: string[] = [];
   private readonly modeB: ModeBehaviour;
   private readonly modeParams: unknown;
   private readonly maxSpeed: number;
@@ -363,7 +364,32 @@ export class World implements SimApi {
     const item = this.content.get('ai', id);
     const b = this.content.behaviours.getKind(item.behaviour, 'ai');
     this.bots.push({ b, params: b.params.parse(behaviourParams(item)) });
+    this.botIds.push(id);
     return this.bots.length - 1;
+  }
+
+  /** The `ai.*` id behind a tank's `bot` index, or '' for a human. */
+  botId(index: number): string {
+    return this.botIds[index] ?? '';
+  }
+
+  /**
+   * AI takeover (§6.1): a bot plays for a disconnected human (`bot` set), or hands the tank back
+   * (`bot` null). It arrives as an input, so every peer applies it on the same tick. If it is that
+   * tank's turn, the turn restarts its clock for the new controller; in the shop a bot shops at once.
+   */
+  private takeover(t: Tank, bot: string | null): void {
+    if (bot !== null && (!bot.startsWith('ai.') || !this.content.has(bot))) return;
+    if (bot !== null && t.bot >= 0 && this.botIds[t.bot] === bot) return;
+    if (bot === null && t.bot < 0) return;
+    const next = bot === null ? -1 : this.bindBot(bot);
+    t.bot = next;
+    if (this.phase === 'aim' && t.player === this.activePlayer) {
+      this.botWait = next >= 0 ? BOT_THINK_TICKS : 0;
+      this.timer = next >= 0 ? 0 : this.turnTimerTicks;
+    } else if (this.phase === 'shop' && next >= 0 && !t.ready) {
+      this.botShop(t);
+    }
   }
 
   /** Match start: one tank per player with the mode's loadout and starting cash (§3.6). */
@@ -619,6 +645,7 @@ export class World implements SimApi {
   private handleInput(player: number, input: Input): void {
     const t = this.tanks[player];
     if (!t) return;
+    if (input.type === 'takeover') return this.takeover(t, input.bot);
     if (input.type === 'buy' || input.type === 'ready') {
       if (this.phase !== 'shop' || t.ready) return;
       if (input.type === 'ready') t.ready = true;

@@ -3,7 +3,15 @@ import { loadContent } from '@mudders/content';
 import { PROTOCOL_VERSION } from '@mudders/shared';
 import type { ResolvedContent } from '@mudders/sim';
 import { linkPair } from './link';
-import { GuestSession, HostSession, SILENCE_MS, type LobbyRules, type SessionEnv } from './session';
+import {
+  GuestSession,
+  HostSession,
+  SILENCE_MS,
+  STAND_IN,
+  TAKEOVER_MS,
+  type LobbyRules,
+  type SessionEnv,
+} from './session';
 
 let content: ResolvedContent;
 beforeAll(() => {
@@ -165,6 +173,68 @@ describe('host and guest sessions', () => {
     e.advance(SILENCE_MS + 1);
     host.heartbeat();
     expect(host.seats[1]!.link).toBeNull();
+  });
+
+  it('an AI stands in for a dropped guest after the window and hands back on rejoin', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', { ...rules, turnTimer: 0 }, e);
+    const a = new GuestSession(content, 'Ann', undefined, e);
+    const first = connect(host, a);
+    const match = host.start(5);
+    const tank = () => match.world.tanks[1]!;
+    match.stepOnce();
+    first.h.close();
+    e.advance(TAKEOVER_MS - 1);
+    host.heartbeat();
+    match.stepOnce();
+    expect(tank().bot).toBe(-1);
+    e.advance(1);
+    host.heartbeat();
+    match.stepOnce();
+    expect(match.world.botId(tank().bot)).toBe(STAND_IN);
+    expect(host.lobbyFor(0).seats[1]!.standIn).toBe(STAND_IN);
+    // the takeover is a logged input, so a rejoining guest replays it too
+    expect(match.log.some((i) => i.action.type === 'takeover')).toBe(true);
+    for (let i = 0; i < 300; i++) match.stepOnce();
+    connect(host, a);
+    match.stepOnce();
+    expect(tank().bot).toBe(-1);
+    expect(host.lobbyFor(0).seats[1]!.standIn).toBeUndefined();
+    match.flush();
+    while (a.match!.stepOnce());
+    expect(a.match!.world.hash()).toBe(match.world.hash());
+  });
+
+  it('never takes over when the host turned it off; guests cannot issue takeovers', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', rules, e);
+    host.takeoverMs = 0;
+    const a = new GuestSession(content, 'Ann', undefined, e);
+    const l = connect(host, a);
+    const match = host.start(5);
+    a.match!.send({ type: 'input', action: { type: 'takeover', bot: 'ai.shooter' } });
+    match.stepOnce();
+    expect(match.world.tanks.map((t) => t.bot)).toEqual([-1, -1]);
+    l.h.close();
+    e.advance(TAKEOVER_MS * 10);
+    host.heartbeat();
+    match.stepOnce();
+    expect(match.world.tanks[1]!.bot).toBe(-1);
+  });
+
+  it('a host whose tab stays hidden gets a stand-in until it is back', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', rules, e);
+    connect(host, new GuestSession(content, 'Ann', undefined, e));
+    const match = host.start(5);
+    host.setHostAway(true);
+    e.advance(TAKEOVER_MS);
+    host.heartbeat();
+    match.stepOnce();
+    expect(match.world.tanks[0]!.bot).toBeGreaterThanOrEqual(0);
+    host.setHostAway(false);
+    match.stepOnce();
+    expect(match.world.tanks[0]!.bot).toBe(-1);
   });
 
   it('a bye from the host closes the guest', () => {

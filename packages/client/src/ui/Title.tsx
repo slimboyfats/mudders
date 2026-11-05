@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { PROTOCOL_VERSION } from '@mudders/shared';
 import { SIGNAL_URL } from '../config';
+import { installState, promptInstall, subscribeInstall } from '../pwa';
 
 type LobbyStatus = 'checking' | 'online' | 'offline';
 
@@ -15,6 +16,7 @@ function hasWebGL2(): boolean {
 export function Title({ onPlay }: Props) {
   const [lobby, setLobby] = useState<LobbyStatus>('checking');
   const [webgl2] = useState(hasWebGL2);
+  const install = useSyncExternalStore(subscribeInstall, installState);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -35,6 +37,9 @@ export function Title({ onPlay }: Props) {
         <button className="primary" disabled={!webgl2} onClick={onPlay}>
           Local game
         </button>
+        <a className="secondary" href="#browse" data-testid="browse">
+          Browse public games
+        </a>
         <a className="secondary" href="#host" data-testid="host-online">
           Host online game
         </a>
@@ -44,6 +49,11 @@ export function Title({ onPlay }: Props) {
         <a className="secondary" href="#direct">
           Direct game (no server)
         </a>
+        {install === 'prompt' && (
+          <button className="secondary" onClick={() => void promptInstall()} data-testid="install">
+            Install app
+          </button>
+        )}
         <a className="secondary" href="#settings">
           Settings
         </a>
@@ -51,6 +61,9 @@ export function Title({ onPlay }: Props) {
           Content sandbox
         </a>
       </div>
+      {install === 'ios' && (
+        <p className="install-hint">Play full screen: tap Share, then “Add to Home Screen”.</p>
+      )}
       <ul className="status">
         <li>WebGL2: {webgl2 ? 'yes' : 'no (required)'}</li>
         <li>Lobby server: {lobby}</li>

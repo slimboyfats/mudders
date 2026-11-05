@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadContent } from '@mudders/content';
-import { MAX_PLAYERS, type LobbySeat } from '@mudders/shared';
-import { SIGNAL_URL } from '../config';
+import { MAX_PLAYERS, type LobbySeat, type RoomInfo } from '@mudders/shared';
+import { LAN_HOSTS, SIGNAL_URL, shareOrigin } from '../config';
 import type { SimMatch } from '../game/match';
 import type { Settings } from '../game/settings';
 import { loadSetup, saveSetup } from '../game/setup';
 import type { Link } from '../net/link';
+import { localRegion, roomSummary } from '../net/listing';
 import { directAnswer, directOffer, RoomNet } from '../net/rtc';
-import { GuestSession, HostSession, PING_MS, type LobbyRules } from '../net/session';
+import { GuestSession, HostSession, PING_MS, TAKEOVER_MS, type LobbyRules } from '../net/session';
 import { SignalClient, type SignalStatus } from '../net/signal';
+import { BACKGROUND_CATCHUP_MS, startTicker } from '../net/ticker';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { MatchView } from './MatchView';
 import { Rules } from './Rules';
@@ -122,6 +124,11 @@ function SeatRow({
         {i === you && <em> (you)</em>}
         {seat.kind === 'host' && <em> host</em>}
       </span>
+      {seat.standIn && (
+        <span className="stand-in" data-testid="stand-in">
+          AI playing for {i === you ? 'you' : 'them'}
+        </span>
+      )}
       {seat.kind === 'guest' && (
         <span className={`path ${seat.connected ? (seat.path ?? '') : 'away'}`}>
           {!seat.connected
@@ -199,6 +206,8 @@ function NetGame({ match, me, settings, onExit, banner, debug }: NetGameProps) {
         hash: () => match.world.hash(),
         phase: () => match.world.phase,
         active: () => match.world.activePlayer,
+        bots: () => match.world.tanks.map((t) => t.bot),
+        alive: () => match.world.tanks.map((t) => t.alive),
         ...debug,
       },
     });
@@ -234,13 +243,42 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
   useChanges(session);
   useChanges(signal);
 
+  const [isPublic, setPublic] = useState(false);
+
+  // a worker timer, so a hidden host tab keeps pinging its guests (§6.1)
   useEffect(() => {
-    const t = setInterval(() => session.heartbeat(), PING_MS);
+    const stop = startTicker(() => session.heartbeat(), PING_MS);
     return () => {
-      clearInterval(t);
+      stop();
       session.close();
     };
   }, [session]);
+
+  // A hidden host tab gets no animation frames, which used to freeze the match for everyone. While
+  // hidden, a worker tick advances the host's match instead, and after the takeover window an AI
+  // plays the host's own turns until the tab is back.
+  useEffect(() => {
+    if (!match) return;
+    let last = performance.now();
+    const stop = startTicker(() => {
+      const now = performance.now();
+      let dt = Math.min(now - last, BACKGROUND_CATCHUP_MS);
+      last = now;
+      if (!document.hidden) return;
+      while (dt > 0) {
+        const step = Math.min(dt, 100);
+        match.advance(step);
+        dt -= step;
+      }
+    }, 50);
+    const vis = () => session.setHostAway(document.hidden);
+    vis();
+    document.addEventListener('visibilitychange', vis);
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', vis);
+    };
+  }, [match, session]);
 
   useEffect(() => {
     if (mode !== 'online') return;
@@ -259,7 +297,8 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
           name: `${loadName()}'s game`,
           public: false,
           maxPlayers: MAX_PLAYERS,
-          summary: `${session.rules.size} · ${session.rules.rounds} rounds · ${session.rules.scenery}`,
+          summary: roomSummary(session.rules),
+          region: localRegion(),
         });
       }
     });
@@ -268,6 +307,21 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
       s.close();
     };
   }, [mode, session]);
+
+  // keep the public listing in step with the lobby (§6.5): name, rules, seats left for humans
+  const humanSeats = session.seats.filter((x) => x.kind !== 'bot').length;
+  const listName = `${name.trim() || 'Player'}'s game`.slice(0, 32);
+  const summary = roomSummary(session.rules);
+  useEffect(() => {
+    if (!signal || !code) return;
+    signal.send({
+      type: 'roomSettings',
+      name: listName,
+      public: isPublic,
+      maxPlayers: humanSeats,
+      summary,
+    });
+  }, [signal, code, listName, isPublic, humanSeats, summary]);
 
   const lobby = session.lobbyFor(0);
   const guestsAway = session.seats.some((s) => s.kind === 'guest' && !s.link?.open);
@@ -296,7 +350,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
             <span>Hosting{code ? ` · ${code}` : ''}</span>
             {away.map(({ s }) => (
               <span key={s.token} className="warn">
-                {s.name} reconnecting…
+                {s.standIn ? `${s.name} is away · AI playing` : `${s.name} reconnecting…`}
               </span>
             ))}
           </div>
@@ -305,7 +359,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
     );
   }
 
-  const link = code ? `${location.origin}${location.pathname}#join/${code}` : '';
+  const link = code ? `${shareOrigin(location, LAN_HOSTS)}${location.pathname}#join/${code}` : '';
   return (
     <main className="setup online">
       <h2>{mode === 'online' ? 'Host an online game' : 'Host a direct game'}</h2>
@@ -323,6 +377,15 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
               {SIGNAL_TEXT[signal.status]}
             </p>
           )}
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setPublic(e.target.checked)}
+              data-testid="public"
+            />
+            Public: list this game so anyone can join
+          </label>
           {code && (
             <>
               <p className="room-code" data-testid="room-code">
@@ -358,6 +421,19 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
           ))}
         </ul>
       </section>
+      <label className="takeover-setting">
+        If a player drops
+        <select
+          value={session.takeoverMs}
+          onChange={(e) => session.setTakeover(Number(e.target.value))}
+          data-testid="takeover"
+        >
+          <option value={10_000}>AI plays for them after 10 s</option>
+          <option value={TAKEOVER_MS}>AI plays for them after 20 s</option>
+          <option value={60_000}>AI plays for them after 60 s</option>
+          <option value={0}>Wait for them (no AI)</option>
+        </select>
+      </label>
       <Rules
         value={session.rules}
         onChange={(r) => {
@@ -503,7 +579,7 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
     setSession(g);
     setSignal(s);
     void s.connect().then(() => s.send({ type: 'joinRoom', code: joinCode }));
-    const t = setInterval(() => {
+    const stopTicks = startTicker(() => {
       g.heartbeat();
       ask();
     }, PING_MS);
@@ -516,7 +592,7 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
     };
     document.addEventListener('visibilitychange', vis);
     return () => {
-      clearInterval(t);
+      stopTicks();
       document.removeEventListener('visibilitychange', vis);
       offSave();
       g.leave();
@@ -689,5 +765,71 @@ function DirectJoin({ onLink }: { onLink: (l: Link) => void }) {
       )}
       {error && <p className="error-text">{error}</p>}
     </section>
+  );
+}
+
+// ── public games ────────────────────────────────────────────────────────────────────────────
+
+/** How often the browse screen refreshes the public list. */
+const BROWSE_EVERY_MS = 4000;
+
+/** Browse public games (§6.1, §8): the lobby server's open public rooms; tap one to join. */
+export function BrowseGames({ onExit }: { onExit: () => void }) {
+  const [signal, setSignal] = useState<SignalClient | null>(null);
+  const [rooms, setRooms] = useState<RoomInfo[] | null>(null);
+  useChanges(signal);
+
+  useEffect(() => {
+    const s = new SignalClient(SIGNAL_URL);
+    s.on('rooms', (m) => setRooms(m.rooms));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external system (socket)
+    setSignal(s);
+    const ask = () => {
+      if (s.status === 'open') s.send({ type: 'listRooms' });
+    };
+    void s.connect().then(ask);
+    const t = setInterval(ask, BROWSE_EVERY_MS);
+    return () => {
+      clearInterval(t);
+      s.close();
+    };
+  }, []);
+
+  return (
+    <main className="setup online browse">
+      <h2>Public games</h2>
+      {signal && signal.status !== 'open' && (
+        <p className="note" data-testid="signal-status">
+          {SIGNAL_TEXT[signal.status]}
+        </p>
+      )}
+      {rooms && rooms.length === 0 && (
+        <p className="note" data-testid="no-rooms">
+          No public games are waiting right now. Host one and tick “Public”, or check back soon.
+        </p>
+      )}
+      {rooms && rooms.length > 0 && (
+        <ul className="rooms" data-testid="rooms">
+          {rooms.map((r) => (
+            <li key={r.code} className="room" data-testid="room">
+              <a href={`#join/${r.code}`} className="room-link">
+                <span className="room-name">{r.name}</span>
+                <span className="room-players">
+                  {r.players}/{r.maxPlayers}
+                </span>
+                <span className="room-summary">{r.summary}</span>
+                {r.region && <span className="room-region">{r.region}</span>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="setup-actions">
+        <button onClick={onExit}>Back</button>
+        <a className="button" href="#host">
+          Host a game
+        </a>
+      </div>
+    </main>
   );
 }

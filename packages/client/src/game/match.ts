@@ -65,7 +65,8 @@ export abstract class SimMatch implements SnapshotStream {
   world: World;
   protected listeners: ((s: RenderSnapshot) => void)[] = [];
   private readonly names: Record<string, string> = {};
-  private readonly botNames: string[];
+  /** `ai.*` id → display name. */
+  private readonly botNames: Record<string, string> = {};
   private readonly shopItems: (ShopItem & { index: number })[] = [];
 
   constructor(
@@ -88,7 +89,7 @@ export abstract class SimMatch implements SnapshotStream {
       }
     }
     this.shopItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
-    this.botNames = (options.bots ?? []).map((id) => (id ? content.get('ai', id).meta.name : ''));
+    for (const a of content.list('ai')) this.botNames[a.id] = a.meta.name;
   }
 
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
@@ -134,7 +135,8 @@ export abstract class SimMatch implements SnapshotStream {
       results: w.results,
       shop: this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
       tanks: w.tanks.map((t) => ({
-        bot: this.botNames[t.player] ?? '',
+        // follows the live tank, so an AI takeover (§6.1) shows in the HUD
+        bot: t.bot >= 0 ? (this.botNames[w.botId(t.bot)] ?? '') : '',
         money: t.money,
         score: t.score,
         ready: t.ready,
@@ -185,7 +187,7 @@ export function hudKey(h: HudState): string {
   let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.alive ? 1 : 0},${t.health},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
+    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
     for (const i of t.inventory) k += `,${i.count}`;
   }
   return k;

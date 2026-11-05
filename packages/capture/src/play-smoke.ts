@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { devices, type Page } from 'playwright';
+import { devices, type Browser, type Page } from 'playwright';
 import { preview } from 'vite';
 import { launchHeadless } from './browser';
 import { REPO_ROOT, capturesDir } from './paths';
@@ -9,6 +9,9 @@ import { REPO_ROOT, capturesDir } from './paths';
  * starts a local match, aims with a slingshot drag (touch or mouse), checks the drag did NOT fire,
  * taps FIRE, waits for the turn to pass, and screenshots each step with the HUD visible.
  * Not a substitute for real devices (`needs-device`): it proves layout and the input wiring.
+ *
+ * Then the PWA (milestone 5): the manifest parses with the icons install needs, the service worker
+ * takes control, and with the network cut the page reloads and a local match starts.
  */
 export interface PlaySmokeResult {
   screenshots: string[];
@@ -123,9 +126,55 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       if (errors.length > 0) throw new Error(`${t.name}: page errors: ${errors.join('; ')}`);
       await ctx.close();
     }
+    shots.push(await pwaOffline(browser, url, out));
   } finally {
     await browser.close();
     await new Promise<void>((r) => server.httpServer.close(() => r()));
   }
   return { screenshots: shots };
+}
+
+async function pwaOffline(browser: Browser, url: string, out: string): Promise<string> {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+  try {
+    const page = await ctx.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(url);
+    const manifest = await page.evaluate(async () => {
+      const href = document.querySelector<HTMLLinkElement>('link[rel=manifest]')?.href;
+      if (!href) return null;
+      return (await (await fetch(href)).json()) as {
+        name?: string;
+        start_url?: string;
+        display?: string;
+        icons?: { sizes: string; purpose?: string }[];
+      };
+    });
+    const sizes = manifest?.icons?.map((i) => i.sizes) ?? [];
+    if (!manifest?.name || !manifest.start_url || !manifest.display) {
+      throw new Error(`pwa: manifest missing name/start_url/display: ${JSON.stringify(manifest)}`);
+    }
+    if (!sizes.includes('192x192') || !sizes.includes('512x512')) {
+      throw new Error(`pwa: manifest needs 192 and 512 px icons (has ${sizes.join(', ')})`);
+    }
+    // the worker installs (precaching every build file) and claims the page
+    await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
+      timeout: 15_000,
+    });
+    await ctx.setOffline(true);
+    await page.reload();
+    await page.locator('h1', { hasText: 'Mudders' }).waitFor({ timeout: 10_000 });
+    // a local match loads its lazy chunks from the cache
+    await page.goto(`${url}#play/2/small`);
+    await page.locator('.game-canvas').waitFor({ timeout: 15_000 });
+    await page.waitForTimeout(800);
+    const file = resolve(out, 'play-smoke-pwa-offline.png');
+    await page.screenshot({ path: file });
+    if (errors.length > 0) throw new Error(`pwa: page errors: ${errors.join('; ')}`);
+    return file;
+  } finally {
+    await ctx.close();
+  }
 }

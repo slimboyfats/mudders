@@ -16,6 +16,11 @@ import { GuestMatch, HostMatch } from './lockstep';
 export const PING_MS = 1000;
 export const SILENCE_MS = 6000;
 
+/** §6.1: a dropped human gets this long to come back before an AI plays for them. */
+export const TAKEOVER_MS = 20_000;
+/** The personality that stands in for a dropped human. */
+export const STAND_IN = 'ai.shooter';
+
 /** Lobby rules without the slots: the host's seats decide those. */
 export type LobbyRules = Omit<NetSetup, 'slots'>;
 
@@ -30,6 +35,10 @@ export interface HostSeat {
   path?: LinkPath;
   rtt?: number;
   lastHeard?: number;
+  /** When this human went away (link lost, or the host's own tab hidden), or undefined. */
+  awaySince?: number;
+  /** `ai.*` id playing for this human while they are away (§6.1 takeover). */
+  standIn?: string;
 }
 
 /** Things the session needs from its environment; tests pass fakes. */
@@ -40,7 +49,11 @@ export interface SessionEnv {
 
 const browserEnv: SessionEnv = {
   now: () => performance.now(),
-  token: () => crypto.randomUUID().replaceAll('-', '').slice(0, 20),
+  // not randomUUID: that only exists in secure contexts, and a phone on http://192.168.x.x isn't one
+  token: () =>
+    Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join(''),
 };
 
 /** Why a guest is refused at the door (§2c.4: protocol and content must match exactly). */
@@ -65,6 +78,8 @@ export class HostSession {
   seats: HostSeat[];
   rules: LobbyRules;
   match: HostMatch | null = null;
+  /** How long a dropped human (or a host whose tab is hidden) has before an AI plays; 0 = never. */
+  takeoverMs = TAKEOVER_MS;
   /** seat index → player index, fixed at start. */
   private playerOf: number[] = [];
   private readonly pending = new Set<Link>();
@@ -149,6 +164,7 @@ export class HostSession {
       const s = this.seats[seat]!;
       if (s.link !== link) return; // replaced by a newer link
       s.link = null;
+      s.awaySince = this.env.now();
       const p = this.playerOf[seat];
       if (this.match && p !== undefined) this.match.detach(p);
       this.changed();
@@ -184,7 +200,11 @@ export class HostSession {
     s.lastHeard = this.env.now();
     link.send({ type: 'accept', ok: true, ...(s.token ? { token: s.token } : {}) });
     const p = this.playerOf[seat];
-    if (this.match && p !== undefined) this.match.attach(p, link, msg.haveTick);
+    if (this.match && p !== undefined) {
+      this.match.attach(p, link, msg.haveTick);
+      this.standDown(seat);
+    }
+    delete s.awaySince;
     this.changed();
     return seat;
   }
@@ -208,9 +228,55 @@ export class HostSession {
     if (this.match && p !== undefined) this.match.handle(p, msg);
   }
 
-  /** Call every `PING_MS`: pings every guest and drops links that went silent. */
+  /** Host setting: how long a dropped human has before an AI stands in (0 = never). */
+  setTakeover(ms: number): void {
+    this.takeoverMs = Math.max(0, ms);
+    this.changed();
+  }
+
+  /** The host's own tab was hidden or shown: a long-hidden host gets an AI stand-in too. */
+  setHostAway(away: boolean): void {
+    const s = this.seats[0];
+    if (!s) return;
+    if (away) {
+      s.awaySince ??= this.env.now();
+      return;
+    }
+    delete s.awaySince;
+    if (this.match) this.standDown(0);
+    this.changed();
+  }
+
+  /** Seat a stand-in AI for a human who has been away longer than `takeoverMs` (§6.1). */
+  private standUp(seat: number, now: number): boolean {
+    const s = this.seats[seat]!;
+    const p = this.playerOf[seat];
+    if (!this.match || p === undefined || p < 0 || s.standIn || s.awaySince === undefined) {
+      return false;
+    }
+    if (this.takeoverMs <= 0 || now - s.awaySince < this.takeoverMs) return false;
+    s.standIn = STAND_IN;
+    this.match.submit(p, { type: 'takeover', bot: STAND_IN });
+    return true;
+  }
+
+  /** The human is back: hand the tank back. */
+  private standDown(seat: number): void {
+    const s = this.seats[seat]!;
+    const p = this.playerOf[seat];
+    if (!s.standIn || !this.match || p === undefined) return;
+    delete s.standIn;
+    this.match.submit(p, { type: 'takeover', bot: null });
+  }
+
+  /** Call every `PING_MS`: pings every guest, drops links that went silent, seats stand-ins. */
   heartbeat(): void {
     const now = this.env.now();
+    let changed = false;
+    this.seats.forEach((s, i) => {
+      if ((s.kind === 'guest' || s.kind === 'host') && this.standUp(i, now)) changed = true;
+    });
+    if (changed) this.broadcastLobby();
     const n = ++this.pingN;
     this.sentAt.set(n, now);
     this.sentAt.delete(n - 30);
@@ -236,6 +302,7 @@ export class HostSession {
         connected: s.kind === 'host' || s.kind === 'bot' || !!s.link?.open,
         ...(s.bot ? { bot: s.bot } : {}),
         ...(s.kind === 'host' ? { path: 'local' as const } : s.path ? { path: s.path } : {}),
+        ...(s.standIn ? { standIn: s.standIn } : {}),
         ...(s.rtt !== undefined ? { rtt: s.rtt } : {}),
       })),
     };

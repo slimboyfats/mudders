@@ -22,6 +22,11 @@ export const InputSchema = z.discriminatedUnion('type', [
   }),
   /** Shop: done shopping. The next round starts when every human is ready or the timer runs out. */
   z.strictObject({ type: z.literal('ready') }),
+  /**
+   * AI takeover (§6.1): an `ai.*` personality plays this player's tank (a disconnected human), or
+   * `null` hands it back. Only the host issues it; it is stamped and logged like any other input.
+   */
+  z.strictObject({ type: z.literal('takeover'), bot: ContentIdSchema.nullable() }),
 ]);
 export type Input = z.infer<typeof InputSchema>;
 

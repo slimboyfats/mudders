@@ -11,6 +11,7 @@ const Setup = lazy(() => import('./ui/Setup').then((m) => ({ default: m.Setup })
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
 const HostGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.HostGame })));
 const JoinGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.JoinGame })));
+const BrowseGames = lazy(() => import('./ui/Online').then((m) => ({ default: m.BrowseGames })));
 
 type Route =
   | { name: 'title' }
@@ -20,6 +21,7 @@ type Route =
   | { name: 'sandbox' }
   | { name: 'host'; mode: 'online' | 'direct' }
   | { name: 'join'; mode: 'online' | 'direct'; code?: string }
+  | { name: 'browse' }
   | { name: 'direct' };
 
 function fromHash(): Route {
@@ -29,6 +31,7 @@ function fromHash(): Route {
   if (h.startsWith('#settings')) return { name: 'settings' };
   if (h === '#host') return { name: 'host', mode: 'online' };
   if (h === '#direct') return { name: 'direct' };
+  if (h === '#browse') return { name: 'browse' };
   if (h === '#direct-host') return { name: 'host', mode: 'direct' };
   if (h === '#direct-join') return { name: 'join', mode: 'direct' };
   const j = /^#join(?:\/([A-Za-z0-9]{6}))?$/.exec(h);
@@ -108,6 +111,7 @@ export function App() {
           onExit={() => go('')}
         />
       )}
+      {route.name === 'browse' && <BrowseGames onExit={() => go('')} />}
       {route.name === 'direct' && (
         <main className="title">
           <h2>Direct game</h2>

@@ -111,4 +111,14 @@ export default tseslint.config(
     ],
     languageOptions: { globals: globals.node },
   },
+  {
+    // the PWA service worker template (plain JS, runs in a ServiceWorkerGlobalScope)
+    files: ['packages/client/pwa/**/*.js'],
+    languageOptions: { globals: { ...globals.serviceworker, __PRECACHE__: 'readonly' } },
+  },
+  {
+    // one-off asset scripts: Node, plus page.evaluate callbacks that run in the browser
+    files: ['packages/capture/*.mjs'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
 );

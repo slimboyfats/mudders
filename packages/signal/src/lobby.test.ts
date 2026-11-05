@@ -58,7 +58,14 @@ function setup(opts: Partial<LobbyOptions> = {}) {
   };
 }
 
-const room = { type: 'createRoom', name: 'Mud', public: true, maxPlayers: 3, summary: 'Small' };
+const room = {
+  type: 'createRoom',
+  name: 'Mud',
+  public: true,
+  maxPlayers: 3,
+  summary: 'Small',
+  region: 'Europe',
+};
 
 describe('lobby', () => {
   it('refuses a mismatched protocol and messages before hello', () => {
@@ -116,7 +123,65 @@ describe('lobby', () => {
     h2.send({ ...room, public: false, name: 'Secret' });
     const c = hello();
     c.send({ type: 'listRooms' });
-    expect(c.of('rooms')[0]!.rooms.map((r) => r.name)).toEqual(['Mud']);
+    expect(c.of('rooms')[0]!.rooms).toEqual([
+      {
+        code: h1.of('roomUpdate')[0]!.code,
+        name: 'Mud',
+        players: 1,
+        maxPlayers: 3,
+        summary: 'Small',
+        region: 'Europe',
+      },
+    ]);
+  });
+
+  it('hides full, started and host-less rooms; lists oldest first', () => {
+    const { hello } = setup();
+    const a = hello();
+    a.send({ ...room, name: 'A' });
+    const b = hello();
+    b.send({ ...room, name: 'B', maxPlayers: 2 });
+    const c = hello();
+    c.send({ ...room, name: 'C' });
+    const d = hello();
+    d.send({ ...room, name: 'D' });
+    const e = hello();
+    e.send({ ...room, name: 'E' });
+    const joiner = hello();
+    joiner.send({ type: 'joinRoom', code: b.of('roomUpdate')[0]!.code });
+    c.send({ type: 'startMatch' });
+    d.drop();
+    const list = () => {
+      const x = hello();
+      x.send({ type: 'listRooms' });
+      return x.of('rooms')[0]!.rooms.map((r) => r.name);
+    };
+    expect(list()).toEqual(['A', 'E']);
+  });
+
+  it('lets the host change the listing after creating the room', () => {
+    const { hello } = setup();
+    const host = hello();
+    host.send({ ...room, public: false });
+    const code = host.of('roomUpdate')[0]!.code;
+    const guest = hello();
+    guest.send({ type: 'joinRoom', code });
+    const browse = () => {
+      const x = hello();
+      x.send({ type: 'listRooms' });
+      return x.of('rooms')[0]!.rooms;
+    };
+    expect(browse()).toEqual([]);
+    const settings = { type: 'roomSettings', name: 'Open mud', summary: 'Large', public: true };
+    guest.send({ ...settings, maxPlayers: 4 });
+    expect(guest.last()).toMatchObject({ type: 'error', code: 'notHost' });
+    host.send({ ...settings, maxPlayers: 4 });
+    expect(host.last()).toMatchObject({ type: 'roomUpdate', public: true, maxPlayers: 4 });
+    expect(browse()).toMatchObject([{ name: 'Open mud', players: 2, maxPlayers: 4 }]);
+    // bots took the free seats: the room is full for humans and leaves the list
+    host.send({ ...settings, maxPlayers: 1 });
+    expect(host.last()).toMatchObject({ maxPlayers: 2 });
+    expect(browse()).toEqual([]);
   });
 
   it('relays offer, answer, ice and data only within a room', () => {
@@ -219,6 +284,30 @@ describe('lobby', () => {
     a.send({ type: 'path', path: 'p2p', ms: 400 });
     a.send({ type: 'path', path: 'relay', ms: 5200 });
     a.send({ type: 'path', path: 'p2p', ms: 600 });
-    expect(lobby.stats()).toMatchObject({ p2p: 2, relay: 1, meanMs: { p2p: 500, relay: 5200 } });
+    expect(lobby.stats()).toMatchObject({
+      p2p: 2,
+      relay: 1,
+      meanMs: { p2p: 500, relay: 5200 },
+      relayShare: 0.333,
+    });
+  });
+
+  it('measures relay load per minute', () => {
+    const { hello, lobby, advance } = setup();
+    const host = hello();
+    host.send(room);
+    const guest = hello();
+    guest.send({ type: 'joinRoom', code: host.of('roomUpdate')[0]!.code });
+    host.send({ type: 'relay', to: guest.id, data: 'x'.repeat(100) });
+    guest.send({ type: 'relay', to: host.id, data: 'y'.repeat(50) });
+    expect(lobby.relayStats()).toMatchObject({ frames: 2, bytes: 150, bytesLastMinute: 0 });
+    advance(60_000);
+    host.send({ type: 'relay', to: guest.id, data: 'z'.repeat(10) });
+    expect(lobby.relayStats()).toEqual({
+      frames: 3,
+      bytes: 160,
+      bytesLastMinute: 150,
+      peakBytesPerMinute: 150,
+    });
   });
 });

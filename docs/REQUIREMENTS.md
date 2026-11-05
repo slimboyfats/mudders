@@ -448,7 +448,7 @@ Each weapon manifest fills the slots in §2c.2. The lists above are a target cat
   - In-memory rooms are lost on restart; acceptable for v1.
   - Verify that the chosen free tier allows persistent WebSocket connections and what the monthly hour cap is; fall back to Fly.io / Cloudflare Workers + Durable Objects if Render's limits don't fit.
 - **Database** (optional, later): Render Postgres free tier, Neon, or Supabase — only for persistent public-room listing, match history, or stats. Not in v1.
-- **TURN**: see §6.4. Decide after measuring real connection failure rates.
+- **TURN**: see §6.4. Milestone 5 decision: no TURN yet; the WebSocket relay carries every link that P2P can't, and `GET /stats` tracks relay share and relay bytes per minute. Thresholds for revisiting are in ARCHITECTURE §7.2.
 - All secrets/config via environment variables; one `pnpm dev` command for the full local stack (no Docker required — cloud agent sessions may not have it).
 - **Development environment**: the project is built primarily by coding agents in cloud sessions (Linux container, no GPU, no display, Node + pnpm + Playwright/Chromium available, outbound network limited to package registries and GitHub). Everything in the dev workflow — tests, content validation, capture, build — must run there with no extra setup beyond `pnpm install`. Anything that needs a browser uses headless Chromium; anything that needs a GPU is out of the dev loop.
 - **Deploy previews**: pushes to a branch deploy the static client to a preview URL (Cloudflare Pages / Netlify / Render static) so the owner can try a build on a real phone by opening a link. The signalling server gets a preview environment on Render per PR where the free tier allows, else a single shared `staging` service.

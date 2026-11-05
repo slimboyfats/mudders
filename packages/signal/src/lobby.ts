@@ -62,6 +62,7 @@ interface Room {
   public: boolean;
   maxPlayers: number;
   summary: string;
+  region: string;
   started: boolean;
   members: Peer[];
   touched: number;
@@ -73,7 +74,21 @@ export interface PathStats {
   local: number;
   /** Mean ms to open, per path. */
   meanMs: Record<LinkPath, number>;
+  /** Share of online links that needed the relay, 0..1 (§6.4: the TURN decision input). */
+  relayShare: number;
 }
+
+/** Relay load (§6.4): what TURN would take off this server. */
+export interface RelayStats {
+  frames: number;
+  bytes: number;
+  /** Bytes relayed in the last full minute, and the busiest minute since start. */
+  bytesLastMinute: number;
+  peakBytesPerMinute: number;
+}
+
+/** Most rooms one `listRooms` reply carries. */
+export const LIST_MAX = 50;
 
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -84,6 +99,14 @@ export class Lobby {
   private readonly creates = new Map<string, number[]>();
   private readonly pathCount: Record<LinkPath, number> = { p2p: 0, relay: 0, local: 0 };
   private readonly pathMs: Record<LinkPath, number> = { p2p: 0, relay: 0, local: 0 };
+  private readonly relay = {
+    frames: 0,
+    bytes: 0,
+    minuteStart: 0,
+    minuteBytes: 0,
+    last: 0,
+    peak: 0,
+  };
 
   constructor(opts: Partial<LobbyOptions> = {}) {
     this.opts = { ...DEFAULT_LOBBY_OPTIONS, ...opts };
@@ -105,10 +128,54 @@ export class Lobby {
   stats(): PathStats {
     const mean = (p: LinkPath) =>
       this.pathCount[p] ? Math.round(this.pathMs[p] / this.pathCount[p]) : 0;
+    const online = this.pathCount.p2p + this.pathCount.relay;
     return {
       ...this.pathCount,
       meanMs: { p2p: mean('p2p'), relay: mean('relay'), local: mean('local') },
+      relayShare: online ? Math.round((this.pathCount.relay / online) * 1000) / 1000 : 0,
     };
+  }
+
+  relayStats(): RelayStats {
+    this.rollRelayMinute(this.opts.now());
+    const r = this.relay;
+    return {
+      frames: r.frames,
+      bytes: r.bytes,
+      bytesLastMinute: r.last,
+      peakBytesPerMinute: Math.max(r.peak, r.minuteBytes),
+    };
+  }
+
+  private rollRelayMinute(now: number): void {
+    const r = this.relay;
+    if (now - r.minuteStart < 60_000) return;
+    // a gap of more than a minute means the last full minute was quiet
+    r.last = now - r.minuteStart < 120_000 ? r.minuteBytes : 0;
+    r.peak = Math.max(r.peak, r.minuteBytes);
+    r.minuteBytes = 0;
+    r.minuteStart = now;
+  }
+
+  /**
+   * Rooms anyone can join (§6.1 public games): public, waiting, not full, host online. Oldest
+   * first (Map insertion order), so the list doesn't reshuffle under a player's finger.
+   */
+  publicRooms(): RoomInfo[] {
+    const rooms: RoomInfo[] = [];
+    for (const r of this.rooms.values()) {
+      if (!r.public || r.started || r.members.length >= r.maxPlayers || !r.host.conn) continue;
+      rooms.push({
+        code: r.code,
+        name: r.name,
+        players: r.members.length,
+        maxPlayers: r.maxPlayers,
+        summary: r.summary,
+        region: r.region,
+      });
+      if (rooms.length >= LIST_MAX) break;
+    }
+    return rooms;
   }
 
   /** Drop expired seats and idle rooms. The server calls this every few seconds. */
@@ -226,6 +293,7 @@ export class Lobby {
           public: msg.public,
           maxPlayers: msg.maxPlayers,
           summary: msg.summary,
+          region: msg.region,
           started: false,
           members: [peer],
           touched: this.opts.now(),
@@ -249,20 +317,19 @@ export class Lobby {
       case 'leaveRoom':
         if (peer.room) this.leave(peer);
         return;
-      case 'listRooms': {
-        const rooms: RoomInfo[] = [];
-        for (const r of this.rooms.values()) {
-          if (!r.public || r.started || r.members.length >= r.maxPlayers) continue;
-          rooms.push({
-            code: r.code,
-            name: r.name,
-            players: r.members.length,
-            maxPlayers: r.maxPlayers,
-            summary: r.summary,
-          });
-        }
-        return conn.send({ type: 'rooms', rooms });
+      case 'roomSettings': {
+        const room = peer.room;
+        if (!room) return this.err(conn, 'notInRoom', 'not in a room');
+        if (room.host !== peer) return this.err(conn, 'notHost', 'only the host can change that');
+        room.name = msg.name;
+        room.public = msg.public;
+        room.summary = msg.summary;
+        // never below the humans already in the room
+        room.maxPlayers = Math.max(msg.maxPlayers, room.members.length);
+        return this.broadcast(room);
       }
+      case 'listRooms':
+        return conn.send({ type: 'rooms', rooms: this.publicRooms() });
       case 'startMatch': {
         const room = peer.room;
         if (!room) return this.err(conn, 'notInRoom', 'not in a room');
@@ -280,8 +347,10 @@ export class Lobby {
           return this.err(conn, 'notInRoom', 'that player is not in your room');
         }
         if (!to.conn) return; // dropped: the sender's link layer retries after reconnect
-        if (msg.type === 'relay') to.conn.send({ type: 'relay', from: peer.id, data: msg.data });
-        else if (msg.type === 'ice') {
+        if (msg.type === 'relay') {
+          this.countRelay(msg.data.length);
+          to.conn.send({ type: 'relay', from: peer.id, data: msg.data });
+        } else if (msg.type === 'ice') {
           to.conn.send({ type: 'ice', from: peer.id, candidate: msg.candidate });
         } else to.conn.send({ type: msg.type, from: peer.id, sdp: msg.sdp });
         return;
@@ -293,6 +362,14 @@ export class Lobby {
         return;
       }
     }
+  }
+
+  private countRelay(bytes: number): void {
+    const now = this.opts.now();
+    this.rollRelayMinute(now);
+    this.relay.frames++;
+    this.relay.bytes += bytes;
+    this.relay.minuteBytes += bytes;
   }
 
   private onClose(conn: Conn): void {
