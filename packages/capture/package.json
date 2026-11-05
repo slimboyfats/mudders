@@ -7,6 +7,7 @@
   "scripts": {
     "smoke": "tsx src/cli/smoke.ts",
     "check:ffmpeg": "tsx src/cli/check-ffmpeg.ts",
+    "determinism": "tsx src/cli/determinism.ts",
     "typecheck": "tsc -p .",
     "build": "tsc -p .",
     "sim:preview": "tsx ../../scripts/vite-run.ts src/cli/sim-preview.ts",

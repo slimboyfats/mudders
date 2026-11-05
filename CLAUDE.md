@@ -11,25 +11,28 @@ spiritual successor to the 1991 DOS game, not a copy. _Set the mud on fire._
 
 Run from the repo root. Everything works in a GPU-less, display-less cloud container after `pnpm install`.
 
-| Command                                    | What it does                                                                                        |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                                 | Client (Vite, :5173) + signalling server (:8787) together                                           |
-| `pnpm test`                                | Vitest across all packages, with the sim coverage gate (≥ 80%)                                      |
-| `pnpm lint` / `pnpm format`                | ESLint (incl. determinism rules) / Prettier write                                                   |
-| `pnpm typecheck`                           | `tsc` in every package                                                                              |
-| `pnpm check`                               | lint + format check + typecheck + content:validate + test (run before calling anything done)        |
-| `pnpm build`                               | Build all packages; client to `packages/client/dist`                                                |
-| `pnpm smoke`                               | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
-| `pnpm check:ffmpeg`                        | Verifies ffmpeg is installed, with install instructions if not                                      |
-| `pnpm bench`                               | §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)           |
-| `pnpm content:validate`                    | Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date      |
-| `pnpm content:new <t> <n>`                 | Scaffold a content item (manifest, test, scenario stub, behaviour for code types)                   |
-| `pnpm content:docs`                        | Regenerate `docs/WEAPONS.md` from manifests                                                         |
-| `pnpm capture <scenario>`                  | Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON     |
-| `pnpm capture weapon-showcase <weapon-id>` | Preset: fire the weapon at three ranges on the standard map (`--help` for options)                  |
-| `pnpm play:smoke`                          | Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; screenshots   |
-| `pnpm sim:preview [ids]`                   | CPU debug render of scenarios (sim-only sanity check; not the game's look)                          |
-| `pnpm verify`                              | check + bench + build + smoke + play:smoke: **run before every push** (no CI on GitHub)             |
+One command per line, and no column-aligned tables in shared docs: parallel threads add lines here, and
+an aligned table reflows every row when one cell grows, which turns two additions into a conflict.
+
+- `pnpm dev`: Client (Vite, :5173) + signalling server (:8787) together
+- `pnpm test`: Vitest across all packages, with the sim coverage gate (≥ 80%)
+- `pnpm lint` / `pnpm format`: ESLint (incl. determinism rules) / Prettier write
+- `pnpm typecheck`: `tsc` in every package
+- `pnpm check`: lint + format check + typecheck + content:validate + test (run before calling anything done)
+- `pnpm build`: Build all packages; client to `packages/client/dist`
+- `pnpm smoke`: Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}`
+- `pnpm check:ffmpeg`: Verifies ffmpeg is installed, with install instructions if not
+- `pnpm determinism:browsers`: golden hashes in headless Chromium, Firefox and WebKit must equal `golden.json` (~10 s)
+- `pnpm setup:browsers`: installs headless Firefox + WebKitGTK from the Ubuntu archive (idempotent; run by the above)
+- `pnpm bench`: §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)
+- `pnpm content:validate`: Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date
+- `pnpm content:new <t> <n>`: Scaffold a content item (manifest, test, scenario stub, behaviour for code types)
+- `pnpm content:docs`: Regenerate `docs/WEAPONS.md` from manifests
+- `pnpm capture <scenario>`: Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON
+- `pnpm capture weapon-showcase <weapon-id>`: Preset: fire the weapon at three ranges on the standard map (`--help` for options)
+- `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; screenshots
+- `pnpm sim:preview [ids]`: CPU debug render of scenarios (sim-only sanity check; not the game's look)
+- `pnpm verify`: check + bench + build + smoke + play:smoke + determinism:browsers: **run before every push** (no CI on GitHub)
 
 `pnpm capture` writes MP4 only by default (about 5× smaller than GIF); add `--gif` when a GIF fits
 better. `--diff` compares the sheet with `captures/reference/` (update with `--update-reference` and
