@@ -15,6 +15,7 @@ import { loadContent } from '@mudders/content';
 import { ScenarioSchema, TICK_RATE, type Scenario } from '@mudders/shared';
 import { KERNEL_VERSION, ScenarioDriver } from '@mudders/sim';
 import type { WireInit, WireSnapshot } from '@mudders/client/capture-wire';
+import { paletteFrom } from '@mudders/client/palette';
 import { launchHeadless } from '../browser';
 import { checkFfmpeg } from '../ffmpeg';
 import { REPO_ROOT, capturesDir } from '../paths';
@@ -79,12 +80,17 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
   const device = o.device ? DEVICES[o.device]! : undefined;
   const driver = new ScenarioDriver(content, scenario);
   const w = driver.world;
+  const theme = o.theme ?? scenario.theme ?? 'theme.default';
+  if (!content.has(theme)) throw new Error(`unknown theme ${theme}`);
+  const pal = paletteFrom(content);
   const init: WireInit = {
     mapWidth: w.grid.width,
     mapHeight: w.grid.height,
-    palette: Array.from({ length: 256 }, () => 0),
+    palette: Array.from(pal.materials),
+    looks: [...(pal.looks ?? [])],
+    themes: { ...pal.themes },
     quality: o.quality,
-    theme: 'theme.default',
+    theme,
     cssWidth: device?.cssWidth ?? w.grid.width * o.scale,
     cssHeight: device?.cssHeight ?? w.grid.height * o.scale,
     dpr: device?.dpr ?? 1,
@@ -92,9 +98,6 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     ...(o.zoom > 0 ? { zoom: o.zoom } : {}),
     ...(o.center ? { center: o.center } : {}),
   };
-  for (const m of content.list('material')) {
-    init.palette[m.cell] = parseInt((m.meta.color ?? '#ff00ff').slice(1), 16);
-  }
 
   const key = createHash('sha256')
     .update(
@@ -111,7 +114,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     .digest('hex')
     .slice(0, 20);
   const cacheFile = resolve(cacheDir, `${key}.json`);
-  const base = scenario.id;
+  const base = o.theme ? `${scenario.id}.${o.theme.slice('theme.'.length)}` : scenario.id;
   if (o.cache && existsSync(cacheFile)) {
     const prev = JSON.parse(readFileSync(cacheFile, 'utf8')) as { outputs: string[] };
     if (prev.outputs.every((p) => existsSync(p))) {

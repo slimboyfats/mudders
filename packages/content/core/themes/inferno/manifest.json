@@ -1,0 +1,23 @@
+{
+  "id": "theme.inferno",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Inferno",
+    "description": "A burning world: blood-red sky, hot rim light and embers rising on the wind.",
+    "since": "core@0.8.0"
+  },
+  "sky": {
+    "top": "#1a0606",
+    "bottom": "#8a2a10"
+  },
+  "letterbox": "#0a0303",
+  "light": "#5a2a10",
+  "trail": "#ffd080",
+  "grain": 0.16,
+  "vignette": 0.32,
+  "ambient": {
+    "kind": "embers",
+    "density": 90,
+    "color": "#ff8a2a"
+  }
+}

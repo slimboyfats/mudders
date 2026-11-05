@@ -13,6 +13,8 @@ export const ScenarioSchema = z.strictObject({
   /** Content item the scenario showcases, if any. */
   subject: ContentIdSchema.optional(),
   mode: ContentIdSchema,
+  /** Theme the capture renders with (`theme.*`; cosmetic, the sim ignores it). */
+  theme: ContentIdSchema.optional(),
   seed: z.number().int().min(0).max(0xffffffff),
   players: z.number().int().min(1).max(8),
   map: z

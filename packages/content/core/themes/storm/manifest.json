@@ -1,0 +1,25 @@
+{
+  "id": "theme.storm",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Storm",
+    "description": "Night storm: driving rain that darkens and wets the ground, with lightning lighting the sky now and then.",
+    "since": "core@0.8.0"
+  },
+  "sky": {
+    "top": "#0a0d14",
+    "bottom": "#2a3340"
+  },
+  "letterbox": "#040507",
+  "light": "#1c2430",
+  "trail": "#c8dcff",
+  "grain": 0.12,
+  "vignette": 0.34,
+  "ambient": {
+    "kind": "rain",
+    "density": 220,
+    "color": "#9ab4d8"
+  },
+  "wet": 0.85,
+  "flicker": 420
+}

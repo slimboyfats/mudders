@@ -45,5 +45,9 @@
   "decay": {
     "into": "air",
     "ticks": 240
+  },
+  "look": {
+    "cycle": ["#3a78c8", "#3a78c8", "#3470bc", "#4686d4", "#3a78c8"],
+    "cycleTicks": 10
   }
 }

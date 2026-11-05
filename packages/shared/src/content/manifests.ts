@@ -27,6 +27,7 @@ export const CONTENT_TYPES = [
   'mode',
   'ai',
   'prop',
+  'theme',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -41,6 +42,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   mode: 'modes',
   ai: 'ai',
   prop: 'props',
+  theme: 'themes',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -83,6 +85,9 @@ const ref = (prefix: ContentType) =>
   ContentIdSchema.refine((id) => id.startsWith(`${prefix}.`), {
     message: `must reference a ${prefix}.* item`,
   }).optional();
+
+/** `#rrggbb`, lowercase. */
+export const HexColorSchema = z.string().regex(/^#[0-9a-f]{6}$/, 'colours look like "#1a2b3c"');
 
 // ── material ────────────────────────────────────────────────────────────────────────────────
 
@@ -141,6 +146,17 @@ export const MaterialSchema = z.strictObject({
     .strictObject({
       ticks: z.number().int().min(1).max(255),
       depth: z.number().int().min(1).max(8),
+    })
+    .optional(),
+  /**
+   * Renderer look (cosmetic, never read by the sim): `cycle` steps the cell through these colours
+   * every `cycleTicks` ticks in hard bands (lava, water); `hot` makes the air above shimmer.
+   */
+  look: z
+    .strictObject({
+      cycle: z.array(HexColorSchema).min(2).max(8).optional(),
+      cycleTicks: z.number().int().min(1).max(60).default(8),
+      hot: z.boolean().default(false),
     })
     .optional(),
 });
@@ -454,6 +470,47 @@ export const PropSchema = z.strictObject({
 });
 export type PropManifest = z.infer<typeof PropSchema>;
 
+// ── theme ───────────────────────────────────────────────────────────────────────────────────
+
+/** Ambient weather a theme draws over the map (cosmetic, per client, scaled by quality). */
+export const AmbientKinds = ['none', 'rain', 'snow', 'embers', 'stars', 'dust'] as const;
+
+/**
+ * Theme (§2a, §2c): the map's look. Purely cosmetic: the sim never reads it, so every player may
+ * pick their own. Sky gradient, rim light, grain, ambient weather and surface treatment (rain
+ * darkens and wets exposed ground, snow settles on it), optional scanlines.
+ */
+export const ThemeSchema = z.strictObject({
+  ...base,
+  sky: z.strictObject({ top: HexColorSchema, bottom: HexColorSchema }),
+  /** Outside the map. */
+  letterbox: HexColorSchema,
+  /** Rim light added to lit terrain edges. */
+  light: HexColorSchema,
+  /** Shot trails. */
+  trail: HexColorSchema,
+  /** Per-cell brightness grain, ±fraction. */
+  grain: z.number().min(0).max(0.5),
+  vignette: z.number().min(0).max(1),
+  ambient: z
+    .strictObject({
+      kind: z.enum(AmbientKinds),
+      /** Particles per 1000 map cells of width at high quality. */
+      density: z.number().min(0).max(400),
+      color: HexColorSchema,
+    })
+    .default({ kind: 'none', density: 0, color: '#ffffff' }),
+  /** Exposed ground darkened and glinting (rain), 0–1. */
+  wet: z.number().min(0).max(1).default(0),
+  /** Snow settled on exposed ground, 0–1. */
+  snow: z.number().min(0).max(1).default(0),
+  /** Arcade scanlines, 0–1 darkening of every other device row. */
+  scanlines: z.number().min(0).max(1).default(0),
+  /** Lightning flicker in the sky every N ticks on average (storms); 0 = never. */
+  flicker: z.number().int().min(0).max(3600).default(0),
+});
+export type ThemeManifest = z.infer<typeof ThemeSchema>;
+
 // ── packs ───────────────────────────────────────────────────────────────────────────────────
 
 export const PackSchema = z.strictObject({
@@ -476,6 +533,7 @@ export const MANIFEST_SCHEMAS = {
   mode: ModeSchema,
   ai: AiSchema,
   prop: PropSchema,
+  theme: ThemeSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -488,6 +546,7 @@ export interface ManifestByType {
   mode: ModeManifest;
   ai: AiManifest;
   prop: PropManifest;
+  theme: ThemeManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

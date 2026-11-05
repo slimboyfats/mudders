@@ -82,7 +82,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
         if (disposed) return;
         r.mount(canvas, match, {
           quality: settings.quality,
-          theme: 'theme.default',
+          theme: settings.theme,
           palette: paletteFrom(match.content),
           shake: settings.shake,
         });
@@ -114,7 +114,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       rendererRef.current?.unmount();
       rendererRef.current = null;
     };
-  }, [match, settings.quality, settings.shake, refreshHud]);
+  }, [match, settings.quality, settings.shake, settings.theme, refreshHud]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
   useEffect(() => {

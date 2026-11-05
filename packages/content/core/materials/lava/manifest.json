@@ -39,5 +39,10 @@
       "other": "material.fire",
       "chance": 0.1
     }
-  ]
+  ],
+  "look": {
+    "cycle": ["#ff5a1f", "#e8401a", "#ff7a24", "#ffa030", "#ff7a24", "#e8401a"],
+    "cycleTicks": 7,
+    "hot": true
+  }
 }

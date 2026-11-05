@@ -1,8 +1,10 @@
 /**
- * Pixel-renderer look per theme id (§2a). Themes become `theme.*` content items with palettes and
- * ambient effects in milestone 6; until then the renderer carries the default look and falls back
- * to it for unknown ids.
+ * Pixel-renderer look per theme id (§2a). Themes are `theme.*` content items (sky, light, ambient
+ * weather, wet/snow surface, scanlines); the client converts them to this shape and hands them to
+ * the renderer with the palette. Unknown ids fall back to the default dusk look.
  */
+export type AmbientKind = 'none' | 'rain' | 'snow' | 'embers' | 'stars' | 'dust';
+
 export interface PixelTheme {
   skyTop: number;
   skyBottom: number;
@@ -14,6 +16,15 @@ export interface PixelTheme {
   grain: number;
   vignette: number;
   trail: number;
+  ambient: { kind: AmbientKind; density: number; color: number };
+  /** Exposed ground darkened and glinting, 0–1. */
+  wet: number;
+  /** Snow settled on exposed ground, 0–1. */
+  snow: number;
+  /** Scanline darkening, 0–1. */
+  scanlines: number;
+  /** Sky lightning every N ticks on average; 0 = never. */
+  flicker: number;
 }
 
 export const DEFAULT_THEME: PixelTheme = {
@@ -24,14 +35,52 @@ export const DEFAULT_THEME: PixelTheme = {
   grain: 0.14,
   vignette: 0.28,
   trail: 0xffe2b8,
+  ambient: { kind: 'stars', density: 60, color: 0xe8e0ff },
+  wet: 0,
+  snow: 0,
+  scanlines: 0,
+  flicker: 0,
 };
 
-const THEMES: Record<string, PixelTheme> = {
-  'theme.default': DEFAULT_THEME,
-};
+/** The subset of a `theme.*` manifest the renderer reads. */
+export interface ThemeData {
+  sky: { top: string; bottom: string };
+  letterbox: string;
+  light: string;
+  trail: string;
+  grain: number;
+  vignette: number;
+  ambient: { kind: AmbientKind; density: number; color: string };
+  wet: number;
+  snow: number;
+  scanlines: number;
+  flicker: number;
+}
 
-export function pixelTheme(id: string): PixelTheme {
-  return Object.hasOwn(THEMES, id) ? THEMES[id]! : DEFAULT_THEME;
+const hex = (s: string): number => parseInt(s.slice(1), 16);
+
+export function themeFrom(m: ThemeData): PixelTheme {
+  return {
+    skyTop: hex(m.sky.top),
+    skyBottom: hex(m.sky.bottom),
+    letterbox: hex(m.letterbox),
+    light: hex(m.light),
+    grain: m.grain,
+    vignette: m.vignette,
+    trail: hex(m.trail),
+    ambient: { kind: m.ambient.kind, density: m.ambient.density, color: hex(m.ambient.color) },
+    wet: m.wet,
+    snow: m.snow,
+    scanlines: m.scanlines,
+    flicker: m.flicker,
+  };
+}
+
+export function pixelTheme(
+  id: string,
+  themes: Readonly<Record<string, PixelTheme>> | undefined,
+): PixelTheme {
+  return themes && Object.hasOwn(themes, id) ? themes[id]! : DEFAULT_THEME;
 }
 
 /** Okabe–Ito colour-blind-safe player colours (§8). */

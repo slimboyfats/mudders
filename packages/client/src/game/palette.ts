@@ -1,11 +1,30 @@
 import type { ResolvedContent } from '@mudders/sim';
-import type { RenderPalette } from '../render/types';
+import { themeFrom, type PixelTheme } from '../render/pixel/theme';
+import type { MaterialLook, RenderPalette } from '../render/types';
 
-/** Renderer palette from material manifests (`meta.color`). */
+/** Renderer palette from content: material colours (`meta.color`), material looks and themes. */
 export function paletteFrom(content: ResolvedContent): RenderPalette {
   const materials = new Uint32Array(256);
-  for (const m of content.list('material')) materials[m.cell] = parseHex(m.meta.color, 0xff00ff);
-  return { materials };
+  const looks: MaterialLook[] = [];
+  for (const m of content.list('material')) {
+    materials[m.cell] = parseHex(m.meta.color, 0xff00ff);
+    if (m.look) {
+      looks.push({
+        cell: m.cell,
+        cycle: (m.look.cycle ?? []).map((c) => parseHex(c, 0xff00ff)),
+        ticks: m.look.cycleTicks,
+        hot: m.look.hot,
+      });
+    }
+  }
+  const themes: Record<string, PixelTheme> = {};
+  for (const t of content.list('theme')) themes[t.id] = themeFrom(t);
+  return { materials, looks, themes };
+}
+
+/** Theme ids with display names, for the settings picker. */
+export function themeChoices(content: ResolvedContent): { id: string; name: string }[] {
+  return content.list('theme').map((t) => ({ id: t.id, name: t.meta.name }));
 }
 
 /** Parse "#rrggbb" to 0xRRGGBB, or return the fallback. */

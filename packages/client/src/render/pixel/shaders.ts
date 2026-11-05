@@ -13,14 +13,24 @@ void main() {
 }`;
 
 /**
- * Background in one fullscreen pass: letterbox, sky gradient, the cached terrain colours at the
- * camera's integer scale (nearest-neighbour), impact flash and vignette. One pass keeps software
- * GL (SwiftShader capture) fast.
+ * Background in one fullscreen pass: letterbox, sky gradient (with stateless twinkling stars),
+ * the cached terrain colours at the camera's integer scale (nearest-neighbour), palette cycling
+ * for animated materials, heat haze over hot ones, sky tint and vignette. One pass keeps software
+ * GL (SwiftShader capture) fast. Everything is evaluated per map cell, so it stays on the grid.
+ *
+ * `u_look` is 256×9: row 0 per material = (cycle length, ticks per step, hot, 0) as bytes,
+ * rows 1–8 the cycle colours.
  */
 export const BG_FS = `#version 300 es
 precision highp float;
+precision highp int;
+precision highp usampler2D;
 in vec2 v_uv;
 uniform sampler2D u_color;
+uniform usampler2D u_terrain;
+uniform usampler2D u_coat;
+uniform sampler2D u_look;
+uniform sampler2D u_palette;
 uniform vec2 u_view;
 uniform vec2 u_origin;
 uniform float u_scale;
@@ -30,7 +40,35 @@ uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
 uniform vec3 u_flash;
 uniform float u_vignette;
+uniform float u_time;
+uniform float u_haze;
+uniform float u_stars;
+uniform vec3 u_starColor;
 out vec4 o;
+
+uint mat(ivec2 c) {
+  if (c.x < 0 || c.y < 0 || c.x >= int(u_map.x) || c.y >= int(u_map.y)) return 0u;
+  return texelFetch(u_terrain, c, 0).r;
+}
+vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
+float hash(ivec2 c) {
+  uint h = uint(c.x) * 374761393u + uint(c.y) * 668265263u;
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  return float(h & 1023u) / 1023.0;
+}
+// one cycle step for a cell of animated material m: hard diagonal bands that crawl over time
+vec3 cycled(uint m, ivec2 c, vec3 shaded) {
+  vec4 l = look(m);
+  int n = int(l.r * 255.0 + 0.5);
+  if (n < 2) return shaded;
+  float ticks = max(1.0, l.g * 255.0);
+  int st = int(floor(u_time / ticks)) + (c.x + c.y * 2) / 5 + (hash(c) > 0.86 ? 1 : 0);
+  vec3 col = texelFetch(u_look, ivec2(int(m), 1 + st % n), 0).rgb;
+  vec3 base = texelFetch(u_palette, ivec2(int(m), 0), 0).rgb;
+  // keep the cached lighting (lit rim, depth): scale by how bright the shaded cell is vs its base
+  float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
+  return col * clamp(k, 0.5, 1.6);
+}
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
@@ -39,14 +77,42 @@ void main() {
     c = u_letterbox;
   } else {
     ivec2 cell = ivec2(floor(m));
+    // heat haze: air over a hot material shimmers sideways by whole cells
+    float heat = 0.0;
+    if (u_haze > 0.0) {
+      for (int k = 1; k <= 10; k++) {
+        uint b = mat(cell + ivec2(0, k));
+        if (b == 0u) continue;
+        if (look(b).b > 0.5) heat = 1.0 - float(k) / 11.0;
+        break;
+      }
+      if (heat > 0.0) {
+        float w = sin(u_time * 0.31 + float(cell.y) * 0.9) * 1.6 * heat * u_haze;
+        cell.x = clamp(cell.x + int(floor(w + 0.5)), 0, int(u_map.x) - 1);
+      }
+    }
     // the cache was rendered through a y-flipped viewport: map row r lives in texel row H-1-r
     vec4 t = texelFetch(u_color, ivec2(cell.x, int(u_map.y) - 1 - cell.y), 0);
     if (t.a > 0.5) {
       c = t.rgb;
+      uint mm = mat(cell);
+      uint cm = texelFetch(u_coat, cell, 0).r;
+      if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
+      else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
     } else {
       float k = clamp(m.y / u_map.y, 0.0, 1.0);
       c = mix(u_top, u_bottom, k * k * (3.0 - 2.0 * k)) + u_flash;
+      // stars: a few sky cells high up twinkle on and off in whole steps
+      if (u_stars > 0.0 && k < 0.6) {
+        float h = hash(cell + ivec2(31, 17));
+        if (h > 1.0 - u_stars) {
+          float tw = hash(cell + ivec2(int(u_time / 23.0 + h * 97.0), 5));
+          c = mix(c, u_starColor, (tw > 0.25 ? 0.75 : 0.3) * (1.0 - k / 0.6));
+        }
+      }
     }
+    // warm dither in the hottest air
+    if (heat > 0.55 && ((cell.x + cell.y + int(u_time / 4.0)) & 3) == 0) c += vec3(0.07, 0.025, 0.0);
   }
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
@@ -85,6 +151,9 @@ uniform sampler2D u_palette;
 uniform vec2 u_map;
 uniform float u_grain;
 uniform vec3 u_light;
+uniform float u_wet;
+uniform float u_snow;
+uniform sampler2D u_look;
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -113,6 +182,34 @@ void main() {
   float side = (mat(c + ivec2(-1, 0)) == 0u || mat(c + ivec2(1, 0)) == 0u) ? 0.05 : 0.0;
   float depth = -0.22 * clamp(v_map.y / u_map.y, 0.0, 1.0);
   vec3 col = base * (1.0 + g + under + depth) + u_light * (lit + side);
+  // animated materials (water, lava) are left to the cycling pass: no snow or wet sheen on them
+  bool still = texelFetch(u_look, ivec2(int(m), 0), 0).r == 0.0;
+  if (still && u_wet > 0.0) {
+    // rain soaks the top few rows: darker, with glints on the surface
+    int soak = 0;
+    for (int k = 1; k <= 6; k++) if (mat(c + ivec2(0, -k)) == 0u) { soak = k; break; }
+    if (soak > 0) {
+      // soaked rows go dark and cold, the rim light dulls to a wet sheen
+      col = base * (1.0 + g + depth) * (1.0 - u_wet * (0.5 - 0.05 * float(soak)));
+      col = mix(col, col * vec3(0.85, 0.92, 1.08), u_wet);
+      if (soak == 1) col += vec3(0.05, 0.06, 0.09) * u_wet;
+      if (soak == 1 && hash(c + ivec2(3, 11)) > 0.7) col += vec3(0.14, 0.16, 0.2) * u_wet;
+    }
+  }
+  if (still && u_snow > 0.0) {
+    // snow cap: two full rows and a ragged third, also on steep faces open to the sky diagonally
+    float h = hash(c + ivec2(13, 5));
+    int sd = 0;
+    for (int k = 1; k <= 3; k++) {
+      if (mat(c + ivec2(0, -k)) == 0u || mat(c + ivec2(-1, -k)) == 0u && mat(c + ivec2(1, -k)) == 0u) { sd = k; break; }
+    }
+    if (sd == 0 && (mat(c + ivec2(-1, -1)) == 0u || mat(c + ivec2(1, -1)) == 0u)) sd = 2;
+    if (sd == 1 || sd == 2 || (sd == 3 && h > 0.55)) {
+      vec3 snow = h > 0.5 ? vec3(0.93, 0.95, 1.0) : vec3(0.8, 0.85, 0.94);
+      if (sd == 1) snow += 0.04;
+      col = mix(col, snow, u_snow);
+    }
+  }
   // coating overlay (§4b): the coating's colour laid over the cell in a hard 2-tone dither, with a
   // one-cell sheen band on exposed surfaces; stays on the pixel grid
   uint cm = texelFetch(u_coat, c, 0).r;
@@ -197,7 +294,8 @@ export const MAX_RIPPLES = 8;
 
 /**
  * Post-process (§2a), only while needed: shockwave distortion (pixels pushed by a moving lens
- * band, evaluated per map cell and displaced by whole cells), impact flash tint and screen shake. Ripples: xy = centre (device px, y down), z = radius,
+ * band, evaluated per map cell and displaced by whole cells), impact flash tint, screen shake,
+ * chromatic split on nukes and theme scanlines. Ripples: xy = centre (device px, y down), z = radius,
  * w = strength; widths in u_rippleW.
  */
 export const POST_FS = `#version 300 es
@@ -212,6 +310,8 @@ uniform float u_rippleW[${MAX_RIPPLES}];
 uniform vec3 u_tint;
 uniform vec2 u_origin;
 uniform float u_scale;
+uniform float u_split;
+uniform float u_scan;
 out vec4 o;
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view + u_shake;
@@ -234,6 +334,13 @@ void main() {
   vec2 uv = (px - disp) / u_view;
   uv.y = 1.0 - uv.y;
   vec3 c = texture(u_scene, clamp(uv, vec2(0.0), vec2(1.0))).rgb;
+  if (u_split > 0.0) {
+    // chromatic split on the biggest blasts: red and blue pulled apart by whole cells
+    vec2 sh = vec2(u_split / u_view.x, 0.0);
+    c.r = texture(u_scene, clamp(uv + sh, vec2(0.0), vec2(1.0))).r;
+    c.b = texture(u_scene, clamp(uv - sh, vec2(0.0), vec2(1.0))).b;
+  }
   c += u_tint;
+  if (u_scan > 0.0 && (int(gl_FragCoord.y) & 1) == 0) c *= 1.0 - u_scan;
   o = vec4(c, 1.0);
 }`;

@@ -1,0 +1,23 @@
+{
+  "id": "theme.day",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Day",
+    "description": "Clear midday: pale blue sky, bright white rim light and a little drifting dust.",
+    "since": "core@0.8.0"
+  },
+  "sky": {
+    "top": "#3d7fd0",
+    "bottom": "#b8dcf0"
+  },
+  "letterbox": "#0a1420",
+  "light": "#4a4436",
+  "trail": "#ffffff",
+  "grain": 0.12,
+  "vignette": 0.12,
+  "ambient": {
+    "kind": "dust",
+    "density": 20,
+    "color": "#fff4d8"
+  }
+}

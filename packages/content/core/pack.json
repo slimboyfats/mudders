@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -63,6 +63,12 @@
     "terrainop.quake",
     "terrainop.tectonic",
     "terrainop.terraform",
+    "theme.arcade",
+    "theme.day",
+    "theme.default",
+    "theme.inferno",
+    "theme.snow",
+    "theme.storm",
     "weapon.acid-drop",
     "weapon.acid-rain",
     "weapon.baby-digger",

@@ -20,6 +20,8 @@ export interface CaptureOptions {
   updateReference: boolean;
   cache: boolean;
   shake: boolean;
+  /** Theme id overriding the scenario's (`theme.*`). */
+  theme: string | undefined;
 }
 
 export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options]
@@ -36,7 +38,8 @@ export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options
   --diff                compare the sheet with captures/reference/ and fail on visible change
   --update-reference    write the sheet to captures/reference/ (commit it)
   --no-cache            render even if an identical capture exists
-  --no-shake            disable screen shake`;
+  --no-shake            disable screen shake
+  --theme <theme-id>    render with this theme (default: the scenario's, else theme.default)`;
 
 export class UsageError extends Error {}
 
@@ -59,6 +62,7 @@ export function parseArgs(argv: string[]): CaptureOptions {
     updateReference: false,
     cache: true,
     shake: true,
+    theme: undefined,
   };
   let onlyGif = false;
   let onlyMp4 = false;
@@ -132,6 +136,12 @@ export function parseArgs(argv: string[]): CaptureOptions {
       case '--no-shake':
         o.shake = false;
         break;
+      case '--theme': {
+        const t = val();
+        if (!/^theme\.[a-z0-9-]+$/.test(t)) throw new UsageError(`bad --theme ${t}`);
+        o.theme = t;
+        break;
+      }
       default:
         if (a.startsWith('--')) throw new UsageError(`unknown option ${a}`);
         pos.push(a);

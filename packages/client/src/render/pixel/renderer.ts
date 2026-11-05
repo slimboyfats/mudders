@@ -1,4 +1,4 @@
-import type { EntityView, RenderSnapshot } from '@mudders/shared';
+import type { EntityView, RenderSnapshot, ZoneView } from '@mudders/shared';
 import type {
   Quality,
   RenderPalette,
@@ -7,13 +7,14 @@ import type {
   SnapshotStream,
   Vec2,
 } from '../types';
+import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, QUALITY_PARTICLES } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import { BG_FS, FULLSCREEN_VS, MAX_RIPPLES, POST_FS, TERRAIN_FS, TERRAIN_VS } from './shaders';
-import { pixelTheme, playerColor, shade, type PixelTheme } from './theme';
+import { DEFAULT_THEME, pixelTheme, playerColor, shade, type PixelTheme } from './theme';
 
 const FP = 65536;
 const TANK_W = 16;
@@ -38,7 +39,7 @@ export class PixelRenderer implements Renderer {
   private gl!: WebGL2RenderingContext;
   private canvas!: HTMLCanvasElement;
   private unsubscribe: (() => void) | undefined;
-  private theme: PixelTheme = pixelTheme('theme.default');
+  private theme: PixelTheme = DEFAULT_THEME;
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
@@ -62,8 +63,18 @@ export class PixelRenderer implements Renderer {
       | 'u_letterbox'
       | 'u_flash'
       | 'u_vignette'
+      | 'u_terrain'
+      | 'u_coat'
+      | 'u_look'
+      | 'u_palette'
+      | 'u_time'
+      | 'u_haze'
+      | 'u_stars'
+      | 'u_starColor'
     >
   >;
+  /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
+  private lookTex!: WebGLTexture;
   /** Dirty bounding box awaiting re-shade: x0, y0, x1, y1 (exclusive); x0 > x1 when clean. */
   private dirty = [0, 0, 0, 0];
   private paletteTex!: WebGLTexture;
@@ -85,6 +96,9 @@ export class PixelRenderer implements Renderer {
       | 'u_palette'
       | 'u_grain'
       | 'u_light'
+      | 'u_wet'
+      | 'u_snow'
+      | 'u_look'
     >
   >;
   private uPost!: ReturnType<
@@ -98,6 +112,8 @@ export class PixelRenderer implements Renderer {
       | 'u_tint'
       | 'u_origin'
       | 'u_scale'
+      | 'u_split'
+      | 'u_scan'
     >
   >;
   private normal!: QuadBatch;
@@ -108,6 +124,8 @@ export class PixelRenderer implements Renderer {
   /** Latest snapshot state the renderer mirrors (read-only views). */
   private terrain: Uint8Array;
   private entities: EntityView[] = [];
+  private zones: ZoneView[] = [];
+  private readonly probe: AmbientProbe;
   private debris: RenderSnapshot['debris'] = {
     count: 0,
     x: new Int32Array(0),
@@ -127,6 +145,12 @@ export class PixelRenderer implements Renderer {
   ) {
     this.camera = new Camera(mapWidth, mapHeight);
     this.terrain = new Uint8Array(mapWidth * mapHeight);
+    this.probe = {
+      width: mapWidth,
+      height: mapHeight,
+      solid: (x, y) =>
+        x >= 0 && y >= 0 && x < mapWidth && y < mapHeight && this.terrain[y * mapWidth + x] !== 0,
+    };
   }
 
   mount(canvas: HTMLCanvasElement, snapshots: SnapshotStream, options: RendererOptions): void {
@@ -143,7 +167,7 @@ export class PixelRenderer implements Renderer {
     if (!gl) throw new Error('WebGL2 is not available');
     this.gl = gl;
     this.palette = options.palette;
-    this.theme = pixelTheme(options.theme);
+    this.theme = pixelTheme(options.theme, options.palette.themes);
     this.shakeOn = options.shake ?? true;
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
@@ -157,6 +181,9 @@ export class PixelRenderer implements Renderer {
       'u_palette',
       'u_grain',
       'u_light',
+      'u_wet',
+      'u_snow',
+      'u_look',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -170,6 +197,14 @@ export class PixelRenderer implements Renderer {
       'u_letterbox',
       'u_flash',
       'u_vignette',
+      'u_terrain',
+      'u_coat',
+      'u_look',
+      'u_palette',
+      'u_time',
+      'u_haze',
+      'u_stars',
+      'u_starColor',
     ]);
     this.postProg = compile(gl, FULLSCREEN_VS, POST_FS);
     this.uPost = uniforms(gl, this.postProg, [
@@ -182,6 +217,8 @@ export class PixelRenderer implements Renderer {
       'u_tint',
       'u_origin',
       'u_scale',
+      'u_split',
+      'u_scan',
     ]);
     this.emptyVao = gl.createVertexArray();
 
@@ -211,6 +248,7 @@ export class PixelRenderer implements Renderer {
       new Uint8Array(this.mapWidth * this.mapHeight),
     );
     this.paletteTex = texture(gl);
+    this.lookTex = texture(gl);
     this.uploadPalette();
     this.colorTex = texture(gl);
     gl.texImage2D(
@@ -252,6 +290,24 @@ export class PixelRenderer implements Renderer {
     }
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    const look = new Uint8Array(256 * 9 * 4);
+    for (const l of this.palette.looks ?? []) {
+      if (l.cell <= 0 || l.cell > 255) continue;
+      const n = Math.min(8, l.cycle.length);
+      look[l.cell * 4] = n >= 2 ? n : 0;
+      look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
+      look[l.cell * 4 + 2] = l.hot ? 255 : 0;
+      for (let i = 0; i < n; i++) {
+        const o = ((1 + i) * 256 + l.cell) * 4;
+        const c = l.cycle[i]!;
+        look[o] = (c >> 16) & 255;
+        look[o + 1] = (c >> 8) & 255;
+        look[o + 2] = c & 255;
+        look[o + 3] = 255;
+      }
+    }
+    gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 9, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
   }
 
   setQuality(quality: Quality): void {
@@ -274,7 +330,7 @@ export class PixelRenderer implements Renderer {
   }
 
   setTheme(id: string): void {
-    this.theme = pixelTheme(id);
+    this.theme = pixelTheme(id, this.palette.themes);
     this.dirty = [0, 0, this.mapWidth, this.mapHeight];
   }
 
@@ -345,13 +401,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (2 up, 1 down/sideways): widen the re-shade box to match
+        // shading reads neighbours (up to 6 up for wet/snow, 1 down/sideways): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
         d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
-        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 2));
+        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 6));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
@@ -359,6 +415,8 @@ export class PixelRenderer implements Renderer {
     }
     this.terrain = s.terrain;
     this.entities = s.entities;
+    this.zones = [];
+    for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
     this.debris = s.debris;
     this.wind = s.wind;
     this.lastTick = s.tick;
@@ -445,8 +503,13 @@ export class PixelRenderer implements Renderer {
     const [sx, sy] = this.shakeOn ? this.fx.shake(t) : [0, 0];
     const shakeX = Math.round(sx) * scale; // whole cells: the grid never smears
     const shakeY = Math.round(sy) * scale;
-    const flash = this.fx.skyFlash;
-    const post = nRipples > 0 || shakeX !== 0 || shakeY !== 0 || flash > 0;
+    const fx = this.fx;
+    const storm = stormFlash(t, th.flicker);
+    const sky = fx.sky;
+    const flash = Math.max(fx.skyFlash, storm);
+    const split = distort ? Math.round(fx.split) * scale : 0;
+    const scan = th.scanlines;
+    const post = nRipples > 0 || shakeX !== 0 || shakeY !== 0 || flash > 0 || split > 0 || scan > 0;
 
     this.shadeTerrain();
     gl.bindFramebuffer(gl.FRAMEBUFFER, post ? this.sceneFbo : null);
@@ -466,17 +529,46 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uBg.u_top, rgb(th.skyTop));
     gl.uniform3fv(this.uBg.u_bottom, rgb(th.skyBottom));
     gl.uniform3fv(this.uBg.u_letterbox, rgb(th.letterbox));
-    gl.uniform3f(this.uBg.u_flash, flash * 0.5, flash * 0.32, flash * 0.18);
+    gl.uniform3f(
+      this.uBg.u_flash,
+      sky[0] + storm * 0.55,
+      sky[1] + storm * 0.6,
+      sky[2] + storm * 0.75,
+    );
     gl.uniform1f(this.uBg.u_vignette, this.quality === 'low' ? 0 : th.vignette);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.coatTex);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_terrain, 1);
+    gl.uniform1i(this.uBg.u_coat, 2);
+    gl.uniform1i(this.uBg.u_look, 3);
+    gl.uniform1i(this.uBg.u_palette, 4);
+    gl.uniform1f(this.uBg.u_time, t);
+    gl.uniform1f(this.uBg.u_haze, distort ? 1 : 0);
+    gl.uniform1f(
+      this.uBg.u_stars,
+      th.ambient.kind === 'stars' ? Math.min(0.05, th.ambient.density / 6000) : 0,
+    );
+    gl.uniform3fv(this.uBg.u_starColor, rgb(th.ambient.color));
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     // sprites
+    const mult = this.fx.mult;
+    drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
     this.drawDebris();
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
+    this.fx.drawBolts(this.additive, t);
+    drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
     gl.enable(gl.BLEND);
@@ -500,8 +592,9 @@ export class PixelRenderer implements Renderer {
       gl.uniform1i(this.uPost.u_rippleCount, nRipples);
       gl.uniform4fv(this.uPost.u_ripple, this.rippleBuf);
       gl.uniform1fv(this.uPost.u_rippleW, this.rippleW);
-      const f = flash * 0.18;
-      gl.uniform3f(this.uPost.u_tint, f, f * 0.8, f * 0.6);
+      gl.uniform3f(this.uPost.u_tint, sky[0] * 0.36, sky[1] * 0.36, sky[2] * 0.36);
+      gl.uniform1f(this.uPost.u_split, split);
+      gl.uniform1f(this.uPost.u_scan, scan);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.bindVertexArray(null);
@@ -538,6 +631,11 @@ export class PixelRenderer implements Renderer {
     gl.uniform2f(this.uTer.u_map, mw, mh);
     gl.uniform1f(this.uTer.u_grain, this.theme.grain);
     gl.uniform3fv(this.uTer.u_light, rgb(this.theme.light));
+    gl.uniform1f(this.uTer.u_wet, this.theme.wet);
+    gl.uniform1f(this.uTer.u_snow, this.theme.snow);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
+    gl.uniform1i(this.uTer.u_look, 3);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
@@ -643,6 +741,7 @@ export class PixelRenderer implements Renderer {
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
     gl.deleteTexture(this.paletteTex);
+    gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);
     gl.deleteTexture(this.colorTex);
     gl.deleteFramebuffer(this.colorFbo);
