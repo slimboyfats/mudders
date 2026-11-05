@@ -1005,8 +1005,9 @@ export class World implements SimApi {
         g.clearCell(row + g.width - 1 - x);
       }
     }
-    g.markDirty(from, 0, this.edge, g.height - 1);
-    g.markDirty(g.width - 1 - this.edge, 0, g.width - 1 - from, g.height - 1);
+    // Whole columns go, so nothing above them can fall: only the renderer needs to know.
+    g.addRenderRect(from, 0, n, g.height);
+    g.addRenderRect(g.width - this.edge, 0, n, g.height);
     this.emit('collapse', from, g.height >> 1, n, { side: -1 });
     this.emit('collapse', g.width - 1 - from, g.height >> 1, n, { side: 1 });
   }

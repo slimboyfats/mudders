@@ -79,6 +79,21 @@ rects), `settle.ts`, `debris.ts`, `materials.ts` (flat per-cell lookup tables), 
 (preallocated flood-fill buffers), `prng.ts` (sfc32), `fixed.ts` (fixed-point trig table), `hash.ts`,
 `behaviours.ts` (behaviour interfaces + registry), `content/resolve.ts`, `replay.ts`, `scenario.ts`.
 
+### 3.2a Match loop (milestone 3)
+
+A `World` is a whole match. Phases: `aim` → `resolve` → (next turn | round end) → `shop` → next
+round on a freshly generated map → … → `over`. Money, score and inventory persist across rounds;
+health and position reset. Everything is tick-driven so peers stay in lockstep: the turn timer
+auto-fires, the shop timer auto-readies, and sudden death (`mode.suddenDeath`) scales weapon
+damage and removes `edgeCells` columns at each edge at the start of every turn once it applies.
+Setup-screen choices reach the sim only as `WorldOptions.rules` and `WorldOptions.bots`.
+
+AI players are `ai.*` content (behaviour kind `ai`). When a bot is up the kernel waits
+`BOT_THINK_TICKS`, calls `aim(AiApi)` halfway through and fires at the end; in the shop it calls
+`shop(AiShopApi)` and validates each purchase like a human's. `AiApi.predict` runs the weapon's
+own flight behaviour and the kernel's tracer against the current terrain (no side effects), so
+solvers like `ai.poolshark` account for wind and terrain exactly. Bot memory is a hashed `number[]`.
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.
