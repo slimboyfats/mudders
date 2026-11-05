@@ -11,7 +11,7 @@ describe('terrainop.carve', () => {
     // big-radius impacts straight down onto each half
     w.projectiles.push({
       id: 1,
-      weapon: 1,
+      weapon: w.weaponByIndex('weapon.baby-nuke'),
       owner: 0,
       x: 100 * 65536,
       y: 40 * 65536,
@@ -23,7 +23,7 @@ describe('terrainop.carve', () => {
     });
     w.projectiles.push({
       id: 2,
-      weapon: 1,
+      weapon: w.weaponByIndex('weapon.baby-nuke'),
       owner: 0,
       x: 300 * 65536,
       y: 40 * 65536,

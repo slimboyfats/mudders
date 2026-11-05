@@ -1,0 +1,34 @@
+{
+  "id": "weapon.water-cannon-drop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Water Cannon drop",
+    "description": "A drop of the Water Cannon's stream.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic",
+    "windScale": 0.6
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.water"
+      },
+      "radius": 3,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

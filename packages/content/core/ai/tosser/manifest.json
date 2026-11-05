@@ -1,0 +1,14 @@
+{
+  "id": "ai.tosser",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tosser",
+    "description": "Solves the shot through wind and terrain like Poolshark, but only ever lobs: steep, high shells that drop over cover onto the nearest tank. Buys the heaviest weapons it can afford.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "ai.tosser",
+  "angles": [78, 72, 66, 60],
+  "angleError": 2,
+  "powerError": 10,
+  "reserve": 300
+}

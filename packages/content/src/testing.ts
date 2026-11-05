@@ -112,3 +112,81 @@ export function groupCells(world: World): number {
   for (let i = 0; i < world.grid.group.length; i++) if (world.grid.group[i] !== 0) n++;
   return n;
 }
+
+/**
+ * Launch a shell of `weapon` (owned by the active player) from cell (x, y) with velocity (vx, vy)
+ * in cells/tick, then run until the shot resolves (or `max` ticks). Returns ticks run.
+ */
+export function launchAt(
+  world: World,
+  weapon: string,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  max = 2000,
+): number {
+  const idx = world.weaponByIndex(weapon);
+  if (idx < 0) throw new Error(`unknown weapon ${weapon}`);
+  world.projectiles.push({
+    id: 2000 + world.tick,
+    weapon: idx,
+    owner: world.activePlayer,
+    x: x * 65536 + 32768,
+    y: y * 65536 + 32768,
+    vx: Math.round(vx * 65536),
+    vy: Math.round(vy * 65536),
+    age: 10,
+    alive: true,
+    data: [],
+  });
+  world.phase = 'resolve';
+  let n = 0;
+  while (n < max && world.phase === 'resolve') {
+    world.step();
+    n++;
+  }
+  return n;
+}
+
+/** Effect events of one type emitted since the last snapshot (drains the snapshot queue). */
+export function effectsOf(world: World, type: string): { x: number; y: number }[] {
+  return world
+    .snapshot()
+    .effectEvents.filter((e) => e.type === type)
+    .map((e) => ({ x: e.x, y: e.y }));
+}
+
+/** End turns by firing a harmless shell into the sky until `turns` turns have passed. */
+export function passTurns(world: World, turns: number): void {
+  const idx = world.weaponByIndex('weapon.tracer');
+  for (let k = 0; k < turns; k++) {
+    const t = world.tanks[world.activePlayer]!;
+    t.inventory[idx] = 1;
+    t.weapon = idx;
+    t.angle = 90;
+    t.power = 0;
+    world.applyInput(world.activePlayer, { type: 'fire' });
+    let n = 0;
+    world.step();
+    while (n < 2000 && world.phase === 'resolve') {
+      world.step();
+      n++;
+    }
+  }
+}
+
+/** A world whose surface slopes down to the right: row `top` at x = 0, one row per `run` columns. */
+export function slopeWorld(top: number, run: number, opts: Partial<WorldOptions> = {}): World {
+  const w = flatWorld(top, opts);
+  const g = w.grid;
+  const dirt = w.mats.cellOf('material.dirt');
+  g.material.fill(0);
+  for (let x = 0; x < g.width; x++) {
+    const s = Math.min(g.height - 2, top + Math.floor(x / run));
+    for (let y = s; y < g.height; y++) g.material[y * g.width + x] = dirt;
+  }
+  g.clearSettle();
+  for (const t of w.tanks) t.y = g.surfaceY(t.x);
+  return w;
+}

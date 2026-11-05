@@ -1,0 +1,38 @@
+{
+  "id": "weapon.skipper-hop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Skipper hop",
+    "description": "The second hop of a Skipper.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 18,
+        "damage": 40
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.skipper-last",
+        "bounce": 0.65
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "flight.beam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Beam",
+    "description": "A straight line along the aim at fixed speed, ignoring gravity and wind; cuts through terrain until it hits a tank or runs out of range.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.beam",
+  "speed": 4,
+  "maxTicks": 110,
+  "gravityScale": 0,
+  "windScale": 0,
+  "pulseEvery": 0,
+  "throughSolid": true
+}

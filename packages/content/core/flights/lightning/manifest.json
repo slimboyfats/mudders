@@ -1,0 +1,12 @@
+{
+  "id": "flight.lightning",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lightning",
+    "description": "Leaves the barrel and drops out of the sky straight onto the highest enemy tank.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.lightning",
+  "speed": 10,
+  "maxTicks": 200
+}

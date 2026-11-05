@@ -1,0 +1,47 @@
+{
+  "id": "weapon.mystery",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mystery Shell",
+    "description": "Turns into a random weapon at the top of its arc. Could be a nuke, could be a clod of dirt.",
+    "category": "weird",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onApex", "onSolid", "onTank"],
+  "impact": [
+    {
+      "spawn": {
+        "weapon": [
+          "weapon.missile",
+          "weapon.baby-nuke",
+          "weapon.napalm",
+          "weapon.scatter-bomb",
+          "weapon.skipper",
+          "weapon.dirt-ball",
+          "weapon.ton-of-dirt",
+          "weapon.shockwave",
+          "weapon.quicksand",
+          "weapon.magma-bomb",
+          "weapon.roller",
+          "weapon.burrower",
+          "weapon.plague",
+          "weapon.riot-bomb",
+          "weapon.heat-seeker",
+          "weapon.tracer"
+        ]
+      }
+    }
+  ],
+  "shop": {
+    "price": 1500,
+    "pack": 3,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 35,
+    "terrainValue": 0.4
+  }
+}

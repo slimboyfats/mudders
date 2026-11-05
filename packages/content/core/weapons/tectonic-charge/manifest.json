@@ -1,0 +1,48 @@
+{
+  "id": "weapon.tectonic-charge",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tectonic Charge",
+    "description": "A shockwave that runs along the surface: a wave of dirt rolls out both ways across the map, lifting tanks and dropping them in its wake.",
+    "category": "terrain-dynamics",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 10,
+        "damageType": "shock",
+        "effects": {
+          "shake": {
+            "strength": 4
+          },
+          "burst": {
+            "count": 24
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.tectonic"
+      },
+      "radius": 360,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 20,
+    "terrainValue": 0.9
+  }
+}

@@ -80,12 +80,44 @@ export interface Projectile {
   data: number[];
 }
 
+/**
+ * What a flight asks the kernel to do this tick:
+ * - `impact`: go off here (run the weapon's impacts at the shell's position).
+ * - `pulse`: run the weapon's `pulse` impacts here and keep flying (before collision is checked,
+ *   so a digger's pulse clears its own way).
+ * - `skip`: moved without crossing the space between (a teleport): no collision check this tick.
+ * - `die`: vanish without going off.
+ * - nothing: fly on; the kernel traces the move and handles any hit.
+ */
+export type FlightSignal = 'impact' | 'pulse' | 'skip' | 'die' | undefined;
+
+/**
+ * A hit the kernel's tracer found between the shell's old and new position. `x`,`y` is the first
+ * cell hit; `freeX`,`freeY` the last free cell before it; `tank` the player hit (or -1).
+ */
+export interface FlightHit {
+  x: number;
+  y: number;
+  freeX: number;
+  freeY: number;
+  tank: number;
+}
+
+/**
+ * What to do about a hit: `impact` (go off at the hit cell, the default), `pulse` (run the pulse
+ * impacts at the hit cell and keep going), `continue` (keep going; the behaviour has already put
+ * the shell where it wants it), or `die`.
+ */
+export type ContactResult = 'impact' | 'pulse' | 'continue' | 'die';
+
 export interface FlightBehaviour<P = unknown> extends BehaviourBase<P> {
   readonly kind: 'flight';
   /** Max lifetime in ticks, from params. */
   maxTicks(params: P): number;
   /** Advance one tick: update velocity and position. Collision is the kernel's job. */
-  step(api: SimApi, p: Projectile, params: P): void;
+  step(api: SimApi, p: Projectile, params: P): FlightSignal;
+  /** Called on a hit; without it every hit is an `impact`. */
+  contact?(api: SimApi, p: Projectile, params: P, hit: FlightHit): ContactResult;
 }
 
 // ── terrain ops ─────────────────────────────────────────────────────────────────────────────

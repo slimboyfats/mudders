@@ -1,0 +1,50 @@
+{
+  "id": "weapon.acid-drop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid drop",
+    "description": "One drop of Acid Rain.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 6,
+        "damageType": "corrosive",
+        "effects": {
+          "burst": {
+            "count": 10
+          }
+        }
+      }
+    },
+    {
+      "zone": {
+        "radius": 12,
+        "turns": 3,
+        "damage": 3,
+        "look": "acid",
+        "damageType": "corrosive",
+        "terrainOp": {
+          "use": "terrainop.carve"
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

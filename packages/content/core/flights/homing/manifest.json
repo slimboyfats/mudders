@@ -1,0 +1,17 @@
+{
+  "id": "flight.homing",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Homing",
+    "description": "A ballistic arc that, once armed, steers toward the nearest enemy tank in range.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.homing",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "armTicks": 30,
+  "accel": 0.05,
+  "range": 220,
+  "maxSpeed": 10
+}

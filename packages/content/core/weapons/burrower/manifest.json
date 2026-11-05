@@ -1,0 +1,45 @@
+{
+  "id": "weapon.burrower",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Burrower",
+    "description": "Burrows into the ground, then goes off at the end of its tunnel: hits tanks behind cover and under overhangs.",
+    "category": "digger",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.digger",
+    "length": 45,
+    "speed": 2.5,
+    "exit": "impact",
+    "end": "impact"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 30,
+        "damage": 55
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 5,
+      "damageType": "dig"
+    }
+  ],
+  "shop": {
+    "price": 6000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 45,
+    "terrainValue": 0.5
+  }
+}

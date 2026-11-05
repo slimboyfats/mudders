@@ -1,0 +1,40 @@
+{
+  "id": "weapon.singularity",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Singularity",
+    "description": "Pulls the ground into a heap on the impact point, hangs there for a moment, then blows it all outward. Late-game, and priced like it.",
+    "category": "terrain-dynamics",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.attract",
+        "tankPull": 24
+      },
+      "radius": 90,
+      "damageType": "shock"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.singularity-core",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 18000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 80,
+    "terrainValue": 1.0
+  }
+}

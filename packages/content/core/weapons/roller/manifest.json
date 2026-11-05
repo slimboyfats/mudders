@@ -1,0 +1,32 @@
+{
+  "id": "weapon.roller",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Roller",
+    "description": "Lands, then rolls downhill along the ground until it meets a tank, a wall or the bottom of a valley. Perfect for tanks hiding in holes.",
+    "category": "roller",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.roller"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 24,
+        "damage": 55
+      }
+    }
+  ],
+  "shop": {
+    "price": 3500,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0.3
+  }
+}

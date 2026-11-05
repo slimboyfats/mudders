@@ -1,0 +1,32 @@
+{
+  "id": "weapon.smart-bomb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Smart Bomb",
+    "description": "Drifts gently toward the nearest enemy tank once it has flown a while. Forgives a near miss.",
+    "category": "guided",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.homing"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 20,
+        "damage": 45
+      }
+    }
+  ],
+  "shop": {
+    "price": 4500,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0.2
+  }
+}

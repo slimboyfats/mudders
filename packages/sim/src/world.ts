@@ -6,10 +6,12 @@ import {
   type EmbeddedExplosion,
   type EmbeddedTerrainOp,
   type EntityView,
+  type Impact,
   type Input,
   type ModeManifest,
   type RenderSnapshot,
   type WallRule,
+  DAMAGE_TYPES,
   TICK_RATE,
 } from '@mudders/shared';
 import {
@@ -17,7 +19,10 @@ import {
   type AiBehaviour,
   type AiShopApi,
   type AiWeaponView,
+  type ContactResult,
   type FlightBehaviour,
+  type FlightHit,
+  type FlightSignal,
   type ModeApi,
   type ModeBehaviour,
   type OpCall,
@@ -160,9 +165,54 @@ interface RtExplosion {
   effects: [string, Record<string, number>][];
 }
 
+interface RtSpawn {
+  /** Weapon indexes (one, or a pool to pick from). */
+  pool: number[];
+  count: number;
+  /** Fixed-point multipliers and velocities. */
+  inherit: number;
+  bounce: number;
+  spread: number;
+  jitter: number;
+  up: number;
+}
+
+interface RtZoneSpec {
+  radius: number;
+  turns: number;
+  damage: number;
+  /** Fixed-point (FP = 1×). */
+  amplify: number;
+  op: number;
+  damageType: DamageType;
+  look: number;
+}
+
 type RtImpact =
   | { kind: 'explosion'; e: RtExplosion }
-  | { kind: 'op'; op: number; radius: number; damageType: DamageType };
+  | { kind: 'op'; op: number; radius: number; damageType: DamageType }
+  | { kind: 'spawn'; s: RtSpawn }
+  | { kind: 'zone'; z: RtZoneSpec };
+
+/** A lingering zone on the map (§4a): plain integers, hashed. */
+export interface Zone {
+  x: number;
+  y: number;
+  radius: number;
+  turns: number;
+  damage: number;
+  amplify: number;
+  op: number;
+  dt: number;
+  look: number;
+  owner: number;
+}
+
+/** Most zones alive at once; the oldest goes first. */
+export const MAX_ZONES = 32;
+/** Most shells in the air at once (cluster bombs); extra children are dropped. */
+export const MAX_PROJECTILES = 64;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance'] as const;
 
 interface RtWeapon {
   id: string;
@@ -175,6 +225,7 @@ interface RtWeapon {
   onApex: boolean;
   onTimer: number;
   impacts: RtImpact[];
+  pulse: RtImpact[];
   price: number;
   pack: number;
   tier: number;
@@ -232,6 +283,7 @@ export class World implements SimApi {
   readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
+  zones: Zone[] = [];
   readonly debris = new DebrisPool();
 
   private readonly opSites: OpSite[] = [];
@@ -283,8 +335,9 @@ export class World implements SimApi {
     this.windType = rules.windType ?? mode.wind.type;
     this.suddenDeath = rules.suddenDeath === false ? null : mode.suddenDeath;
 
-    for (const w of content.list('weapon')) {
-      this.weaponIndex[w.id] = this.weapons.length;
+    const weaponList = content.list('weapon');
+    for (let i = 0; i < weaponList.length; i++) this.weaponIndex[weaponList[i]!.id] = i;
+    for (const w of weaponList) {
       const flight = content.behaviours.getKind(w.flight.behaviour, 'flight');
       const flightParams = flight.params.parse(behaviourParams(w.flight));
       let onTimer = 0;
@@ -303,16 +356,8 @@ export class World implements SimApi {
         onWall: named.includes('onWall'),
         onApex: named.includes('onApex'),
         onTimer,
-        impacts: w.impact.map((imp): RtImpact =>
-          'explosion' in imp
-            ? { kind: 'explosion', e: this.bindExplosion(imp.explosion) }
-            : {
-                kind: 'op',
-                op: this.bindOp(imp.terrainOp),
-                radius: imp.radius,
-                damageType: imp.damageType,
-              },
-        ),
+        impacts: w.impact.map((imp) => this.bindImpact(imp, w.id)),
+        pulse: w.pulse.map((imp) => this.bindImpact(imp, w.id)),
         price: w.shop.price,
         pack: w.shop.pack,
         tier: w.shop.tier,
@@ -339,6 +384,52 @@ export class World implements SimApi {
   }
 
   // ── setup ───────────────────────────────────────────────────────────────────────────────
+
+  private bindImpact(imp: Impact, weapon: string): RtImpact {
+    if ('explosion' in imp) return { kind: 'explosion', e: this.bindExplosion(imp.explosion) };
+    if ('spawn' in imp) {
+      const sp = imp.spawn;
+      const ids = typeof sp.weapon === 'string' ? [sp.weapon] : sp.weapon;
+      const pool = ids.map((id) => {
+        const i = this.weaponByIndex(id);
+        if (i < 0) throw new Error(`${weapon}: spawn names unknown weapon ${id}`);
+        return i;
+      });
+      return {
+        kind: 'spawn',
+        s: {
+          pool,
+          count: sp.count,
+          inherit: toFixed(sp.inherit),
+          bounce: toFixed(sp.bounce),
+          spread: toFixed(sp.spread),
+          jitter: toFixed(sp.jitter),
+          up: toFixed(sp.up),
+        },
+      };
+    }
+    if ('zone' in imp) {
+      const z = imp.zone;
+      return {
+        kind: 'zone',
+        z: {
+          radius: z.radius,
+          turns: z.turns,
+          damage: z.damage,
+          amplify: toFixed(z.amplify),
+          op: z.terrainOp ? this.bindOp(z.terrainOp) : -1,
+          damageType: z.damageType,
+          look: ZONE_LOOKS.indexOf(z.look),
+        },
+      };
+    }
+    return {
+      kind: 'op',
+      op: this.bindOp(imp.terrainOp),
+      radius: imp.radius,
+      damageType: imp.damageType,
+    };
+  }
 
   private bindOp(op: EmbeddedTerrainOp): number {
     const b = this.content.behaviours.getKind(op.behaviour, 'terrainop');
@@ -446,6 +537,7 @@ export class World implements SimApi {
     this.debris.count = 0;
     this.projectiles = [];
     this.ops = [];
+    this.zones = [];
     this.pendingDeaths = [];
     this.edge = 0;
     this.shooter = -1;
@@ -630,6 +722,7 @@ export class World implements SimApi {
       if (!this.contactDone) {
         this.contactDone = true;
         this.applyContact();
+        this.applyZones();
       }
       if (this.quiet) this.endTurn();
     }
@@ -721,7 +814,11 @@ export class World implements SimApi {
 
   private stepAim(): void {
     const t = this.tanks[this.activePlayer];
-    if (!t?.alive) return;
+    if (!t?.alive) {
+      // Died before shooting (fell into the sudden-death void at the start of its turn): pass.
+      this.phase = 'resolve';
+      return;
+    }
     if (t.bot >= 0) {
       this.botWait--;
       if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t);
@@ -803,11 +900,18 @@ export class World implements SimApi {
     };
     const W = this.grid.width * FP;
     const max = Math.min(PREDICT_TICKS, w.maxTicks);
+    const hit = this.hit;
     for (let i = 0; i < max; i++) {
       let px = p.x;
       const py = p.y;
-      w.flight.step(this, p, w.flightParams);
+      const sig = w.flight.step(this, p, w.flightParams);
       p.age++;
+      if (sig === 'die') break;
+      if (sig === 'impact') {
+        const x = Math.max(0, Math.min(this.grid.width - 1, Math.floor(p.x / FP)));
+        const y = Math.max(0, Math.min(this.grid.height - 1, Math.floor(p.y / FP)));
+        return { x, y, tank: this.tankAt(x, y, p), ticks: i, landed: true };
+      }
       if (p.x < 0 || p.x >= W) {
         if (this.walls === 'wrap') {
           p.x = ((p.x % W) + W) % W;
@@ -820,13 +924,15 @@ export class World implements SimApi {
           return { x: p.x < 0 ? 0 : this.grid.width - 1, y, tank: -1, ticks: i, landed: false };
         }
       }
-      const hit = this.trace(px, py, p, w);
-      if (hit >= 0) {
-        const hx = hit % this.grid.width;
-        const hy = Math.floor(hit / this.grid.width);
-        return { x: hx, y: hy, tank: this.tankAt(hx, hy, p), ticks: i, landed: true };
+      if (sig !== 'skip' && this.trace(px, py, p, w)) {
+        // Contact handlers only move the shell (no rng, no world changes), so they are safe here.
+        const res = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+        if (res === 'die') break;
+        if (res !== 'continue') {
+          return { x: hit.x, y: hit.y, tank: hit.tank, ticks: i, landed: true };
+        }
       }
-      if (p.y < -4 * this.grid.height * FP) break;
+      if (p.y < -4 * this.grid.height * FP || p.y >= (this.grid.height + 8) * FP) break;
     }
     return {
       x: Math.floor(p.x / FP),
@@ -852,14 +958,26 @@ export class World implements SimApi {
   private stepProjectiles(): void {
     const W = this.grid.width * FP;
     const H = this.grid.height;
-    for (const p of this.projectiles) {
+    const hit = this.hit;
+    // Children spawned this tick (cluster bombs) are appended and start moving next tick.
+    const n = this.projectiles.length;
+    for (let k = 0; k < n; k++) {
+      const p = this.projectiles[k]!;
       if (!p.alive) continue;
       const w = this.weapons[p.weapon]!;
       let px = p.x;
       const py = p.y;
       const pvy = p.vy;
-      w.flight.step(this, p, w.flightParams);
+      const sig: FlightSignal = w.flight.step(this, p, w.flightParams);
       p.age++;
+      if (sig === 'die') {
+        p.alive = false;
+        continue;
+      }
+      if (sig === 'impact') {
+        this.impactHere(p);
+        continue;
+      }
 
       if (p.x < 0 || p.x >= W) {
         const wx = p.x < 0 ? 0 : this.grid.width - 1;
@@ -881,14 +999,29 @@ export class World implements SimApi {
         }
       }
 
-      const hit = this.trace(px, py, p, w);
-      if (hit >= 0) {
-        this.impact(p, hit % this.grid.width, Math.floor(hit / this.grid.width));
-      } else if (w.onApex && pvy < 0 && p.vy >= 0) {
+      if (sig === 'pulse') {
+        const cx = Math.max(0, Math.min(this.grid.width - 1, Math.floor(p.x / FP)));
+        const cy = Math.max(0, Math.min(H - 1, Math.floor(p.y / FP)));
+        this.runImpacts(w.pulse, p, cx, cy);
+      }
+
+      if (sig !== 'skip' && this.trace(px, py, p, w)) {
+        const res: ContactResult = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+        if (res === 'impact') {
+          this.impact(p, hit.x, hit.y);
+          continue;
+        }
+        if (res === 'die') {
+          p.alive = false;
+          continue;
+        }
+        if (res === 'pulse') this.runImpacts(w.pulse, p, hit.x, hit.y);
+      }
+      if (w.onApex && pvy < 0 && p.vy >= 0) {
         this.impactHere(p);
       } else if (w.onTimer > 0 && p.age >= w.onTimer) {
         this.impactHere(p);
-      } else if (p.age >= w.maxTicks || p.y < -4 * H * FP) {
+      } else if (p.age >= w.maxTicks || p.y < -4 * H * FP || p.y >= (H + 8) * FP) {
         p.alive = false;
       }
     }
@@ -897,22 +1030,48 @@ export class World implements SimApi {
     }
   }
 
-  /** Walk the segment cell by cell; return the cell index of the first hit, or -1. */
-  private trace(x0: number, y0: number, p: Projectile, w: RtWeapon): number {
+  /** Scratch hit record filled by `trace`. */
+  private readonly hit: FlightHit = { x: 0, y: 0, freeX: 0, freeY: 0, tank: -1 };
+
+  /**
+   * Walk the segment cell by cell; on the first hit fill `this.hit` (hit cell, last free cell
+   * before it, tank hit) and return true.
+   */
+  private trace(x0: number, y0: number, p: Projectile, w: RtWeapon): boolean {
     const g = this.grid;
+    const hit = this.hit;
     const dx = p.x - x0;
     const dy = p.y - y0;
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / FP));
+    let fx = Math.max(0, Math.min(g.width - 1, Math.floor(x0 / FP)));
+    let fy = Math.max(0, Math.min(g.height - 1, Math.floor(y0 / FP)));
     for (let i = 1; i <= n; i++) {
       const cx = Math.floor((x0 + Math.trunc((dx * i) / n)) / FP);
       const cy = Math.floor((y0 + Math.trunc((dy * i) / n)) / FP);
       if (cx < 0 || cx >= g.width) continue;
-      if (cy >= g.height) return (g.height - 1) * g.width + cx;
+      if (cy >= g.height) {
+        hit.x = cx;
+        hit.y = g.height - 1;
+        hit.freeX = fx;
+        hit.freeY = fy;
+        hit.tank = -1;
+        return true;
+      }
       if (cy < 0) continue;
-      if (w.onSolid && g.material[cy * g.width + cx] !== 0) return cy * g.width + cx;
-      if (w.onTank && this.tankAt(cx, cy, p) >= 0) return cy * g.width + cx;
+      const solid = w.onSolid && g.material[cy * g.width + cx] !== 0;
+      const tank = w.onTank ? this.tankAt(cx, cy, p) : -1;
+      if (solid || tank >= 0) {
+        hit.x = cx;
+        hit.y = cy;
+        hit.freeX = fx;
+        hit.freeY = fy;
+        hit.tank = tank;
+        return true;
+      }
+      fx = cx;
+      fy = cy;
     }
-    return -1;
+    return false;
   }
 
   private impactHere(p: Projectile): void {
@@ -928,15 +1087,100 @@ export class World implements SimApi {
       owner.lastShotX = x;
       owner.lastShotY = y;
     }
-    for (const imp of this.weapons[p.weapon]!.impacts) {
+    this.runImpacts(this.weapons[p.weapon]!.impacts, p, x, y);
+  }
+
+  private runImpacts(impacts: readonly RtImpact[], p: Projectile, x: number, y: number): void {
+    for (const imp of impacts) {
       if (imp.kind === 'explosion') this.explode(imp.e, x, y, p.owner);
-      else this.startOp(imp.op, x, y, imp.radius, imp.damageType, p.owner);
+      else if (imp.kind === 'op') this.startOp(imp.op, x, y, imp.radius, imp.damageType, p.owner);
+      else if (imp.kind === 'spawn') this.spawn(imp.s, p, x, y);
+      else this.addZone(imp.z, x, y, p.owner);
     }
+  }
+
+  /** Child shells from the impact point, lifted out of the ground (§5.1 cluster weapons). */
+  private spawn(s: RtSpawn, p: Projectile, x: number, y: number): void {
+    const g = this.grid;
+    let sy = Math.min(y, g.height - 1);
+    for (let k = 0; k < 32 && sy > 0 && g.material[sy * g.width + x] !== 0; k++) sy--;
+    const j = s.jitter >> 8;
+    for (let i = 0; i < s.count; i++) {
+      if (this.projectiles.length >= MAX_PROJECTILES) break;
+      const weapon = s.pool.length === 1 ? s.pool[0]! : s.pool[this.rng.int(s.pool.length)]!;
+      let vx = Math.trunc((p.vx * s.inherit) / FP);
+      let vy =
+        s.bounce > 0
+          ? -Math.trunc((Math.abs(p.vy) * s.bounce) / FP)
+          : Math.trunc((p.vy * s.inherit) / FP);
+      if (s.count > 1) vx += Math.trunc((s.spread * (2 * i - (s.count - 1))) / (s.count - 1));
+      if (j > 0) {
+        vx += this.rng.range(-j, j) << 8;
+        vy += this.rng.range(-j, j) << 8;
+      }
+      vy -= s.up;
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        weapon,
+        owner: p.owner,
+        x: x * FP + FP / 2,
+        y: sy * FP + FP / 2,
+        vx,
+        vy,
+        age: 0,
+        alive: true,
+        data: [],
+      });
+    }
+  }
+
+  private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
+    if (this.zones.length >= MAX_ZONES) this.zones.shift();
+    this.zones.push({
+      x,
+      y,
+      radius: z.radius,
+      turns: z.turns,
+      damage: z.damage,
+      amplify: z.amplify,
+      op: z.op,
+      dt: damageTypeIndex(z.damageType),
+      look: z.look,
+      owner,
+    });
+    this.emit('zone', x, y, z.radius, { look: z.look, turns: z.turns });
+  }
+
+  /** End of a turn: zones hurt the tanks inside them and re-run their op, then age (§4a). */
+  private applyZones(): void {
+    if (this.zones.length === 0) return;
+    for (const z of this.zones) {
+      if (z.damage > 0) {
+        for (const t of this.tanks) {
+          if (!t.alive) continue;
+          const dx = t.x - z.x;
+          const dy = t.y - TANK_H / 2 - z.y;
+          const reach = z.radius + TANK_HALF;
+          if (dx * dx + dy * dy >= reach * reach) continue;
+          this.emit('zoneHurt', t.x, t.y - TANK_H / 2, TANK_HALF, {
+            damage: z.damage,
+            look: z.look,
+          });
+          this.damageTank(t, z.damage, z.owner);
+        }
+      }
+      if (z.op >= 0) {
+        this.startOp(z.op, z.x, z.y, z.radius, DAMAGE_TYPES[z.dt]!, z.owner);
+      }
+      z.turns--;
+    }
+    this.zones = this.zones.filter((z) => z.turns > 0);
   }
 
   // ── explosions, ops, damage ─────────────────────────────────────────────────────────────
 
-  private explode(e: RtExplosion, x: number, y: number, owner: number): void {
+  private explode(e0: RtExplosion, x: number, y: number, owner: number): void {
+    const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
@@ -962,6 +1206,27 @@ export class World implements SimApi {
       }
     }
     for (const [type, params] of e.effects) this.emit(type, x, y, e.radius, params);
+  }
+
+  /** A resonance zone under the blast scales it once and is used up (Resonator). */
+  private resonate(e: RtExplosion, x: number, y: number): RtExplosion {
+    for (let i = 0; i < this.zones.length; i++) {
+      const z = this.zones[i]!;
+      if (z.amplify <= FP) continue;
+      const dx = x - z.x;
+      const dy = y - z.y;
+      if (dx * dx + dy * dy > z.radius * z.radius) continue;
+      this.zones.splice(i, 1);
+      this.emit('resonate', x, y, e.radius, { factor: z.amplify / FP });
+      const k = z.amplify;
+      return {
+        ...e,
+        radius: Math.min(400, Math.trunc((e.radius * k) / FP)),
+        damage: Math.trunc((e.damage * k) / FP),
+        push: Math.trunc((e.push * k) / FP),
+      };
+    }
+    return e;
   }
 
   private startOp(
@@ -1332,6 +1597,16 @@ export class World implements SimApi {
         y: p.y / FP,
       });
     }
+    for (const z of this.zones) {
+      entities.push({
+        kind: 'zone',
+        x: z.x,
+        y: z.y,
+        radius: z.radius,
+        look: ZONE_LOOKS[z.look] ?? 'gas',
+        turns: z.turns,
+      });
+    }
     const effectEvents = this.effects;
     this.effects = [];
     return {
@@ -1411,6 +1686,11 @@ export class World implements SimApi {
         .u32(d.mat[i]!)
         .u32(d.coat[i]!)
         .u32(d.state[i]!);
+    }
+    h.num(this.zones.length);
+    for (const z of this.zones) {
+      h.num(z.x).num(z.y).num(z.radius).num(z.turns).num(z.damage).num(z.amplify);
+      h.num(z.op).num(z.dt).num(z.look).num(z.owner);
     }
     h.num(this.ops.length);
     for (const o of this.ops) {

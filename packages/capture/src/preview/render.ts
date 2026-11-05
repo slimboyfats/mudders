@@ -116,6 +116,7 @@ export class DebugRenderer {
         f.disc(ent.x, ent.y, 1.6, 0xffffff);
         continue;
       }
+      if (ent.kind !== 'tank') continue;
       const col = PLAYER_COLORS[ent.player % PLAYER_COLORS.length]!;
       const x0 = ent.x - TANK_W / 2;
       const top = ent.y - TANK_H;

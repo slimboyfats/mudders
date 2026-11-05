@@ -1,0 +1,43 @@
+{
+  "id": "weapon.grim-crown-warhead",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Grim Crown warhead",
+    "description": "One warhead of a Grim Crown.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 34,
+        "damage": 65,
+        "effects": {
+          "burst": {
+            "count": 60
+          },
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 3
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

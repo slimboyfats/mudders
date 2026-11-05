@@ -1,0 +1,43 @@
+{
+  "id": "weapon.heavy-nuke",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Nuke",
+    "description": "The end of the hill. A blast so wide it reshapes the whole map around the impact.",
+    "category": "explosive",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 100,
+        "damage": 120,
+        "effects": {
+          "burst": {
+            "count": 90
+          },
+          "flash": {
+            "strength": 1.6
+          },
+          "shake": {
+            "strength": 5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 25000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 90,
+    "terrainValue": 0.6
+  }
+}

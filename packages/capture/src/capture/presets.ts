@@ -108,8 +108,18 @@ export function weaponShowcase(content: ResolvedContent, weapon: string): Scenar
     return w;
   };
   const inputs: TimedInput[] = [{ t: 0, player: 0, action: { type: 'selectWeapon', weapon } }];
-  for (const tx of s.targets) {
-    const aim = solveAim(makeWorld, s.shooter, tx);
+  // Beams fly straight whatever the power: point the barrel at each target instead.
+  const beam = content.get('weapon', weapon).flight.behaviour === 'flight.beam';
+  const probe = beam ? makeWorld() : null;
+  for (let k = 0; k < s.targets.length; k++) {
+    const tx = s.targets[k]!;
+    let aim: { angle: number; power: number };
+    if (probe) {
+      const me = probe.tanks[0]!;
+      const t = probe.tanks[k + 1]!;
+      const deg = (Math.atan2(me.y - 14 - (t.y - 5), t.x - me.x) * 180) / Math.PI;
+      aim = { angle: Math.round(Math.max(0, Math.min(180, deg))), power: 500 };
+    } else aim = solveAim(makeWorld, s.shooter, tx);
     inputs.push(
       { t: 0, player: 0, action: { type: 'aim', angle: aim.angle, power: aim.power } },
       { t: 0, player: 0, action: { type: 'fire' } },

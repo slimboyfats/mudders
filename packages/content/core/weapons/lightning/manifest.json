@@ -1,0 +1,44 @@
+{
+  "id": "weapon.lightning",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lightning",
+    "description": "Calls a bolt down from the sky onto the highest enemy tank, wherever it is. Aim does not matter; cover overhead does.",
+    "category": "weird",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.lightning"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 16,
+        "damage": 55,
+        "damageType": "heat",
+        "effects": {
+          "flash": {
+            "strength": 2.0
+          },
+          "burst": {
+            "count": 30
+          },
+          "shake": {
+            "strength": 2
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0.1
+  }
+}

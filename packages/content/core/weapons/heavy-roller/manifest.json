@@ -1,0 +1,32 @@
+{
+  "id": "weapon.heavy-roller",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Roller",
+    "description": "A big Roller: rolls into the low ground and takes the valley with it.",
+    "category": "roller",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.roller"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 40,
+        "damage": 80
+      }
+    }
+  ],
+  "shop": {
+    "price": 7500,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 75,
+    "terrainValue": 0.5
+  }
+}

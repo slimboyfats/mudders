@@ -49,7 +49,8 @@ describe('golden determinism', () => {
     expect(actual.scenarios).toEqual(golden.scenarios);
   });
 
-  it('is identical when run twice in one process', () => {
+  // ~140 scenarios: allow for coverage instrumentation on a slow machine
+  it('is identical when run twice in one process', { timeout: 180_000 }, () => {
     expect(runAll()).toEqual(actual);
   });
 });

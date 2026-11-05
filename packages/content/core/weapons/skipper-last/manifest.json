@@ -1,0 +1,32 @@
+{
+  "id": "weapon.skipper-last",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Skipper last hop",
+    "description": "The last hop of a Skipper.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 22,
+        "damage": 45
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

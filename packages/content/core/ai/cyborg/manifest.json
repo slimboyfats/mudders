@@ -1,0 +1,13 @@
+{
+  "id": "ai.cyborg",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cyborg",
+    "description": "Near-perfect aim through wind and terrain, no deliberate error. Hunts the weakest tank (the closest on a tie), tries its most damaging weapons until one connects, and buys damage per coin.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "ai.cyborg",
+  "angles": [45, 35, 55, 65, 25, 75],
+  "weapons": 3,
+  "reserve": 100
+}
