@@ -356,6 +356,13 @@ export const PropSchema = z.strictObject({
         glue: z.enum(['whole', 'local']).default('whole'),
         /** `local` glue: how far around a hit the glue gives way, in cells. */
         loosen: z.number().int().min(0).max(8).default(2),
+        /**
+         * `local` glue: the group shields what is behind it. A blast's reach stops once its line
+         * from the blast centre has crossed this many of the group's cells, so ground and tanks
+         * behind or under thick rock are untouched (the rock itself still chips where hit).
+         * 0 = no shield.
+         */
+        shield: z.number().int().min(0).max(64).default(0),
         /** Damage pool (`whole` glue): one cell an op tries to remove costs 1, scaled by `resistance`. */
         integrity: z.number().int().min(1).max(100_000).default(100),
         /** Per damage type, on top of the materials' own strength; 2 = takes half damage. */

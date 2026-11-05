@@ -537,6 +537,8 @@ export class World implements SimApi {
     const m = g.material[cellIndex]!;
     if (m === 0) return false;
     const slot = g.group[cellIndex]!;
+    // rock between the blast and this cell stops it
+    if (this.groups.shields(g, cellIndex)) return false;
     if (slot !== 0) {
       if (!this.groups.isLocal(slot)) {
         // an intact prop group holds: the hit is charged to its integrity instead
@@ -917,6 +919,8 @@ export class World implements SimApi {
       const d = isqrt(dx * dx + dy * dy);
       const reach = e.radius + TANK_HALF;
       if (d >= reach) continue;
+      // sheltered behind (or under) thick rock: the blast doesn't reach it
+      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, t.y - TANK_H / 2)) continue;
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
         this.damageTank(t, Math.trunc(base * scale), owner);
@@ -951,7 +955,9 @@ export class World implements SimApi {
       owner,
     };
     this.grid.clearWatch();
+    const shielded = this.groups.any && this.groups.shieldBegin(this.grid, x, y, radius);
     const data = site.b.start(this, site.params, call);
+    if (shielded) this.groups.shieldEnd(this.grid);
     if (this.groups.any) this.groups.guard(this.grid, call.damageTypeIndex, this);
     if (data) this.ops.push({ op, call, t: 0, data });
   }
@@ -963,8 +969,11 @@ export class World implements SimApi {
       inst.t++;
       const site = this.opSites[inst.op]!;
       this.grid.clearWatch();
+      const c = inst.call;
+      const shielded = this.groups.any && this.groups.shieldBegin(this.grid, c.x, c.y, c.radius);
       const more = site.b.step?.(this, site.params, inst) ?? false;
-      if (this.groups.any) this.groups.guard(this.grid, inst.call.damageTypeIndex, this);
+      if (shielded) this.groups.shieldEnd(this.grid);
+      if (this.groups.any) this.groups.guard(this.grid, c.damageTypeIndex, this);
       if (more) next.push(inst);
     }
     this.ops = next;

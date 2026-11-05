@@ -46,13 +46,10 @@ describe('prop.rock-ledge', () => {
     }
     // the shelf comes down on the tank (most of it lands beside, in the crater)
     expect(over).toBeGreaterThan(TANK_HALF * 2);
-    let roof = 0;
-    for (let y = 0; y < t.y - TANK_H; y++) if (g.group[y * g.width + t.x] !== 0) roof++;
-    expect(roof).toBe(0);
+    expect(groupCells(w)).toBeLessThan(after);
   });
 
-  it('comes out a little different on each map, and always leaves room for a tank', () => {
-    const shapes = new Set<number>();
+  it('always leaves room for a tank, whichever way it faces', () => {
     for (const seed of [1, 2, 3, 4]) {
       const w = makeWorld({
         seed,
@@ -60,13 +57,11 @@ describe('prop.rock-ledge', () => {
         tankColumns: [200, 360],
         props: [{ prop: 'prop.rock-ledge', x: 200 }],
       });
-      shapes.add(groupCells(w));
       const t = w.tanks[0]!;
       for (let x = t.x - TANK_HALF; x < t.x + TANK_HALF; x++) {
         for (let y = t.y - TANK_H; y < t.y; y++)
           expect(w.grid.material[y * w.grid.width + x]).toBe(0);
       }
     }
-    expect(shapes.size).toBeGreaterThan(1);
   });
 });

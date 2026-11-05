@@ -17,6 +17,7 @@ interface GroupDef {
   /** `local` glue: hits free cells where they land instead of draining integrity. */
   local: boolean;
   loosen: number;
+  shield: number;
   integrity: number;
   /** ×256 per damage type. */
   resist: Uint16Array;
@@ -96,6 +97,18 @@ export class Groups {
   /** Flood-fill scratch for `local` groups, sized to the grid on first use. */
   private mark = new Uint8Array(0);
   private queue = new Int32Array(0);
+  /** Pre-op copy of the cells around a blast while a shield is up (see `shieldBegin`). */
+  private snapMat = new Uint8Array(0);
+  private snapCoat = new Uint8Array(0);
+  private snapState = new Uint8Array(0);
+  private snapGroup = new Uint8Array(0);
+  private shieldOn = false;
+  private sx = 0;
+  private sy = 0;
+  private sx0 = 0;
+  private sy0 = 0;
+  private sx1 = -1;
+  private sy1 = -1;
   private readonly def: GroupDef[] = [];
   private readonly props: CompiledProp[] = [];
   private readonly propIndex: Record<string, number> = {};
@@ -172,6 +185,7 @@ export class Groups {
       return {
         local: g.glue === 'local',
         loosen: g.loosen,
+        shield: g.glue === 'local' ? g.shield : 0,
         integrity: g.integrity,
         resist,
         breakInto,
@@ -319,7 +333,7 @@ export class Groups {
     if (p.embed > 0) {
       // the root end sits in the slope; the ground must fall away under the far end by at least
       // the prop's visible height, and no hill may stand above the prop's top
-      const rootY = grid.surfaceY(flip ? x + p.width - 1 : x);
+      const rootY = Groups.rootGround(grid, p, x, flip);
       const farY = grid.surfaceY(flip ? x : x + p.width - 1);
       const topY = rootY + p.embed - p.height;
       if (farY - rootY < p.height - p.embed + 4 || topY < 8 || rootY + p.embed >= grid.height - 4)
@@ -335,6 +349,17 @@ export class Groups {
       if (s > bottom) bottom = s;
     }
     return bottom - top <= p.maxSlope && top - p.height > 8 && bottom < grid.height - 4;
+  }
+
+  /** Lowest ground under the root third of an embedded prop (left third, or right when flipped). */
+  private static rootGround(grid: Grid, p: CompiledProp, x0: number, flip: boolean): number {
+    let low = 0;
+    const third = Math.max(1, Math.floor(p.width / 3));
+    for (let k = 0; k < third; k++) {
+      const sy = grid.surfaceY(flip ? x0 + p.width - 1 - k : x0 + k);
+      if (sy > low) low = sy;
+    }
+    return low;
   }
 
   /** The shape as this copy will be stamped: mirrored and worn per the prop's placement. */
@@ -420,7 +445,7 @@ export class Groups {
     let base: number;
     if (p.embed > 0) {
       // jutting out of a slope: the root end goes `embed` rows into the ground, nothing is levelled
-      base = grid.surfaceY(flip ? x0 + p.width - 1 : x0) + p.embed;
+      base = Groups.rootGround(grid, p, x0, flip) + p.embed;
     } else {
       const heights: number[] = [];
       for (let c = x0; c < x0 + p.width; c++) heights.push(grid.surfaceY(c));
@@ -626,6 +651,136 @@ export class Groups {
     if (this.mark.length === grid.size) return;
     this.mark = new Uint8Array(grid.size);
     this.queue = new Int32Array(grid.size);
+    this.snapMat = new Uint8Array(grid.size);
+    this.snapCoat = new Uint8Array(grid.size);
+    this.snapState = new Uint8Array(grid.size);
+    this.snapGroup = new Uint8Array(grid.size);
+  }
+
+  // ── shields ───────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Before an op call centred on (cx, cy) with reach `r`: if an intact shielding group is in
+   * reach, copy the cells around so `shieldEnd` can put back whatever the rock hid. Returns
+   * whether a shield is up.
+   */
+  shieldBegin(grid: Grid, cx: number, cy: number, r: number): boolean {
+    this.shieldOn = false;
+    const x0 = Math.max(0, cx - r - 1);
+    const x1 = Math.min(grid.width - 1, cx + r + 1);
+    const y0 = Math.max(0, cy - r - 1);
+    const y1 = Math.min(grid.height - 1, cy + r + 1);
+    let any = false;
+    for (let g = 1; g <= this.count && !any; g++) {
+      if (this.broken[g] !== 0 || this.def[g]!.shield === 0) continue;
+      any =
+        this.minX[g]! <= x1 && this.maxX[g]! >= x0 && this.minY[g]! <= y1 && this.maxY[g]! >= y0;
+    }
+    if (!any || x1 < x0 || y1 < y0) return false;
+    this.ensureScratch(grid);
+    const W = grid.width;
+    for (let y = y0; y <= y1; y++) {
+      const a = y * W + x0;
+      const b = y * W + x1 + 1;
+      this.snapMat.set(grid.material.subarray(a, b), a);
+      this.snapCoat.set(grid.coating.subarray(a, b), a);
+      this.snapState.set(grid.cellState.subarray(a, b), a);
+      this.snapGroup.set(grid.group.subarray(a, b), a);
+    }
+    this.shieldOn = true;
+    this.sx = cx;
+    this.sy = cy;
+    this.sx0 = x0;
+    this.sy0 = y0;
+    this.sx1 = x1;
+    this.sy1 = y1;
+    return true;
+  }
+
+  /**
+   * Shield cells crossed on the straight line from (ax, ay) to (bx, by), ends excluded, stopping
+   * once a crossed group's `shield` depth is reached. `pre` reads the pre-op copy.
+   */
+  private blocked(
+    grid: Grid,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    pre: boolean,
+  ): boolean {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const n = Math.max(dx < 0 ? -dx : dx, dy < 0 ? -dy : dy);
+    if (n < 2) return false;
+    const W = grid.width;
+    const group = pre ? this.snapGroup : grid.group;
+    let crossed = 0;
+    for (let k = 1; k < n; k++) {
+      const x = ax + Math.floor((dx * k * 2 + n) / (2 * n));
+      const y = ay + Math.floor((dy * k * 2 + n) / (2 * n));
+      const g = group[y * W + x]!;
+      if (g === 0 || this.broken[g] !== 0) continue;
+      const depth = this.def[g]!.shield;
+      if (depth === 0) continue;
+      if (++crossed >= depth) return true;
+    }
+    return false;
+  }
+
+  /** During a shielded op: may the cell at index i be launched? */
+  shields(grid: Grid, i: number): boolean {
+    if (!this.shieldOn) return false;
+    const x = i % grid.width;
+    const y = (i - x) / grid.width;
+    if (x < this.sx0 || x > this.sx1 || y < this.sy0 || y > this.sy1) return false;
+    return this.underRock(grid, x, y) || this.blocked(grid, this.sx, this.sy, x, y, true);
+  }
+
+  /**
+   * A shielding group's footing: a non-group cell with the group's rock within `shield` rows
+   * above it, which no blast may dig out (the rock stands on it; a blast can't undercut it).
+   */
+  private underRock(grid: Grid, x: number, y: number): boolean {
+    const W = grid.width;
+    const sg = this.snapGroup;
+    if (sg[y * W + x] !== 0) return false;
+    for (let k = 1; k <= 8 && y - k >= 0; k++) {
+      const g = sg[(y - k) * W + x]!;
+      if (g === 0 || this.broken[g] !== 0) continue;
+      if (this.def[g]!.shield !== 0 && k <= this.def[g]!.shield) return true;
+    }
+    return false;
+  }
+
+  /** After a shielded op: undo whatever it did to cells the rock hid from the blast. */
+  shieldEnd(grid: Grid): void {
+    if (!this.shieldOn) return;
+    this.shieldOn = false;
+    const W = grid.width;
+    const mat = grid.material;
+    let n = 0;
+    for (let y = this.sy0; y <= this.sy1; y++) {
+      for (let x = this.sx0, i = y * W + x; x <= this.sx1; x++, i++) {
+        if (mat[i] === this.snapMat[i] && grid.coating[i] === this.snapCoat[i]) continue;
+        if (!this.underRock(grid, x, y) && !this.blocked(grid, this.sx, this.sy, x, y, true))
+          continue;
+        mat[i] = this.snapMat[i]!;
+        grid.coating[i] = this.snapCoat[i]!;
+        grid.cellState[i] = this.snapState[i]!;
+        grid.fallVel[i] = 0;
+        grid.group[i] = this.snapGroup[i]!;
+        n++;
+      }
+    }
+    if (n > 0)
+      grid.addRenderRect(this.sx0, this.sy0, this.sx1 - this.sx0 + 1, this.sy1 - this.sy0 + 1);
+  }
+
+  /** Is the line from a blast at (ax, ay) to (bx, by) behind enough intact rock to stop it? */
+  shelters(grid: Grid, ax: number, ay: number, bx: number, by: number): boolean {
+    if (this.count === 0) return false;
+    return this.blocked(grid, ax, ay, bx, by, false);
   }
 
   /** One cell of a `local` group comes loose. */

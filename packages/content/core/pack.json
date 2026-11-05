@@ -27,6 +27,8 @@
     "material.napalm",
     "material.oil",
     "material.rock",
+    "material.rock-lit",
+    "material.rock-shade",
     "material.rubble",
     "material.sand",
     "material.shard",

@@ -147,6 +147,13 @@ falls as rubble. Because what held a piece may itself be loose rubble, flagged g
 again every tick while the grid settles. `placement.embed` sinks a prop's root into a slope that
 falls away under the rest (`rock-outcrop`), with no levelling.
 
+A `local` group with `shield` > 0 blocks blasts. Before each op call `shieldBegin` snapshots the
+cells in reach; afterwards `shieldEnd` restores any changed cell whose straight line from the
+blast centre crosses `shield` intact group cells, or that is ground with the group's rock within
+`shield` rows above it (a blast can't undercut the rock). `launch` refuses the same cells, and
+`explode` skips tanks behind that much rock. Rock formations are drawn as low-poly facets in
+`material.rock-lit` / `rock` / `rock-shade`, which behave exactly like rock.
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.

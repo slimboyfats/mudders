@@ -1,5 +1,5 @@
 {
-  "contentHash": "a9d0e7af97336c86",
+  "contentHash": "95a9320b3990929b",
   "scenarios": {
     "ai.moron": {
       "ticks": 822,
@@ -26,8 +26,8 @@
       "hash": "efda2d0382ec3d55"
     },
     "gen.badlands": {
-      "ticks": 64,
-      "hash": "e33d524128434afb"
+      "ticks": 65,
+      "hash": "7f484cd8c3d0c98c"
     },
     "gen.hills": {
       "ticks": 11,
@@ -89,6 +89,14 @@
       "ticks": 608,
       "hash": "45e83e1777dbbbc3"
     },
+    "material.rock-lit": {
+      "ticks": 687,
+      "hash": "78fee93968f6daaa"
+    },
+    "material.rock-shade": {
+      "ticks": 687,
+      "hash": "78fee93968f6daaa"
+    },
     "material.rock": {
       "ticks": 143,
       "hash": "d3b965592c43e993"
@@ -130,16 +138,16 @@
       "hash": "47fa6bdb43f15353"
     },
     "prop.rock-arch": {
-      "ticks": 1134,
-      "hash": "28ed0758ea20eea7"
+      "ticks": 1083,
+      "hash": "880231d442d9d173"
     },
     "prop.rock-ledge": {
-      "ticks": 1017,
-      "hash": "736ebea71a367ef1"
+      "ticks": 1171,
+      "hash": "250fc4c8a9e71dd7"
     },
     "prop.rock-outcrop": {
-      "ticks": 651,
-      "hash": "24cae38092f949f9"
+      "ticks": 687,
+      "hash": "78fee93968f6daaa"
     },
     "prop.tree": {
       "ticks": 325,

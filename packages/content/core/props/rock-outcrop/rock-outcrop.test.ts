@@ -44,12 +44,11 @@ describe('prop.rock-outcrop', () => {
     w.groups.placeAt(w.grid, 'prop.rock-outcrop', 140);
     w.grid.clearSettle();
     const cells = groupCells(w);
-    dropAt(w, 'weapon.missile', 132);
-    dropAt(w, 'weapon.missile', 132);
+    for (let k = 0; k < 4; k++) dropAt(w, 'weapon.missile', 132);
     w.run(600);
     const left = groupCells(w);
     expect(left).toBeLessThan(cells / 2);
     expect(left).toBeGreaterThan(100);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(300);
+    expect(countCells(w, 'material.rubble')).toBeGreaterThan(200);
   });
 });

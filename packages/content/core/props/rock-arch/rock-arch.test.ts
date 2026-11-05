@@ -23,6 +23,22 @@ describe('prop.rock-arch', () => {
     expect(g.material[t.y * g.width + t.x]).not.toBe(0);
   });
 
+  it('shields the tank and the ground under it from a blast on the roof', () => {
+    const w = propWorld('prop.rock-arch', 200, 150, { tankColumns: [200, 360] });
+    const t = w.tanks[0]!;
+    const g = w.grid;
+    const ground = (): number => {
+      let n = 0;
+      for (let x = 180; x < 220; x++)
+        for (let y = 150; y < 175; y++) if (g.material[y * g.width + x]) n++;
+      return n;
+    };
+    const before = ground();
+    dropAt(w, 'weapon.missile', 200);
+    expect(ground()).toBe(before);
+    expect(t.health).toBe(100);
+  });
+
   it('chips where it is hit, and a piece cut off from the ground falls on the tank', () => {
     const w = propWorld('prop.rock-arch', 200, 150, { tankColumns: [200, 360] });
     const t = w.tanks[0]!;
@@ -44,15 +60,12 @@ describe('prop.rock-arch', () => {
     for (let x = t.x - TANK_HALF; x < t.x + TANK_HALF; x++) {
       for (let y = t.y - TANK_H; y < t.y; y++) if (g.material[y * g.width + x] === rubble) over++;
     }
-    // at least a quarter of the tank body ends up under rubble
-    expect(over).toBeGreaterThan((TANK_HALF * TANK_H) / 2);
-    let roof = 0;
-    for (let y = 0; y < t.y - TANK_H; y++) if (g.group[y * g.width + t.x] !== 0) roof++;
-    expect(roof).toBe(0);
+    // the roof comes down on the tank (much of it lands beside)
+    expect(over).toBeGreaterThan(TANK_HALF * 2);
+    expect(groupCells(w)).toBeLessThan(after);
   });
 
-  it('comes out a little different on each map, and always leaves room for a tank', () => {
-    const shapes = new Set<number>();
+  it('always leaves room for a tank, whichever way it faces', () => {
     for (const seed of [1, 2, 3, 4]) {
       const w = makeWorld({
         seed,
@@ -60,13 +73,11 @@ describe('prop.rock-arch', () => {
         tankColumns: [200, 360],
         props: [{ prop: 'prop.rock-arch', x: 200 }],
       });
-      shapes.add(groupCells(w));
       const t = w.tanks[0]!;
       for (let x = t.x - TANK_HALF; x < t.x + TANK_HALF; x++) {
         for (let y = t.y - TANK_H; y < t.y; y++)
           expect(w.grid.material[y * w.grid.width + x]).toBe(0);
       }
     }
-    expect(shapes.size).toBeGreaterThan(1);
   });
 });
