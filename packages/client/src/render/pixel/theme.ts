@@ -25,6 +25,12 @@ export interface PixelTheme {
   scanlines: number;
   /** Sky lightning every N ticks on average; 0 = never. */
   flicker: number;
+  /** Shaded pixel clouds; cover 0 = none. */
+  clouds: { cover: number; light: number; shadow: number };
+  /** Parallax silhouettes, far to near (0–3). */
+  ranges: number[];
+  /** Grass colour on topsoil materials; -1 = none. */
+  grass: number;
 }
 
 export const DEFAULT_THEME: PixelTheme = {
@@ -40,6 +46,9 @@ export const DEFAULT_THEME: PixelTheme = {
   snow: 0,
   scanlines: 0,
   flicker: 0,
+  clouds: { cover: 0, light: 0xffffff, shadow: 0x808080 },
+  ranges: [],
+  grass: -1,
 };
 
 /** The subset of a `theme.*` manifest the renderer reads. */
@@ -55,6 +64,11 @@ export interface ThemeData {
   snow: number;
   scanlines: number;
   flicker: number;
+  scenery: {
+    clouds?: { cover: number; light: string; shadow: string } | undefined;
+    ranges: string[];
+    grass?: string | undefined;
+  };
 }
 
 const hex = (s: string): number => parseInt(s.slice(1), 16);
@@ -73,6 +87,15 @@ export function themeFrom(m: ThemeData): PixelTheme {
     snow: m.snow,
     scanlines: m.scanlines,
     flicker: m.flicker,
+    clouds: m.scenery.clouds
+      ? {
+          cover: m.scenery.clouds.cover,
+          light: hex(m.scenery.clouds.light),
+          shadow: hex(m.scenery.clouds.shadow),
+        }
+      : DEFAULT_THEME.clouds,
+    ranges: m.scenery.ranges.slice(0, 3).map(hex),
+    grass: m.scenery.grass ? hex(m.scenery.grass) : -1,
   };
 }
 

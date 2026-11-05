@@ -19,5 +19,14 @@
     "kind": "embers",
     "density": 90,
     "color": "#ff8a2a"
+  },
+  "scenery": {
+    "clouds": {
+      "cover": 0.45,
+      "light": "#e0693a",
+      "shadow": "#3a1414"
+    },
+    "ranges": ["#5c2420", "#3f1816", "#26100e"],
+    "grass": "#6b5a2a"
   }
 }

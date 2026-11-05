@@ -14,5 +14,8 @@
     "corrosive": 12
   },
   "cohesion": 0,
-  "coating": false
+  "coating": false,
+  "look": {
+    "topsoil": true
+  }
 }

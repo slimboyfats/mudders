@@ -13,10 +13,31 @@ import { Camera } from './camera';
 import { EffectSystem, QUALITY_PARTICLES } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
-import { BG_FS, FULLSCREEN_VS, MAX_RIPPLES, POST_FS, TERRAIN_FS, TERRAIN_VS } from './shaders';
+import {
+  BG_FS,
+  FULLSCREEN_VS,
+  MAX_RIPPLES,
+  POST_FS,
+  SCENERY_FS,
+  TERRAIN_FS,
+  TERRAIN_VS,
+} from './shaders';
 import { DEFAULT_THEME, pixelTheme, playerColor, shade, type PixelTheme } from './theme';
 
 const FP = 65536;
+const SCENERY_UNIFORMS = [
+  'u_size',
+  'u_map',
+  'u_top',
+  'u_bottom',
+  'u_cloud',
+  'u_cloudLight',
+  'u_cloudShadow',
+  'u_ranges',
+  'u_rangeCount',
+  'u_horizon',
+  'u_cam',
+] as const;
 const TANK_W = 16;
 const TANK_H = 10;
 const GRAVITY = 0.12;
@@ -51,6 +72,14 @@ export class PixelRenderer implements Renderer {
   private colorTex!: WebGLTexture;
   private colorFbo!: WebGLFramebuffer;
   private bgProg!: WebGLProgram;
+  /** Painted sky, clouds and parallax ranges, one texel per 2×2 cells; redrawn on change only. */
+  private sceneryProg!: WebGLProgram;
+  private uScn!: Record<(typeof SCENERY_UNIFORMS)[number], WebGLUniformLocation | null>;
+  private sceneryTex!: WebGLTexture;
+  private sceneryFbo!: WebGLFramebuffer;
+  private sceneryW = 0;
+  private sceneryH = 0;
+  private sceneryKey = '';
   private uBg!: ReturnType<
     typeof uniforms<
       | 'u_color'
@@ -72,6 +101,8 @@ export class PixelRenderer implements Renderer {
       | 'u_anim'
       | 'u_stars'
       | 'u_starColor'
+      | 'u_scenery'
+      | 'u_grass'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -108,6 +139,7 @@ export class PixelRenderer implements Renderer {
       | 'u_wet'
       | 'u_snow'
       | 'u_look'
+      | 'u_grass'
     >
   >;
   private uPost!: ReturnType<
@@ -142,6 +174,11 @@ export class PixelRenderer implements Renderer {
     material: new Uint8Array(0),
   };
   private wind = 0;
+  /** Cloud drift in map cells, accumulated per tick from a slow breeze plus the wind. */
+  private cloudX = 0;
+  /** Mean ground row of the first snapshot: where the scenery ranges stand. */
+  private horizon = -1;
+  private rangeBuf = new Float32Array(9);
   private lastTick = 0;
   private fxTick = -1;
   private trails: Trail[] = [];
@@ -193,6 +230,7 @@ export class PixelRenderer implements Renderer {
       'u_wet',
       'u_snow',
       'u_look',
+      'u_grass',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -215,7 +253,11 @@ export class PixelRenderer implements Renderer {
       'u_anim',
       'u_stars',
       'u_starColor',
+      'u_scenery',
+      'u_grass',
     ]);
+    this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
+    this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
     this.postProg = compile(gl, FULLSCREEN_VS, POST_FS);
     this.uPost = uniforms(gl, this.postProg, [
       'u_scene',
@@ -272,6 +314,29 @@ export class PixelRenderer implements Renderer {
       gl.UNSIGNED_BYTE,
       null,
     );
+    this.sceneryW = Math.ceil(this.mapWidth / 2);
+    this.sceneryH = Math.ceil(this.mapHeight / 2);
+    this.sceneryTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA8,
+      this.sceneryW,
+      this.sceneryH,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    );
+    this.sceneryFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneryFbo);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      this.sceneryTex,
+      0,
+    );
     this.colorFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.colorFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTex, 0);
@@ -308,6 +373,7 @@ export class PixelRenderer implements Renderer {
       this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0);
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
       look[l.cell * 4 + 2] = l.hot ? 255 : 0;
+      look[l.cell * 4 + 3] = l.topsoil ? 255 : 0;
       for (let i = 0; i < n; i++) {
         const o = ((1 + i) * 256 + l.cell) * 4;
         const c = l.cycle[i]!;
@@ -412,13 +478,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 6 up for wet/snow, 1 down/sideways): widen the box
+        // shading reads neighbours (up to 12 up for soil depth, 1 down/sideways): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
         d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
-        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 6));
+        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 12));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
@@ -427,6 +493,7 @@ export class PixelRenderer implements Renderer {
     this.terrain = s.terrain;
     this.coating = s.coating;
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
+    if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
@@ -453,6 +520,7 @@ export class PixelRenderer implements Renderer {
 
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
+    this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
     // smoke from wrecks
     if (this.fxTick % 9 === 0) {
@@ -536,6 +604,7 @@ export class PixelRenderer implements Renderer {
     const post = nRipples > 0 || shakeX !== 0 || shakeY !== 0 || flash > 0 || split > 0 || scan > 0;
 
     this.shadeTerrain();
+    this.paintScenery((W / 2 - ox) / scale, (H / 2 - oy) / scale);
     gl.bindFramebuffer(gl.FRAMEBUFFER, post ? this.sceneFbo : null);
     gl.viewport(0, 0, W, H);
     gl.disable(gl.BLEND);
@@ -568,6 +637,8 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneryTex);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.uBg.u_terrain, 1);
     gl.uniform1i(this.uBg.u_coat, 2);
@@ -581,6 +652,8 @@ export class PixelRenderer implements Renderer {
       th.ambient.kind === 'stars' ? Math.min(0.05, th.ambient.density / 6000) : 0,
     );
     gl.uniform3fv(this.uBg.u_starColor, rgb(th.ambient.color));
+    gl.uniform1i(this.uBg.u_scenery, 5);
+    gl.uniform4f(this.uBg.u_grass, ...rgb(th.grass < 0 ? 0 : th.grass), th.grass < 0 ? 0 : 1);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     // sprites
@@ -625,6 +698,45 @@ export class PixelRenderer implements Renderer {
     gl.bindVertexArray(null);
   }
 
+  /**
+   * Redraw the scenery cache when anything it shows has moved: the clouds' whole-art-pixel drift,
+   * the camera's parallax offsets (whole art pixels per layer) or the theme.
+   */
+  private paintScenery(camX: number, camY: number): void {
+    const th = this.theme;
+    const mw = this.mapWidth;
+    const mh = this.mapHeight;
+    const dx = camX - mw / 2;
+    const dy = camY - mh / 2;
+    let key = `${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)}`;
+    for (const k of [0.9, 0.85, 0.75, 0.55, 0.35]) {
+      key += `,${Math.floor((dx * k) / 2)},${Math.floor((dy * k) / 2)}`;
+    }
+    if (key === this.sceneryKey) return;
+    this.sceneryKey = key;
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.sceneryFbo);
+    gl.viewport(0, 0, this.sceneryW, this.sceneryH);
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(this.emptyVao);
+    gl.useProgram(this.sceneryProg);
+    const u = this.uScn;
+    gl.uniform2f(u.u_size, this.sceneryW, this.sceneryH);
+    gl.uniform2f(u.u_map, mw, mh);
+    gl.uniform3fv(u.u_top, rgb(th.skyTop));
+    gl.uniform3fv(u.u_bottom, rgb(th.skyBottom));
+    gl.uniform2f(u.u_cloud, th.clouds.cover, this.cloudX);
+    gl.uniform3fv(u.u_cloudLight, rgb(th.clouds.light));
+    gl.uniform3fv(u.u_cloudShadow, rgb(th.clouds.shadow));
+    const nr = th.ranges.length;
+    for (let i = 0; i < nr; i++) this.rangeBuf.set(rgb(th.ranges[i]!), i * 3);
+    gl.uniform3fv(u.u_ranges, this.rangeBuf);
+    gl.uniform1i(u.u_rangeCount, nr);
+    gl.uniform1f(u.u_horizon, this.horizon < 0 ? mh * 0.6 : this.horizon);
+    gl.uniform2f(u.u_cam, camX, camY);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
   private shadeTerrain(): void {
     const d = this.dirty;
     if (d[0]! >= d[2]! || d[1]! >= d[3]!) return;
@@ -658,6 +770,8 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uTer.u_light, rgb(this.theme.light));
     gl.uniform1f(this.uTer.u_wet, this.theme.wet);
     gl.uniform1f(this.uTer.u_snow, this.theme.snow);
+    const g = this.theme.grass;
+    gl.uniform4f(this.uTer.u_grass, ...rgb(g < 0 ? 0 : g), g < 0 ? 0 : 1);
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.uniform1i(this.uTer.u_look, 3);
@@ -778,4 +892,15 @@ export class PixelRenderer implements Renderer {
     this.particles.clear();
     this.fx.clear();
   }
+}
+
+/** Mean row of the topmost solid cell per column (columns with no ground count as the bottom). */
+export function meanGround(terrain: Uint8Array, w: number, h: number): number {
+  let sum = 0;
+  for (let x = 0; x < w; x++) {
+    let y = 0;
+    while (y < h && terrain[y * w + x] === 0) y++;
+    sum += y;
+  }
+  return w > 0 ? sum / w : h;
 }

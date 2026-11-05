@@ -21,5 +21,14 @@
     "color": "#9ab4d8"
   },
   "wet": 0.85,
-  "flicker": 420
+  "flicker": 420,
+  "scenery": {
+    "clouds": {
+      "cover": 0.9,
+      "light": "#5d6676",
+      "shadow": "#20242e"
+    },
+    "ranges": ["#323a48", "#283039", "#1a221f"],
+    "grass": "#3c6436"
+  }
 }

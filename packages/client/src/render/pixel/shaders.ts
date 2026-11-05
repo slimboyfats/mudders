@@ -3,6 +3,31 @@
  * SwiftShader supports: no derivatives tricks, no float render targets, bounded loops.
  */
 
+/** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
+const NOISE = `
+float hash(ivec2 c) {
+  uint h = uint(c.x) * 374761393u + uint(c.y) * 668265263u;
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  return float(h & 1023u) / 1023.0;
+}
+const int BAYER[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+float bayer(ivec2 c) { return (float(BAYER[(c.y & 3) * 4 + (c.x & 3)]) + 0.5) / 16.0; }
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = p - i;
+  f = f * f * (3.0 - 2.0 * f);
+  ivec2 a = ivec2(i);
+  float v00 = hash(a), v10 = hash(a + ivec2(1, 0));
+  float v01 = hash(a + ivec2(0, 1)), v11 = hash(a + ivec2(1, 1));
+  return mix(mix(v00, v10, f.x), mix(v01, v11, f.x), f.y);
+}
+float fbm(vec2 p) {
+  return (vnoise(p) * 0.5 + vnoise(p * 2.03 + 17.0) * 0.25 + vnoise(p * 4.01 + 41.0) * 0.125 +
+    vnoise(p * 8.07 + 73.0) * 0.0625) / 0.9375;
+}
+float noise1(float x, int seed) { return vnoise(vec2(x, float(seed) * 13.0 + 0.5)); }
+`;
+
 /** Fullscreen triangle; `v_uv` is 0..1 with y up. */
 export const FULLSCREEN_VS = `#version 300 es
 out vec2 v_uv;
@@ -45,6 +70,8 @@ uniform float u_haze;
 uniform float u_anim;
 uniform float u_stars;
 uniform vec3 u_starColor;
+uniform sampler2D u_scenery; // sky, clouds and ranges per 2×2 cells; a = open sky
+uniform vec4 u_grass;        // rgb, enabled
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -52,11 +79,8 @@ uint mat(ivec2 c) {
   return texelFetch(u_terrain, c, 0).r;
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
-float hash(ivec2 c) {
-  uint h = uint(c.x) * 374761393u + uint(c.y) * 668265263u;
-  h = (h ^ (h >> 13u)) * 1274126177u;
-  return float(h & 1023u) / 1023.0;
-}
+${NOISE}
+bool topsoil(uint m) { return m != 0u && look(m).a > 0.5; }
 // one cycle step for a cell of animated material m: hard diagonal bands that crawl over time
 vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   vec4 l = look(m);
@@ -103,16 +127,29 @@ void main() {
         else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
       }
     } else {
-      float k = clamp(m.y / u_map.y, 0.0, 1.0);
-      c = mix(u_top, u_bottom, k * k * (3.0 - 2.0 * k)) + u_flash;
-      // stars: a few sky cells high up twinkle on and off in whole steps
-      if (u_stars > 0.0 && k < 0.6) {
+      float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
+      vec4 sc = texelFetch(u_scenery, cell >> 1, 0);
+      c = sc.rgb;
+      // stars: a few open sky cells high up twinkle on and off in whole steps
+      if (u_stars > 0.0 && k < 0.6 && sc.a > 0.5) {
         float h = hash(cell + ivec2(31, 17));
         if (h > 1.0 - u_stars) {
           float tw = hash(cell + ivec2(int(u_time / 23.0 + h * 97.0), 5));
           c = mix(c, u_starColor, (tw > 0.25 ? 0.75 : 0.3) * (1.0 - k / 0.6));
         }
       }
+      // grass tufts standing in the air over topsoil
+      if (u_grass.a > 0.0) {
+        uint b1 = mat(cell + ivec2(0, 1));
+        float h = hash(cell + ivec2(5, 9));
+        if (topsoil(b1) && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
+          c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
+        } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && hash(cell + ivec2(5, 10)) > 0.86 &&
+                   hash(cell + ivec2(2, 3)) > 0.45) {
+          c = u_grass.rgb * 0.8;
+        }
+      }
+      c += u_flash;
     }
     // warm dither in the hottest air
     if (heat > 0.55 && ((cell.x + cell.y + int(u_time / 4.0)) & 3) == 0) c += vec3(0.07, 0.025, 0.0);
@@ -122,6 +159,162 @@ void main() {
     c *= 1.0 - u_vignette * dot(q, q) * 1.6;
   }
   o = vec4(c, 1.0);
+}`;
+
+/**
+ * Painted scenery behind the battlefield, cached per 2×2 map cells (one "art pixel") and redrawn
+ * only when the clouds step or the camera's parallax offsets change: banded sky gradient, shaded
+ * cumulus in two decks, and up to three parallax ranges (faceted mountains, hills, a pine
+ * treeline) with valley mist in hard dithered bands. Alpha marks open sky (stars may show).
+ */
+export const SCENERY_FS = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 v_uv;
+uniform vec2 u_size;         // texels
+uniform vec2 u_map;
+uniform vec3 u_top;
+uniform vec3 u_bottom;
+uniform vec2 u_cloud;        // cover, drift (cells)
+uniform vec3 u_cloudLight;
+uniform vec3 u_cloudShadow;
+uniform vec3 u_ranges[3];    // far to near
+uniform int u_rangeCount;
+uniform float u_horizon;     // mean ground row
+uniform vec2 u_cam;          // camera centre in map cells
+out vec4 o;
+${NOISE}
+// cumulus built from puffs on a flat base: per slot along x, a cloud of up to seven overlapping
+// discs (biggest in the middle) with a noisy rim. Returns (local x, local y, coverage, base gap)
+// of the front-most puff covering p, or coverage 0.
+vec4 cumulus(vec2 p, float slotW, float baseY, float size, int seed) {
+  float cover = u_cloud.x;
+  float j0 = floor(p.x / slotW);
+  vec4 best = vec4(0.0);
+  for (int s = -1; s <= 1; s++) {
+    float j = j0 + float(s);
+    ivec2 js = ivec2(int(j), seed);
+    if (hash(js) > cover * 1.25) continue;
+    float w = slotW * size * (0.55 + 0.6 * hash(js + ivec2(0, 1))) * (0.7 + 0.5 * cover);
+    float cx = j * slotW + slotW * 0.5 + (hash(js + ivec2(0, 2)) - 0.5) * slotW * 0.4;
+    float by = floor(baseY - hash(js + ivec2(0, 3)) * baseY * 0.25);
+    if (p.y > by) continue;
+    for (int i = 0; i < 7; i++) {
+      float t = float(i) / 6.0 - 0.5;
+      float hr = hash(js + ivec2(i + 1, 4));
+      float r = w * (0.2 + 0.14 * hr) * (1.0 - abs(t) * 1.1);
+      vec2 c = vec2(cx + t * w * 0.85, by - r * (0.35 + 0.35 * hash(js + ivec2(i + 1, 5))));
+      vec2 l = (p - c) / r;
+      float rim = 1.0 + (vnoise(p / 5.0 + float(seed)) - 0.5) * 0.28;
+      float k = rim - length(l);
+      // the later (front) puff wins where they overlap, so lobes read as separate billows
+      if (k > 0.0) best = vec4(l, 1.0, by - p.y);
+    }
+  }
+  return best;
+}
+// shaded pixel cumulus in two decks: lit crowns toward the sun (up-left), shadowed bellies,
+// three hard tones with ordered dither between light and mid
+vec4 clouds(vec2 p, ivec2 tx, vec3 sky) {
+  float cover = u_cloud.x;
+  if (cover <= 0.0) return vec4(sky, 1.0);
+  float hz = min(u_horizon, u_map.y * 0.85);
+  float drift = floor(u_cloud.y / 2.0) * 2.0;
+  float far = 0.0;
+  vec2 q = vec2(p.x - floor((u_cam.x - u_map.x * 0.5) * 0.85 / 2.0) * 2.0 + drift, p.y);
+  vec2 q2 = vec2(p.x - floor((u_cam.x - u_map.x * 0.5) * 0.9 / 2.0) * 2.0 + floor(drift * 0.5 / 2.0) * 2.0, p.y);
+  vec4 cl = cumulus(q, 190.0, hz * 0.44, 1.0, 21);
+  vec2 o = q;
+  float slot = 190.0, base = hz * 0.44, size = 1.0;
+  int seed = 21;
+  if (cl.z == 0.0) {
+    // the low deck: smaller, further, slower
+    cl = cumulus(q2, 110.0, hz * 0.7, 0.8, 37);
+    o = q2;
+    slot = 110.0;
+    base = hz * 0.7;
+    size = 0.8;
+    seed = 37;
+    far = 1.0;
+  }
+  if (cl.z == 0.0) return vec4(sky, 1.0);
+  // tones from the whole cloud's outline: a lit rim where the sun side (up-left) is open sky,
+  // a mid body, the lower part of each billow shaded, and a dark rim along the flat base
+  vec3 mid = mix(u_cloudLight, u_cloudShadow, 0.4);
+  bool checker = ((tx.x + tx.y) & 1) == 0;
+  vec3 c = mid;
+  // rounded lobes: a lit cap toward the sun inside each billow, a shaded crescent below it
+  if (length(cl.xy + vec2(0.22, 0.3)) < 0.78) c = u_cloudLight;
+  else if (length(cl.xy - vec2(-0.1, -0.3)) > 0.95) c = mix(mid, u_cloudShadow, 0.55);
+  if (cumulus(o + vec2(-4.0, -6.0), slot, base, size, seed).z == 0.0) c = u_cloudLight;
+  if (cl.w < 2.0 || (cl.w < 4.0 && checker)) c = u_cloudShadow;
+  return vec4(mix(c, sky, far * 0.42), 0.0);
+}
+float lin1(float x, int seed) {
+  float i = floor(x);
+  return mix(hash(ivec2(int(i), seed)), hash(ivec2(int(i) + 1, seed)), x - i);
+}
+// one parallax silhouette: 0 mountains (straight facets), 1 rolling hills, 2 treeline
+float rangeTop(float x, int style) {
+  float H = u_map.y;
+  float hz = u_horizon;
+  if (style == 0) {
+    float m = lin1(x / 70.0, 3) * 0.68 + lin1(x / 27.0, 5) * 0.24 + lin1(x / 9.0, 6) * 0.08;
+    return hz + H * 0.06 - H * 0.36 * m * m;
+  }
+  if (style == 1) return hz + H * 0.04 - H * 0.16 * (noise1(x / 52.0, 7) * 0.75 + noise1(x / 17.0, 8) * 0.25);
+  return hz + H * 0.08 - H * 0.1 * (noise1(x / 36.0, 11) * 0.8 + noise1(x / 11.0, 12) * 0.2);
+}
+vec4 ranges(vec2 p, ivec2 tx, vec4 c) {
+  for (int i = 0; i < 3; i++) {
+    if (i >= u_rangeCount) break;
+    // with fewer ranges, the nearest keeps the treeline
+    int style = i + 3 - u_rangeCount;
+    float par = 0.25 + 0.2 * float(style);
+    float lx = p.x - floor((u_cam.x - u_map.x * 0.5) * (1.0 - par) / 2.0) * 2.0;
+    float ly = p.y - floor((u_cam.y - u_map.y * 0.5) * (1.0 - par) / 2.0) * 2.0;
+    float top = floor(rangeTop(lx, style) / 2.0) * 2.0;
+    vec3 rc = u_ranges[i];
+    bool hit = ly >= top;
+    if (!hit && style == 2) {
+      // pines on the near ridge, every few art pixels
+      float col = floor(lx / 8.0);
+      float h = hash(ivec2(int(col), 77));
+      if (h > 0.25) {
+        float tx0 = col * 8.0 + 2.0 + floor(hash(ivec2(int(col), 78)) * 2.0) * 2.0;
+        float th = 8.0 + floor(h * 7.0) * 2.0;
+        float base = floor(rangeTop(tx0, style) / 2.0) * 2.0 + 2.0;
+        float dy = base - ly;
+        float hw = floor((th - dy) * 0.2 + 0.5) * 2.0;
+        if (dy >= 0.0 && dy <= th && abs(lx - tx0) <= hw) {
+          hit = true;
+          top = base - th;
+          rc *= lx < tx0 ? 1.0 : 0.84;
+        }
+      }
+    }
+    if (!hit) continue;
+    float sl = rangeTop(lx + 1.0, style) - rangeTop(lx - 1.0, style);
+    // faceted faces: slopes toward the sun lit, the others shaded; snowy light on the high peaks
+    if (style == 0) {
+      rc *= sl < 0.0 ? 1.12 : 0.9;
+    } else if (style == 1 && ly - top < 4.0 && sl < 0.0) rc *= 1.07;
+    // mist pooling in the valleys: hard dithered bands toward the sky colour going down
+    float k = clamp((ly - top) / (u_map.y * 0.2), 0.0, 1.0);
+    float q = floor(k * 4.0 + bayer(tx)) / 4.0;
+    c = vec4(mix(rc, c.rgb, q * (0.5 - 0.12 * float(style))), 0.0);
+  }
+  return c;
+}
+void main() {
+  ivec2 tx = ivec2(floor(gl_FragCoord.xy));
+  vec2 p = vec2(tx) * 2.0;   // map cells, y down (the target is drawn y-down via the texel row)
+  float k = clamp(p.y / u_map.y, 0.0, 1.0);
+  // banded gradient: 16 hard steps with ordered dither between neighbours
+  float q = floor((k * k * (3.0 - 2.0 * k)) * 16.0 + bayer(tx)) / 16.0;
+  vec3 sky = mix(u_top, u_bottom, q);
+  vec4 c = clouds(p, tx, sky);
+  o = ranges(p, tx, c);
 }`;
 
 /** Terrain quad covering the map rect; interpolates map coordinates. */
@@ -157,43 +350,78 @@ uniform vec3 u_light;
 uniform float u_wet;
 uniform float u_snow;
 uniform sampler2D u_look;
+uniform vec4 u_grass;
 out vec4 o;
 
 uint mat(ivec2 c) {
   if (c.x < 0 || c.y < 0 || c.x >= int(u_map.x) || c.y >= int(u_map.y)) return 0u;
   return texelFetch(u_terrain, c, 0).r;
 }
-float hash(ivec2 c) {
-  uint h = uint(c.x) * 374761393u + uint(c.y) * 668265263u;
-  h = (h ^ (h >> 13u)) * 1274126177u;
-  return float(h & 1023u) / 1023.0;
-}
+${NOISE}
 void main() {
   if (v_map.x < 0.0 || v_map.y < 0.0 || v_map.x >= u_map.x || v_map.y >= u_map.y) discard;
   ivec2 c = ivec2(floor(v_map));
   uint m = mat(c);
   if (m == 0u) discard;
   vec3 base = texelFetch(u_palette, ivec2(int(m), 0), 0).rgb;
+  vec4 lk = texelFetch(u_look, ivec2(int(m), 0), 0);
+  bool still = lk.r == 0.0;
   float g = (hash(c) - 0.5) * u_grain;
+  // rows down to open air above (1 = surface), 0 = deeper than 12
+  int sd = 0;
+  for (int k = 1; k <= 12; k++) if (mat(c + ivec2(0, -k)) == 0u) { sd = k; break; }
   // lit surface: cells with air above, a softer second row
-  float lit = 0.0;
-  if (mat(c + ivec2(0, -1)) == 0u) lit = 0.22;
-  else if (mat(c + ivec2(0, -2)) == 0u) lit = 0.09;
+  float lit = sd == 1 ? 0.22 : sd == 2 ? 0.09 : 0.0;
   // overhang underside
   float under = mat(c + ivec2(0, 1)) == 0u && c.y < int(u_map.y) - 1 ? -0.16 : 0.0;
   // side faces facing open air
   float side = (mat(c + ivec2(-1, 0)) == 0u || mat(c + ivec2(1, 0)) == 0u) ? 0.05 : 0.0;
-  float depth = -0.22 * clamp(v_map.y / u_map.y, 0.0, 1.0);
-  vec3 col = base * (1.0 + g + under + depth) + u_light * (lit + side);
+  // depth: a little by map row, more by distance under the surface, in dithered hard bands
+  float deep = sd == 0 ? 1.0 : float(sd - 1) / 11.0;
+  float band = floor(deep * 3.0 + bayer(c)) / 3.0;
+  float depth = -0.12 * clamp(v_map.y / u_map.y, 0.0, 1.0) - 0.14 * band;
+  vec3 col = base * (1.0 + g + under + depth);
+  if (still) {
+    // mottled soil: two noise scales quantised to three tones with ordered dither between them
+    float mot = vnoise(vec2(c) / 13.0) * 0.6 + vnoise(vec2(c) / 4.5 + 7.0) * 0.4;
+    float tone = floor(mot * 3.0 + bayer(c) - 0.5) - 1.0;
+    col *= 1.0 + 0.07 * clamp(tone, -1.0, 1.0);
+    // soil strata: wavy darker seams, and pebbles in 2×2 clumps
+    float sy = float(c.y) + floor(vnoise(vec2(float(c.x) / 23.0, 3.5)) * 7.0);
+    if (mod(sy, 9.0) < 1.0 && hash(c + ivec2(11, 2)) > 0.25) col *= 0.9;
+    if (sd == 0 || sd > 4) {
+      ivec2 pb = c >> 1;
+      if (hash(pb + ivec2(91, 7)) > 0.955) {
+        ivec2 o2 = c & 1;
+        col *= o2.y == 0 ? (o2.x == 0 ? 1.16 : 1.06) : (o2.x == 0 ? 0.96 : 0.86);
+      }
+    }
+  }
+  float rim = lit + side;
+  if (still && u_grass.a > 0.0 && lk.a > 0.5 && sd > 0 && sd <= 6) {
+    // grass on topsoil: a bright blade row, a body, a shaded base and roots dithered into the soil
+    float patchy = vnoise(vec2(float(c.x) / 11.0, 1.5));
+    vec3 gr = u_grass.rgb * (1.0 + g * 0.5);
+    if (patchy > 0.64) gr = mix(gr, gr * vec3(1.2, 1.12, 0.66), 0.55);
+    else if (patchy < 0.3) gr *= vec3(0.88, 0.97, 1.02);
+    float h = hash(c + ivec2(3, 8));
+    if (sd == 1) col = gr * (h > 0.7 ? 1.22 : 1.1);
+    else if (sd == 2) col = gr * (h > 0.85 ? 1.1 : 0.98);
+    else if (sd == 3) col = gr * (h > 0.2 ? 0.86 : 0.98);
+    else if (sd == 4) col = h > 0.3 ? gr * 0.72 : col * 0.8;
+    else if (sd == 5) col = h > 0.65 ? gr * 0.62 : col * 0.84;
+    else if (h > 0.88) col = gr * 0.58;
+    rim *= 0.4;
+  }
+  col += u_light * rim;
   // animated materials (water, lava) are left to the cycling pass: no snow or wet sheen on them
-  bool still = texelFetch(u_look, ivec2(int(m), 0), 0).r == 0.0;
   if (still && u_wet > 0.0) {
     // rain soaks the top few rows: darker, with glints on the surface
     int soak = 0;
     for (int k = 1; k <= 6; k++) if (mat(c + ivec2(0, -k)) == 0u) { soak = k; break; }
     if (soak > 0) {
       // soaked rows go dark and cold, the rim light dulls to a wet sheen
-      col = base * (1.0 + g + depth) * (1.0 - u_wet * (0.5 - 0.05 * float(soak)));
+      col = (col - u_light * rim) * (1.0 - u_wet * (0.5 - 0.05 * float(soak)));
       col = mix(col, col * vec3(0.85, 0.92, 1.08), u_wet);
       if (soak == 1) col += vec3(0.05, 0.06, 0.09) * u_wet;
       if (soak == 1 && hash(c + ivec2(3, 11)) > 0.7) col += vec3(0.14, 0.16, 0.2) * u_wet;
@@ -202,14 +430,14 @@ void main() {
   if (still && u_snow > 0.0) {
     // snow cap: two full rows and a ragged third, also on steep faces open to the sky diagonally
     float h = hash(c + ivec2(13, 5));
-    int sd = 0;
+    int sn = 0;
     for (int k = 1; k <= 3; k++) {
-      if (mat(c + ivec2(0, -k)) == 0u || mat(c + ivec2(-1, -k)) == 0u && mat(c + ivec2(1, -k)) == 0u) { sd = k; break; }
+      if (mat(c + ivec2(0, -k)) == 0u || mat(c + ivec2(-1, -k)) == 0u && mat(c + ivec2(1, -k)) == 0u) { sn = k; break; }
     }
-    if (sd == 0 && (mat(c + ivec2(-1, -1)) == 0u || mat(c + ivec2(1, -1)) == 0u)) sd = 2;
-    if (sd == 1 || sd == 2 || (sd == 3 && h > 0.55)) {
+    if (sn == 0 && (mat(c + ivec2(-1, -1)) == 0u || mat(c + ivec2(1, -1)) == 0u)) sn = 2;
+    if (sn == 1 || sn == 2 || (sn == 3 && h > 0.55)) {
       vec3 snow = h > 0.5 ? vec3(0.93, 0.95, 1.0) : vec3(0.8, 0.85, 0.94);
-      if (sd == 1) snow += 0.04;
+      if (sn == 1) snow += 0.04;
       col = mix(col, snow, u_snow);
     }
   }

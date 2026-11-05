@@ -19,5 +19,14 @@
     "kind": "dust",
     "density": 20,
     "color": "#fff4d8"
+  },
+  "scenery": {
+    "clouds": {
+      "cover": 0.55,
+      "light": "#fbfcf4",
+      "shadow": "#93afd2"
+    },
+    "ranges": ["#7d98c2", "#6b9a9a", "#3f6e4c"],
+    "grass": "#5e9a34"
   }
 }
