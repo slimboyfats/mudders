@@ -1,0 +1,38 @@
+{
+  "id": "weapon.skipper",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Skipper",
+    "description": "Goes off where it lands, bounces on and goes off again, three times in all, hopping along the ground.",
+    "category": "explosive",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 18,
+        "damage": 40
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.skipper-hop",
+        "bounce": 0.7
+      }
+    }
+  ],
+  "shop": {
+    "price": 4000,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.3
+  }
+}

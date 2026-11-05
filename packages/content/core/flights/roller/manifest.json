@@ -1,0 +1,18 @@
+{
+  "id": "flight.roller",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Roller",
+    "description": "Flies an arc, then rolls downhill along the ground until it meets a tank, a wall, or the far side of a valley.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.roller",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "speed": 2,
+  "maxClimb": 2,
+  "climbBudget": 2,
+  "drop": 8,
+  "maxRoll": 240
+}

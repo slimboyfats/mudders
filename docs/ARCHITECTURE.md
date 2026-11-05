@@ -154,6 +154,34 @@ blast centre crosses `shield` intact group cells, or that is ground with the gro
 `explode` skips tanks behind that much rock. Rock formations are drawn as low-poly facets in
 `material.rock-lit` / `rock` / `rock-shade`, which behave exactly like rock.
 
+### 3.2d Flights, child shells and zones (milestone 6)
+
+The arsenal (§5.1) needs shells that do more than fly an arc and go off, without the kernel
+knowing any weapon. Three generic hooks carry it:
+
+- **Flight signals.** `FlightBehaviour.step` may return `impact` (go off here), `pulse` (run the
+  weapon's `pulse` impacts here and keep flying; runs before collision, so a digger's tunnel op
+  clears its own way), `skip` (a teleport: no collision this tick, used by `flight.lightning`) or
+  `die`. An optional `contact(api, p, params, hit)` decides what a hit means: `impact` (default),
+  `pulse` (a laser cutting on), `continue` (a roller that has landed and now follows the ground)
+  or `die`. `hit` carries the hit cell, the last free cell before it and the tank hit. Flights
+  never draw from the match RNG, because `predict` (the AI's solver) runs them too.
+- **Child shells.** An impact may `spawn` children: one weapon or a random pool, `count`, velocity
+  `inherit`ed from the parent, fanned by `spread`, `jitter` (match PRNG), `up`, or a `bounce`. MIRV,
+  Scatter Bomb, Skipper hops, Mystery Shell, Acid Rain and the Water Cannon stream are data only.
+  Children are sub-munition weapons with price 0, so they never reach the shop. At most
+  `MAX_PROJECTILES` shells fly at once.
+- **Zones** (§4a). An impact may leave a `zone`: at the end of each turn (with contact damage) it
+  hurts tanks inside it and re-runs its `terrainOp` over itself for `turns` turns (Plague, Acid
+  Rain), or, with `amplify` > 1, scales the next explosion centred in it once (Resonator). Zones
+  are plain integers in `World.zones`, hashed, cleared each round, and appear in the snapshot as
+  `ZoneView` entities. At most `MAX_ZONES`.
+
+New terrain ops: `terrainop.tectonic` (a crest that heaves the top of the ground forward as debris,
+column by column, both ways) and `terrainop.quake` (a tremor that throws loose surface cells and
+drops overhangs). AI personalities: all five of §3.7 (`moron`, `shooter`, `poolshark`, `tosser`,
+`cyborg`).
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.

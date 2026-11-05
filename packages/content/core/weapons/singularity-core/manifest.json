@@ -1,0 +1,54 @@
+{
+  "id": "weapon.singularity-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Singularity core",
+    "description": "The collapsing core of a Singularity.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 48
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 110,
+        "damage": 35
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 34,
+        "damage": 55,
+        "effects": {
+          "flash": {
+            "strength": 2.0
+          },
+          "burst": {
+            "count": 80
+          },
+          "shake": {
+            "strength": 5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

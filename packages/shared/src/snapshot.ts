@@ -48,7 +48,18 @@ export interface ProjectileView {
   y: number;
 }
 
-export type EntityView = TankView | ProjectileView;
+/** A lingering zone (§4a): gas cloud, acid haze or resonance field. */
+export interface ZoneView {
+  kind: 'zone';
+  x: number;
+  y: number;
+  radius: number;
+  look: 'gas' | 'acid' | 'resonance';
+  /** Turns left. */
+  turns: number;
+}
+
+export type EntityView = TankView | ProjectileView | ZoneView;
 
 export interface RenderSnapshot {
   tick: number;

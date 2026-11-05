@@ -1,0 +1,62 @@
+{
+  "id": "weapon.water-cannon",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Water Cannon",
+    "description": "A jet of water along your aim. No blast: it washes sand and ash away, cools lava and shoves a tank it hits.",
+    "category": "terrain-dynamics",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.beam",
+    "speed": 5,
+    "maxTicks": 150,
+    "gravityScale": 0.3,
+    "windScale": 0.4,
+    "pulseEvery": 2,
+    "throughSolid": false
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 5,
+        "damageType": "kinetic",
+        "push": 8,
+        "effects": {
+          "burst": {
+            "count": 12
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.water"
+      },
+      "radius": 9,
+      "damageType": "kinetic"
+    }
+  ],
+  "pulse": [
+    {
+      "spawn": {
+        "weapon": "weapon.water-cannon-drop",
+        "inherit": 0.85,
+        "jitter": 0.25
+      }
+    }
+  ],
+  "shop": {
+    "price": 3500,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 5,
+    "terrainValue": 0.5
+  }
+}

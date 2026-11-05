@@ -1,0 +1,50 @@
+{
+  "id": "weapon.heavy-digger",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Digger",
+    "description": "Drives a wide, long tunnel deep through the hill.",
+    "category": "digger",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.digger",
+    "length": 110,
+    "speed": 2.5,
+    "probe": 8
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 30,
+        "damageType": "dig",
+        "effects": {
+          "burst": {
+            "count": 16
+          }
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 6,
+      "damageType": "dig"
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 10,
+    "terrainValue": 0.8
+  }
+}

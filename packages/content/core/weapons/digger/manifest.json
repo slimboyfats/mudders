@@ -1,0 +1,48 @@
+{
+  "id": "weapon.digger",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Digger",
+    "description": "Tunnels through the hill along its flight line: dig out a buried tank, or undercut one.",
+    "category": "digger",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.digger",
+    "length": 60
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 25,
+        "damageType": "dig",
+        "effects": {
+          "burst": {
+            "count": 14
+          }
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 4,
+      "damageType": "dig"
+    }
+  ],
+  "shop": {
+    "price": 2500,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 8,
+    "terrainValue": 0.6
+  }
+}

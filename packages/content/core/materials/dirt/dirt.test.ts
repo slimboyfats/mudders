@@ -3,10 +3,10 @@ import { loadContent } from '../../../src/index';
 import { flatten, makeWorld } from '../../../src/testing';
 
 describe('material.dirt', () => {
-  it('is the baseline: falls straight, resistance 1', () => {
+  it('is the baseline: falls straight, resistance 1 (except acid, which it shrugs off)', () => {
     const m = loadContent().get('material', 'material.dirt');
     expect(m.settle).toBe('fall');
-    expect(m.strength).toEqual({});
+    expect(m.strength).toEqual({ corrosive: 12 });
   });
 
   it('a floating block falls back onto the ground', () => {

@@ -1,0 +1,18 @@
+{
+  "id": "flight.digger",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Digger",
+    "description": "Flies an arc, then tunnels on through the ground the way it was going until it breaks out or runs out of steam.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.digger",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "speed": 2,
+  "length": 60,
+  "probe": 6,
+  "exit": "die",
+  "end": "die"
+}

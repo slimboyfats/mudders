@@ -1,0 +1,57 @@
+{
+  "id": "weapon.laser",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Laser",
+    "description": "A straight beam along your aim: no arc, no wind. Cuts a thin channel through the hill and hurts the first tank it reaches.",
+    "category": "beam",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.beam"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 45,
+        "damageType": "heat",
+        "falloff": "flat",
+        "effects": {
+          "flash": {
+            "strength": 1.2
+          },
+          "burst": {
+            "count": 16
+          }
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 0,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 3
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 40,
+    "terrainValue": 0.3
+  }
+}

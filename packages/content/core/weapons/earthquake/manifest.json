@@ -1,0 +1,48 @@
+{
+  "id": "weapon.earthquake",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Earthquake",
+    "description": "Shakes the whole map from the impact outward: loose ground jumps, overhangs and ledges collapse and perched tanks come down.",
+    "category": "weird",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 26,
+        "damage": 10,
+        "damageType": "shock",
+        "effects": {
+          "shake": {
+            "strength": 6
+          },
+          "burst": {
+            "count": 30
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.quake"
+      },
+      "radius": 400,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 8000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 20,
+    "terrainValue": 0.8
+  }
+}

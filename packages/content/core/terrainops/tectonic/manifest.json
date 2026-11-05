@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.tectonic",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tectonic",
+    "description": "A crest runs out both ways along the surface, heaving the top of the ground forward as it goes: a wave of dirt that rolls across the map, shoves tanks along and piles up where it dies out.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "terrainop.tectonic",
+  "height": 10,
+  "speed": 3,
+  "throw": 1.4,
+  "lift": 1.1
+}

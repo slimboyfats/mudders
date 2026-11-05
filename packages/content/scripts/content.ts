@@ -10,6 +10,7 @@ import { dirname, resolve } from 'node:path';
 import {
   CONTENT_TYPES,
   CONTENT_TYPE_FOLDERS,
+  type WeaponManifest,
   ScenarioSchema,
   contentTypeOf,
   type ContentType,
@@ -46,21 +47,51 @@ export function weaponsMarkdown(c: ResolvedContent): string {
     '| Id | Name | Category | Flight | Impact | Price | Since |',
     '| -- | ---- | -------- | ------ | ------ | ----- | ----- |',
   ];
-  for (const w of c.list('weapon')) {
-    const impact = w.impact
-      .map((i) =>
-        'explosion' in i
-          ? `${i.explosion.ref ?? 'explosion'} r${i.explosion.radius} dmg ${i.explosion.damage} (${i.explosion.damageType})`
-          : `${i.terrainOp.ref ?? i.terrainOp.behaviour} r${i.radius}`,
-      )
-      .join('; ');
+  const describe = (i: WeaponManifest['impact'][number]): string => {
+    if ('explosion' in i)
+      return `${i.explosion.ref ?? 'explosion'} r${i.explosion.radius} dmg ${i.explosion.damage} (${i.explosion.damageType})`;
+    if ('terrainOp' in i) return `${i.terrainOp.ref ?? i.terrainOp.behaviour} r${i.radius}`;
+    if ('zone' in i) {
+      const z = i.zone;
+      return z.amplify > 1
+        ? `resonance zone r${z.radius} ×${z.amplify}`
+        : `${z.look} zone r${z.radius} ${z.damage}/turn × ${z.turns}`;
+    }
+    const pool =
+      typeof i.spawn.weapon === 'string' ? i.spawn.weapon : `random of ${i.spawn.weapon.length}`;
+    return `${i.spawn.count} × ${pool}`;
+  };
+  const weapons = c.list('weapon');
+  for (const w of weapons) {
+    if (w.shop.price <= 0) continue;
+    const impact = [...w.impact.map(describe), ...w.pulse.map((i) => `pulse: ${describe(i)}`)].join(
+      '; ',
+    );
     lines.push(
       `| \`${w.id}\` | ${w.meta.name} | ${w.meta.category ?? ''} | ${w.flight.ref ?? w.flight.behaviour} | ${impact} | ${w.shop.price} × ${w.shop.pack} | ${w.meta.since} |`,
     );
   }
+  lines.push(
+    '',
+    `${weapons.filter((w) => w.shop.price > 0).length} weapons in the shop.`,
+    '',
+    '## Sub-munitions',
+    '',
+    'Shells that only exist as the children of another weapon (not sold).',
+    '',
+  );
+  for (const w of weapons) {
+    if (w.shop.price > 0) continue;
+    const impact = [...w.impact.map(describe), ...w.pulse.map((i) => `pulse: ${describe(i)}`)].join(
+      '; ',
+    );
+    lines.push(`- \`${w.id}\` (${w.flight.ref ?? w.flight.behaviour}): ${impact}`);
+  }
   lines.push('', '## Descriptions', '');
-  for (const w of c.list('weapon'))
+  for (const w of weapons) {
+    if (w.shop.price <= 0) continue;
     lines.push(`- **${w.meta.name}** (\`${w.id}\`): ${w.meta.description}`);
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -85,8 +116,10 @@ function findInlineDuplicates(c: ResolvedContent): string[] {
         out.push(`${owner}:${path} duplicates ${prev}; extract it into an item and \`use\` it`);
       } else seen[key] = `${owner}:${path}`;
     }
+    // Prices and AI hints are a handful of numbers that coincide by chance, not copied configs.
     for (const k of Object.keys(o))
-      if (k !== 'meta') walk(o[k], owner, path ? `${path}.${k}` : k, false);
+      if (k !== 'meta' && !(top && (k === 'shop' || k === 'ai')))
+        walk(o[k], owner, path ? `${path}.${k}` : k, false);
   };
   for (const id of c.ids) walk(c.raw(id), id, '', true);
   return out;

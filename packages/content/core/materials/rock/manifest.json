@@ -16,7 +16,7 @@
     "heat": 1.5,
     "shock": 3,
     "dig": 3,
-    "corrosive": 1.5
+    "corrosive": 8
   },
   "cohesion": 0,
   "coating": false

@@ -1,0 +1,59 @@
+{
+  "id": "weapon.heavy-laser",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Laser",
+    "description": "A thicker, longer beam that slices clean through the map and hits hard.",
+    "category": "beam",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.beam",
+    "speed": 5,
+    "maxTicks": 170
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 75,
+        "damageType": "heat",
+        "falloff": "flat",
+        "effects": {
+          "flash": {
+            "strength": 1.6
+          },
+          "burst": {
+            "count": 24
+          }
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 0,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 10000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 65,
+    "terrainValue": 0.5
+  }
+}

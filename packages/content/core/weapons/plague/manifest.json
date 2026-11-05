@@ -1,0 +1,45 @@
+{
+  "id": "weapon.plague",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plague",
+    "description": "Leaves a sickly cloud where it lands. Every tank inside it loses health at the end of each turn for four turns.",
+    "category": "weird",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 10,
+        "effects": {
+          "burst": {
+            "count": 16
+          }
+        }
+      }
+    },
+    {
+      "zone": {
+        "radius": 44,
+        "turns": 4,
+        "damage": 7,
+        "look": "gas"
+      }
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 35,
+    "terrainValue": 0.1
+  }
+}

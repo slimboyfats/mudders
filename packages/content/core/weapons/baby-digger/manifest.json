@@ -1,0 +1,50 @@
+{
+  "id": "weapon.baby-digger",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Baby Digger",
+    "description": "Bores a short tunnel through the ground the way it was flying.",
+    "category": "digger",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.digger",
+    "length": 30,
+    "speed": 1.5,
+    "probe": 4
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 20,
+        "damageType": "dig",
+        "effects": {
+          "burst": {
+            "count": 12
+          }
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 3,
+      "damageType": "dig"
+    }
+  ],
+  "shop": {
+    "price": 1200,
+    "pack": 5,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 5,
+    "terrainValue": 0.4
+  }
+}

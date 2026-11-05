@@ -15,7 +15,8 @@
     "kinetic": 1.5,
     "heat": 0.2,
     "shock": 2,
-    "dig": 1.5
+    "dig": 1.5,
+    "corrosive": 4
   },
   "cohesion": 0,
   "coating": false

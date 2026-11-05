@@ -290,10 +290,27 @@ export function resolveContent(source: ContentSource): ResolvedContent {
     if (type === 'weapon') {
       const w = item as ManifestByType['weapon'];
       checkBehaviour(w.flight, `${id}.flight`, 'flight');
-      w.impact.forEach((imp, i) => {
-        if ('explosion' in imp) checkExplosion(imp.explosion, `${id}.impact.${i}.explosion`);
-        else checkBehaviour(imp.terrainOp, `${id}.impact.${i}.terrainOp`, 'terrainop');
-      });
+      const checkImpacts = (list: typeof w.impact, slot: string): void => {
+        list.forEach((imp, i) => {
+          const at = `${id}.${slot}.${i}`;
+          if ('explosion' in imp) checkExplosion(imp.explosion, `${at}.explosion`);
+          else if ('terrainOp' in imp)
+            checkBehaviour(imp.terrainOp, `${at}.terrainOp`, 'terrainop');
+          else if ('zone' in imp) {
+            if (imp.zone.terrainOp) {
+              checkBehaviour(imp.zone.terrainOp, `${at}.zone.terrainOp`, 'terrainop');
+            }
+          } else {
+            const pool =
+              typeof imp.spawn.weapon === 'string' ? [imp.spawn.weapon] : imp.spawn.weapon;
+            for (const wid of pool) {
+              if (!items[wid]) problems.push(`${at}.spawn: weapon "${wid}" is not loaded`);
+            }
+          }
+        });
+      };
+      checkImpacts(w.impact, 'impact');
+      checkImpacts(w.pulse, 'pulse');
     }
     if (type === 'mode') {
       const m = item as ManifestByType['mode'];

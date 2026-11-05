@@ -1,0 +1,32 @@
+{
+  "id": "weapon.scatter-bomblet",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Scatter bomblet",
+    "description": "A bomblet from a Scatter Bomb.",
+    "category": "submunition",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 25
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

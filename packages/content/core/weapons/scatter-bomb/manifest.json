@@ -1,0 +1,42 @@
+{
+  "id": "weapon.scatter-bomb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Scatter Bomb",
+    "description": "Bursts on impact and flings a fan of bomblets across the ground around it.",
+    "category": "explosive",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 24,
+        "damage": 40
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.scatter-bomblet",
+        "count": 7,
+        "inherit": 0.15,
+        "spread": 2.4,
+        "jitter": 0.5,
+        "up": 3.5
+      }
+    }
+  ],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 70,
+    "terrainValue": 0.4
+  }
+}

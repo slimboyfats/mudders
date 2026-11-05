@@ -214,6 +214,47 @@ export const TriggerSchema = z.union([
 ]);
 export type Trigger = z.infer<typeof TriggerSchema>;
 
+const WeaponIdSchema = ContentIdSchema.refine(
+  (id) => id.startsWith('weapon.'),
+  'must be a weapon.* id',
+);
+
+/**
+ * Child shells (MIRV warheads, cluster bomblets, Leapfrog hops). Each child flies as its own
+ * weapon from the impact point (lifted to the nearest air cell), owned by the same shooter.
+ * Velocities are in cells/tick: `inherit` × the parent's velocity, children fanned evenly across
+ * ±`spread` horizontally, ±`jitter` at random (match PRNG) on both axes, and `up` added upward.
+ * `bounce` > 0 replaces the vertical part with a rebound: −|parent vy| × `bounce`.
+ */
+export const SpawnSchema = z.strictObject({
+  /** One weapon, or a pool picked from at random per child (Mystery). */
+  weapon: z.union([WeaponIdSchema, z.array(WeaponIdSchema).min(1).max(64)]),
+  count: z.number().int().min(1).max(16).default(1),
+  inherit: z.number().min(-2).max(2).default(1),
+  bounce: z.number().min(0).max(2).default(0),
+  spread: z.number().min(0).max(20).default(0),
+  jitter: z.number().min(0).max(20).default(0),
+  up: z.number().min(-20).max(20).default(0),
+});
+export type Spawn = z.infer<typeof SpawnSchema>;
+
+/**
+ * Zone (§4a): a lingering region left by a shot. At the end of every turn it hurts tanks inside
+ * it (`damage`) and re-runs `terrainOp` over itself, for `turns` turns. `amplify` > 1 makes it a
+ * resonance field instead: the next explosion centred inside it is scaled by that factor (radius,
+ * damage and push) and the zone is used up. `look` tells renderers how to draw it.
+ */
+export const ZoneSchema = z.strictObject({
+  radius: z.number().int().min(1).max(400),
+  turns: z.number().int().min(1).max(10),
+  damage: z.number().int().min(0).max(100).default(0),
+  amplify: z.number().min(1).max(4).default(1),
+  terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
+  damageType: DamageTypeSchema.default('blast'),
+  look: z.enum(['gas', 'acid', 'resonance']).default('gas'),
+});
+export type ZoneSpec = z.infer<typeof ZoneSchema>;
+
 export const ImpactSchema = z.union([
   z.strictObject({ explosion: EmbeddedExplosionSchema }),
   z.strictObject({
@@ -221,6 +262,8 @@ export const ImpactSchema = z.union([
     radius: z.number().int().min(1).max(400),
     damageType: DamageTypeSchema,
   }),
+  z.strictObject({ spawn: SpawnSchema }),
+  z.strictObject({ zone: ZoneSchema }),
 ]);
 export type Impact = z.infer<typeof ImpactSchema>;
 
@@ -229,6 +272,11 @@ export const WeaponSchema = z.strictObject({
   flight: EmbeddedFlightSchema,
   triggers: z.array(TriggerSchema).min(1),
   impact: z.array(ImpactSchema).min(1),
+  /**
+   * Run where the shell is, without stopping it, whenever its flight asks (a digger's tunnel, a
+   * laser's cut, a water cannon's stream). Most weapons have none.
+   */
+  pulse: z.array(ImpactSchema).default([]),
   shop: z.strictObject({
     price: z.number().int().min(0),
     pack: z.number().int().min(1),

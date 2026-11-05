@@ -1,0 +1,11 @@
+{
+  "id": "flight.static",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Static",
+    "description": "Hangs in the air where it was spawned until its timer runs out.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "flight.static",
+  "maxTicks": 600
+}

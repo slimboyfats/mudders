@@ -10,7 +10,9 @@
   "cell": 1,
   "settle": "fall",
   "density": 100,
-  "strength": {},
+  "strength": {
+    "corrosive": 12
+  },
   "cohesion": 0,
   "coating": false
 }

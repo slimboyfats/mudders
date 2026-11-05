@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.quake",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Quake",
+    "description": "A tremor that spreads out from the impact, throwing up loose ground near the surface and dropping overhangs and ledges. Rock and props hold.",
+    "since": "core@0.7.0"
+  },
+  "behaviour": "terrainop.quake",
+  "depth": 6,
+  "chance": 0.12,
+  "lift": 0.8,
+  "speed": 24
+}

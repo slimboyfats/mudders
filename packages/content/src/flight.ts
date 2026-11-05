@@ -1,0 +1,48 @@
+import { FP, toFixed, type Projectile, type SimApi } from '@mudders/sim';
+
+/**
+ * Shared helpers for `flight.*` behaviours. Everything is fixed-point integer maths plus
+ * `Math.sqrt` (§6.3). Flights never draw from the match RNG: the AI's predictor runs them too.
+ */
+
+/** One semi-implicit Euler step under gravity and wind (the ballistic arc, §3.4). */
+export function ballisticStep(
+  api: SimApi,
+  p: Projectile,
+  gravityScale: number,
+  windScale: number,
+): void {
+  p.vx += Math.trunc((api.wind * toFixed(windScale)) / FP);
+  p.vy += Math.trunc((api.gravity * toFixed(gravityScale)) / FP);
+  p.x += p.vx;
+  p.y += p.vy;
+}
+
+/** Scale (vx, vy) to length `speed` (all fixed-point); straight up when it has no direction. */
+export function withSpeed(vx: number, vy: number, speed: number): [number, number] {
+  const len = Math.sqrt(vx * vx + vy * vy);
+  if (len < 1) return [0, -speed];
+  return [Math.trunc((vx * speed) / len), Math.trunc((vy * speed) / len)];
+}
+
+/** Put the shell in the middle of a cell. */
+export function placeAt(p: Projectile, x: number, y: number): void {
+  p.x = x * FP + FP / 2;
+  p.y = y * FP + FP / 2;
+}
+
+export function cellX(p: Projectile): number {
+  return Math.floor(p.x / FP);
+}
+
+export function cellY(p: Projectile): number {
+  return Math.floor(p.y / FP);
+}
+
+/** Solid at (x, y)? Off the sides counts as solid, above the map as air, below as solid. */
+export function solidAt(api: SimApi, x: number, y: number): boolean {
+  const g = api.grid;
+  if (x < 0 || x >= g.width || y >= g.height) return true;
+  if (y < 0) return false;
+  return g.material[y * g.width + x] !== 0;
+}

@@ -1,0 +1,32 @@
+{
+  "id": "weapon.mirv",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "MIRV",
+    "description": "Splits into five warheads at the top of its arc. They fan out and come down in a line.",
+    "category": "explosive",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onApex", "onSolid", "onTank"],
+  "impact": [
+    {
+      "spawn": {
+        "weapon": "weapon.mirv-warhead",
+        "count": 5,
+        "spread": 1.2
+      }
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 90,
+    "terrainValue": 0.4
+  }
+}

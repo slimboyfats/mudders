@@ -55,6 +55,10 @@ export function encodeMp4(pattern: string, fps: number, out: string): void {
 export function encodeSheet(frames: string[], out: string): void {
   const inputs = frames.flatMap((f) => ['-i', f]);
   const n = frames.length;
+  if (n === 1) {
+    ffmpeg([...inputs, '-frames:v', '1', out]);
+    return;
+  }
   const pads = frames.map((_, i) => `[${i}:v]pad=iw:ih+${i < n - 1 ? 6 : 0}:0:0:0x101010[p${i}]`);
   const stack = frames.map((_, i) => `[p${i}]`).join('');
   ffmpeg([

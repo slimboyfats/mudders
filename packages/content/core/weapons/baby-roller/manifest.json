@@ -1,0 +1,32 @@
+{
+  "id": "weapon.baby-roller",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Baby Roller",
+    "description": "Lands, then rolls downhill into the nearest dip or tank and goes off there.",
+    "category": "roller",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.roller"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 30
+      }
+    }
+  ],
+  "shop": {
+    "price": 1800,
+    "pack": 5,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0.2
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "weapon.heat-seeker",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heat Seeker",
+    "description": "Locks on to the nearest enemy tank and steers hard for it. Terrain still gets in the way.",
+    "category": "guided",
+    "since": "core@0.7.0"
+  },
+  "flight": {
+    "use": "flight.homing",
+    "armTicks": 20,
+    "accel": 0.3,
+    "range": 400,
+    "maxSpeed": 5
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 18,
+        "damage": 45
+      }
+    }
+  ],
+  "shop": {
+    "price": 8000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 60,
+    "terrainValue": 0.2
+  }
+}
