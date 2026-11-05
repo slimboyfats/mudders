@@ -1,4 +1,5 @@
 import {
+  GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   type DamageType,
   type EffectEvent,
@@ -31,6 +32,7 @@ import { behaviourParams, type ResolvedContent } from './content/resolve';
 import { FP, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
 import { DebrisPool } from './debris';
 import { Grid } from './grid';
+import { Groups } from './groups';
 import { Hasher } from './hash';
 import { MaterialTable, damageTypeIndex } from './materials';
 import { Prng } from './prng';
@@ -96,6 +98,8 @@ export interface WorldOptions {
   rules?: MatchRules | undefined;
   /** AI personality id per player (`ai.*`); null/undefined = human. */
   bots?: readonly (string | null | undefined)[] | undefined;
+  /** Extra props at fixed centre columns (showcases), placed after the generator's. */
+  props?: readonly { prop: string; x: number }[] | undefined;
 }
 
 /** `shop` sits between rounds; `over` is the end of the match. */
@@ -190,6 +194,7 @@ interface PendingDeath {
  * phase between them. Money, score and inventory persist across rounds; health and position don't.
  */
 export class World implements SimApi {
+  readonly groups: Groups;
   readonly grid: Grid;
   readonly mats: MaterialTable;
   readonly rng: Prng;
@@ -260,6 +265,7 @@ export class World implements SimApi {
     const width = options.map?.width ?? mode.map.width;
     const height = options.map?.height ?? mode.map.height;
     this.grid = new Grid(width, height);
+    this.groups = new Groups(content.list('prop'), this.mats);
     this.scratch = new Scratch(this.grid.size);
     this.gravity = toFixed(mode.physics.gravity);
     this.maxSpeed = toFixed(mode.physics.maxSpeed);
@@ -423,9 +429,17 @@ export class World implements SimApi {
     const gen = this.content.behaviours.getKind(genItem.behaviour, 'gen');
     const res = gen.generate(
       this,
-      gen.params.parse(behaviourParams(genItem)),
+      gen.params.parse(behaviourParams(genItem, GEN_CORE_KEYS)),
       this.options.players,
     );
+    // Props (§4c) go on after the terrain and before the tanks, clear of every spawn.
+    this.groups.reset();
+    const spawns = Array.from(
+      { length: this.options.players },
+      (_, p) => this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0,
+    );
+    if (genItem.props) this.groups.place(g, this.rng, genItem.props, spawns);
+    for (const sp of this.options.props ?? []) this.groups.placeAt(g, sp.prop, sp.x);
     // Pre-settle anything loose the generator left, so a round starts still.
     g.markDirty(0, 0, g.width - 1, g.height - 1);
     for (let i = 0; i < 2000 && g.settling; i++) settleStep(g, this.mats, i, g.size);
@@ -511,6 +525,12 @@ export class World implements SimApi {
     const g = this.grid;
     const m = g.material[cellIndex]!;
     if (m === 0) return false;
+    const slot = g.group[cellIndex]!;
+    if (slot !== 0) {
+      // an intact prop group holds: the hit is charged to its integrity instead
+      this.groups.refuse(slot);
+      return false;
+    }
     const x = cellIndex % g.width;
     const y = (cellIndex - x) / g.width;
     if (
@@ -552,8 +572,13 @@ export class World implements SimApi {
     this.stepProjectiles();
     this.stepOps();
     this.debris.step(this.grid, this.gravity, this.mats);
+    const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
     reactStep(this.grid, this.mats, this.tick);
+    if (this.groups.any) {
+      this.groups.absorbLosses(this.grid, this);
+      if (settling) this.groups.checkBases(this.grid, this);
+    }
     this.stepTanks();
 
     if (this.phase === 'resolve' && this.quiet) {
@@ -909,7 +934,9 @@ export class World implements SimApi {
       damageTypeIndex: damageTypeIndex(damageType),
       owner,
     };
+    this.grid.clearWatch();
     const data = site.b.start(this, site.params, call);
+    if (this.groups.any) this.groups.guard(this.grid, call.damageTypeIndex, this);
     if (data) this.ops.push({ op, call, t: 0, data });
   }
 
@@ -919,7 +946,10 @@ export class World implements SimApi {
     for (const inst of this.ops) {
       inst.t++;
       const site = this.opSites[inst.op]!;
-      if (site.b.step?.(this, site.params, inst)) next.push(inst);
+      this.grid.clearWatch();
+      const more = site.b.step?.(this, site.params, inst) ?? false;
+      if (this.groups.any) this.groups.guard(this.grid, inst.call.damageTypeIndex, this);
+      if (more) next.push(inst);
     }
     this.ops = next;
   }
@@ -1284,6 +1314,8 @@ export class World implements SimApi {
     for (const p of this.prices) h.num(p);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.cellState).bytes(g.fallVel);
+    h.bytes(g.group).bytes(g.groupMat);
+    this.groups.hash(h);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
     h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);

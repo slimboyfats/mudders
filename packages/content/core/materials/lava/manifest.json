@@ -33,6 +33,11 @@
       "into": "material.rock",
       "other": "air",
       "chance": 0.25
+    },
+    {
+      "with": "material.wood",
+      "other": "material.fire",
+      "chance": 0.1
     }
   ]
 }

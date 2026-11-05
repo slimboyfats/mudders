@@ -1,0 +1,49 @@
+{
+  "id": "material.water",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Water",
+    "description": "Flows downhill and pools for a few seconds before it soaks away. Washes sand and ash away, erodes the dirt it runs over, puts out fire and quenches lava into rock.",
+    "since": "core@0.4.0",
+    "color": "#3a78c8"
+  },
+  "cell": 19,
+  "settle": "flow",
+  "density": 50,
+  "strength": {
+    "blast": 0.4,
+    "kinetic": 0.3,
+    "heat": 0.5,
+    "shock": 0.3,
+    "dig": 0.2
+  },
+  "cohesion": -0.5,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.lava",
+      "into": "air",
+      "other": "material.rock",
+      "chance": 0.6
+    },
+    {
+      "with": "material.sand",
+      "other": "material.liquid-dirt",
+      "chance": 0.2
+    },
+    {
+      "with": "material.ash",
+      "other": "air",
+      "chance": 0.2
+    },
+    {
+      "with": "material.dirt",
+      "other": "material.liquid-dirt",
+      "chance": 0.01
+    }
+  ],
+  "decay": {
+    "into": "air",
+    "ticks": 240
+  }
+}

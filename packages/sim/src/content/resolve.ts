@@ -2,6 +2,7 @@ import {
   CONTENT_TYPE_FOLDERS,
   MANIFEST_BASE_KEYS,
   MANIFEST_SCHEMAS,
+  GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   PackSchema,
   contentTypeOf,
@@ -278,7 +279,13 @@ export function resolveContent(source: ContentSource): ResolvedContent {
     if (!item) continue;
     const type = contentTypeOf(id)!;
     const kind = BEHAVIOUR_TYPES[type];
-    if (kind) checkBehaviour(item, id, kind, type === 'mode' ? MODE_CORE_KEYS : []);
+    if (kind)
+      checkBehaviour(
+        item,
+        id,
+        kind,
+        type === 'mode' ? MODE_CORE_KEYS : type === 'gen' ? GEN_CORE_KEYS : [],
+      );
     if (type === 'explosion') checkExplosion(item, id);
     if (type === 'weapon') {
       const w = item as ManifestByType['weapon'];

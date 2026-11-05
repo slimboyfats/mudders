@@ -107,6 +107,30 @@ turn region; `cellState` holds age (low 6 bits) and turns (high 2 bits). Randomn
 hash of (cell, tick, k), not the match PRNG, so the pass order never shifts other rolls. When the
 shot is quiet, `contact.damage` materials (lava, napalm) under or beside a tank hurt it once.
 
+Coatings react too: a coating's reactions look at all 8 neighbours and also match a neighbour's
+coating, so fire runs along an oil film (oil → `burning-oil`, which spawns `fire` into air above and
+wears off). Coatings with tick `decay` wear off with chance 1/ticks per tick. The roll is a murmur3
+finaliser of (cell, tick, k); a plain multiplicative hash correlated across cells on one tick and
+broke ignition chains.
+
+### 3.2c Props and integrity groups (milestone 3)
+
+A `prop` item (`house`, `tree`, `boulder`) is an ASCII `shape` with a legend mapping characters to
+roles, roles to materials, and `groups` of roles with `integrity`, per-damage-type `resistance`,
+`breakInto`, an optional `crack` material and `supports`. `Groups` (`sim/src/groups.ts`) owns up to
+255 group slots; the grid stores the slot per cell (`group`) and the intended material (`groupMat`).
+Generators place props with `props: [{prop, count, cluster}]` (`gen.village`), and scenarios with
+`props: [{prop, x}]`; the base sits at the median ground height (foundation fill below, cut above).
+
+Group cells are rigid: settle and cohesive flood fills skip them, and `launch()` refuses them. After
+each op the world runs `groups.guard`: every group cell the op changed (seen inside the grid's
+watch box) is charged to integrity, divided by the group's resistance for the op's damage type, and
+restored. Cracks show at ⅔ and ⅓ integrity; at 0 the group breaks into `breakInto` and loose
+settling takes over, and groups it `supports` (windows, roof on walls) break with it. Cells that a
+reaction consumes leave the group (`leaveGroup`); losing half its cells breaks a group. While the
+grid is settling, `checkBases` drops a group with nothing under its base as a rigid block (landing
+damage grows with the fall) and breaks a wide group whose base has lost most support.
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.

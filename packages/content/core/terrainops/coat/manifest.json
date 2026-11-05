@@ -1,0 +1,12 @@
+{
+  "id": "terrainop.coat",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Coat",
+    "description": "Coats the exposed skin of the terrain inside a disc with a coating material, a few cells deep.",
+    "since": "core@0.4.0"
+  },
+  "behaviour": "terrainop.coat",
+  "coating": "material.oil",
+  "depth": 4
+}

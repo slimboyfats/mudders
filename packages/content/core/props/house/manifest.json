@@ -1,0 +1,98 @@
+{
+  "id": "prop.house",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "House",
+    "description": "A brick house with a timber roof and two windows. The walls soak up a lot of punishment, crack, then pour down into rubble, bringing the roof with them. The windows shatter at the first hit and the roof burns.",
+    "since": "core@0.4.0"
+  },
+  "shape": [
+    "                 RRRR",
+    "               RRRRRRRR    CCC",
+    "             RRRRRRRRRRRR  CCC",
+    "           RRRRRRRRRRRRRRRRCCC",
+    "          RRRRRRRRRRRRRRRRRCCC",
+    "        RRRRRRRRRRRRRRRRRRRCCC",
+    "      RRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "    RRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "  RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "  WWWWGGGGGGWWWWWWWWWWWWWWGGGGGGWWWW",
+    "  WWWWGGGGGGWWWWWWWWWWWWWWGGGGGGWWWW",
+    "  WWWWGGGGGGWWWWWWWWWWWWWWGGGGGGWWWW",
+    "  WWWWGGGGGGWWWWWWWWWWWWWWGGGGGGWWWW",
+    "  WWWWGGGGGGWWWWDDDDDDWWWWGGGGGGWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW",
+    "  WWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWW"
+  ],
+  "legend": {
+    "R": "roof",
+    "C": "chimney",
+    "W": "wall",
+    "G": "window",
+    "D": "door"
+  },
+  "materials": {
+    "roof": "material.wood",
+    "chimney": "material.brick",
+    "wall": "material.brick",
+    "window": "material.glass",
+    "door": "material.wood"
+  },
+  "groups": [
+    {
+      "name": "walls",
+      "roles": ["wall", "door"],
+      "integrity": 450,
+      "resistance": {
+        "blast": 2,
+        "kinetic": 2,
+        "heat": 4
+      },
+      "breakInto": {
+        "material.brick": "material.rubble",
+        "material.cracked-brick": "material.rubble",
+        "material.wood": "material.splinter"
+      },
+      "crack": {
+        "material.brick": "material.cracked-brick"
+      }
+    },
+    {
+      "name": "windows",
+      "roles": ["window"],
+      "integrity": 4,
+      "supports": ["walls"],
+      "breakInto": {
+        "material.glass": "material.shard"
+      }
+    },
+    {
+      "name": "roof",
+      "roles": ["roof", "chimney"],
+      "integrity": 140,
+      "supports": ["walls"],
+      "breakInto": {
+        "material.wood": "material.splinter",
+        "material.brick": "material.rubble"
+      },
+      "resistance": {
+        "blast": 1.5
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 8,
+    "clearance": 30
+  }
+}

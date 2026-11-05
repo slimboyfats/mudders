@@ -17,6 +17,19 @@ export class Grid {
   readonly cellState: Uint8Array;
   /** Settle fall speed per cell (cells/tick). Kernel-owned. */
   readonly fallVel: Uint8Array;
+  /** Prop integrity group per cell (§4c), 0 = none. Kernel-owned. */
+  readonly group: Uint8Array;
+  /** The material a group cell is meant to hold; ops that change it are undone while intact. */
+  readonly groupMat: Uint8Array;
+  /** Group cells lost outside ops (burnt, collapsed edge) since the kernel last looked. */
+  readonly groupLost = new Int32Array(256);
+  groupLostAny = false;
+
+  /** Union of everything `markDirty` touched since `clearWatch` (inclusive; empty if max < min). */
+  watchMinX = 0;
+  watchMaxX = -1;
+  watchMinY = 0;
+  watchMaxY = -1;
 
   settleMinX = 0;
   settleMaxX = -1;
@@ -44,6 +57,8 @@ export class Grid {
     this.coating = new Uint8Array(this.size);
     this.cellState = new Uint8Array(this.size);
     this.fallVel = new Uint8Array(this.size);
+    this.group = new Uint8Array(this.size);
+    this.groupMat = new Uint8Array(this.size);
   }
 
   /** Empty every layer and region (new round). */
@@ -52,6 +67,11 @@ export class Grid {
     this.coating.fill(0);
     this.cellState.fill(0);
     this.fallVel.fill(0);
+    this.group.fill(0);
+    this.groupMat.fill(0);
+    this.groupLost.fill(0);
+    this.groupLostAny = false;
+    this.clearWatch();
     this.clearSettle();
     this.clearReact();
     this.turnMaxX = -1;
@@ -101,8 +121,25 @@ export class Grid {
     if (y > this.turnMaxY) this.turnMaxY = y;
   }
 
+  clearWatch(): void {
+    this.watchMinX = 0;
+    this.watchMaxX = -1;
+    this.watchMinY = 0;
+    this.watchMaxY = -1;
+  }
+
+  /** A group cell stops belonging to its group (burnt, washed, dropped off the map). */
+  leaveGroup(i: number): void {
+    const g = this.group[i]!;
+    if (g === 0) return;
+    this.group[i] = 0;
+    this.groupLost[g] = this.groupLost[g]! + 1;
+    this.groupLostAny = true;
+  }
+
   /** Turn a cell into air (every layer). Call `markDirty` afterwards. */
   clearCell(i: number): void {
+    this.leaveGroup(i);
     this.material[i] = 0;
     this.coating[i] = 0;
     this.cellState[i] = 0;
@@ -136,6 +173,17 @@ export class Grid {
     this.extendSettle(ax - 1, bx + 1, by + 1);
     this.extendReact(ax - 1, ay - 1, bx + 1, by + 1);
     this.addRenderRect(ax, ay, bx - ax + 1, by - ay + 1);
+    if (this.watchMaxX < this.watchMinX) {
+      this.watchMinX = ax;
+      this.watchMaxX = bx;
+      this.watchMinY = ay;
+      this.watchMaxY = by;
+    } else {
+      if (ax < this.watchMinX) this.watchMinX = ax;
+      if (bx > this.watchMaxX) this.watchMaxX = bx;
+      if (ay < this.watchMinY) this.watchMinY = ay;
+      if (by > this.watchMaxY) this.watchMaxY = by;
+    }
   }
 
   /** Extend the settle region (columns sx0..sx1, rows 0..sy). */

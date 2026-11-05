@@ -1,0 +1,71 @@
+{
+  "id": "prop.tree",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tree",
+    "description": "A broadleaf tree. The trunk holds up the canopy; knock it down and the leaves drift to the ground, set it alight and the fire runs up into the crown.",
+    "since": "core@0.4.0"
+  },
+  "shape": [
+    "       LLL LLL",
+    "    LL LLLL LLLL",
+    "   LLLL LLLL LLLL",
+    "  LLLLLLLLLLLLLLLLL",
+    " LLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLTTTTLLLLLLLL",
+    " LLLLLLLLTTTTTTLLLLL",
+    "  LLLLLLTTTTTLLTLLL",
+    "   LLLTTLTTTTLLLLL",
+    "    LTLLLTTTTLLLL",
+    "       LLTTTTL",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT",
+    "         TTTT"
+  ],
+  "legend": {
+    "T": "trunk",
+    "L": "leaves"
+  },
+  "materials": {
+    "trunk": "material.wood",
+    "leaves": "material.leaf"
+  },
+  "groups": [
+    {
+      "name": "trunk",
+      "roles": ["trunk"],
+      "integrity": 60,
+      "breakInto": {
+        "material.wood": "material.splinter"
+      }
+    },
+    {
+      "name": "canopy",
+      "roles": ["leaves"],
+      "integrity": 24,
+      "supports": ["trunk"]
+    }
+  ],
+  "placement": {
+    "maxSlope": 10,
+    "clearance": 16
+  }
+}

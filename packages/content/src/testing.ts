@@ -45,6 +45,9 @@ export function flatten(world: World, surface: number, materialId = 'material.di
   const cell = world.mats.cellOf(materialId);
   g.material.fill(0);
   g.material.fill(cell, surface * g.width);
+  g.group.fill(0);
+  g.groupMat.fill(0);
+  world.groups.reset();
   g.clearSettle();
   for (const t of world.tanks) t.y = surface;
 }
@@ -87,4 +90,25 @@ export function flatWorld(surface = 150, opts: Partial<WorldOptions> = {}): Worl
   });
   flatten(w, surface);
   return w;
+}
+
+/** `flatWorld` with one prop centred on column x, settled and still. */
+export function propWorld(
+  prop: string,
+  x = 200,
+  surface = 150,
+  opts: Partial<WorldOptions> = {},
+): World {
+  const w = flatWorld(surface, opts);
+  w.groups.placeAt(w.grid, prop, x);
+  w.grid.clearSettle();
+  w.grid.clearReact();
+  return w;
+}
+
+/** Cells that still belong to an intact prop group. */
+export function groupCells(world: World): number {
+  let n = 0;
+  for (let i = 0; i < world.grid.group.length; i++) if (world.grid.group[i] !== 0) n++;
+  return n;
 }

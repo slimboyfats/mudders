@@ -26,6 +26,7 @@ export const CONTENT_TYPES = [
   'weapon',
   'mode',
   'ai',
+  'prop',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -39,6 +40,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   weapon: 'weapons',
   mode: 'modes',
   ai: 'ai',
+  prop: 'props',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -149,7 +151,21 @@ export type MaterialManifest = z.infer<typeof MaterialSchema>;
 
 const behaviourBacked = { ...base, behaviour: ContentIdSchema };
 
-export const GeneratorSchema = z.looseObject({ ...behaviourBacked });
+/** Props a generator scatters after the terrain (§4c); counts are per 1000 map columns. */
+export const GenPropSchema = z.strictObject({
+  prop: ContentIdSchema.refine((id) => id.startsWith('prop.'), 'must be a prop.* id'),
+  count: z.tuple([z.number().int().min(0).max(50), z.number().int().min(0).max(50)]),
+  /** Place each after the first next to the previous one (a village street). */
+  cluster: z.boolean().default(false),
+});
+export type GenProp = z.infer<typeof GenPropSchema>;
+
+export const GeneratorSchema = z.looseObject({
+  ...behaviourBacked,
+  props: z.array(GenPropSchema).max(8).optional(),
+});
+/** Keys the kernel reads from a generator itself; the rest go to its behaviour. */
+export const GEN_CORE_KEYS: readonly string[] = ['props'];
 export const FlightSchema = z.looseObject({ ...behaviourBacked });
 export const TerrainOpSchema = z.looseObject({ ...behaviourBacked });
 export type GeneratorManifest = z.infer<typeof GeneratorSchema>;
@@ -305,6 +321,57 @@ export type ModeManifest = z.infer<typeof ModeSchema>;
 export const AiSchema = z.looseObject({ ...behaviourBacked });
 export type AiManifest = z.infer<typeof AiSchema>;
 
+// ── prop ────────────────────────────────────────────────────────────────────────────────────
+
+const MaterialIdSchema = ContentIdSchema.refine(
+  (id) => id.startsWith('material.'),
+  'must be a material.* id',
+);
+
+/**
+ * Prop (§4c): a multi-material stamp written into the grid at round start, after which it is
+ * ordinary terrain, except that cells in a `group` hold together: damage to them drains the
+ * group's integrity instead of removing cells, and at 0 the whole group converts (`breakInto`)
+ * and pours down under normal settle rules.
+ */
+export const PropSchema = z.strictObject({
+  ...base,
+  /** Rows top to bottom; each character is a `legend` key, space = leave the cell as it is. */
+  shape: z.array(z.string().min(1)).min(1).max(96),
+  /** Shape character → role name. */
+  legend: z.record(z.string().length(1), z.string().min(1)),
+  /** Role → material, so a variant re-skins a prop by swapping materials. */
+  materials: z.record(z.string().min(1), MaterialIdSchema),
+  groups: z
+    .array(
+      z.strictObject({
+        name: z.string().min(1),
+        roles: z.array(z.string().min(1)).min(1),
+        /** Damage pool: one cell an op tries to remove costs 1 (scaled by `resistance`). */
+        integrity: z.number().int().min(1).max(100_000),
+        /** Per damage type, on top of the materials' own strength; 2 = takes half damage. */
+        resistance: z.partialRecord(DamageTypeSchema, z.number().min(0.05).max(64)).default({}),
+        /** Material → what it turns into when the group breaks; unlisted cells just come loose. */
+        breakInto: z.record(MaterialIdSchema, MaterialRefSchema).default({}),
+        /** Material → its cracked look, applied to a growing share of cells as integrity drops. */
+        crack: z.record(MaterialIdSchema, MaterialIdSchema).default({}),
+        /** Groups this one rests on: when one breaks, this one breaks too. */
+        supports: z.array(z.string().min(1)).default([]),
+      }),
+    )
+    .max(16)
+    .default([]),
+  placement: z
+    .strictObject({
+      /** Largest height difference across the footprint the prop accepts, in cells. */
+      maxSlope: z.number().int().min(0).max(64).default(6),
+      /** Free columns kept between the prop and a tank spawn. */
+      clearance: z.number().int().min(0).max(400).default(24),
+    })
+    .default({ maxSlope: 6, clearance: 24 }),
+});
+export type PropManifest = z.infer<typeof PropSchema>;
+
 // ── packs ───────────────────────────────────────────────────────────────────────────────────
 
 export const PackSchema = z.strictObject({
@@ -326,6 +393,7 @@ export const MANIFEST_SCHEMAS = {
   weapon: WeaponSchema,
   mode: ModeSchema,
   ai: AiSchema,
+  prop: PropSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -337,6 +405,7 @@ export interface ManifestByType {
   weapon: WeaponManifest;
   mode: ModeManifest;
   ai: AiManifest;
+  prop: PropManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

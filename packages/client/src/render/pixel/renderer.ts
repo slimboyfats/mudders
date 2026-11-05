@@ -44,6 +44,8 @@ export class PixelRenderer implements Renderer {
   private shakeOn = true;
 
   private terrainTex!: WebGLTexture;
+  /** Coating layer (oil…), same layout as the terrain texture. */
+  private coatTex!: WebGLTexture;
   /** Shaded terrain colours, one texel per cell, re-shaded only inside dirty rects. */
   private colorTex!: WebGLTexture;
   private colorFbo!: WebGLFramebuffer;
@@ -79,6 +81,7 @@ export class PixelRenderer implements Renderer {
       | 'u_scale'
       | 'u_map'
       | 'u_terrain'
+      | 'u_coat'
       | 'u_palette'
       | 'u_grain'
       | 'u_light'
@@ -150,6 +153,7 @@ export class PixelRenderer implements Renderer {
       'u_scale',
       'u_map',
       'u_terrain',
+      'u_coat',
       'u_palette',
       'u_grain',
       'u_light',
@@ -193,6 +197,18 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_BYTE,
       this.terrain,
+    );
+    this.coatTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array(this.mapWidth * this.mapHeight),
     );
     this.paletteTex = texture(gl);
     this.uploadPalette();
@@ -316,6 +332,19 @@ export class PixelRenderer implements Renderer {
           gl.UNSIGNED_BYTE,
           s.terrain,
         );
+        gl.bindTexture(gl.TEXTURE_2D, this.coatTex);
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          r.x,
+          r.y,
+          r.w,
+          r.h,
+          gl.RED_INTEGER,
+          gl.UNSIGNED_BYTE,
+          s.coating,
+        );
+        gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
         // shading reads neighbours (2 up, 1 down/sideways): widen the re-shade box to match
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
@@ -498,8 +527,11 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.coatTex);
     gl.uniform1i(this.uTer.u_terrain, 0);
     gl.uniform1i(this.uTer.u_palette, 1);
+    gl.uniform1i(this.uTer.u_coat, 2);
     gl.uniform2f(this.uTer.u_view, mw, mh);
     gl.uniform2f(this.uTer.u_origin, 0, 0);
     gl.uniform1f(this.uTer.u_scale, 1);
@@ -609,6 +641,7 @@ export class PixelRenderer implements Renderer {
     this.normal.dispose();
     this.additive.dispose();
     gl.deleteTexture(this.terrainTex);
+    gl.deleteTexture(this.coatTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.sceneTex);
     gl.deleteTexture(this.colorTex);

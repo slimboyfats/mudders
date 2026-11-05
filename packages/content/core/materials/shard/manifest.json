@@ -1,0 +1,22 @@
+{
+  "id": "material.shard",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Glass shards",
+    "description": "Shattered glass. Slides off whatever it lands on.",
+    "since": "core@0.4.0",
+    "color": "#c8ecf2"
+  },
+  "cell": 16,
+  "settle": "slide",
+  "density": 140,
+  "strength": {
+    "blast": 0.3,
+    "kinetic": 0.3,
+    "heat": 2,
+    "shock": 0.3,
+    "dig": 0.3
+  },
+  "cohesion": 0,
+  "coating": false
+}

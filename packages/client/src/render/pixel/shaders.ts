@@ -80,6 +80,7 @@ precision highp int;
 precision highp usampler2D;
 in vec2 v_map;
 uniform usampler2D u_terrain;
+uniform usampler2D u_coat;
 uniform sampler2D u_palette;
 uniform vec2 u_map;
 uniform float u_grain;
@@ -112,6 +113,15 @@ void main() {
   float side = (mat(c + ivec2(-1, 0)) == 0u || mat(c + ivec2(1, 0)) == 0u) ? 0.05 : 0.0;
   float depth = -0.22 * clamp(v_map.y / u_map.y, 0.0, 1.0);
   vec3 col = base * (1.0 + g + under + depth) + u_light * (lit + side);
+  // coating overlay (§4b): the coating's colour laid over the cell in a hard 2-tone dither, with a
+  // one-cell sheen band on exposed surfaces; stays on the pixel grid
+  uint cm = texelFetch(u_coat, c, 0).r;
+  if (cm != 0u) {
+    vec3 cc = texelFetch(u_palette, ivec2(int(cm), 0), 0).rgb;
+    float k = ((c.x + c.y) & 1) == 0 ? 0.78 : 0.62;
+    col = mix(col, cc * (1.0 + depth), k);
+    if (lit > 0.2 && hash(c + ivec2(7, 3)) > 0.55) col += vec3(0.16, 0.15, 0.2);
+  }
   o = vec4(col, 1.0);
 }`;
 

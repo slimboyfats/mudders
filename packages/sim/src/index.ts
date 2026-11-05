@@ -18,3 +18,4 @@ export * from './world';
 export * from './replay';
 export * from './scenario';
 export * from './reactions';
+export * from './groups';

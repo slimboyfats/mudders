@@ -1,0 +1,22 @@
+{
+  "id": "material.cracked-brick",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cracked brick",
+    "description": "Brick that has taken a beating: the darker cells show a wall that is about to go.",
+    "since": "core@0.4.0",
+    "color": "#7a3a30"
+  },
+  "cell": 11,
+  "settle": "static",
+  "density": 160,
+  "strength": {
+    "blast": 1.2,
+    "kinetic": 1.3,
+    "heat": 4,
+    "shock": 1,
+    "dig": 1.6
+  },
+  "cohesion": 0,
+  "coating": false
+}

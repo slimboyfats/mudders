@@ -25,8 +25,8 @@ export interface WireInit {
 export interface WireSnapshot {
   tick: number;
   turn: number;
-  /** [x, y, w, h, base64 of the w×h material bytes]. */
-  patches: [number, number, number, number, string][];
+  /** [x, y, w, h, base64 of the w×h material bytes, same for coating bytes or '' if none]. */
+  patches: [number, number, number, number, string, string][];
   entities: EntityView[];
   effectEvents: EffectEvent[];
   debris: { x: number[]; y: number[]; m: number[] };

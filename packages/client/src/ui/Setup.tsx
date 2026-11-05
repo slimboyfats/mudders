@@ -135,6 +135,16 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
           </select>
         </label>
         <label>
+          Scenery
+          <select
+            value={setup.scenery}
+            onChange={(e) => update({ ...setup, scenery: e.target.value as MatchSetup['scenery'] })}
+          >
+            <option value="none">Bare hills</option>
+            <option value="village">Village</option>
+          </select>
+        </label>
+        <label>
           Wind
           <select
             value={setup.wind}

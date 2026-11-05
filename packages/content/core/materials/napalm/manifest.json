@@ -41,6 +41,11 @@
       "with": "material.ice",
       "other": "air",
       "chance": 0.05
+    },
+    {
+      "with": "material.wood",
+      "other": "material.fire",
+      "chance": 0.06
     }
   ]
 }

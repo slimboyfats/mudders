@@ -1,0 +1,57 @@
+{
+  "id": "weapon.incendiary",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Incendiary",
+    "description": "A low-blast fire shell. Barely scratches the dirt, but sets every wooden prop and oiled slope in range alight, and the fire spreads.",
+    "category": "incendiary",
+    "since": "core@0.4.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 16,
+        "damage": 12,
+        "damageType": "heat",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 24
+          },
+          "flash": {
+            "strength": 0.7
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.ignite"
+      },
+      "radius": 40,
+      "damageType": "heat"
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.fire"
+      },
+      "radius": 7,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 3200,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 15,
+    "terrainValue": 0.3
+  }
+}
