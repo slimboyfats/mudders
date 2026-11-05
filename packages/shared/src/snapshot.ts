@@ -33,6 +33,10 @@ export interface TankView {
   angle: number;
   health: number;
   alive: boolean;
+  /** Power 0–1000 (for aim previews). */
+  power: number;
+  /** True while this tank's player is aiming. */
+  active: boolean;
 }
 
 export interface ProjectileView {
@@ -48,6 +52,8 @@ export type EntityView = TankView | ProjectileView;
 
 export interface RenderSnapshot {
   tick: number;
+  /** Turns taken this round; renderers clear last turn's trails when a newer shot appears. */
+  turn: number;
   width: number;
   height: number;
   /** Material id per cell, row-major from the top-left. Read-only. */

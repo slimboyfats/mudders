@@ -17,14 +17,16 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm content:validate && pnpm test",
-    "verify": "pnpm check && pnpm bench && pnpm build && pnpm smoke",
+    "verify": "pnpm check && pnpm bench && pnpm build && pnpm smoke && pnpm play:smoke",
     "smoke": "pnpm --filter @mudders/capture smoke",
     "check:ffmpeg": "pnpm --filter @mudders/capture check:ffmpeg",
     "bench": "pnpm --filter @mudders/content bench",
     "content:validate": "pnpm --filter @mudders/content content:validate",
     "content:docs": "pnpm --filter @mudders/content content:docs",
     "content:new": "pnpm --filter @mudders/content content:new",
-    "sim:preview": "pnpm --filter @mudders/capture sim:preview"
+    "sim:preview": "pnpm --filter @mudders/capture sim:preview",
+    "capture": "pnpm --filter @mudders/capture capture",
+    "play:smoke": "pnpm --filter @mudders/capture play:smoke"
   },
   "browserslist": [
     "baseline 2026"

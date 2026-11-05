@@ -11,9 +11,12 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@mudders/content": "workspace:*",
     "@mudders/shared": "workspace:*",
+    "@mudders/sim": "workspace:*",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
@@ -22,5 +25,9 @@
     "browserslist": "^4.29.5",
     "browserslist-to-esbuild": "^2.1.1",
     "vite": "^8.3.6"
+  },
+  "exports": {
+    "./capture-wire": "./src/capture/wire.ts",
+    "./render-types": "./src/render/types.ts"
   }
 }

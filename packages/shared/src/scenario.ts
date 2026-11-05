@@ -23,7 +23,17 @@ export const ScenarioSchema = z.strictObject({
     })
     .optional(),
   /** Force tank columns instead of the generator's placement. */
-  tanks: z.array(z.strictObject({ x: z.number().int().min(0) })).optional(),
+  tanks: z
+    .array(
+      z.strictObject({
+        x: z.number().int().min(0),
+        /** Starting health instead of the mode's. */
+        health: z.number().int().min(1).optional(),
+        /** Inventory overrides by weapon id (-1 = unlimited, 0 = none); others keep the loadout. */
+        inventory: z.record(ContentIdSchema, z.number().int().min(-1)).optional(),
+      }),
+    )
+    .optional(),
   /** Force the turn order instead of the mode's (e.g. so player 0 shoots first). */
   turnOrder: z.array(z.number().int().min(0)).optional(),
   /** Force wind (cells/tick²) for the whole scenario. */

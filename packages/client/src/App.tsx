@@ -1,37 +1,50 @@
-import { useEffect, useState } from 'react';
-import { PROTOCOL_VERSION } from '@mudders/shared';
-import { SIGNAL_URL } from './config';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { loadSettings, type Settings } from './game/settings';
+import { Title } from './ui/Title';
+import type { MapSize } from './ui/Play';
 
-type LobbyStatus = 'checking' | 'online' | 'offline';
+// The match (renderer, sim, content) and the sandbox are code-split from the title screen (§9).
+const Play = lazy(() => import('./ui/Play').then((m) => ({ default: m.Play })));
+const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
 
-function hasWebGL2(): boolean {
-  return document.createElement('canvas').getContext('webgl2') !== null;
+type Route =
+  { name: 'title' } | { name: 'play'; players: number; size: MapSize } | { name: 'sandbox' };
+
+function fromHash(): Route {
+  const h = location.hash;
+  if (h.startsWith('#sandbox')) return { name: 'sandbox' };
+  const m = /^#play(?:\/(\d))?(?:\/(small|medium|large))?/.exec(h);
+  if (m) return { name: 'play', players: Number(m[1] ?? 2), size: (m[2] as MapSize) ?? 'medium' };
+  return { name: 'title' };
 }
 
 export function App() {
-  const [lobby, setLobby] = useState<LobbyStatus>('checking');
-  const [webgl2] = useState(hasWebGL2);
+  const [route, setRoute] = useState<Route>(fromHash);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
 
   useEffect(() => {
-    const ctrl = new AbortController();
-    fetch(`${SIGNAL_URL}/health`, { signal: ctrl.signal })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(() => setLobby('online'))
-      .catch(() => {
-        if (!ctrl.signal.aborted) setLobby('offline');
-      });
-    return () => ctrl.abort();
+    const on = () => setRoute(fromHash());
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
   }, []);
 
+  const go = (hash: string) => {
+    location.hash = hash;
+  };
+
   return (
-    <main className="title">
-      <h1>Mudders</h1>
-      <p className="tagline">Set the mud on fire.</p>
-      <ul className="status">
-        <li>WebGL2: {webgl2 ? 'yes' : 'no'}</li>
-        <li>Lobby server: {lobby}</li>
-        <li>Protocol v{PROTOCOL_VERSION}</li>
-      </ul>
-    </main>
+    <Suspense fallback={<div className="loading">Loading…</div>}>
+      {route.name === 'title' && (
+        <Title
+          settings={settings}
+          setSettings={setSettings}
+          onPlay={(players, size) => go(`#play/${players}/${size}`)}
+        />
+      )}
+      {route.name === 'play' && (
+        <Play players={route.players} size={route.size} settings={settings} onExit={() => go('')} />
+      )}
+      {route.name === 'sandbox' && <Sandbox settings={settings} onExit={() => go('')} />}
+    </Suspense>
   );
 }

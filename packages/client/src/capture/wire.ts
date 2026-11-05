@@ -1,0 +1,51 @@
+import type { EffectEvent, EntityView } from '@mudders/shared';
+import type { Quality } from '../render/types';
+
+/**
+ * Messages between the capture CLI (Node, runs the sim) and the capture page (Chromium, runs the
+ * real renderer) (§2d). Terrain travels as dirty-rect patches so a frame costs kilobytes.
+ */
+export interface WireInit {
+  mapWidth: number;
+  mapHeight: number;
+  /** 0xRRGGBB per material cell id. */
+  palette: number[];
+  quality: Quality;
+  theme: string;
+  /** Canvas size in CSS px and device pixel ratio. */
+  cssWidth: number;
+  cssHeight: number;
+  dpr: number;
+  /** Optional close-up: integer zoom steps from fit, centred on a map point. */
+  zoom?: number;
+  center?: { x: number; y: number };
+  shake: boolean;
+}
+
+export interface WireSnapshot {
+  tick: number;
+  turn: number;
+  /** [x, y, w, h, base64 of the w×h material bytes]. */
+  patches: [number, number, number, number, string][];
+  entities: EntityView[];
+  effectEvents: EffectEvent[];
+  debris: { x: number[]; y: number[]; m: number[] };
+  wind: number;
+  theme: string;
+}
+
+export interface CaptureApi {
+  init(init: WireInit): string;
+  /**
+   * Apply snapshots in order; if `draw`, render at `time` (ticks) and return the frame as a PNG
+   * data URL. Rendering never changes renderer state, so parallel pages that each draw every Nth
+   * frame produce exactly the frames one page would.
+   */
+  frame(snaps: WireSnapshot[], time: number, draw: boolean): string;
+}
+
+declare global {
+  interface Window {
+    __mudders?: CaptureApi;
+  }
+}

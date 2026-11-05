@@ -1,0 +1,71 @@
+import type { RenderSnapshot } from '@mudders/shared';
+
+/**
+ * The renderer boundary (REQUIREMENTS §2b, ARCHITECTURE §5). A renderer reads render snapshots and
+ * nothing else: it never calls into the sim and never holds game state. The pixel renderer is the
+ * only implementation in v1; the interface leaves room for others (e.g. a voxel view).
+ */
+
+export type Quality = 'low' | 'medium' | 'high';
+export const QUALITIES: readonly Quality[] = ['low', 'medium', 'high'];
+
+export interface Vec2 {
+  x: number;
+  y: number;
+}
+
+/** Push stream of render snapshots, one per sim tick, in tick order. */
+export interface SnapshotStream {
+  subscribe(listener: (snapshot: RenderSnapshot) => void): () => void;
+}
+
+/** Renderer-side display data derived from content (material colours). Not game state. */
+export interface RenderPalette {
+  /** 0xRRGGBB per material cell id (index 0 = air, ignored). */
+  materials: Uint32Array;
+}
+
+export interface RendererOptions {
+  quality: Quality;
+  theme: string;
+  palette: RenderPalette;
+  /** Brief automatic zoom-punch/shake on big hits (§2a); can be disabled. */
+  shake?: boolean;
+  /** Keep the drawing buffer so it can be read back (headless capture). */
+  preserveDrawingBuffer?: boolean;
+}
+
+export interface Renderer {
+  mount(canvas: HTMLCanvasElement, snapshots: SnapshotStream, options: RendererOptions): void;
+  /** Canvas size in CSS pixels and the device pixel ratio. Keeps the camera's centre. */
+  resize(cssWidth: number, cssHeight: number, dpr: number): void;
+  setTheme(id: string): void;
+  setQuality(quality: Quality): void;
+  /**
+   * Draw one frame. `time` is in sim ticks (fractional between ticks); cosmetic animation is a
+   * function of it, never of the wall clock, so a capture replays byte-identically.
+   */
+  render(time: number): void;
+  readonly camera: CameraControl;
+  /** Screen (CSS px, canvas-relative) → map coordinates. */
+  unproject(screen: Vec2): Vec2;
+  /** Map coordinates → screen (CSS px, canvas-relative). */
+  project(map: Vec2): Vec2;
+  unmount(): void;
+}
+
+/** Per-client camera (§2a): fits the map by default; zoom and pan are purely visual. */
+export interface CameraControl {
+  fit(): void;
+  /** Zoom by integer steps (+1 in, -1 out), keeping the map point under `screen` (CSS px) fixed. */
+  zoomBy(steps: number, screen?: Vec2): void;
+  /** Continuous zoom (pinch), snapped to an integer cell scale when ≥ 1. */
+  zoomTo(scale: number, screen: Vec2): void;
+  /** Pan by a screen delta in CSS px. */
+  pan(dx: number, dy: number): void;
+  /** Device pixels per map cell. */
+  readonly scale: number;
+  readonly isFit: boolean;
+}
+
+export type RendererKind = 'pixel';

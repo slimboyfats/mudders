@@ -568,7 +568,7 @@ Suggested `CLAUDE.md` rules: browser target is Baseline 2026 — use any Baselin
 
 ## 12. Open questions
 
-- PixiJS v8 vs. raw WebGL2: Pixi buys filters, sprite batching and WebGPU for ~150 kB; raw GL is smaller and fully under our control. Decide in milestone 2 with a shockwave-filter spike in both.
+- ~~PixiJS v8 vs. raw WebGL2~~ — **decided in milestone 2: raw WebGL2** (see ARCHITECTURE §5). The whole pipeline is one palette shader, one instanced quad batch and one post pass; Pixi's ~150 kB bought nothing we use, and owning the GL keeps captures byte-identical under SwiftShader. Revisit if the milestone-6 effect library outgrows hand-written passes.
 - How far to push "data only": a tiny expression language in manifests (e.g. damage as a function of range) vs. always dropping to TS for anything non-trivial. Lean TS — it's typed and testable.
 - Whether community content packs (user-authored, loaded at runtime) are a goal. If yes, manifests must be sandboxed (data only, no TS) — decide before the schema hardens.
 - Group falls are straight-down in v1. Toppling/rotation (a tree falling sideways, a wall keeling over) would be a visible win but needs a small rigid-body step — spike after milestone 3.

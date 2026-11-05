@@ -11,24 +11,29 @@ spiritual successor to the 1991 DOS game, not a copy. _Set the mud on fire._
 
 Run from the repo root. Everything works in a GPU-less, display-less cloud container after `pnpm install`.
 
-| Command                     | What it does                                                                                        |
-| --------------------------- | --------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                  | Client (Vite, :5173) + signalling server (:8787) together                                           |
-| `pnpm test`                 | Vitest across all packages, with the sim coverage gate (≥ 80%)                                      |
-| `pnpm lint` / `pnpm format` | ESLint (incl. determinism rules) / Prettier write                                                   |
-| `pnpm typecheck`            | `tsc` in every package                                                                              |
-| `pnpm check`                | lint + format check + typecheck + content:validate + test (run before calling anything done)        |
-| `pnpm build`                | Build all packages; client to `packages/client/dist`                                                |
-| `pnpm smoke`                | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
-| `pnpm check:ffmpeg`         | Verifies ffmpeg is installed, with install instructions if not                                      |
-| `pnpm bench`                | §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)           |
-| `pnpm content:validate`     | Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date      |
-| `pnpm content:new <t> <n>`  | Scaffold a content item (manifest, test, scenario stub, behaviour for code types)                   |
-| `pnpm content:docs`         | Regenerate `docs/WEAPONS.md` from manifests                                                         |
-| `pnpm sim:preview [ids]`    | Milestone-1 stand-in for capture: scenarios → CPU debug render → `captures/<id>.{gif,mp4}` + sheet  |
-| `pnpm verify`               | check + bench + build + smoke: **run before every push** (there is no CI on GitHub)                 |
+| Command                                    | What it does                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                 | Client (Vite, :5173) + signalling server (:8787) together                                           |
+| `pnpm test`                                | Vitest across all packages, with the sim coverage gate (≥ 80%)                                      |
+| `pnpm lint` / `pnpm format`                | ESLint (incl. determinism rules) / Prettier write                                                   |
+| `pnpm typecheck`                           | `tsc` in every package                                                                              |
+| `pnpm check`                               | lint + format check + typecheck + content:validate + test (run before calling anything done)        |
+| `pnpm build`                               | Build all packages; client to `packages/client/dist`                                                |
+| `pnpm smoke`                               | Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}` |
+| `pnpm check:ffmpeg`                        | Verifies ffmpeg is installed, with install instructions if not                                      |
+| `pnpm bench`                               | §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)           |
+| `pnpm content:validate`                    | Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date      |
+| `pnpm content:new <t> <n>`                 | Scaffold a content item (manifest, test, scenario stub, behaviour for code types)                   |
+| `pnpm content:docs`                        | Regenerate `docs/WEAPONS.md` from manifests                                                         |
+| `pnpm capture <scenario>`                  | Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON     |
+| `pnpm capture weapon-showcase <weapon-id>` | Preset: fire the weapon at three ranges on the standard map (`--help` for options)                  |
+| `pnpm play:smoke`                          | Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; screenshots   |
+| `pnpm sim:preview [ids]`                   | CPU debug render of scenarios (sim-only sanity check; not the game's look)                          |
+| `pnpm verify`                              | check + bench + build + smoke + play:smoke: **run before every push** (no CI on GitHub)             |
 
-Coming in later milestones: `pnpm capture` (milestone 2; until then use `pnpm sim:preview`).
+`pnpm capture` writes MP4 only by default (about 5× smaller than GIF); add `--gif` when a GIF fits
+better. `--diff` compares the sheet with `captures/reference/` (update with `--update-reference` and
+commit). Identical inputs give byte-identical frames and hit the capture cache.
 
 Golden determinism hashes live in `packages/content/golden.json`. If a change is _meant_ to alter
 sim results, regenerate with `UPDATE_GOLDEN=1 pnpm test` and bump the behaviour/pack version.
@@ -72,13 +77,14 @@ sim results, regenerate with `UPDATE_GOLDEN=1 pnpm test` and bump the behaviour/
     before every push and before claiming a task done, and say what you ran. If something fails after
     pushing, fix it in the session; don't add workflows.
 
-## Visual review (mandatory; `pnpm sim:preview` until `pnpm capture` exists in milestone 2)
+## Visual review (mandatory)
 
 For any change to a weapon, explosion, terrain op, effect, theme or the renderer: run `pnpm capture`
-on the relevant scenario, attach the GIF/MP4 and the `--sheet` PNG, and ask a one-line
-"approve / refuse?" before calling the task done. Until then, use `pnpm sim:preview <scenario>` (CPU
-debug renderer, not the game's look). Post media in the thread as soon as something visible works,
-marked work in progress, before the full verify (Joel's preference); still verify before pushing.
+on the relevant scenario (or `pnpm capture weapon-showcase <weapon-id>`), attach the MP4 and the
+`-sheet.png`, and ask a one-line "approve / refuse?" before calling the task done. For HUD/layout
+changes attach `pnpm play:smoke` screenshots. Post media in the thread as soon as something visible
+works, marked work in progress, before the full verify (Joel's preference); still verify before
+pushing. Effects stay on the pixel grid: snap to map cells, hard bands or dither, no smooth glows.
 
 ## Things a cloud agent cannot verify
 
