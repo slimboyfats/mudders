@@ -1,0 +1,17 @@
+{
+  "name": "@mudders/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Types, Zod schemas (manifests, net protocol), constants and effect-event types shared by every package.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}
