@@ -1,9 +1,12 @@
 {
   "name": "core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
+    "ai.moron",
+    "ai.poolshark",
+    "ai.shooter",
     "explosion.shockwave",
     "explosion.standard",
     "flight.ballistic",

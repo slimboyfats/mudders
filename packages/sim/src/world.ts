@@ -9,14 +9,20 @@ import {
   type ModeManifest,
   type RenderSnapshot,
   type WallRule,
+  TICK_RATE,
 } from '@mudders/shared';
 import {
+  type AiApi,
+  type AiBehaviour,
+  type AiShopApi,
+  type AiWeaponView,
   type FlightBehaviour,
   type ModeApi,
   type ModeBehaviour,
   type OpCall,
   type OpInstance,
   type Projectile,
+  type ShotPrediction,
   type SimApi,
   type TankHandle,
   type TerrainOpBehaviour,
@@ -37,6 +43,30 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. */
+export const BOT_THINK_TICKS = 50;
+/** Longest flight the AI's predictor simulates. */
+const PREDICT_TICKS = 900;
+
+/** Match-rule overrides from the setup screen (§8); anything unset keeps the mode's value. */
+export interface MatchRules {
+  rounds?: number | undefined;
+  turnTimer?: number | undefined;
+  shopTimer?: number | undefined;
+  suddenDeath?: boolean | undefined;
+  windType?: 'none' | 'constant' | 'perTurn' | undefined;
+  startingCash?: number | undefined;
+  turnCap?: number | undefined;
+}
+
+export interface RoundResult {
+  /** -1 = draw. */
+  winner: number;
+  /** Points per player this round. */
+  points: number[];
+  /** Money earned per player (points + interest). */
+  earned: number[];
+}
 
 export interface WorldOptions {
   seed: number;
@@ -61,9 +91,13 @@ export interface WorldOptions {
   wind?: number | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
   turnOrder?: readonly number[] | undefined;
+  rules?: MatchRules | undefined;
+  /** AI personality id per player (`ai.*`); null/undefined = human. */
+  bots?: readonly (string | null | undefined)[] | undefined;
 }
 
-export type Phase = 'aim' | 'resolve' | 'over';
+/** `shop` sits between rounds; `over` is the end of the match. */
+export type Phase = 'aim' | 'resolve' | 'shop' | 'over';
 
 export interface Tank extends TankHandle {
   readonly player: number;
@@ -82,6 +116,24 @@ export interface Tank extends TankHandle {
   kills: number;
   damageDealt: number;
   selfDamage: number;
+  /** Match totals; persist across rounds. */
+  score: number;
+  money: number;
+  /** Index into the bot table, or -1 for a human. */
+  bot: number;
+  /** Bot-owned integers (bracketing state…), hashed. */
+  aiMem: number[];
+  /** Where this tank's last shell went off this round (-1 = none yet), and its aim. */
+  lastShotX: number;
+  lastShotY: number;
+  lastShotAngle: number;
+  lastShotPower: number;
+  ready: boolean;
+}
+
+interface RtBot {
+  b: AiBehaviour;
+  params: unknown;
 }
 
 interface OpSite {
@@ -115,16 +167,23 @@ interface RtWeapon {
   onApex: boolean;
   onTimer: number;
   impacts: RtImpact[];
+  price: number;
+  pack: number;
+  tier: number;
+  expectedDamage: number;
+  terrainValue: number;
 }
 
 interface PendingDeath {
   player: number;
   killer: number;
 }
-
 /**
  * The match state and tick loop (ARCHITECTURE §3.2). State advances only through `applyInput`
  * and `tick`; `hash()` covers everything that can influence future ticks.
+ *
+ * A World is a whole match (§3.1): `rounds` rounds, each on a freshly generated map, with the shop
+ * phase between them. Money, score and inventory persist across rounds; health and position don't.
  */
 export class World implements SimApi {
   readonly grid: Grid;
@@ -135,19 +194,39 @@ export class World implements SimApi {
   readonly weapons: RtWeapon[] = [];
   readonly mode: ModeManifest;
   readonly gravity: number;
+  /** Effective match rules (mode values with setup-screen overrides applied). */
+  readonly rounds: number;
+  readonly turnCap: number;
+  readonly turnTimerTicks: number;
+  readonly shopTimerTicks: number;
+  readonly windType: 'none' | 'constant' | 'perTurn';
+  readonly suddenDeath: { fromTurn: number; damageScale: number; edgeCells: number } | null;
 
   tick = 0;
   phase: Phase = 'aim';
   wind = 0;
+  /** Rounds finished so far (0 during the first round). */
+  round = 0;
   /** Turns taken this round. */
   turn = 0;
   order: number[] = [];
   turnPos = 0;
+  /** Ticks left to aim (turn timer) or to shop. 0 = no timer. */
+  timer = 0;
+  /** Bot think countdown while a bot is up. */
+  botWait = 0;
+  /** Columns lost to sudden death at each edge. */
+  edge = 0;
+  /** Shop price per weapon pack this round. */
+  prices: number[] = [];
+  /** Results of finished rounds. */
+  readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
   readonly debris = new DebrisPool();
 
   private readonly opSites: OpSite[] = [];
+  private readonly bots: RtBot[] = [];
   private readonly modeB: ModeBehaviour;
   private readonly modeParams: unknown;
   private readonly maxSpeed: number;
@@ -184,6 +263,14 @@ export class World implements SimApi {
     this.windLocked = options.wind !== undefined;
     if (options.wind !== undefined) this.wind = toFixed(options.wind);
 
+    const rules = options.rules ?? {};
+    this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
+    this.turnCap = Math.max(1, rules.turnCap ?? mode.turnCap);
+    this.turnTimerTicks = Math.round((rules.turnTimer ?? mode.turnTimer) * TICK_RATE);
+    this.shopTimerTicks = Math.max(1, Math.round((rules.shopTimer ?? mode.shopTimer) * TICK_RATE));
+    this.windType = rules.windType ?? mode.wind.type;
+    this.suddenDeath = rules.suddenDeath === false ? null : mode.suddenDeath;
+
     for (const w of content.list('weapon')) {
       this.weaponIndex[w.id] = this.weapons.length;
       const flight = content.behaviours.getKind(w.flight.behaviour, 'flight');
@@ -214,6 +301,11 @@ export class World implements SimApi {
                 damageType: imp.damageType,
               },
         ),
+        price: w.shop.price,
+        pack: w.shop.pack,
+        tier: w.shop.tier,
+        expectedDamage: w.ai.expectedDamage,
+        terrainValue: w.ai.terrainValue,
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
@@ -227,9 +319,10 @@ export class World implements SimApi {
         if (!this.windLocked) this.wind = w;
       },
       windMax: toFixed(mode.wind.max),
-      windType: mode.wind.type,
+      windType: this.windType,
     };
 
+    this.createTanks();
     this.startRound();
   }
 
@@ -255,29 +348,18 @@ export class World implements SimApi {
     };
   }
 
-  private startRound(): void {
-    const genId = this.options.map?.generator ?? this.mode.map.generator;
-    const genItem = this.content.get('gen', genId);
-    const gen = this.content.behaviours.getKind(genItem.behaviour, 'gen');
-    const res = gen.generate(
-      this,
-      gen.params.parse(behaviourParams(genItem)),
-      this.options.players,
-    );
-    // Pre-settle anything loose the generator left, so a match starts still.
-    this.grid.markDirty(0, 0, this.grid.width - 1, this.grid.height - 1);
-    for (let i = 0; i < 2000 && this.grid.settling; i++) {
-      settleStep(this.grid, this.mats, i, this.grid.size);
-    }
-    this.grid.clearSettle();
-    this.grid.takeRenderRects();
-    this.grid.addRenderRect(0, 0, this.grid.width, this.grid.height);
-    this.grid.fallVel.fill(0);
+  private bindBot(id: string): number {
+    const item = this.content.get('ai', id);
+    const b = this.content.behaviours.getKind(item.behaviour, 'ai');
+    this.bots.push({ b, params: b.params.parse(behaviourParams(item)) });
+    return this.bots.length - 1;
+  }
 
+  /** Match start: one tank per player with the mode's loadout and starting cash (§3.6). */
+  private createTanks(): void {
     const loadout = this.mode.loadout;
+    const cash = this.options.rules?.startingCash ?? this.mode.economy.startingCash;
     for (let p = 0; p < this.options.players; p++) {
-      const col = this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0;
-      const x = Math.max(TANK_HALF, Math.min(this.grid.width - TANK_HALF - 1, col));
       const inventory = new Array<number>(this.weapons.length).fill(0);
       for (const l of loadout) inventory[this.weaponIndex[l.weapon]!] = l.count;
       const setup = this.options.tankSetup?.[p];
@@ -289,16 +371,16 @@ export class World implements SimApi {
           inventory[w] = setup.inventory[id]!;
         }
       }
-      const first = loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0;
-      const tank: Tank = {
+      const botId = this.options.bots?.[p];
+      this.tanks.push({
         player: p,
         alive: true,
-        x,
+        x: 0,
         y: 0,
-        health: setup?.health ?? this.mode.startingHealth,
-        angle: x < this.grid.width / 2 ? 45 : 135,
+        health: 0,
+        angle: 90,
         power: 500,
-        weapon: first,
+        weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
         inventory,
         falling: false,
         fallFrom: 0,
@@ -307,9 +389,64 @@ export class World implements SimApi {
         kills: 0,
         damageDealt: 0,
         selfDamage: 0,
-      };
+        score: 0,
+        money: cash,
+        bot: botId ? this.bindBot(botId) : -1,
+        aiMem: [],
+        lastShotX: -1,
+        lastShotY: -1,
+        lastShotAngle: 0,
+        lastShotPower: 0,
+        ready: false,
+      });
+    }
+  }
+
+  private startRound(): void {
+    const g = this.grid;
+    g.reset();
+    this.debris.count = 0;
+    this.projectiles = [];
+    this.ops = [];
+    this.pendingDeaths = [];
+    this.edge = 0;
+    this.shooter = -1;
+
+    const genId = this.options.map?.generator ?? this.mode.map.generator;
+    const genItem = this.content.get('gen', genId);
+    const gen = this.content.behaviours.getKind(genItem.behaviour, 'gen');
+    const res = gen.generate(
+      this,
+      gen.params.parse(behaviourParams(genItem)),
+      this.options.players,
+    );
+    // Pre-settle anything loose the generator left, so a round starts still.
+    g.markDirty(0, 0, g.width - 1, g.height - 1);
+    for (let i = 0; i < 2000 && g.settling; i++) settleStep(g, this.mats, i, g.size);
+    g.clearSettle();
+    g.takeRenderRects();
+    g.addRenderRect(0, 0, g.width, g.height);
+    g.fallVel.fill(0);
+
+    for (const tank of this.tanks) {
+      const p = tank.player;
+      const col = this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0;
+      tank.x = Math.max(TANK_HALF, Math.min(g.width - TANK_HALF - 1, col));
+      tank.alive = true;
+      tank.health = this.options.tankSetup?.[p]?.health ?? this.mode.startingHealth;
+      tank.angle = tank.x < g.width / 2 ? 45 : 135;
+      if (tank.inventory[tank.weapon] === 0) tank.weapon = this.firstWeapon(tank);
+      tank.falling = false;
+      tank.fallFrom = 0;
+      tank.fallVel = 0;
+      tank.lastHitBy = -1;
+      tank.kills = 0;
+      tank.damageDealt = 0;
+      tank.selfDamage = 0;
+      tank.lastShotX = -1;
+      tank.lastShotY = -1;
+      tank.ready = false;
       tank.y = this.restingY(tank);
-      this.tanks.push(tank);
     }
 
     this.order = this.modeB.turnOrder(this.modeApi, this.modeParams);
@@ -317,8 +454,12 @@ export class World implements SimApi {
     this.modeB.onRoundStart(this.modeApi, this.modeParams);
     this.turnPos = 0;
     this.turn = 0;
-    this.phase = 'aim';
-    this.modeB.onTurnStart(this.modeApi, this.modeParams);
+    this.beginTurn();
+  }
+
+  private firstWeapon(t: Tank): number {
+    for (let i = 0; i < t.inventory.length; i++) if (t.inventory[i] !== 0) return i;
+    return 0;
   }
 
   /** Highest surface under the tank's footprint. */
@@ -332,6 +473,12 @@ export class World implements SimApi {
 
   get activePlayer(): number {
     return this.order[this.turnPos] ?? -1;
+  }
+
+  /** True when sudden death rules apply this turn (§3.1). */
+  get suddenDeathActive(): boolean {
+    const sd = this.suddenDeath;
+    return sd !== null && Math.floor(this.turn / Math.max(1, this.tanks.length)) >= sd.fromTurn - 1;
   }
 
   /** Nothing moving: no projectiles, ops, settling, falling tanks or pending deaths. */
@@ -386,6 +533,13 @@ export class World implements SimApi {
     this.pendingInputs = [];
     for (const { player, input } of inputs) this.handleInput(player, input);
 
+    if (this.phase === 'shop') {
+      this.stepShop();
+      this.tick++;
+      return;
+    }
+    if (this.phase === 'aim') this.stepAim();
+
     this.stepProjectiles();
     this.stepOps();
     this.debris.step(this.grid, this.gravity);
@@ -404,7 +558,14 @@ export class World implements SimApi {
 
   private handleInput(player: number, input: Input): void {
     const t = this.tanks[player];
-    if (!t || !t.alive || this.phase !== 'aim' || player !== this.activePlayer) return;
+    if (!t) return;
+    if (input.type === 'buy' || input.type === 'ready') {
+      if (this.phase !== 'shop' || t.ready) return;
+      if (input.type === 'ready') t.ready = true;
+      else this.buy(t, input.item, input.packs);
+      return;
+    }
+    if (!t.alive || this.phase !== 'aim' || player !== this.activePlayer || t.bot >= 0) return;
     switch (input.type) {
       case 'aim':
         t.angle = Math.max(0, Math.min(180, input.angle | 0));
@@ -421,6 +582,22 @@ export class World implements SimApi {
         this.fire(t);
         break;
     }
+  }
+
+  /**
+   * Buy `packs` packs of a weapon at this round's price (§3.6). Returns false (and changes nothing)
+   * if it isn't shop time, the item isn't for sale, the player already has it unlimited, or can't
+   * afford it.
+   */
+  buy(t: Tank, item: string, packs: number): boolean {
+    const w = Object.hasOwn(this.weaponIndex, item) ? this.weaponIndex[item] : undefined;
+    if (w === undefined || this.phase !== 'shop' || packs < 1) return false;
+    const rw = this.weapons[w]!;
+    const cost = (this.prices[w] ?? 0) * packs;
+    if (rw.price <= 0 || t.inventory[w]! < 0 || cost > t.money) return false;
+    t.money -= cost;
+    t.inventory[w] = t.inventory[w]! + rw.pack * packs;
+    return true;
   }
 
   private fire(t: Tank): void {
@@ -445,9 +622,142 @@ export class World implements SimApi {
       alive: true,
       data: [],
     });
+    t.lastShotAngle = t.angle;
+    t.lastShotPower = t.power;
     this.shooter = t.player;
     this.phase = 'resolve';
+    this.timer = 0;
     this.emit('muzzle', Math.floor(x / FP), Math.floor(y / FP), 3, { angle: t.angle });
+  }
+
+  // ── turn timer and bots ─────────────────────────────────────────────────────────────────
+
+  private stepAim(): void {
+    const t = this.tanks[this.activePlayer];
+    if (!t?.alive) return;
+    if (t.bot >= 0) {
+      this.botWait--;
+      if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t);
+      if (this.botWait <= 0) this.fire(t);
+      return;
+    }
+    if (this.timer > 0 && --this.timer === 0) {
+      // Out of time: fire with the current settings (§3.3).
+      if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
+      this.fire(t);
+    }
+  }
+
+  private botAim(t: Tank): void {
+    const bot = this.bots[t.bot]!;
+    const weapons: AiWeaponView[] = [];
+    for (let i = 0; i < t.inventory.length; i++) {
+      const count = t.inventory[i]!;
+      if (count === 0) continue;
+      const w = this.weapons[i]!;
+      weapons.push({
+        index: i,
+        id: w.id,
+        count,
+        expectedDamage: w.expectedDamage,
+        terrainValue: w.terrainValue,
+      });
+    }
+    const api: AiApi = {
+      rng: this.rng,
+      me: t.player,
+      tanks: this.tanks,
+      weapons,
+      width: this.grid.width,
+      height: this.grid.height,
+      wind: this.wind,
+      gravity: this.gravity,
+      maxSpeed: this.maxSpeed,
+      surfaceY: (x) => this.grid.surfaceY(x),
+      predict: (w, angle, power) => this.predict(t, w, angle, power),
+      lastShot:
+        t.lastShotX >= 0
+          ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
+          : null,
+      memory: t.aiMem,
+      angle: t.angle,
+      power: t.power,
+    };
+    const shot = bot.b.aim(api, bot.params);
+    if (t.inventory[shot.weapon] !== undefined && t.inventory[shot.weapon] !== 0) {
+      t.weapon = shot.weapon;
+    } else if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
+    t.angle = Math.max(0, Math.min(180, Math.round(shot.angle)));
+    t.power = Math.max(0, Math.min(1000, Math.round(shot.power)));
+  }
+
+  /**
+   * Where a shell would land with this aim through the current terrain, ignoring everything the
+   * shot itself would change. Uses the weapon's own flight behaviour and the same tracer as real
+   * shells, so it is exact for the first impact.
+   */
+  predict(t: Tank, weapon: number, angle: number, power: number): ShotPrediction {
+    const w = this.weapons[weapon] ?? this.weapons[0]!;
+    const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
+    const c = cosDeci(a);
+    const s = sinDeci(a);
+    const speed = Math.trunc((this.maxSpeed * Math.max(0, Math.min(1000, power))) / 1000);
+    const p: Projectile = {
+      id: 0,
+      weapon,
+      owner: t.player,
+      x: t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP),
+      y: (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP),
+      vx: Math.trunc((speed * c) / FP),
+      vy: -Math.trunc((speed * s) / FP),
+      age: 0,
+      alive: true,
+      data: [],
+    };
+    const W = this.grid.width * FP;
+    const max = Math.min(PREDICT_TICKS, w.maxTicks);
+    for (let i = 0; i < max; i++) {
+      let px = p.x;
+      const py = p.y;
+      w.flight.step(this, p, w.flightParams);
+      p.age++;
+      if (p.x < 0 || p.x >= W) {
+        if (this.walls === 'wrap') {
+          p.x = ((p.x % W) + W) % W;
+          px = p.x;
+        } else if (this.walls === 'bounce') {
+          p.x = p.x < 0 ? -p.x : 2 * W - p.x - 1;
+          p.vx = -p.vx;
+        } else {
+          const y = Math.floor(p.y / FP);
+          return { x: p.x < 0 ? 0 : this.grid.width - 1, y, tank: -1, ticks: i, landed: false };
+        }
+      }
+      const hit = this.trace(px, py, p, w);
+      if (hit >= 0) {
+        const hx = hit % this.grid.width;
+        const hy = Math.floor(hit / this.grid.width);
+        return { x: hx, y: hy, tank: this.tankAt(hx, hy, p), ticks: i, landed: true };
+      }
+      if (p.y < -4 * this.grid.height * FP) break;
+    }
+    return {
+      x: Math.floor(p.x / FP),
+      y: Math.floor(p.y / FP),
+      tank: -1,
+      ticks: max,
+      landed: false,
+    };
+  }
+
+  private tankAt(cx: number, cy: number, p: Projectile): number {
+    for (const t of this.tanks) {
+      if (!t.alive || (t.player === p.owner && p.age < 4)) continue;
+      if (cx >= t.x - TANK_HALF && cx < t.x + TANK_HALF && cy >= t.y - TANK_H && cy < t.y) {
+        return t.player;
+      }
+    }
+    return -1;
   }
 
   // ── projectiles ─────────────────────────────────────────────────────────────────────────
@@ -513,14 +823,7 @@ export class World implements SimApi {
       if (cy >= g.height) return (g.height - 1) * g.width + cx;
       if (cy < 0) continue;
       if (w.onSolid && g.material[cy * g.width + cx] !== 0) return cy * g.width + cx;
-      if (w.onTank) {
-        for (const t of this.tanks) {
-          if (!t.alive || (t.player === p.owner && p.age < 4)) continue;
-          if (cx >= t.x - TANK_HALF && cx < t.x + TANK_HALF && cy >= t.y - TANK_H && cy < t.y) {
-            return cy * g.width + cx;
-          }
-        }
-      }
+      if (w.onTank && this.tankAt(cx, cy, p) >= 0) return cy * g.width + cx;
     }
     return -1;
   }
@@ -533,6 +836,11 @@ export class World implements SimApi {
 
   private impact(p: Projectile, x: number, y: number): void {
     p.alive = false;
+    const owner = this.tanks[p.owner];
+    if (owner) {
+      owner.lastShotX = x;
+      owner.lastShotY = y;
+    }
     for (const imp of this.weapons[p.weapon]!.impacts) {
       if (imp.kind === 'explosion') this.explode(imp.e, x, y, p.owner);
       else this.startOp(imp.op, x, y, imp.radius, imp.damageType, p.owner);
@@ -543,6 +851,7 @@ export class World implements SimApi {
 
   private explode(e: RtExplosion, x: number, y: number, owner: number): void {
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
+    const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
       if (!t.alive) continue;
       const dx = t.x - x;
@@ -551,11 +860,8 @@ export class World implements SimApi {
       const reach = e.radius + TANK_HALF;
       if (d >= reach) continue;
       if (e.damage > 0) {
-        this.damageTank(
-          t,
-          e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage,
-          owner,
-        );
+        const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        this.damageTank(t, Math.trunc(base * scale), owner);
       }
       if (e.push > 0 && dx !== 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
@@ -650,9 +956,16 @@ export class World implements SimApi {
       } else if (t.falling) {
         t.falling = false;
         const dist = t.y - t.fallFrom;
+        const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
+        if (t.y >= this.grid.height) {
+          // Fell out of the map (sudden-death void, or dug to the bottom): lost.
+          this.emit('land', t.x, this.grid.height - 1, TANK_HALF, { distance: dist });
+          this.damageTank(t, t.health, by);
+          continue;
+        }
         const dmg = Math.trunc(Math.max(0, dist - fd.safeCells) * fd.perCell);
         this.emit('land', t.x, t.y, TANK_HALF, { distance: dist });
-        this.damageTank(t, dmg, this.shooter >= 0 ? this.shooter : t.lastHitBy);
+        this.damageTank(t, dmg, by);
       }
     }
     // Death explosions; they may chain. Attribution follows the original killer (§3.5).
@@ -665,28 +978,155 @@ export class World implements SimApi {
     this.pendingDeaths = [];
   }
 
-  // ── turns ───────────────────────────────────────────────────────────────────────────────
+  // ── turns and rounds ────────────────────────────────────────────────────────────────────
+
+  private beginTurn(): void {
+    this.shooter = -1;
+    this.phase = 'aim';
+    this.modeB.onTurnStart(this.modeApi, this.modeParams);
+    if (this.suddenDeathActive) this.collapseEdges();
+    const t = this.tanks[this.activePlayer];
+    this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
+    this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
+  }
+
+  /** Sudden death: the outermost columns crumble into the void (§3.1). */
+  private collapseEdges(): void {
+    const sd = this.suddenDeath!;
+    const g = this.grid;
+    const n = Math.min(sd.edgeCells, Math.max(0, (g.width >> 1) - TANK_W - this.edge));
+    if (n <= 0) return;
+    const from = this.edge;
+    this.edge += n;
+    for (let y = 0; y < g.height; y++) {
+      const row = y * g.width;
+      for (let x = from; x < this.edge; x++) {
+        g.clearCell(row + x);
+        g.clearCell(row + g.width - 1 - x);
+      }
+    }
+    g.markDirty(from, 0, this.edge, g.height - 1);
+    g.markDirty(g.width - 1 - this.edge, 0, g.width - 1 - from, g.height - 1);
+    this.emit('collapse', from, g.height >> 1, n, { side: -1 });
+    this.emit('collapse', g.width - 1 - from, g.height >> 1, n, { side: 1 });
+  }
 
   private endTurn(): void {
     this.turn++;
     const alive = this.tanks.filter((t) => t.alive).length;
-    if (alive <= 1 || this.turn >= this.mode.turnCap * this.tanks.length) {
-      this.phase = 'over';
+    if (alive <= 1 || this.turn >= this.turnCap * this.tanks.length) {
+      this.endRound();
       return;
     }
     for (let i = 0; i < this.order.length; i++) {
       this.turnPos = (this.turnPos + 1) % this.order.length;
       if (this.tanks[this.order[this.turnPos]!]?.alive) break;
     }
-    this.shooter = -1;
-    this.phase = 'aim';
-    this.modeB.onTurnStart(this.modeApi, this.modeParams);
+    this.beginTurn();
+  }
+
+  /** Points, money and the round winner (§3.5, §3.6); then the shop or the end of the match. */
+  private endRound(): void {
+    const sc = this.mode.scoring;
+    const eco = this.mode.economy;
+    const alive = this.tanks.filter((t) => t.alive);
+    let winner = -1;
+    if (alive.length === 1) winner = alive[0]!.player;
+    else if (alive.length > 1) {
+      // turn cap: rank survivors by health, then damage dealt, then player number
+      const best = [...alive].sort(
+        (a, b) => b.health - a.health || b.damageDealt - a.damageDealt || a.player - b.player,
+      )[0]!;
+      winner = best.player;
+    }
+    const points: number[] = [];
+    const earned: number[] = [];
+    for (const t of this.tanks) {
+      let pts =
+        Math.trunc(t.damageDealt * sc.damage) +
+        t.kills * sc.kill -
+        Math.trunc(t.selfDamage * sc.selfDamage);
+      if (t.alive) pts += sc.survival;
+      if (t.player === winner) pts += sc.roundWin;
+      points.push(pts);
+      t.score += pts;
+      const money = Math.trunc(t.money * eco.interest) + Math.max(0, pts) * eco.moneyPerPoint;
+      earned.push(money);
+      t.money += money;
+    }
+    this.results.push({ winner, points, earned });
+    this.round++;
+    this.projectiles = [];
+    this.timer = 0;
+    if (this.round >= this.rounds) {
+      this.phase = 'over';
+      return;
+    }
+    this.openShop();
+  }
+
+  private openShop(): void {
+    this.phase = 'shop';
+    this.timer = this.shopTimerTicks;
+    const j = Math.round(this.mode.economy.priceJitter * 1000);
+    this.prices = this.weapons.map((w) =>
+      w.price <= 0
+        ? 0
+        : Math.max(1, Math.round((w.price * (1000 + (j > 0 ? this.rng.range(-j, j) : 0))) / 1000)),
+    );
+    for (const t of this.tanks) {
+      t.ready = false;
+      if (t.bot >= 0) this.botShop(t);
+    }
+  }
+
+  private botShop(t: Tank): void {
+    const bot = this.bots[t.bot]!;
+    const api: AiShopApi = {
+      rng: this.rng,
+      me: t.player,
+      money: t.money,
+      round: this.round,
+      items: this.weapons.map((w, i) => ({
+        index: i,
+        id: w.id,
+        price: this.prices[i] ?? 0,
+        pack: w.pack,
+        tier: w.tier,
+        count: t.inventory[i] ?? 0,
+        expectedDamage: w.expectedDamage,
+        terrainValue: w.terrainValue,
+      })),
+    };
+    for (const b of bot.b.shop(api, bot.params)) {
+      const w = this.weapons[b.item];
+      if (w) this.buy(t, w.id, b.packs);
+    }
+    t.ready = true;
+  }
+
+  private stepShop(): void {
+    if (this.timer > 0) this.timer--;
+    if (this.timer === 0 || this.tanks.every((t) => t.ready)) this.startRound();
+  }
+
+  /** Match winner by total score (ties: more round wins, then lower player number). */
+  get matchWinner(): number {
+    if (this.phase !== 'over') return -1;
+    const wins = (p: number) => this.results.filter((r) => r.winner === p).length;
+    return [...this.tanks].sort(
+      (a, b) => b.score - a.score || wins(b.player) - wins(a.player) || a.player - b.player,
+    )[0]!.player;
   }
 
   // ── observation ─────────────────────────────────────────────────────────────────────────
 
   weaponId(index: number): string {
     return this.weapons[index]?.id ?? '';
+  }
+
+  weaponByIndex(id: string): number {
+    return Object.hasOwn(this.weaponIndex, id) ? this.weaponIndex[id]! : -1;
   }
 
   /** Read-only render snapshot (§2b). Dirty rects and effect events since the previous call. */
@@ -718,7 +1158,7 @@ export class World implements SimApi {
     this.effects = [];
     return {
       tick: this.tick,
-      turn: this.turn,
+      turn: this.turn + this.round * 1000,
       width: this.grid.width,
       height: this.grid.height,
       terrain: this.grid.material,
@@ -742,8 +1182,10 @@ export class World implements SimApi {
     const h = new Hasher();
     const g = this.grid;
     h.num(this.tick).str(this.phase).num(this.wind).num(this.turn).num(this.turnPos);
+    h.num(this.round).num(this.timer).num(this.botWait).num(this.edge);
     h.num(this.shooter).num(this.nextProjectileId);
     for (const o of this.order) h.num(o);
+    for (const p of this.prices) h.num(p);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.cellState).bytes(g.fallVel);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);
@@ -761,7 +1203,14 @@ export class World implements SimApi {
         .num(t.fallVel)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
+      h.num(t.score)
+        .num(t.money)
+        .num(t.bot)
+        .num(t.ready ? 1 : 0);
+      h.num(t.lastShotX).num(t.lastShotY).num(t.lastShotAngle).num(t.lastShotPower);
       for (const v of t.inventory) h.num(v);
+      h.num(t.aiMem.length);
+      for (const v of t.aiMem) h.num(v);
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {

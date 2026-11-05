@@ -1,0 +1,17 @@
+{
+  "id": "ai.shooter",
+  "schemaVersion": 1,
+  "description": "Two Shooter bots trade two shots each on a small map.",
+  "subject": "ai.shooter",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": { "width": 800, "height": 400 },
+  "tanks": [{ "x": 150 }, { "x": 620 }],
+  "turnOrder": [0, 1],
+  "wind": 0.004,
+  "bots": ["ai.shooter", "ai.shooter"],
+  "rules": { "rounds": 1, "turnCap": 2 },
+  "inputs": [],
+  "capture": { "maxTicks": 3000, "untilSettled": true, "extraTicks": 45 }
+}

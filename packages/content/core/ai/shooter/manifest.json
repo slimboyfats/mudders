@@ -1,0 +1,12 @@
+{
+  "id": "ai.shooter",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shooter",
+    "description": "Guesses a flat-ground shot at the nearest tank, then brackets: each miss scales the power toward the target. Ignores wind until it sees where the shell went.",
+    "since": "core@0.2.0"
+  },
+  "behaviour": "ai.shooter",
+  "angle": 50,
+  "jitter": 12
+}

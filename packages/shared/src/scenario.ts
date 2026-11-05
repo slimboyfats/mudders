@@ -38,6 +38,20 @@ export const ScenarioSchema = z.strictObject({
   turnOrder: z.array(z.number().int().min(0)).optional(),
   /** Force wind (cells/tick²) for the whole scenario. */
   wind: z.number().optional(),
+  /** AI personality per player (`ai.*`, null = scripted by `inputs`). */
+  bots: z.array(ContentIdSchema.nullable()).optional(),
+  /** Match-rule overrides (rounds, timers…), as the setup screen would set them. */
+  rules: z
+    .strictObject({
+      rounds: z.number().int().min(1).optional(),
+      turnTimer: z.number().min(0).optional(),
+      shopTimer: z.number().min(1).optional(),
+      suddenDeath: z.boolean().optional(),
+      windType: z.enum(['none', 'constant', 'perTurn']).optional(),
+      startingCash: z.number().int().min(0).optional(),
+      turnCap: z.number().int().min(1).optional(),
+    })
+    .optional(),
   inputs: z.array(TimedInputSchema),
   capture: z.strictObject({
     /** Hard stop. */

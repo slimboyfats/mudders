@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Classic",
-    "description": "Sequential turns in a random order, wind that changes every turn, last tank standing wins the round.",
+    "description": "Sequential turns in a random order, wind that changes every turn, last tank standing wins the round. Three rounds with a shop between them; sudden death from each player's 8th turn.",
     "since": "core@0.1.0"
   },
   "behaviour": "mode.classic",
@@ -49,5 +49,25 @@
     "use": "explosion.standard",
     "radius": 20,
     "damage": 35
+  },
+  "turnTimer": 15,
+  "shopTimer": 30,
+  "suddenDeath": {
+    "fromTurn": 8,
+    "damageScale": 1.5,
+    "edgeCells": 24
+  },
+  "scoring": {
+    "damage": 1,
+    "kill": 50,
+    "selfDamage": 1,
+    "survival": 25,
+    "roundWin": 100
+  },
+  "economy": {
+    "startingCash": 3000,
+    "moneyPerPoint": 30,
+    "interest": 0.05,
+    "priceJitter": 0.15
   }
 }

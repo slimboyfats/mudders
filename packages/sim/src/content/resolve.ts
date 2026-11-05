@@ -76,6 +76,7 @@ const BEHAVIOUR_TYPES: Partial<Record<ContentType, BehaviourKind>> = {
   flight: 'flight',
   terrainop: 'terrainop',
   mode: 'mode',
+  ai: 'ai',
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

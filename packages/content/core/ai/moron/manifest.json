@@ -1,0 +1,12 @@
+{
+  "id": "ai.moron",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Moron",
+    "description": "Picks a random weapon, angle and power every turn and never learns. Spends its money at random.",
+    "since": "core@0.2.0"
+  },
+  "behaviour": "ai.moron",
+  "minPower": 250,
+  "maxPower": 900
+}

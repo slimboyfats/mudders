@@ -138,8 +138,99 @@ export interface ModeBehaviour<P = unknown> extends BehaviourBase<P> {
   onTurnStart(api: ModeApi, params: P): void;
 }
 
+// ── AI personalities ────────────────────────────────────────────────────────────────────────
+
+export interface AiTankView {
+  readonly player: number;
+  readonly alive: boolean;
+  readonly x: number;
+  readonly y: number;
+  readonly health: number;
+}
+
+/** A weapon the bot owns (count ≠ 0), by index into the world's weapon table. */
+export interface AiWeaponView {
+  readonly index: number;
+  readonly id: string;
+  /** -1 = unlimited. */
+  readonly count: number;
+  readonly expectedDamage: number;
+  readonly terrainValue: number;
+}
+
+/** Where a shot would land if nothing moved: map cell, tank hit (-1 none), flight ticks. */
+export interface ShotPrediction {
+  x: number;
+  y: number;
+  tank: number;
+  ticks: number;
+  /** False when the shell left the map or timed out. */
+  landed: boolean;
+}
+
+export interface AiShot {
+  weapon: number;
+  angle: number;
+  power: number;
+}
+
+/** What a bot may look at when aiming. Read-only except `memory` (hashed, persists all match). */
+export interface AiApi {
+  readonly rng: Prng;
+  readonly me: number;
+  readonly tanks: readonly AiTankView[];
+  readonly weapons: readonly AiWeaponView[];
+  readonly width: number;
+  readonly height: number;
+  /** Fixed-point cells/tick². */
+  readonly wind: number;
+  readonly gravity: number;
+  /** Cells per tick at power 1000, fixed-point. */
+  readonly maxSpeed: number;
+  surfaceY(x: number): number;
+  /** Simulate a shell of `weapon` from my barrel through the current terrain. */
+  predict(weapon: number, angle: number, power: number): ShotPrediction;
+  /** My previous shot this round, or null. */
+  readonly lastShot: {
+    readonly x: number;
+    readonly y: number;
+    readonly angle: number;
+    readonly power: number;
+  } | null;
+  readonly memory: number[];
+  readonly angle: number;
+  readonly power: number;
+}
+
+export interface AiShopItem {
+  readonly index: number;
+  readonly id: string;
+  readonly price: number;
+  readonly pack: number;
+  readonly tier: number;
+  readonly count: number;
+  readonly expectedDamage: number;
+  readonly terrainValue: number;
+}
+
+export interface AiShopApi {
+  readonly rng: Prng;
+  readonly me: number;
+  readonly money: number;
+  /** Rounds played so far. */
+  readonly round: number;
+  readonly items: readonly AiShopItem[];
+}
+
+export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
+  readonly kind: 'ai';
+  aim(api: AiApi, params: P): AiShot;
+  /** Purchases in order; the kernel validates each as it would a human's. */
+  shop(api: AiShopApi, params: P): { item: number; packs: number }[];
+}
+
 export type AnyBehaviour =
-  GeneratorBehaviour | FlightBehaviour | TerrainOpBehaviour | ModeBehaviour;
+  GeneratorBehaviour | FlightBehaviour | TerrainOpBehaviour | ModeBehaviour | AiBehaviour;
 
 export type BehaviourKind = AnyBehaviour['kind'];
 
@@ -155,6 +246,9 @@ export function defineTerrainOp<P>(b: TerrainOpBehaviour<P>): TerrainOpBehaviour
 }
 export function defineMode<P>(b: ModeBehaviour<P>): ModeBehaviour {
   return b as unknown as ModeBehaviour;
+}
+export function defineAi<P>(b: AiBehaviour<P>): AiBehaviour {
+  return b as unknown as AiBehaviour;
 }
 
 /** Behaviours by id. Lookup only; never iterated where order matters (ids are sorted on export). */

@@ -98,6 +98,7 @@ export function Sandbox({ settings, onExit }: { settings: Settings; onExit: () =
       tankSetup: [{ inventory }, { health: 100 }],
       turnOrder: [0],
       wind: saved.wind,
+      rules: { turnTimer: 0, suddenDeath: false, rounds: 1, turnCap: 1000 },
     });
     const weapon = content.list('weapon').some((w) => w.id === saved.weapon)
       ? saved.weapon
