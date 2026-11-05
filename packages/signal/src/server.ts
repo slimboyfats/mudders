@@ -1,76 +1,81 @@
 import { serve, type ServerType } from '@hono/node-server';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { ClientMessageSchema, PROTOCOL_VERSION, type ServerMessage } from '@mudders/shared';
+import { PROTOCOL_VERSION } from '@mudders/shared';
+import { Lobby, type LobbyOptions } from './lobby';
 
 export interface SignalServer {
   server: ServerType;
   port: number;
+  lobby: Lobby;
   close: () => Promise<void>;
 }
 
-export function createApp() {
+export function createApp(opts: Partial<LobbyOptions> = {}) {
   const app = new Hono();
+  const lobby = new Lobby(opts);
   const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
   app.use('*', cors());
   app.get('/health', (c) => c.json({ ok: true, protocolVersion: PROTOCOL_VERSION }));
+  // §6.4: which path links ended up on, so the TURN decision is data-driven
+  app.get('/stats', (c) => c.json({ rooms: lobby.roomCount, paths: lobby.stats() }));
 
   app.get(
     '/ws',
-    upgradeWebSocket(() => ({
-      onMessage(event, ws) {
-        const send = (msg: ServerMessage) => ws.send(JSON.stringify(msg));
-        let raw: unknown;
+    upgradeWebSocket((c) => {
+      // behind Render's proxy the client address is in x-forwarded-for
+      const fwd = c.req.header('x-forwarded-for')?.split(',')[0]?.trim();
+      let addr = fwd ?? '?';
+      if (!fwd) {
         try {
-          raw = JSON.parse(String(event.data));
+          addr = getConnInfo(c).remote.address ?? '?';
         } catch {
-          send({
-            type: 'welcome',
-            protocolVersion: PROTOCOL_VERSION,
-            ok: false,
-            reason: 'bad json',
-          });
-          return;
+          // not available in every runtime
         }
-        const parsed = ClientMessageSchema.safeParse(raw);
-        if (!parsed.success) {
-          send({
-            type: 'welcome',
-            protocolVersion: PROTOCOL_VERSION,
-            ok: false,
-            reason: 'bad message',
-          });
-          return;
-        }
-        const msg = parsed.data;
-        if (msg.protocolVersion !== PROTOCOL_VERSION) {
-          send({
-            type: 'welcome',
-            protocolVersion: PROTOCOL_VERSION,
-            ok: false,
-            reason: 'update your game',
-          });
-          return;
-        }
-        send({ type: 'welcome', protocolVersion: PROTOCOL_VERSION, ok: true });
-      },
-    })),
+      }
+      let handle: ReturnType<Lobby['connect']> | null = null;
+      return {
+        onOpen(_event, ws) {
+          handle = lobby.connect(
+            (msg) => {
+              if (ws.readyState === 1) ws.send(JSON.stringify(msg));
+            },
+            () => ws.close(),
+            addr,
+          );
+        },
+        onMessage(event) {
+          handle?.message(String(event.data));
+        },
+        onClose() {
+          handle?.close();
+          handle = null;
+        },
+      };
+    }),
   );
 
-  return { app, injectWebSocket };
+  return { app, injectWebSocket, lobby };
 }
 
-export function startServer(port: number): Promise<SignalServer> {
-  const { app, injectWebSocket } = createApp();
+export function startServer(port: number, opts: Partial<LobbyOptions> = {}): Promise<SignalServer> {
+  const { app, injectWebSocket, lobby } = createApp(opts);
+  const sweep = setInterval(() => lobby.sweep(), 5_000);
+  sweep.unref();
   return new Promise((resolve) => {
     const server = serve({ fetch: app.fetch, port }, (info) => {
       resolve({
         server,
         port: info.port,
+        lobby,
         close: () =>
-          new Promise<void>((done, fail) => server.close((err) => (err ? fail(err) : done()))),
+          new Promise<void>((done, fail) => {
+            clearInterval(sweep);
+            server.close((err) => (err ? fail(err) : done()));
+          }),
       });
     });
     injectWebSocket(server);

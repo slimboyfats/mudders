@@ -17,7 +17,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm content:validate && pnpm test",
-    "verify": "pnpm check && pnpm bench && pnpm build && pnpm smoke && pnpm play:smoke && pnpm determinism:browsers",
+    "verify": "pnpm check && pnpm bench && pnpm build && pnpm smoke && pnpm play:smoke && pnpm play:net && pnpm determinism:browsers",
     "smoke": "pnpm --filter @mudders/capture smoke",
     "setup:browsers": "bash scripts/setup-browsers.sh",
     "determinism:browsers": "pnpm setup:browsers && pnpm --filter @mudders/capture determinism",
@@ -28,7 +28,8 @@
     "content:new": "pnpm --filter @mudders/content content:new",
     "sim:preview": "pnpm --filter @mudders/capture sim:preview",
     "capture": "pnpm --filter @mudders/capture capture",
-    "play:smoke": "pnpm --filter @mudders/capture play:smoke"
+    "play:smoke": "pnpm --filter @mudders/capture play:smoke",
+    "play:net": "pnpm --filter @mudders/capture play:net"
   },
   "browserslist": [
     "baseline 2026"

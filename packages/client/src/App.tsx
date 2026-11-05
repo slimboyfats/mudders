@@ -9,19 +9,30 @@ import { Title } from './ui/Title';
 const Play = lazy(() => import('./ui/Play').then((m) => ({ default: m.Play })));
 const Setup = lazy(() => import('./ui/Setup').then((m) => ({ default: m.Setup })));
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
+const HostGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.HostGame })));
+const JoinGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.JoinGame })));
 
 type Route =
   | { name: 'title' }
   | { name: 'setup' }
   | { name: 'settings' }
   | { name: 'play'; quick?: { players: number; size: MapSize } }
-  | { name: 'sandbox' };
+  | { name: 'sandbox' }
+  | { name: 'host'; mode: 'online' | 'direct' }
+  | { name: 'join'; mode: 'online' | 'direct'; code?: string }
+  | { name: 'direct' };
 
 function fromHash(): Route {
   const h = location.hash;
   if (h.startsWith('#sandbox')) return { name: 'sandbox' };
   if (h.startsWith('#setup')) return { name: 'setup' };
   if (h.startsWith('#settings')) return { name: 'settings' };
+  if (h === '#host') return { name: 'host', mode: 'online' };
+  if (h === '#direct') return { name: 'direct' };
+  if (h === '#direct-host') return { name: 'host', mode: 'direct' };
+  if (h === '#direct-join') return { name: 'join', mode: 'direct' };
+  const j = /^#join(?:\/([A-Za-z0-9]{6}))?$/.exec(h);
+  if (j) return { name: 'join', mode: 'online', ...(j[1] ? { code: j[1].toUpperCase() } : {}) };
   // #play uses the saved setup; #play/<n>/<size> is an all-human hot-seat shortcut (smoke tests)
   const m = /^#play(?:\/(\d))?(?:\/(small|medium|large))?/.exec(h);
   if (m) {
@@ -85,6 +96,35 @@ export function App() {
         <Play setup={playSetup} settings={settings} onExit={() => go('')} />
       )}
       {route.name === 'sandbox' && <Sandbox settings={settings} onExit={() => go('')} />}
+      {route.name === 'host' && (
+        <HostGame key={route.mode} mode={route.mode} settings={settings} onExit={() => go('')} />
+      )}
+      {route.name === 'join' && (
+        <JoinGame
+          key={`${route.mode}${route.code ?? ''}`}
+          mode={route.mode}
+          code={route.code}
+          settings={settings}
+          onExit={() => go('')}
+        />
+      )}
+      {route.name === 'direct' && (
+        <main className="title">
+          <h2>Direct game</h2>
+          <p className="tagline">No lobby server: swap codes over any chat app.</p>
+          <div className="menu">
+            <a className="primary" href="#direct-host">
+              Host
+            </a>
+            <a className="secondary" href="#direct-join">
+              Join
+            </a>
+            <a className="secondary" href="#">
+              Back
+            </a>
+          </div>
+        </main>
+      )}
     </Suspense>
   );
 }

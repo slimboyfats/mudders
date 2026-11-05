@@ -1,15 +1,8 @@
 import { useMemo, useState } from 'react';
 import { loadContent } from '@mudders/content';
-import {
-  PRESETS,
-  activeSlots,
-  saveSetup,
-  type MapSize,
-  type MatchSetup,
-  type Preset,
-  type Slot,
-} from '../game/setup';
+import { activeSlots, saveSetup, type MatchSetup, type Slot } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { Rules } from './Rules';
 
 interface Props {
   setup: MatchSetup;
@@ -39,9 +32,6 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
     slots[i] = v;
     update({ ...setup, slots });
   };
-  const preset = (Object.keys(PRESETS) as Preset[]).find(
-    (k) => PRESETS[k].rounds === setup.rounds && PRESETS[k].turnTimer === setup.turnTimer,
-  );
   const n = activeSlots(setup).length;
 
   return (
@@ -81,103 +71,7 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
         )}
       </section>
 
-      <section className="rules" aria-label="Rules">
-        <div className="seg" role="radiogroup" aria-label="Match length">
-          {(Object.keys(PRESETS) as Preset[]).map((k) => (
-            <button
-              key={k}
-              role="radio"
-              aria-checked={preset === k}
-              className={preset === k ? 'on' : ''}
-              onClick={() => update({ ...setup, ...PRESETS[k] })}
-            >
-              {k === 'quick' ? 'Quick' : k === 'standard' ? 'Standard' : 'Long'}
-              <small>
-                {PRESETS[k].rounds} round{PRESETS[k].rounds > 1 ? 's' : ''}
-              </small>
-            </button>
-          ))}
-        </div>
-        <label>
-          Rounds
-          <select
-            value={setup.rounds}
-            onChange={(e) => update({ ...setup, rounds: Number(e.target.value) })}
-          >
-            {[1, 2, 3, 4, 5, 7, 10].map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Turn timer
-          <select
-            value={setup.turnTimer}
-            onChange={(e) => update({ ...setup, turnTimer: Number(e.target.value) })}
-          >
-            <option value={0}>Off</option>
-            {[10, 15, 20, 30, 45].map((s) => (
-              <option key={s} value={s}>
-                {s} s
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Map
-          <select
-            value={setup.size}
-            onChange={(e) => update({ ...setup, size: e.target.value as MapSize })}
-          >
-            <option value="small">Small</option>
-            <option value="medium">Medium</option>
-            <option value="large">Large</option>
-          </select>
-        </label>
-        <label>
-          Scenery
-          <select
-            value={setup.scenery}
-            onChange={(e) => update({ ...setup, scenery: e.target.value as MatchSetup['scenery'] })}
-          >
-            <option value="none">Bare hills</option>
-            <option value="village">Village</option>
-            <option value="badlands">Badlands</option>
-          </select>
-        </label>
-        <label>
-          Wind
-          <select
-            value={setup.wind}
-            onChange={(e) => update({ ...setup, wind: e.target.value as MatchSetup['wind'] })}
-          >
-            <option value="none">None</option>
-            <option value="constant">Per round</option>
-            <option value="perTurn">Every turn</option>
-          </select>
-        </label>
-        <label>
-          Starting cash
-          <select
-            value={setup.startingCash}
-            onChange={(e) => update({ ...setup, startingCash: Number(e.target.value) })}
-          >
-            {[0, 3000, 10000, 30000].map((c) => (
-              <option key={c} value={c}>
-                {c.toLocaleString('en')}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="check">
-          <input
-            type="checkbox"
-            checked={setup.suddenDeath}
-            onChange={(e) => update({ ...setup, suddenDeath: e.target.checked })}
-          />
-          Sudden death from turn 8
-        </label>
-      </section>
+      <Rules value={setup} onChange={(r) => update({ ...setup, ...r })} />
 
       <div className="setup-actions">
         <button onClick={onBack}>Back</button>

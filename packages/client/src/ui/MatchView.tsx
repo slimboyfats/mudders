@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
 import { clampAim, slingshotAim } from '../game/aim';
-import { HudStore, type LocalMatch } from '../game/match';
+import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
@@ -9,7 +9,7 @@ import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Hud } from './Hud';
 
 interface Props {
-  match: LocalMatch;
+  match: SimMatch;
   settings: Settings;
   /** Which players this client controls (hot-seat: all). */
   controls: (player: number) => boolean;
@@ -17,6 +17,8 @@ interface Props {
   onRematch?: () => void;
   /** Extra panel (sandbox). */
   side?: React.ReactNode;
+  /** Overlay on the playfield (online: connection state). */
+  banner?: React.ReactNode;
 }
 
 interface Drag {
@@ -27,7 +29,7 @@ interface Drag {
   y: number;
 }
 
-export function MatchView({ match, settings, controls, onExit, onRematch, side }: Props) {
+export function MatchView({ match, settings, controls, onExit, onRematch, side, banner }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -300,6 +302,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side }
             )}
           </svg>
           {error && <div className="error">Renderer failed: {error}</div>}
+          {banner}
         </div>
         {side}
       </div>

@@ -76,11 +76,14 @@ export function saveSetup(s: MatchSetup): void {
 }
 
 /** Active slots in order; a match needs at least two. */
-export function activeSlots(s: MatchSetup): Slot[] {
+export function activeSlots<S extends string>(s: { slots: readonly S[] }): S[] {
   return s.slots.filter((x) => x !== 'off');
 }
 
-export function toWorldOptions(s: MatchSetup, seed: number): WorldOptions {
+/** Anything shaped like a setup: the local `MatchSetup` or the networked `NetSetup`. */
+export type SetupLike = Omit<MatchSetup, 'slots'> & { slots: readonly string[] };
+
+export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   const slots = activeSlots(s);
   const rules: MatchRules = {
     rounds: s.rounds,

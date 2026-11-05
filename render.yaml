@@ -1,0 +1,20 @@
+# Render Blueprint for the signalling + lobby server (REQUIREMENTS §7, milestone 4).
+# Render builds this from the repo on its own side (no GitHub Actions). Connect it once:
+# Render dashboard → New → Blueprint → pick this repo. Then set the client's VITE_SIGNAL_URL to
+# the service URL (https://<name>.onrender.com) when building the static client.
+#
+# Free tier notes: the service sleeps after ~15 min idle and takes tens of seconds to wake. The
+# client shows "Waking up the lobby server…" and retries; Direct (copy-paste) mode needs no server.
+# Rooms live in memory and are lost on a restart (acceptable for v1).
+services:
+  - type: web
+    name: mudders-signal
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter @mudders/signal...
+    startCommand: pnpm --filter @mudders/signal start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '22'

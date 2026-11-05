@@ -72,6 +72,8 @@ export default tseslint.config(
       'packages/capture/src/**/*.ts',
       'packages/client/src/render/**/*.ts',
       'packages/client/src/capture/**/*.ts',
+      'packages/client/src/net/**/*.ts',
+      'packages/*/src/**/*.test.ts',
     ],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
