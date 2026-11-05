@@ -18,6 +18,10 @@
   },
   "cohesion": 0,
   "coating": false,
+  "sink": {
+    "ticks": 18,
+    "depth": 4
+  },
   "decay": {
     "into": "material.dirt",
     "ticks": 200

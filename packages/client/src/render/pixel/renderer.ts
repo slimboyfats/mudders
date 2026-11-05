@@ -17,6 +17,7 @@ import { pixelTheme, playerColor, shade, type PixelTheme } from './theme';
 
 const FP = 65536;
 const TANK_W = 16;
+const TANK_H = 10;
 const GRAVITY = 0.12;
 
 interface Trail {
@@ -562,6 +563,7 @@ export class PixelRenderer implements Renderer {
       b.line(bx, by, bx + Math.cos(a) * 8, by - Math.sin(a) * 8, 1.4, 0xd8d2c8);
       // turret dome
       b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
+      this.coverTank(x, y);
       // health bar
       const hp = Math.max(0, Math.min(1, e.health / 100));
       b.rect(x - 8, y - 14, 16, 1.6, 0x000000, 0.55);
@@ -570,6 +572,23 @@ export class PixelRenderer implements Renderer {
         const bob = Math.sin(t * 0.12) * 1.2;
         b.push(x + 0.5, y - 19 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
         b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
+      }
+    }
+  }
+
+  /**
+   * Terrain overlapping the tank body (sunk into quicksand, or buried) is drawn over the sprite,
+   * cell by cell with a two-tone dither, so the tank reads as sitting in the ground.
+   */
+  private coverTank(x: number, y: number): void {
+    const b = this.normal;
+    const w = this.mapWidth;
+    for (let cy = Math.max(0, y - TANK_H); cy < Math.min(this.mapHeight, y); cy++) {
+      for (let cx = Math.max(0, x - TANK_W / 2); cx < Math.min(w, x + TANK_W / 2); cx++) {
+        const m = this.terrain[cy * w + cx]!;
+        if (m === 0) continue;
+        const c = this.palette.materials[m] ?? 0x7a5a3a;
+        b.rect(cx, cy, 1, 1, ((cx + cy) & 1) === 0 ? c : shade(c, 0.94));
       }
     }
   }

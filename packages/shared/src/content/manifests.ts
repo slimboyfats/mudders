@@ -134,6 +134,13 @@ export const MaterialSchema = z.strictObject({
   spread: z.number().int().min(1).max(63).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
+  /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */
+  sink: z
+    .strictObject({
+      ticks: z.number().int().min(1).max(255),
+      depth: z.number().int().min(1).max(8),
+    })
+    .optional(),
 });
 export type MaterialManifest = z.infer<typeof MaterialSchema>;
 

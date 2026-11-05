@@ -114,6 +114,8 @@ export interface Tank extends TankHandle {
   falling: boolean;
   fallFrom: number;
   fallVel: number;
+  /** Cells sunk into quicksand-like ground since the tank last fell or the round started. */
+  sunk: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -388,6 +390,7 @@ export class World implements SimApi {
         falling: false,
         fallFrom: 0,
         fallVel: 0,
+        sunk: 0,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -443,6 +446,7 @@ export class World implements SimApi {
       tank.falling = false;
       tank.fallFrom = 0;
       tank.fallVel = 0;
+      tank.sunk = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -983,6 +987,34 @@ export class World implements SimApi {
     t.x = nx;
   }
 
+  /**
+   * On `sink` ground (quicksand) the tank settles into it: one cell every `sink.ticks` ticks, up to
+   * `sink.depth` cells. Its lower body then sits inside the terrain, which the renderer draws over
+   * it. It needs sink material under at least half the treads.
+   */
+  private sink(t: Tank): void {
+    const g = this.grid;
+    if (t.y >= g.height - 1) return;
+    const row = t.y * g.width;
+    const st = this.mats.sinkTicks;
+    let n = 0;
+    let solid = 0;
+    let best = 0;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      const m = g.material[row + x]!;
+      if (m === 0) continue;
+      solid++;
+      if (st[m] !== 0) {
+        n++;
+        best = m;
+      }
+    }
+    if (n * 2 < solid || n * 2 < TANK_W) return;
+    if (t.sunk >= this.mats.sinkDepth[best]! || this.tick % st[best]! !== 0) return;
+    t.y++;
+    t.sunk++;
+  }
+
   private supported(t: Tank): boolean {
     if (t.y >= this.grid.height) return true;
     const m = this.grid.material;
@@ -1006,11 +1038,14 @@ export class World implements SimApi {
           t.falling = true;
           t.fallFrom = t.y;
           t.fallVel = 0;
+          t.sunk = 0;
         }
         t.fallVel = Math.min(t.fallVel + 1, MAX_TANK_FALL);
         for (let i = 0; i < t.fallVel && !this.supported(t); i++) t.y++;
       } else if (!t.falling) {
-        if (this.grid.settling) this.slide(t);
+        // once it has started to sink the tank is bogged down and no longer slides
+        this.sink(t);
+        if (t.sunk === 0 && this.grid.settling) this.slide(t);
       } else {
         t.falling = false;
         const dist = t.y - t.fallFrom;
@@ -1265,6 +1300,7 @@ export class World implements SimApi {
         .num(t.falling ? 1 : 0)
         .num(t.fallFrom)
         .num(t.fallVel)
+        .num(t.sunk)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)
