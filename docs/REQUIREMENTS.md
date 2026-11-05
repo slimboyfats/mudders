@@ -38,6 +38,7 @@ Name: **Mudders**. Tagline: *Set the mud on fire.* Package scope `@mudders/*`.
 | State | Zustand (UI) + a plain, framework-free simulation core | The simulation must not depend on React. |
 | Tests | Vitest | Simulation core must be unit-testable headlessly. |
 | Lint/format | ESLint + Prettier | |
+| Audio | Chiptune only: tracker modules via a module player (e.g. `chiptune3`) + Web Audio synth SFX | See §8b. |
 | Networking | WebRTC `RTCDataChannel` (peer-to-peer) | See §6. |
 | Signalling / lobby | Small Node (Fastify or Hono) + WebSocket server | Hosted on a free tier (Render.com). See §7. |
 | Persistence | None required for v1. Optional Postgres (Render free tier / Neon / Supabase) for public lobby listing if in-memory proves insufficient. | |
@@ -464,7 +465,20 @@ Each weapon manifest fills the slots in §2c.2. The lists above are a target cat
 - Connection flow on mobile must be short: open link → enter name → you're in the lobby. Private-game invites are shareable links (Web Share API where available) that deep-link straight into the room.
 - Settings persisted in `localStorage` (volume, bindings, cosmetic options).
 - Accessibility: colour-blind-safe tank colours (or patterns), scalable UI, no information conveyed by colour alone.
-- Audio: Web Audio API; distinct sounds per weapon class; muteable. On mobile, audio is unlocked on the first tap (autoplay policy) and respects the silent switch where the platform exposes it.
+- Audio: Web Audio API; distinct sounds per weapon class; muteable. On mobile, audio is unlocked on the first tap (autoplay policy) and respects the silent switch where the platform exposes it. All audio is chiptune; see §8b.
+
+---
+
+## 8b. Audio: chiptune only
+
+All audio — music, ambience and sound effects — is made in a chiptune / tracker style. No recorded or sampled real-world audio, no streamed MP3/OGG soundtracks.
+
+- **Music and ambience** are tracker modules (MOD/XM/S3M/IT), played in the browser by a module player such as [`chiptune3`](https://www.npmjs.com/package/chiptune3) (libopenmpt in an AudioWorklet, MIT). `chiptune3` is the example and current front-runner, not a hard pick; any equivalent tracker-module player is acceptable if it meets the constraints below.
+- **Sound effects** are chiptune too: either short tracker modules / module instruments played through the same player, or synthesised at runtime with Web Audio oscillators and noise (square, triangle, saw, noise channels, simple envelopes). Decide in milestone 6 with a quick spike of both; mixing the two is fine as long as everything sounds like it belongs to one chip.
+- **Audio is content.** `audio.*` items (§2c.3) reference a module file (plus optional order/pattern range or instrument) or a synth patch described as data. Weapons reference audio profiles by id and override, like everything else.
+- **Original only.** Every module and patch is original or properly licensed for redistribution, with its licence recorded in the manifest. No ripped modules from other games.
+- **Constraints**: lazy-loaded (not in the initial bundle budget of §9); the player's WASM/worklet must work on the reference phones (iOS Safari AudioWorklet in particular) and be unlocked on first tap; audio never runs in `sim`, it is driven by effect/audio events from the render snapshot, so a muted or audio-less peer stays deterministic.
+- Headless capture (§2d) may render module audio offline into MP4 when `--audio` is passed.
 
 ---
 
@@ -547,7 +561,7 @@ Suggested `CLAUDE.md` rules: browser target is Baseline 2026 — use any Baselin
 3. **Full game loop** — rounds, sudden death, scoring, shop, 15+ weapons including 4 signature terrain-dynamics weapons (Shockwave, Quicksand, Terraformer, Magma Bomb), remaining terrain ops, prop system with groups/integrity (absorb → crack → collapse into rubble), `house`, `tree`, `boulder`, the `wood/brick/glass` materials with reactions (fire spread, glass shatter), `gen.village`, coatings with `oil` and `water` (cohesion, blob displacement, fire spread, wash/erode) and the Oil Slick + Flood weapons, 3 AI personalities, settings screen. Playtest to confirm a 4-player, 3-round match lands in 5–10 minutes; tune timers/turn caps.
 4. **Networking** — signalling server on Render, WebRTC star topology with automatic WebSocket relay fallback, lockstep inputs, desync detection, content-hash check and protocol versioning, private rooms with share links, mobile reconnect. Copy-paste server-less mode.
 5. **Public games + resilience** — public listing, AI takeover, PWA install, TURN decision from relay metrics.
-6. **Arsenal + polish** — 40+ weapons (mostly data-only, proving the pipeline), all signature weapons, remaining AI personalities, full effect library (haze, bloom, palette cycling, sky reaction), audio, themes with ambient effects, accessibility pass, performance budget verification on real devices.
+6. **Arsenal + polish** — 40+ weapons (mostly data-only, proving the pipeline), all signature weapons, remaining AI personalities, full effect library (haze, bloom, palette cycling, sky reaction), chiptune audio (§8b), themes with ambient effects, accessibility pass, performance budget verification on real devices.
 7. **Later** — raise player cap to 8, team play, longer match presets. Possible experiment: a voxel renderer behind the §2b interface.
 
 ---
