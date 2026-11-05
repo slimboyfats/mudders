@@ -266,21 +266,51 @@ Audio oscillator + noise synth patches described as data. `audio.*` content item
 effect events; the client's audio system consumes them, so audio never affects determinism. Audio
 unlocks on first tap on mobile.
 
-## 7. Networking (planned, milestone 4)
+## 7. Networking (milestone 4)
 
-- **Topology**: star around the host over WebRTC `RTCDataChannel`s. Peers exchange only inputs plus a
-  periodic state hash. Host is authoritative on desync and sends a full snapshot to resync.
-- **Connection ladder**: direct P2P via public STUN → automatic WebSocket relay through the signalling
-  server if the data channel isn't open in ~5 s (same message interface) → TURN later if needed. The
-  path used is logged.
-- **Server-less mode**: copy-paste offer/answer strings, no backend at all.
-- **Versioning**: `protocolVersion` negotiated at connect (`hello`/`welcome`, already implemented in
-  `shared` + `signal`), content hash checked at join.
-- **Lobby messages** (Zod, in `shared`): `createRoom`, `listRooms`, `joinRoom(code)`, `leaveRoom`,
-  `offer`/`answer`/`ice`, `roomUpdate`, `startMatch`. Rooms in memory with TTL; 6-char private codes;
-  rate-limited creation.
-- **Resilience**: inputs buffered and re-sent; ~20 s reconnect window, then AI takeover; on
-  `visibilitychange` the client replays missed inputs from the host.
+Code: `packages/shared/src/protocol.ts` (every message, Zod), `packages/signal/src/lobby.ts` (rooms,
+relay), `packages/client/src/net/` (`link`, `lockstep`, `session`, `signal`, `rtc`) and
+`packages/client/src/ui/Online.tsx`.
+
+- **Topology**: star around the host (§6.2). Every connection is a `Link` (`net/link.ts`): JSON
+  peer messages, validated on receipt, large ones split into ≤ 15 kB parts. A link runs over an
+  `RTCDataChannel` (`p2p`), the signalling server's WebSocket relay (`relay`) or memory (tests).
+- **Connection ladder** (`net/rtc.ts`): the guest asks the host (via the relay channel) to dial; the
+  host sends an offer with trickle ICE over public STUN (`VITE_ICE_SERVERS` overrides). If the data
+  channel isn't open in 5 s the host switches both sides to the relay. Relay frames carry a link
+  epoch so a replaced link's late frames never reach its successor. The host reports each link's
+  path and time-to-open to the server (`GET /stats`), so the TURN decision is data-driven.
+- **Lockstep** (`net/lockstep.ts`): every input goes to the host, which stamps it with the tick it
+  applies it before (`HostMatch.stepOnce`), appends it to the match log, and sends guests
+  `tick { upTo, inputs }` (immediately when there are inputs, else every 3 ticks). A guest only
+  simulates ticks before `upTo`, so it never predicts or rolls back; it trails the host by about
+  half a round trip and catches up faster than real time when behind. Guests throttle aim inputs
+  to one per 50 ms; the host collapses consecutive aims per tick.
+- **Desync**: every 120 ticks each guest sends `world.hash()`; the host compares with its own. On a
+  mismatch (or a guest that sees an input stamped in its past) the host sends `start` with the seed,
+  setup and whole input log, and the guest rebuilds by re-simulating (≈ 0.02–0.05 ms per tick, so a
+  10-minute match replays in about a second). This is the §6.3 resync; a serialised world snapshot
+  would be faster for very long matches and can replace it behind the same message.
+- **Join check**: the guest's `join` carries protocol version, kernel version and content hash; the
+  host refuses any mismatch with a "reload to update" reason (§2c.4). The signalling server refuses
+  a different protocol version at `hello`.
+- **Resilience** (§6.1): the signalling identity (id + secret) and the seat token live in
+  `sessionStorage`, so a dropped socket, a reload or a cell handover reclaims the same server
+  identity and seat. Both sides ping every second; 6 s of silence closes a link. A guest whose link
+  died asks the host to re-dial and sends `haveTick`; the host re-sends the log from that tick (or
+  everything after a reload). The server keeps a dropped member seated for 30 s and closes a room
+  when its host is gone that long or it idles for 2 h.
+- **Lobby** (`signal/src/lobby.ts`): `hello`, `createRoom`, `joinRoom(code)`, `leaveRoom`,
+  `listRooms`, `startMatch`, `offer`/`answer`/`ice`, `relay`, `path`; replies `welcome`,
+  `roomUpdate`, `rooms`, `error`. 6-character codes without look-alike characters, room creation
+  rate-limited per address, a per-connection message cap. Seats, rules and names are host state sent
+  over the links (`lobby`), so the copy-paste mode needs no server at all.
+- **Server-less mode**: `directOffer`/`directAnswer` wait for ICE gathering and encode the session
+  description as `MUD1.` + base64url(deflate-raw). One invite per guest. No relay or reconnect in this
+  mode (there is no server to fall back on).
+- **Not yet** (milestone 5): AI takeover of a disconnected human (the turn timer covers it for now),
+  public room browser UI (`listRooms` exists), TURN. The host's tab must stay in the foreground: a
+  hidden host stops the clock for everyone.
 
 ## 8. Capture and visual review (milestone 0 smoke, full CLI in milestone 2)
 

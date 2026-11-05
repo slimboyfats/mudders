@@ -11,3 +11,14 @@ describe('resolveSignalUrl', () => {
     expect(resolveSignalUrl('https://lobby.example/')).toBe('https://lobby.example');
   });
 });
+
+describe('signal override', () => {
+  it('accepts only loopback overrides from the page URL', () => {
+    expect(resolveSignalUrl('https://lobby.example', '?signal=http://127.0.0.1:9000')).toBe(
+      'http://127.0.0.1:9000',
+    );
+    expect(resolveSignalUrl('https://lobby.example', '?signal=https://evil.example')).toBe(
+      'https://lobby.example',
+    );
+  });
+});

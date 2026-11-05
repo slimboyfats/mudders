@@ -8,9 +8,9 @@ import {
 } from '@mudders/sim';
 import type { SnapshotStream } from '../render/types';
 
-const STEP_MS = 1000 / TICK_RATE;
+export const STEP_MS = 1000 / TICK_RATE;
 /** Never simulate more than this many ticks per frame (tab switch, slow device): drop time instead. */
-const MAX_STEPS = 8;
+export const MAX_STEPS = 8;
 
 export interface HudTank {
   player: number;
@@ -56,14 +56,14 @@ export interface HudState {
 }
 
 /**
- * A local match: owns the World, steps it at a fixed 60 Hz from a frame-time accumulator (so a
- * 120 Hz display never speeds the sim up, §8a) and publishes one render snapshot per tick.
- * Inputs go through `input()`, exactly as they will over the network in milestone 4.
+ * A match the UI can show: owns a World (replaced wholesale when a network guest resyncs),
+ * publishes one render snapshot per simulated tick and builds the HUD state. Subclasses decide how
+ * inputs reach the sim and how wall-clock time turns into ticks: `LocalMatch` (hot-seat) here,
+ * `HostMatch`/`GuestMatch` in `net/` (§6.3 lockstep).
  */
-export class LocalMatch implements SnapshotStream {
-  readonly world: World;
-  private listeners: ((s: RenderSnapshot) => void)[] = [];
-  private acc = 0;
+export abstract class SimMatch implements SnapshotStream {
+  world: World;
+  protected listeners: ((s: RenderSnapshot) => void)[] = [];
   private readonly names: Record<string, string> = {};
   private readonly botNames: string[];
   private readonly shopItems: (ShopItem & { index: number })[] = [];
@@ -94,34 +94,28 @@ export class LocalMatch implements SnapshotStream {
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
     this.listeners.push(fn);
     // a late subscriber gets a full-map snapshot so it can upload the whole terrain
-    const s = this.world.snapshot();
-    fn({ ...s, dirtyRects: [{ x: 0, y: 0, w: s.width, h: s.height }] });
+    fn(this.fullSnapshot());
     return () => {
       this.listeners = this.listeners.filter((l) => l !== fn);
     };
   }
 
-  input(player: number, input: Input): void {
-    this.world.applyInput(player, input);
-  }
-
-  /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
-  advance(dtMs: number): number {
-    this.acc += Math.min(dtMs, STEP_MS * MAX_STEPS);
-    let n = 0;
-    while (this.acc >= STEP_MS && n < MAX_STEPS) {
-      this.stepOnce();
-      this.acc -= STEP_MS;
-      n++;
-    }
-    return this.world.tick + this.acc / STEP_MS;
-  }
-
-  stepOnce(): void {
-    this.world.step();
+  protected fullSnapshot(): RenderSnapshot {
     const s = this.world.snapshot();
+    return { ...s, dirtyRects: [{ x: 0, y: 0, w: s.width, h: s.height }] };
+  }
+
+  /** Tell every subscriber about the current state (after a step, or a full map after a resync). */
+  protected publish(full = false): void {
+    const s = full ? this.fullSnapshot() : this.world.snapshot();
     for (const l of this.listeners) l(s);
   }
+
+  /** An input from this device for `player`. */
+  abstract input(player: number, input: Input): void;
+
+  /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
+  abstract advance(dtMs: number): number;
 
   hud(): HudState {
     const w = this.world;
@@ -158,6 +152,34 @@ export class LocalMatch implements SnapshotStream {
   }
 }
 
+/**
+ * A local match: steps the World at a fixed 60 Hz from a frame-time accumulator (so a 120 Hz
+ * display never speeds the sim up, §8a). Inputs go straight into the sim.
+ */
+export class LocalMatch extends SimMatch {
+  private acc = 0;
+
+  input(player: number, input: Input): void {
+    this.world.applyInput(player, input);
+  }
+
+  advance(dtMs: number): number {
+    this.acc += Math.min(dtMs, STEP_MS * MAX_STEPS);
+    let n = 0;
+    while (this.acc >= STEP_MS && n < MAX_STEPS) {
+      this.stepOnce();
+      this.acc -= STEP_MS;
+      n++;
+    }
+    return this.world.tick + this.acc / STEP_MS;
+  }
+
+  stepOnce(): void {
+    this.world.step();
+    this.publish();
+  }
+}
+
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
   let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
@@ -175,7 +197,7 @@ export class HudStore {
   private key: string;
   private readonly subs = new Set<() => void>();
 
-  constructor(private readonly match: LocalMatch) {
+  constructor(private readonly match: SimMatch) {
     this.state = match.hud();
     this.key = hudKey(this.state);
   }

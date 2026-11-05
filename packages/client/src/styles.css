@@ -765,3 +765,168 @@ button.link {
   min-height: 56px;
   font-size: 1.15rem;
 }
+
+/* ── online lobby (§8: Host online / Join online / Direct) ─────────── */
+
+.online .note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.online .error-text {
+  margin: 0;
+  color: #ff6b5a;
+}
+
+.name-field,
+.invite label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.name-field input,
+.invite input,
+.invite textarea,
+.copyable textarea {
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #2a1f18;
+  color: var(--fg);
+  border: 1px solid #4a3a2c;
+  font: inherit;
+}
+
+.invite input {
+  font-family: ui-monospace, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.invite {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invite textarea,
+.copyable textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+  resize: vertical;
+}
+
+.room-code {
+  margin: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 2.6rem;
+  letter-spacing: 0.25em;
+  color: var(--accent);
+  text-align: center;
+}
+
+.copyable {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.copyable textarea {
+  flex: 1;
+}
+
+.seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: #241a14;
+}
+
+.seat.open {
+  opacity: 0.6;
+}
+
+.seat.away {
+  outline: 1px dashed #ff6b5a;
+}
+
+.seat-name {
+  flex: 1;
+}
+
+.seat-name em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.85em;
+}
+
+.seat .path {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.seat .path.p2p {
+  color: #8fd18f;
+}
+
+.seat .path.relay {
+  color: #e8c25a;
+}
+
+.seat .path.away {
+  color: #ff6b5a;
+}
+
+.seat select {
+  min-height: 40px;
+  background: #2a1f18;
+  border: 1px solid #4a3a2c;
+  border-radius: 8px;
+  padding: 0 8px;
+}
+
+.net-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 55%);
+  font-size: 0.8rem;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.net-banner .warn {
+  color: #ff6b5a;
+}
+
+.net-banner.lost {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  font-size: 1.1rem;
+  padding: 12px 18px;
+  background: rgb(0 0 0 / 75%);
+}

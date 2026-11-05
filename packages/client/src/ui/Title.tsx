@@ -35,6 +35,15 @@ export function Title({ onPlay }: Props) {
         <button className="primary" disabled={!webgl2} onClick={onPlay}>
           Local game
         </button>
+        <a className="secondary" href="#host" data-testid="host-online">
+          Host online game
+        </a>
+        <a className="secondary" href="#join" data-testid="join-online">
+          Join online game
+        </a>
+        <a className="secondary" href="#direct">
+          Direct game (no server)
+        </a>
         <a className="secondary" href="#settings">
           Settings
         </a>
