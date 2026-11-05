@@ -1,0 +1,38 @@
+{
+  "id": "material.oil",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Oil",
+    "description": "A slick coating. Binds the cells under it so a shockwave shoves the slope as one blob, and goes up in flames at the first spark.",
+    "since": "core@0.4.0",
+    "color": "#2a2433"
+  },
+  "cell": 18,
+  "settle": "flow",
+  "density": 40,
+  "strength": {},
+  "cohesion": 0.6,
+  "coating": true,
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.burning-oil",
+      "chance": 0.3
+    },
+    {
+      "with": "material.burning-oil",
+      "into": "material.burning-oil",
+      "chance": 0.5
+    },
+    {
+      "with": "material.lava",
+      "into": "material.burning-oil",
+      "chance": 0.5
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.burning-oil",
+      "chance": 0.5
+    }
+  ]
+}

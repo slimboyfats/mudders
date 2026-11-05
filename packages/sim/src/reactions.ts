@@ -11,13 +11,21 @@ import {
 
 /** Order-free per-cell randomness for reactions: no RNG draws, identical on every engine. */
 function roll(i: number, tick: number, k: number): number {
-  let h = Math.imul(i ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(tick + k * 7919, 0xc2b2ae35);
-  h ^= h >>> 15;
-  h = Math.imul(h, 0x27d4eb2d);
-  return (h ^ (h >>> 13)) & 0xffff;
+  // murmur3 finaliser over a mix of all three inputs, so neighbouring cells on the same tick
+  // don't roll alike
+  let h =
+    (Math.imul(i, 0x9e3779b1) + Math.imul(tick, 0x85ebca77) + Math.imul(k + 1, 0xc2b2ae3d)) | 0;
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h & 0xffff;
 }
 
 function setCell(grid: Grid, i: number, m: number): void {
+  // a reaction (fire, quench) consumes a prop cell outright: it leaves its group
+  grid.leaveGroup(i);
   grid.material[i] = m;
   grid.cellState[i] = 0;
   grid.fallVel[i] = 0;
@@ -30,7 +38,7 @@ function dirty(grid: Grid, i: number): void {
   grid.markDirty(x, y, x, y);
 }
 
-/** Try the reactions of `src` (the cell's material, or its coating) against its 4 neighbours. */
+/** Try the reactions of `src` (the cell's material, or its coating) against its neighbours. */
 function react(
   grid: Grid,
   mats: MaterialTable,
@@ -48,12 +56,15 @@ function react(
     const chance = mats.reactChance[r]!;
     if (chance === 0) break;
     const w = mats.reactWith[r]!;
-    for (let n = 0; n < 4; n++) {
-      const nx = n === 0 ? x - 1 : n === 1 ? x + 1 : x;
-      const ny = n === 2 ? y - 1 : n === 3 ? y + 1 : y;
+    // coatings creep along surfaces, so they also see diagonal neighbours (fire running along an
+    // oiled slope sits diagonally above the next coated cell)
+    for (let n = 0; n < (coating ? 8 : 4); n++) {
+      const nx = n === 0 || n === 4 || n === 6 ? x - 1 : n === 1 || n === 5 || n === 7 ? x + 1 : x;
+      const ny = n === 2 || n === 4 || n === 5 ? y - 1 : n === 3 || n === 6 || n === 7 ? y + 1 : y;
       if (nx < 0 || ny < 0 || nx >= W || ny >= grid.height) continue;
       const j = ny * W + nx;
-      if (mat[j] !== w) continue;
+      // a coating's reaction also matches the neighbour's coating (burning oil spreading along oil)
+      if (mat[j] !== w && !(coating && w !== 0 && grid.coating[j] === w)) continue;
       if (roll(i, tick, k) >= chance) return false;
       const into = mats.reactInto[r]!;
       const other = mats.reactOther[r]!;
@@ -133,6 +144,13 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
           state[i] = (state[i]! & ~AGE_MASK) | (a + 1);
           alive = true;
         }
+      }
+      if (fc & ACT_DECAY && c !== 0) {
+        // coatings have no age byte of their own: they wear off with chance 1/ticks per tick
+        if (roll(i, tick, 11) * mats.decayTicks[c]! < 65536) {
+          coat[i] = mats.decayInto[c]!;
+          dirty(grid, i);
+        } else alive = true;
       }
       if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, false, tick);
       if (fc & ACT_REACT && c !== 0 && mat[i] !== 0) react(grid, mats, i, c, true, tick);

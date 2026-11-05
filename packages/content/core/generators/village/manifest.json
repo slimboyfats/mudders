@@ -1,0 +1,17 @@
+{
+  "id": "gen.village",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Village",
+    "description": "Gentler rolling hills with a cluster of brick houses, a scattering of trees and the odd boulder.",
+    "since": "core@0.4.0"
+  },
+  "extends": "gen.hills",
+  "amplitude": 0.14,
+  "roughness": 0.4,
+  "props": [
+    { "prop": "prop.house", "count": [2, 4], "cluster": true },
+    { "prop": "prop.tree", "count": [4, 7], "cluster": false },
+    { "prop": "prop.boulder", "count": [1, 2], "cluster": false }
+  ]
+}

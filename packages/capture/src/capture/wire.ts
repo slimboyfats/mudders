@@ -7,11 +7,24 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
   for (const r of s.dirtyRects) {
     if (r.w <= 0 || r.h <= 0) continue;
     const buf = Buffer.alloc(r.w * r.h);
+    const coat = Buffer.alloc(r.w * r.h);
+    let coated = false;
     for (let row = 0; row < r.h; row++) {
       const start = (r.y + row) * s.width + r.x;
       buf.set(s.terrain.subarray(start, start + r.w), row * r.w);
+      const c = s.coating.subarray(start, start + r.w);
+      coat.set(c, row * r.w);
+      if (!coated && c.some((v) => v !== 0)) coated = true;
     }
-    patches.push([r.x, r.y, r.w, r.h, buf.toString('base64')]);
+    // the coating layer rides along only when the patch has any (most frames have none)
+    patches.push([
+      r.x,
+      r.y,
+      r.w,
+      r.h,
+      buf.toString('base64'),
+      coated ? coat.toString('base64') : '',
+    ]);
   }
   const n = s.debris.count;
   return {

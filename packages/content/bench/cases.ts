@@ -4,7 +4,7 @@ import { loadContent } from '../src/index';
 
 /**
  * Benchmark cases (§9). Each returns per-tick timings in ms. Cases that need content from later
- * milestones (water for the flood dune, props for the house collapse) are listed as pending.
+ * milestones are listed as pending.
  */
 export interface Timings {
   ticks: number[];
@@ -16,11 +16,7 @@ export interface BenchCase {
   run(now: () => number): Timings;
 }
 
-export const PENDING = [
-  { id: 'flood-dune-120', reason: 'needs material.water + weapon.flood (milestone 3)' },
-  { id: 'house-collapse', reason: 'needs props and integrity groups (milestone 3)' },
-];
-
+export const PENDING: { id: string; reason: string }[] = [];
 function medium(players = 4, seed = 1): World {
   return new World(loadContent(), {
     seed,
@@ -33,6 +29,8 @@ function medium(players = 4, seed = 1): World {
 function flat(w: World, surface: number): void {
   const dirt = w.mats.cellOf('material.dirt');
   w.grid.material.fill(0);
+  w.grid.group.fill(0);
+  w.groups.reset();
   w.grid.material.fill(dirt, surface * w.grid.width);
   w.grid.clearSettle();
   for (const t of w.tanks) t.y = surface;
@@ -144,6 +142,41 @@ export const CASES: BenchCase[] = [
       drop(w, 'weapon.shockwave', 600, 300);
       const imp = w.weapons.find((k) => k.id === 'weapon.shockwave')!.impacts[0]!;
       if (imp.kind === 'explosion') imp.e.radius = 90;
+      return { ticks: stepUntilQuiet(w, now) };
+    },
+  },
+  {
+    id: 'flood-dune-120',
+    description: 'flood a 60-tall sand dune on a medium map: first 120 ticks of the wash, per tick',
+    run(now) {
+      const w = medium();
+      flat(w, 400);
+      const sand = w.mats.cellOf('material.sand');
+      for (let x = 540; x < 660; x++)
+        for (let y = 400 - (60 - Math.abs(x - 600)); y < 400; y++) w.grid.set(x, y, sand);
+      w.grid.markDirty(540, 340, 660, 400);
+      for (let i = 0; i < 200 && w.grid.settling; i++) w.step();
+      drop(w, 'weapon.flood', 520, 395);
+      const ticks: number[] = [];
+      for (let i = 0; i < 120; i++) {
+        const t0 = now();
+        w.step();
+        ticks.push(now() - t0);
+      }
+      return { ticks };
+    },
+  },
+  {
+    id: 'house-collapse',
+    description:
+      'heavy shockwave into a grouped house on a medium map until it has poured down, per tick',
+    run(now) {
+      const w = medium();
+      flat(w, 400);
+      w.groups.placeAt(w.grid, 'prop.house', 600);
+      w.grid.clearSettle();
+      w.grid.clearReact();
+      drop(w, 'weapon.shockwave', 630, 399);
       return { ticks: stepUntilQuiet(w, now) };
     },
   },

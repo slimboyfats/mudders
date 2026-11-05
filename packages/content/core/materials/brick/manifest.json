@@ -1,0 +1,22 @@
+{
+  "id": "material.brick",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Brick",
+    "description": "Fired clay blocks. Hard to blast, ignores fire, and crumbles into rubble once a wall gives way.",
+    "since": "core@0.4.0",
+    "color": "#a5493a"
+  },
+  "cell": 10,
+  "settle": "static",
+  "density": 160,
+  "strength": {
+    "blast": 1.6,
+    "kinetic": 1.8,
+    "heat": 4,
+    "shock": 1.3,
+    "dig": 2
+  },
+  "cohesion": 0,
+  "coating": false
+}

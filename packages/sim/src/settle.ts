@@ -33,6 +33,7 @@ export function settleStep(
   const coat = grid.coating;
   const state = grid.cellState;
   const vel = grid.fallVel;
+  const group = grid.group;
   const kind = mats.settle;
   const density = mats.density;
   const spread = mats.spread;
@@ -57,7 +58,8 @@ export function settleStep(
       const m = mat[idx]!;
       if (m === 0) continue;
       const k = kind[m]!;
-      if (k === SETTLE_STATIC) continue;
+      // intact prop groups hold their cells in place whatever the material (§4c)
+      if (k === SETTLE_STATIC || group[idx] !== 0) continue;
       const below = idx + W;
       let dst = -1;
       let dy = 0;

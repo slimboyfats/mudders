@@ -87,7 +87,7 @@ export function floodCohesive(
       const j = ny * W + nx;
       if (mark[j] === gen) continue;
       const m = mat[j]!;
-      if (m === 0) continue;
+      if (m === 0 || grid.group[j] !== 0) continue;
       if (coh[m]! <= 0 && coh[coat[j]!]! <= 0) continue;
       const dx = nx - cx;
       const dy = ny - cy;

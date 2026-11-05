@@ -10,6 +10,7 @@ import type { CaptureApi, WireInit, WireSnapshot } from './wire';
 let renderer: PixelRenderer | undefined;
 let canvas: HTMLCanvasElement | undefined;
 let terrain = new Uint8Array(0);
+let coating = new Uint8Array(0);
 let mapW = 0;
 let mapH = 0;
 const listeners: ((s: RenderSnapshot) => void)[] = [];
@@ -32,6 +33,7 @@ const api: CaptureApi = {
     mapW = init.mapWidth;
     mapH = init.mapHeight;
     terrain = new Uint8Array(mapW * mapH);
+    coating = new Uint8Array(mapW * mapH);
     canvas?.remove();
     canvas = document.createElement('canvas');
     canvas.style.width = `${init.cssWidth}px`;
@@ -61,10 +63,14 @@ const api: CaptureApi = {
     if (!renderer || !canvas) throw new Error('capture page not initialised');
     for (const w of snaps) {
       const dirtyRects = [];
-      for (const [x, y, pw, ph, b64] of w.patches) {
+      for (const [x, y, pw, ph, b64, c64] of w.patches) {
         const bytes = decode(b64);
+        const cb = c64 ? decode(c64) : null;
         for (let row = 0; row < ph; row++) {
-          terrain.set(bytes.subarray(row * pw, (row + 1) * pw), (y + row) * mapW + x);
+          const at = (y + row) * mapW + x;
+          terrain.set(bytes.subarray(row * pw, (row + 1) * pw), at);
+          if (cb) coating.set(cb.subarray(row * pw, (row + 1) * pw), at);
+          else coating.fill(0, at, at + pw);
         }
         dirtyRects.push({ x, y, w: pw, h: ph });
       }
@@ -74,7 +80,7 @@ const api: CaptureApi = {
         width: mapW,
         height: mapH,
         terrain,
-        coating: new Uint8Array(0),
+        coating,
         dirtyRects,
         entities: w.entities,
         effectEvents: w.effectEvents,

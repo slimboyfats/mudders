@@ -27,6 +27,7 @@ export class ScenarioDriver {
       turnOrder: scenario.turnOrder,
       bots: scenario.bots,
       rules: scenario.rules,
+      props: scenario.props,
     });
     this.queue = [...scenario.inputs].sort((a, b) => a.t - b.t);
   }

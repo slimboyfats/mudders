@@ -1,0 +1,22 @@
+{
+  "id": "material.rubble",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rubble",
+    "description": "Broken brick and stone. Pours into a heap and stays there.",
+    "since": "core@0.4.0",
+    "color": "#857065"
+  },
+  "cell": 14,
+  "settle": "slide",
+  "density": 150,
+  "strength": {
+    "blast": 1,
+    "kinetic": 1.1,
+    "heat": 3,
+    "shock": 0.8,
+    "dig": 1
+  },
+  "cohesion": 0,
+  "coating": false
+}

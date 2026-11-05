@@ -17,6 +17,8 @@ export type Preset = keyof typeof PRESETS;
 export interface MatchSetup {
   slots: Slot[];
   size: MapSize;
+  /** Props on the map (§4c): bare hills, or a village with houses, trees and boulders. */
+  scenery: 'none' | 'village';
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
@@ -32,6 +34,7 @@ export function defaultSetup(): MatchSetup {
   return {
     slots: ['human', 'ai.shooter', 'off', 'off'],
     size: small ? 'small' : 'medium',
+    scenery: 'village',
     rounds: 3,
     turnTimer: 15,
     wind: 'perTurn',
@@ -80,7 +83,7 @@ export function toWorldOptions(s: MatchSetup, seed: number): WorldOptions {
     seed,
     mode: 'mode.classic',
     players: slots.length,
-    map: MAP_SIZES[s.size],
+    map: { ...MAP_SIZES[s.size], generator: s.scenery === 'village' ? 'gen.village' : 'gen.hills' },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     rules,
   };

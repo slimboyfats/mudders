@@ -1,0 +1,27 @@
+{
+  "id": "material.burning-oil",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Burning oil",
+    "description": "Oil on fire. Spreads the flames along every oiled cell it touches, throws up fire above it, and burns away within a second or so.",
+    "since": "core@0.4.0",
+    "color": "#ff6a1a"
+  },
+  "cell": 20,
+  "settle": "flow",
+  "density": 40,
+  "strength": {},
+  "cohesion": 0.2,
+  "coating": true,
+  "decay": {
+    "into": "air",
+    "ticks": 60
+  },
+  "reactions": [
+    {
+      "with": "air",
+      "spawn": "material.fire",
+      "chance": 0.12
+    }
+  ]
+}

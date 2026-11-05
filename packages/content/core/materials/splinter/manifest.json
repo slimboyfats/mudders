@@ -1,0 +1,22 @@
+{
+  "id": "material.splinter",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Splinters",
+    "description": "Broken timber. Slides into a loose pile that burns readily.",
+    "since": "core@0.4.0",
+    "color": "#b08355"
+  },
+  "cell": 15,
+  "settle": "slide",
+  "density": 60,
+  "strength": {
+    "blast": 0.6,
+    "kinetic": 0.6,
+    "heat": 0.3,
+    "shock": 0.6,
+    "dig": 0.6
+  },
+  "cohesion": 0,
+  "coating": false
+}

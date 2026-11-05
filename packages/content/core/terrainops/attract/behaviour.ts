@@ -42,7 +42,7 @@ function ring(api: SimApi, p: Params, c: OpCall, r0: number, r1: number): void {
       if (d2 < r0 * r0 || d2 >= r1 * r1) continue;
       const i = y * W + x;
       const m = mat[i]!;
-      if (m === 0 || mats.settle[m] === SETTLE_STATIC) continue;
+      if (m === 0 || (mats.settle[m] === SETTLE_STATIC && grid.group[i] === 0)) continue;
       // harder materials hold on: strength 2 only moves from the outer half, etc.
       const s = Math.max(MIN_STRENGTH, mats.strength[m * NUM_DAMAGE_TYPES + c.damageTypeIndex]!);
       if (Math.sqrt(d2) * s > R * 256 * 1.5) continue;
@@ -62,7 +62,7 @@ function ring(api: SimApi, p: Params, c: OpCall, r0: number, r1: number): void {
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.attract',
-  version: 1,
+  version: 2,
   params,
   start(api, p, c) {
     for (const t of api.tanks) {

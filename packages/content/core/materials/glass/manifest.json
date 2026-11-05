@@ -1,0 +1,22 @@
+{
+  "id": "material.glass",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Glass",
+    "description": "Window panes. Fragile to anything kinetic or explosive; shatters into shards.",
+    "since": "core@0.4.0",
+    "color": "#9fd6e4"
+  },
+  "cell": 12,
+  "settle": "static",
+  "density": 140,
+  "strength": {
+    "blast": 0.3,
+    "kinetic": 0.2,
+    "heat": 2,
+    "shock": 0.3,
+    "dig": 0.6
+  },
+  "cohesion": 0,
+  "coating": false
+}

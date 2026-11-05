@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.ignite",
+  "schemaVersion": 1,
+  "extends": "terrainop.convert",
+  "meta": {
+    "name": "Ignite",
+    "description": "Sets wood, leaves and splinters inside a disc alight; the fire then spreads on its own.",
+    "since": "core@0.4.0"
+  },
+  "from": ["material.wood", "material.leaf", "material.splinter"],
+  "into": "material.fire",
+  "core": 0.8,
+  "expandTicks": 6
+}

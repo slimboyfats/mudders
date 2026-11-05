@@ -177,6 +177,32 @@ export class EffectSystem {
         }
         break;
       }
+      case 'creak':
+      case 'collapse': {
+        // dust off a cracking or collapsing prop: pixel dust puffs across its footprint
+        const rng = this.rngFor(e, 9);
+        const big = e.type === 'collapse';
+        const n = Math.round((big ? 36 : 10) * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          const x = e.x + rng.range(-e.radius, e.radius);
+          const y = e.y + rng.range(-e.radius, e.radius) * 0.6;
+          this.particles.add({
+            x,
+            y,
+            vx: rng.range(-0.35, 0.35),
+            vy: -rng.range(0.05, big ? 0.5 : 0.25),
+            life: rng.range(25, big ? 70 : 40),
+            size: rng.range(2, big ? 5 : 3),
+            color: this.dustColor(Math.round(x), Math.round(y)),
+            kind: PKind.Dust,
+          });
+        }
+        if (big) {
+          this.shakeAmp = Math.max(this.shakeAmp, 3);
+          this.shakeStart = e.tick;
+        }
+        break;
+      }
       case 'tankDeath':
         this.burst(e, 70);
         this.glows.push({

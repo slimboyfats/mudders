@@ -1,0 +1,51 @@
+{
+  "id": "material.fire",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fire",
+    "description": "Flames. Spread to wood, leaves, splinters and oil next to them, burn tanks they touch, and leave ash behind. Water puts them out.",
+    "since": "core@0.4.0",
+    "color": "#ffb43a"
+  },
+  "cell": 17,
+  "settle": "static",
+  "density": 5,
+  "strength": {
+    "blast": 0,
+    "kinetic": 0,
+    "heat": 8,
+    "shock": 0,
+    "dig": 0
+  },
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "material.ash",
+    "ticks": 48
+  },
+  "contact": {
+    "damage": 10
+  },
+  "reactions": [
+    {
+      "with": "material.wood",
+      "other": "material.fire",
+      "chance": 0.08
+    },
+    {
+      "with": "material.leaf",
+      "other": "material.fire",
+      "chance": 0.2
+    },
+    {
+      "with": "material.splinter",
+      "other": "material.fire",
+      "chance": 0.12
+    },
+    {
+      "with": "material.water",
+      "into": "air",
+      "chance": 1
+    }
+  ]
+}

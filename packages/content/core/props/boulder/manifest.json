@@ -1,0 +1,47 @@
+{
+  "id": "prop.boulder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Boulder",
+    "description": "A lump of stone. Takes several heavy hits, then breaks apart into a pile of rubble.",
+    "since": "core@0.4.0"
+  },
+  "shape": [
+    "   SSSSSSSSSSSS",
+    "  SSSSSSSSSSSSSS",
+    " SSSSSSSSSSSSSSSS",
+    " SSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSS",
+    " SSSSSSSSSSSSSSSS",
+    " SSSSSSSSSSSSSSSS",
+    "  SSSSSSSSSSSSSS"
+  ],
+  "legend": {
+    "S": "stone"
+  },
+  "materials": {
+    "stone": "material.rock"
+  },
+  "groups": [
+    {
+      "name": "stone",
+      "roles": ["stone"],
+      "integrity": 320,
+      "resistance": {
+        "blast": 2.2,
+        "kinetic": 2,
+        "heat": 4
+      },
+      "breakInto": {
+        "material.rock": "material.rubble"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 12,
+    "clearance": 16
+  }
+}

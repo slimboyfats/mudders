@@ -19,6 +19,16 @@
     "worstMs": 1.3899209999999584,
     "ticks": 158
   },
+  "flood-dune-120": {
+    "avgMs": 0.538,
+    "worstMs": 0.683,
+    "ticks": 120
+  },
+  "house-collapse": {
+    "avgMs": 0.103,
+    "worstMs": 1.36,
+    "ticks": 159
+  },
   "round-4p": {
     "avgMs": 0.018863722465360024,
     "worstMs": 1.9621999999999389,

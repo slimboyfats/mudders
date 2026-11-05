@@ -68,12 +68,14 @@ function ring(api: SimApi, p: Params, c: OpCall, r0: number, r1: number): void {
         if (d2 < r0s || d2 >= r1s) continue;
         const idx = y * W + x;
         const m = mat[idx]!;
-        if (m === 0 || moved[idx] === gen || kind[m] === SETTLE_STATIC) continue;
+        // static cells hold, unless they belong to a prop group: those take the hit (§4c)
+        const inGroup = grid.group[idx] !== 0;
+        if (m === 0 || moved[idx] === gen || (kind[m] === SETTLE_STATIC && !inGroup)) continue;
         const dist = Math.max(1, Math.sqrt(d2));
         const s = Math.max(MIN_STRENGTH, str[m * NUM_DAMAGE_TYPES + dt]!);
         const v = (speedFp * (R - dist) * 256) / (R * s);
         if (v < minFp) continue;
-        if (coh[m]! > 0 || coh[coat[idx]!]! > 0) {
+        if (!inGroup && (coh[m]! > 0 || coh[coat[idx]!]! > 0)) {
           const push = Math.trunc((p.blobPush * (R - dist) * 256) / (R * s));
           if (push > 0) moveBlob(api, p, idx, cx, cy, R, push, gen);
           continue;
@@ -192,7 +194,7 @@ function ringEdge(R: number, k: number, ticks: number): number {
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.displace',
-  version: 1,
+  version: 2,
   params,
   start(api, p, c) {
     const r1 = ringEdge(c.radius, 0, p.expandTicks);
