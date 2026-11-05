@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { loadContent } from '@mudders/content';
+import { themeChoices } from '../game/palette';
 import { saveSettings, type Settings as S } from '../game/settings';
 import { QUALITIES, type Quality } from '../render/types';
 
@@ -9,6 +12,7 @@ interface Props {
 
 /** Per-device cosmetic settings (§8): never affect the sim. */
 export function Settings({ settings, setSettings, onBack }: Props) {
+  const themes = useMemo(() => themeChoices(loadContent()), []);
   const update = (s: S) => {
     saveSettings(s);
     setSettings(s);
@@ -26,6 +30,19 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             {QUALITIES.map((q) => (
               <option key={q} value={q}>
                 {q}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Theme
+          <select
+            value={settings.theme}
+            onChange={(e) => update({ ...settings, theme: e.target.value })}
+          >
+            {themes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
               </option>
             ))}
           </select>

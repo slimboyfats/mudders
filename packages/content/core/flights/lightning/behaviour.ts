@@ -31,6 +31,9 @@ export default defineFlight<z.infer<typeof params>>({
       }
       const target = best >= 0 ? api.tanks[best]! : null;
       if (target) proj.x = target.x * FP + FP / 2;
+      // the bolt is drawn from the sky down to where it will strike (cosmetic)
+      const bx = Math.floor(proj.x / FP);
+      api.emit('bolt', bx, target ? target.y - 10 : api.grid.surfaceY(bx), 0, {});
       proj.y = 0;
       proj.vx = 0;
       proj.vy = toFixed(p.speed);

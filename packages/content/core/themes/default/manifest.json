@@ -1,0 +1,23 @@
+{
+  "id": "theme.default",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dusk",
+    "description": "The default look: a violet dusk sky with the first stars out and warm rim light on the ground.",
+    "since": "core@0.1.0"
+  },
+  "sky": {
+    "top": "#0b1029",
+    "bottom": "#5d3d63"
+  },
+  "letterbox": "#07060a",
+  "light": "#3a2c18",
+  "trail": "#ffe2b8",
+  "grain": 0.14,
+  "vignette": 0.28,
+  "ambient": {
+    "kind": "stars",
+    "density": 60,
+    "color": "#e8e0ff"
+  }
+}

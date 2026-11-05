@@ -1,0 +1,24 @@
+{
+  "id": "theme.arcade",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Arcade",
+    "description": "Old monitor: deep blue-black sky, starfield and scanlines over everything.",
+    "since": "core@0.8.0"
+  },
+  "sky": {
+    "top": "#000010",
+    "bottom": "#101848"
+  },
+  "letterbox": "#000000",
+  "light": "#304060",
+  "trail": "#80ffd0",
+  "grain": 0.06,
+  "vignette": 0.4,
+  "ambient": {
+    "kind": "stars",
+    "density": 90,
+    "color": "#a0f0ff"
+  },
+  "scanlines": 0.35
+}

@@ -47,5 +47,10 @@
       "into": "air",
       "chance": 1
     }
-  ]
+  ],
+  "look": {
+    "cycle": ["#ffb43a", "#ff8a20", "#ffd860", "#ff6a1a"],
+    "cycleTicks": 3,
+    "hot": true
+  }
 }

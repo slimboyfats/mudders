@@ -1,4 +1,5 @@
 import type { RenderSnapshot } from '@mudders/shared';
+import type { PixelTheme } from './pixel/theme';
 
 /**
  * The renderer boundary (REQUIREMENTS §2b, ARCHITECTURE §5). A renderer reads render snapshots and
@@ -23,6 +24,21 @@ export interface SnapshotStream {
 export interface RenderPalette {
   /** 0xRRGGBB per material cell id (index 0 = air, ignored). */
   materials: Uint32Array;
+  /** Animated looks (palette cycling, heat haze) per material cell. */
+  looks?: readonly MaterialLook[];
+  /** Theme looks by `theme.*` id; unknown ids fall back to the default. */
+  themes?: Readonly<Record<string, PixelTheme>>;
+}
+
+/** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */
+export interface MaterialLook {
+  cell: number;
+  /** 0xRRGGBB colours stepped through in hard bands; empty = no cycling. */
+  cycle: number[];
+  /** Ticks per cycle step. */
+  ticks: number;
+  /** The air above shimmers (heat haze). */
+  hot: boolean;
 }
 
 export interface RendererOptions {

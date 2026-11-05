@@ -44,7 +44,11 @@ const api: CaptureApi = {
     renderer.mount(canvas, stream, {
       quality: init.quality,
       theme: init.theme,
-      palette: { materials: Uint32Array.from(init.palette) },
+      palette: {
+        materials: Uint32Array.from(init.palette),
+        looks: init.looks,
+        themes: init.themes,
+      },
       shake: init.shake,
       preserveDrawingBuffer: true,
     });

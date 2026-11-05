@@ -1205,7 +1205,10 @@ export class World implements SimApi {
         t.lastHitBy = owner;
       }
     }
-    for (const [type, params] of e.effects) this.emit(type, x, y, e.radius, params);
+    // renderers tint the flash and sky by damage type (cosmetic)
+    for (const [type, params] of e.effects) {
+      this.emit(type, x, y, e.radius, { ...params, dt: e.dt });
+    }
   }
 
   /** A resonance zone under the blast scales it once and is used up (Resonator). */

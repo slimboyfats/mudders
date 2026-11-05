@@ -1,0 +1,24 @@
+{
+  "id": "theme.snow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Snow",
+    "description": "Overcast winter: grey sky, falling snow, and snow settled on every exposed ground cell.",
+    "since": "core@0.8.0"
+  },
+  "sky": {
+    "top": "#5a6878",
+    "bottom": "#c8d0da"
+  },
+  "letterbox": "#0c0e12",
+  "light": "#30343a",
+  "trail": "#e8f0ff",
+  "grain": 0.1,
+  "vignette": 0.2,
+  "ambient": {
+    "kind": "snow",
+    "density": 120,
+    "color": "#ffffff"
+  },
+  "snow": 0.9
+}

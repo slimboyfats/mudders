@@ -28,6 +28,7 @@
   },
   "exports": {
     "./capture-wire": "./src/capture/wire.ts",
-    "./render-types": "./src/render/types.ts"
+    "./render-types": "./src/render/types.ts",
+    "./palette": "./src/game/palette.ts"
   }
 }

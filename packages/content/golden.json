@@ -1,5 +1,5 @@
 {
-  "contentHash": "42ea395415d0aee3",
+  "contentHash": "ae63465c528d8faf",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -236,6 +236,30 @@
     "terrainop.terraform": {
       "ticks": 173,
       "hash": "bf052375ef782385"
+    },
+    "theme.arcade": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
+    },
+    "theme.day": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
+    },
+    "theme.default": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
+    },
+    "theme.inferno": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
+    },
+    "theme.snow": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
+    },
+    "theme.storm": {
+      "ticks": 382,
+      "hash": "51d0abcb07eec3fe"
     },
     "weapon.acid-drop": {
       "ticks": 159,

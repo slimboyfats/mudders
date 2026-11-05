@@ -4,13 +4,15 @@ import type { Quality } from '../render/types';
 export interface Settings {
   quality: Quality;
   shake: boolean;
+  /** `theme.*` id the map is drawn with; cosmetic and per device. */
+  theme: string;
 }
 
 const KEY = 'mudders.settings.v1';
 
 function defaults(): Settings {
   const mobile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  return { quality: mobile ? 'medium' : 'high', shake: true };
+  return { quality: mobile ? 'medium' : 'high', shake: true, theme: 'theme.default' };
 }
 
 export function loadSettings(): Settings {

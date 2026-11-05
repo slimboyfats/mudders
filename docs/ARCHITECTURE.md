@@ -272,9 +272,33 @@ Pixel renderer (`packages/client/src/render/pixel`):
    whole cells), flash tint and whole-cell screen shake.
 
 Effect events map to handlers in `effects.ts` (`burst`, `flash`, `shake`, `ripple`, `shockwave`,
-`muzzle`, `land`, `tankDeath`); unknown types are ignored. Cosmetic particles are typed-array pools
+`muzzle`, `land`, `creak`, `collapse`, `tankDeath`, plus the §5.1 ones); unknown types are ignored. Cosmetic particles are typed-array pools
 stepped once per sim tick and seeded from the event (`FxRng`), never `Math.random`. Quality scales
 particle caps (800 / 2,500 / 6,000) and turns the distortion pass and vignette off on `low`.
+
+### 5.1 Effects library and themes (milestone 6)
+
+- **Themes** are `theme.*` content items (`core/themes/<id>/manifest.json`): sky gradient,
+  letterbox, rim light, trail colour, grain, vignette, ambient weather (`rain`, `snow`, `embers`,
+  `stars`, `dust`), `wet` and `snow` surface treatment, `scanlines` and storm `flicker`. The sim
+  never reads them, so each player picks one in Settings (stored per device). `game/palette.ts`
+  turns manifests into `PixelTheme`s that travel with the `RenderPalette`; captures take the
+  scenario's `theme` or `--theme`.
+- **Material looks** (`look` on a material manifest, cosmetic): `cycle` colours stepped every
+  `cycleTicks` in diagonal hard bands (lava, fire, napalm, burning oil, water) and `hot` (air above
+  shimmers). They go to the GPU as a 256×9 look texture; the background pass reads the terrain
+  and coating textures to cycle animated cells and to shift air cells over hot ones by whole
+  cells (heat haze, off on `low`).
+- Wet and snow are part of the cached terrain shading (re-shaded inside dirty rects, which grow 6
+  rows down for that). Stars are a stateless sky-shader hash. Rain, snow, embers and dust in
+  `ambient.ts` are stateless too: each particle's position is a function of its index and the
+  render time, so nothing is stored and captures replay exactly. Zones (`ZoneView`) are drawn the
+  same way: gas puffs, acid haze with drips, resonance rings of single cells.
+- More events: `bolt` (jagged Bresenham channel with branches, double-strike flicker), `quake`,
+  `resonate`, `zone`, `zoneHurt`, `burn`, `implode`. `flash` carries the damage type (`dt`, added
+  by the kernel's `explode`), which picks the glow colour and a coloured sky tint (sky reaction).
+  Flashes with radius ≥ 60 add a white bloom blob and a chromatic split in the post pass (whole
+  cells, decaying).
 
 Camera: the fit view uses an integer scale on standard-density screens and a fractional fit on
 DPR ≥ 2 (a one-device-pixel difference between cells is invisible there; rounding down would waste
