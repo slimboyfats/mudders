@@ -1,0 +1,38 @@
+{
+  "id": "audio.fire",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shot",
+    "description": "The default shot: a noise crack over a dropping square thump.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 1800,
+        "to": 400,
+        "release": 0.12,
+        "volume": 0.5
+      },
+      {
+        "wave": "square",
+        "freq": 220,
+        "to": 70,
+        "release": 0.1,
+        "volume": 0.35
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "muzzle"
+    }
+  ]
+}

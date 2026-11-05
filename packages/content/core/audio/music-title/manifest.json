@@ -1,0 +1,19 @@
+{
+  "id": "audio.music-title",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Title music",
+    "description": "An unhurried arpeggio bed for the menus.",
+    "since": "core@0.9.0"
+  },
+  "bus": "music",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Composed as note data and rendered with synthesised chip samples by packages/content/scripts/make-music.ts (pnpm --filter @mudders/content music)"
+  },
+  "module": {
+    "file": "title.mod",
+    "loop": true
+  }
+}

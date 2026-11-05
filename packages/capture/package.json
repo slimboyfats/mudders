@@ -13,7 +13,8 @@
     "sim:preview": "tsx ../../scripts/vite-run.ts src/cli/sim-preview.ts",
     "capture": "tsx ../../scripts/vite-run.ts src/cli/capture.ts",
     "play:smoke": "tsx ../../scripts/vite-run.ts src/cli/play-smoke.ts",
-    "play:net": "tsx ../../scripts/vite-run.ts src/cli/play-net.ts"
+    "play:net": "tsx ../../scripts/vite-run.ts src/cli/play-net.ts",
+    "audio:preview": "tsx ../../scripts/vite-run.ts src/cli/audio-preview.ts"
   },
   "dependencies": {
     "@mudders/content": "workspace:*",

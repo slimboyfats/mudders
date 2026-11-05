@@ -1,0 +1,33 @@
+{
+  "id": "audio.fire-zap",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Zap shot",
+    "description": "A metallic crackle and a falling saw for lightning.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 3000,
+        "to": 800,
+        "release": 0.3,
+        "volume": 0.4
+      },
+      {
+        "wave": "saw",
+        "freq": 1200,
+        "to": 200,
+        "release": 0.2,
+        "volume": 0.3
+      }
+    ]
+  }
+}

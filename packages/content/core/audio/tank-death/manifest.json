@@ -1,0 +1,49 @@
+{
+  "id": "audio.tank-death",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tank destroyed",
+    "description": "A big crunching blast with a falling three-note wail.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 800,
+        "to": 40,
+        "hold": 0.2,
+        "release": 1.2,
+        "volume": 0.8
+      },
+      {
+        "wave": "square",
+        "freq": 200,
+        "to": 30,
+        "release": 0.9,
+        "volume": 0.5
+      },
+      {
+        "wave": "square",
+        "freq": 300,
+        "to": 60,
+        "delay": 0.15,
+        "release": 0.6,
+        "volume": 0.3,
+        "arp": [0, -5, -12],
+        "arpRate": 0.1
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "tankDeath"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "id": "audio.splash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Splash",
+    "description": "A wet splatter when a coating lands.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 600,
+        "release": 0.25,
+        "volume": 0.3
+      },
+      {
+        "wave": "triangle",
+        "freq": 500,
+        "to": 200,
+        "release": 0.1,
+        "volume": 0.15
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "coat"
+    }
+  ]
+}

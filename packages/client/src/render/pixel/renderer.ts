@@ -69,12 +69,21 @@ export class PixelRenderer implements Renderer {
       | 'u_palette'
       | 'u_time'
       | 'u_haze'
+      | 'u_anim'
       | 'u_stars'
       | 'u_starColor'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
   private lookTex!: WebGLTexture;
+  /** Per material cell: 1 = palette-cycled, 2 = hot (bit flags), from the palette's looks. */
+  private readonly lookFlags = new Uint8Array(256);
+  /** Whether any animated or hot cell is on the map (rescanned every 20 ticks): the background
+   * pass skips cycling and the haze search entirely when nothing needs them (cheap on SwiftShader
+   * and low-end phones). */
+  private anyCycle = false;
+  private anyHot = false;
+  private coating: Uint8Array = new Uint8Array(0);
   /** Dirty bounding box awaiting re-shade: x0, y0, x1, y1 (exclusive); x0 > x1 when clean. */
   private dirty = [0, 0, 0, 0];
   private paletteTex!: WebGLTexture;
@@ -203,6 +212,7 @@ export class PixelRenderer implements Renderer {
       'u_palette',
       'u_time',
       'u_haze',
+      'u_anim',
       'u_stars',
       'u_starColor',
     ]);
@@ -295,6 +305,7 @@ export class PixelRenderer implements Renderer {
       if (l.cell <= 0 || l.cell > 255) continue;
       const n = Math.min(8, l.cycle.length);
       look[l.cell * 4] = n >= 2 ? n : 0;
+      this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0);
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
       look[l.cell * 4 + 2] = l.hot ? 255 : 0;
       for (let i = 0; i < n; i++) {
@@ -414,6 +425,8 @@ export class PixelRenderer implements Renderer {
       gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
     }
     this.terrain = s.terrain;
+    this.coating = s.coating;
+    if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     this.entities = s.entities;
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
@@ -425,6 +438,17 @@ export class PixelRenderer implements Renderer {
     while (this.fxTick < s.tick) this.stepFx();
     for (const e of s.effectEvents) this.fx.handle(e);
     this.updateTrails(s);
+  }
+
+  private scanLooks(): void {
+    const f = this.lookFlags;
+    let any = 0;
+    const t = this.terrain;
+    for (let i = 0; i < t.length; i++) any |= f[t[i]!]!;
+    const c = this.coating;
+    for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
+    this.anyCycle = (any & 1) !== 0;
+    this.anyHot = (any & 2) !== 0;
   }
 
   private stepFx(): void {
@@ -550,7 +574,8 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(this.uBg.u_look, 3);
     gl.uniform1i(this.uBg.u_palette, 4);
     gl.uniform1f(this.uBg.u_time, t);
-    gl.uniform1f(this.uBg.u_haze, distort ? 1 : 0);
+    gl.uniform1f(this.uBg.u_haze, distort && this.anyHot ? 1 : 0);
+    gl.uniform1f(this.uBg.u_anim, this.anyCycle ? 1 : 0);
     gl.uniform1f(
       this.uBg.u_stars,
       th.ambient.kind === 'stars' ? Math.min(0.05, th.ambient.density / 6000) : 0,

@@ -1,0 +1,25 @@
+{
+  "id": "audio.ui-click",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Click",
+    "description": "A tiny tick for buttons.",
+    "since": "core@0.9.0"
+  },
+  "bus": "ui",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 1200,
+        "release": 0.03,
+        "volume": 0.2
+      }
+    ]
+  }
+}

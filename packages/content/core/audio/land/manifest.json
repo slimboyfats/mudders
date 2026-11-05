@@ -1,0 +1,38 @@
+{
+  "id": "audio.land",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Landing",
+    "description": "A soft thud when a tank lands.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 120,
+        "to": 50,
+        "release": 0.12,
+        "volume": 0.5
+      },
+      {
+        "wave": "noise",
+        "freq": 500,
+        "to": 200,
+        "release": 0.08,
+        "volume": 0.25
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "land"
+    }
+  ]
+}

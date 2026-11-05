@@ -1,0 +1,38 @@
+{
+  "id": "audio.implode",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Implosion",
+    "description": "A rising suck as terrain is pulled inward.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 60,
+        "to": 600,
+        "release": 0.5,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 200,
+        "to": 2000,
+        "release": 0.5,
+        "volume": 0.2
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "implode"
+    }
+  ]
+}

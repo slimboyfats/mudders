@@ -311,6 +311,12 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       };
       checkImpacts(w.impact, 'impact');
       checkImpacts(w.pulse, 'pulse');
+      const fire = w.audio?.fire;
+      if (fire && !items[fire]) problems.push(`${id}.audio.fire: "${fire}" is not loaded`);
+    }
+    if (type === 'audio') {
+      const a = item as ManifestByType['audio'];
+      if (!a.synth === !a.module) problems.push(`${id}: needs exactly one of synth or module`);
     }
     if (type === 'mode') {
       const m = item as ManifestByType['mode'];

@@ -73,6 +73,7 @@ export default tseslint.config(
       'packages/client/src/render/**/*.ts',
       'packages/client/src/capture/**/*.ts',
       'packages/client/src/net/**/*.ts',
+      'packages/client/src/audio/**/*.ts',
       'packages/*/src/**/*.test.ts',
     ],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },

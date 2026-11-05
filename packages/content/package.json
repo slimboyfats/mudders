@@ -14,7 +14,8 @@
     "bench": "tsx ../../scripts/vite-run.ts bench/bench.ts",
     "content:validate": "tsx ../../scripts/vite-run.ts scripts/content.ts validate",
     "content:docs": "tsx ../../scripts/vite-run.ts scripts/content.ts docs",
-    "content:new": "tsx ../../scripts/vite-run.ts scripts/content.ts new"
+    "content:new": "tsx ../../scripts/vite-run.ts scripts/content.ts new",
+    "music": "tsx scripts/make-music.ts"
   },
   "dependencies": {
     "@mudders/shared": "workspace:*",

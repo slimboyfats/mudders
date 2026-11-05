@@ -28,6 +28,7 @@ export const CONTENT_TYPES = [
   'ai',
   'prop',
   'theme',
+  'audio',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -43,6 +44,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   ai: 'ai',
   prop: 'props',
   theme: 'themes',
+  audio: 'audio',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -302,6 +304,8 @@ export const WeaponSchema = z.strictObject({
     expectedDamage: z.number().min(0),
     terrainValue: z.number().min(0).max(1),
   }),
+  /** Sounds (cosmetic, client only): `fire` replaces the default shot sound. */
+  audio: z.strictObject({ fire: ref('audio') }).optional(),
 });
 export type WeaponManifest = z.infer<typeof WeaponSchema>;
 
@@ -511,6 +515,92 @@ export const ThemeSchema = z.strictObject({
 });
 export type ThemeManifest = z.infer<typeof ThemeSchema>;
 
+// ── audio ───────────────────────────────────────────────────────────────────────────────────
+
+/** Chip waveforms (§8b): pulse widths 50/25/12.5 %, triangle, saw, LFSR noise (long and short). */
+export const SYNTH_WAVES = [
+  'square',
+  'pulse25',
+  'pulse12',
+  'triangle',
+  'saw',
+  'noise',
+  'metal',
+] as const;
+
+/** One voice of a synth patch: a waveform with a stepped pitch sweep and an envelope. */
+export const SynthVoiceSchema = z.strictObject({
+  wave: z.enum(SYNTH_WAVES),
+  /** Start pitch in Hz (for noise: the LFSR clock divided by 64). */
+  freq: z.number().min(10).max(12_000),
+  /** End pitch in Hz, swept exponentially in 60 Hz steps like a chip; defaults to `freq`. */
+  to: z.number().min(10).max(12_000).optional(),
+  /** Seconds before the voice starts. */
+  delay: z.number().min(0).max(4).default(0),
+  attack: z.number().min(0).max(2).default(0.002),
+  /** Seconds at full volume after the attack. */
+  hold: z.number().min(0).max(8).default(0),
+  /** Seconds to fade to silence. */
+  release: z.number().min(0.005).max(8),
+  volume: z.number().min(0).max(1),
+  /** Arpeggio: semitone offsets cycled every `arpRate` seconds. */
+  arp: z.array(z.number().int().min(-24).max(24)).max(8).optional(),
+  arpRate: z
+    .number()
+    .min(0.01)
+    .max(1)
+    .default(1 / 30),
+  /** Vibrato: rate in Hz and depth in semitones. */
+  vibrato: z
+    .strictObject({ rate: z.number().min(0.1).max(30), depth: z.number().min(0).max(12) })
+    .optional(),
+});
+
+/** What makes a sound play: an effect event type, optionally only for one damage type. */
+export const AudioTriggerSchema = z.strictObject({
+  event: z.string().min(1),
+  damageType: DamageTypeSchema.optional(),
+});
+
+/**
+ * Audio item (§8b): a synth patch (SFX) or a tracker module (music), with its licence. Client only:
+ * the sim never reads audio, so a muted or audio-less peer stays deterministic.
+ */
+export const AudioSchema = z.strictObject({
+  ...base,
+  bus: z.enum(['sfx', 'music', 'ui']),
+  licence: z.strictObject({
+    /** SPDX id, e.g. `CC0-1.0`. */
+    spdx: z.string().min(1),
+    author: z.string().min(1),
+    /** How it was made (tool, generator script, …). */
+    source: z.string().min(1),
+  }),
+  synth: z
+    .strictObject({
+      voices: z.array(SynthVoiceSchema).min(1).max(8),
+      /**
+       * Scale by the event's radius against `ref` cells: bigger is lower and longer. 0 = fixed.
+       */
+      radiusRef: z.number().min(0).max(400).default(0),
+    })
+    .optional(),
+  module: z
+    .strictObject({
+      /** Tracker module next to the manifest (`.mod`, `.xm`, `.s3m`, `.it`). */
+      file: z.string().regex(/^[a-z0-9-]+\.(mod|xm|s3m|it)$/),
+      /** Loop forever (music) or play once (jingles). */
+      loop: z.boolean().default(true),
+    })
+    .optional(),
+  /** Effect events that play this sound (SFX). */
+  on: z.array(AudioTriggerSchema).default([]),
+  /** Minimum seconds between two starts of this sound, so bursts don't stack into noise. */
+  gap: z.number().min(0).max(5).default(0.04),
+});
+export type AudioManifest = z.infer<typeof AudioSchema>;
+export type SynthVoice = z.infer<typeof SynthVoiceSchema>;
+
 // ── packs ───────────────────────────────────────────────────────────────────────────────────
 
 export const PackSchema = z.strictObject({
@@ -534,6 +624,7 @@ export const MANIFEST_SCHEMAS = {
   ai: AiSchema,
   prop: PropSchema,
   theme: ThemeSchema,
+  audio: AudioSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -547,6 +638,7 @@ export interface ManifestByType {
   ai: AiManifest;
   prop: PropManifest;
   theme: ThemeManifest;
+  audio: AudioManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

@@ -1,0 +1,51 @@
+{
+  "id": "audio.hiss",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid hiss",
+    "description": "A long sizzle, for corrosive damage and gas or acid zones.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 6000,
+        "to": 3000,
+        "hold": 0.15,
+        "release": 0.5,
+        "volume": 0.25
+      },
+      {
+        "wave": "pulse12",
+        "freq": 300,
+        "to": 200,
+        "release": 0.4,
+        "volume": 0.1,
+        "vibrato": {
+          "rate": 7,
+          "depth": 0.6
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "flash",
+      "damageType": "corrosive"
+    },
+    {
+      "event": "zone"
+    },
+    {
+      "event": "zoneHurt"
+    }
+  ],
+  "gap": 0.2
+}

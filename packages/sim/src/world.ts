@@ -807,7 +807,10 @@ export class World implements SimApi {
     this.shooter = t.player;
     this.phase = 'resolve';
     this.timer = 0;
-    this.emit('muzzle', Math.floor(x / FP), Math.floor(y / FP), 3, { angle: t.angle });
+    this.emit('muzzle', Math.floor(x / FP), Math.floor(y / FP), 3, {
+      angle: t.angle,
+      weapon: t.weapon,
+    });
   }
 
   // ── turn timer and bots ─────────────────────────────────────────────────────────────────

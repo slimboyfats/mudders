@@ -1,0 +1,48 @@
+{
+  "id": "audio.freeze",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Freeze",
+    "description": "A glassy shimmer and a cold arpeggio, for cold damage.",
+    "since": "core@0.9.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 5000,
+        "to": 3000,
+        "release": 0.5,
+        "volume": 0.3
+      },
+      {
+        "wave": "triangle",
+        "freq": 1600,
+        "to": 800,
+        "release": 0.4,
+        "volume": 0.25,
+        "arp": [0, 7, 12]
+      },
+      {
+        "wave": "noise",
+        "freq": 1200,
+        "to": 200,
+        "release": 0.3,
+        "volume": 0.3
+      }
+    ],
+    "radiusRef": 24
+  },
+  "on": [
+    {
+      "event": "flash",
+      "damageType": "cold"
+    }
+  ]
+}

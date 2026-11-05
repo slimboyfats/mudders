@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import browserslist from 'browserslist';
 import browserslistToEsbuild from 'browserslist-to-esbuild';
@@ -40,6 +42,38 @@ function pwa(): Plugin {
   };
 }
 
+/**
+ * Chiptune module player (§8b): the libopenmpt AudioWorklet from `chiptune3` is served as two plain
+ * files under `audio/` (the worklet imports its neighbour by relative path, so they must keep their
+ * names). Nothing in the main bundle imports them: the client loads them on first music play.
+ */
+const WORKLET_FILES = ['chiptune3.worklet.js', 'libopenmpt.worklet.js'];
+const chiptuneDir = dirname(fileURLToPath(import.meta.resolve('chiptune3/chiptune3.worklet.js')));
+
+function chiptuneWorklet(): Plugin {
+  return {
+    name: 'mudders-chiptune-worklet',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const m = /\/audio\/([a-z0-9.]+\.js)(\?.*)?$/.exec(req.url ?? '');
+        const file = m?.[1];
+        if (!file || !WORKLET_FILES.includes(file)) return next();
+        res.setHeader('Content-Type', 'text/javascript');
+        res.end(readFileSync(resolve(chiptuneDir, file)));
+      });
+    },
+    generateBundle() {
+      for (const f of WORKLET_FILES) {
+        this.emitFile({
+          type: 'asset',
+          fileName: `audio/${f}`,
+          source: readFileSync(resolve(chiptuneDir, f)),
+        });
+      }
+    },
+  };
+}
+
 /** This machine's IPv4 addresses, so a host on `localhost` can hand phones a LAN link. */
 function lanHosts(): string[] {
   const out: string[] = [];
@@ -66,7 +100,7 @@ const signalProxy: Record<string, ProxyOptions> = {
 };
 
 export default defineConfig(({ command }) => ({
-  plugins: [react(), pwa()],
+  plugins: [react(), chiptuneWorklet(), pwa()],
   base: process.env.MUDDERS_BASE ?? '/',
   // LAN addresses go in dev only; a production build must not carry the build machine's IPs
   define: { __MUDDERS_LAN_HOSTS__: JSON.stringify(command === 'serve' ? lanHosts() : []) },

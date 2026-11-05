@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { MAX_PLAYERS } from '@mudders/shared';
+import { setAudioSettings } from './audio/bridge';
 import { loadSettings, type Settings as SettingsT } from './game/settings';
 import { loadSetup, type MapSize, type MatchSetup } from './game/setup';
 import { Settings } from './ui/Settings';
@@ -62,6 +63,14 @@ export function App() {
   const [route, setRoute] = useState<Route>(fromHash);
   const [settings, setSettings] = useState<SettingsT>(loadSettings);
   const [setup, setSetup] = useState<MatchSetup>(loadSetup);
+
+  useEffect(() => {
+    setAudioSettings({
+      music: settings.musicVolume,
+      sfx: settings.sfxVolume,
+      muted: settings.muted,
+    });
+  }, [settings]);
 
   useEffect(() => {
     const on = () => setRoute(fromHash());
