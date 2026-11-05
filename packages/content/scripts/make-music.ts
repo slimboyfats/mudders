@@ -177,7 +177,17 @@ function hat(): Int8Array {
 
 // ── composition helpers ─────────────────────────────────────────────────────────────────────
 
-const S = { lead: 1, chord: 2, bass: 3, kick: 4, snare: 5, hat: 6, thin: 7 } as const;
+const S = {
+  lead: 1,
+  chord: 2,
+  bass: 3,
+  kick: 4,
+  snare: 5,
+  hat: 6,
+  thin: 7,
+  soft: 8,
+  mellow: 9,
+} as const;
 const FX = { arp: 0x0, vib: 0x4, slide: 0xa, vol: 0xc } as const;
 
 /** Write notes `{row: note}` into a channel, sliding the volume down on empty rows. */
@@ -234,19 +244,6 @@ function drums(p: Pattern, chn: number, kicks: number[], snares: number[], hats:
   }
 }
 
-/** Chord stabs: an arpeggiated root (minor/major third + fifth) for two rows, then a fast fade. */
-function stabs(p: Pattern, chn: number, sample: number, chords: Chord[], rows: number[]): void {
-  for (let r = 0; r < 64; r++) p[r]![chn] = { fx: FX.slide, param: 0x08 };
-  chords.forEach((c, i) => {
-    const arp = c.minor ? 0x37 : 0x47;
-    for (const r of rows) {
-      const at = i * 16 + r;
-      p[at]![chn] = { note: transpose(c.root, 12), sample, fx: FX.arp, param: arp };
-      if (at + 1 < 64) p[at + 1]![chn] = { fx: FX.arp, param: arp };
-    }
-  });
-}
-
 /** A continuous chip arpeggio on every row (the classic "chord" sound). */
 function arpBed(p: Pattern, chn: number, sample: number, chords: Chord[]): void {
   chords.forEach((c, i) => {
@@ -272,72 +269,85 @@ function samples(): Sample[] {
     { name: 'snare', data: snare(), volume: 44, loop: false },
     { name: 'hat', data: hat(), volume: 40, loop: false },
     { name: 'pulse 12', data: pulse(32, 0.125, 90), volume: 30, loop: true },
+    // quieter, rounder voices for the ambient battle tune
+    { name: 'soft pulse', data: pulse(32, 0.5, 50), volume: 20, loop: true },
+    { name: 'mellow triangle', data: triangle(32, 110), volume: 40, loop: true },
   ];
 }
 
-/** Battle: driving A minor at ~136 BPM, four patterns. */
+/**
+ * A broken chord, one note every `step` rows (root, fifth, octave, third, ...), each followed two
+ * rows later by a quiet echo of itself: a slow, spacious stand-in for a chord pad.
+ */
+function brokenChord(
+  p: Pattern,
+  chn: number,
+  sample: number,
+  chords: Chord[],
+  rowsPerChord: number,
+  step: number,
+): void {
+  for (let r = 0; r < 64; r++) p[r]![chn] = { fx: FX.slide, param: 0x02 };
+  chords.forEach((c, i) => {
+    const third = c.minor ? 3 : 4;
+    const shape = [12, 19, 24, 12 + third, 19, 24, 12 + third, 19];
+    // voiced from the root's octave-1 copy so the widest shape stays in the MOD's three octaves
+    const base = c.root.endsWith('2') ? transpose(c.root, -12) : c.root;
+    for (let k = 0; k * step < rowsPerChord; k++) {
+      const at = i * rowsPerChord + k * step;
+      if (at >= 64) break;
+      const note = transpose(base, shape[k % shape.length]!);
+      p[at]![chn] = { note, sample, fx: FX.vol, param: 30 };
+      if (at + 2 < 64 && step > 2) p[at + 2]![chn] = { note, sample, fx: FX.vol, param: 10 };
+    }
+  });
+}
+
+/**
+ * Battle: a tense, ambient A minor at ~84 BPM. Long triangle bass notes, a soft broken-chord pad
+ * with echoes, a sparse vibrato lead and only distant thuds for drums, so it sits under the
+ * explosions instead of competing with them.
+ */
 function battle(): Uint8Array {
   const Am = ch('A-1', true);
   const F = ch('F-1', false);
+  const Dm = ch('D-2', true);
+  const E = ch('E-1', false);
   const C = ch('C-2', false);
   const G = ch('G-1', false);
-  const E = ch('E-1', false);
-  const sets: [Chord[], Record<number, string>, 'full' | 'break'][] = [
-    [
-      [Am, F, C, G],
-      bars(
-        { 0: 'A-2', 3: 'C-3', 6: 'E-3', 8: 'D-3', 10: 'C-3', 12: 'B-2', 14: 'C-3' },
-        { 0: 'A-2', 6: 'F-2', 8: 'A-2', 10: 'C-3', 12: 'A-2' },
-        { 0: 'G-2', 3: 'E-2', 6: 'G-2', 8: 'C-3', 12: 'E-3', 14: 'D-3' },
-        { 0: 'D-3', 4: 'B-2', 8: 'G-2', 12: 'A-2', 14: 'B-2' },
-      ),
-      'full',
-    ],
-    [
-      [Am, F, G, E],
-      bars(
-        { 0: 'E-3', 2: 'E-3', 4: 'D-3', 6: 'C-3', 8: 'D-3', 10: 'E-3', 12: 'A-3', 14: 'G-3' },
-        { 0: 'F-3', 4: 'E-3', 6: 'C-3', 8: 'A-2', 12: 'C-3' },
-        { 0: 'D-3', 2: 'D-3', 4: 'B-2', 6: 'G-2', 8: 'B-2', 10: 'D-3', 12: 'G-3', 14: 'F-3' },
-        { 0: 'E-3', 6: 'G#2', 8: 'B-2', 12: 'E-3' },
-      ),
-      'full',
-    ],
-    [
-      [F, G, Am, Am],
-      bars({ 0: 'C-3' }, { 0: 'D-3' }, { 0: 'E-3', 12: 'C-3' }, { 0: 'A-2' }),
-      'break',
-    ],
-    [
-      [F, G, E, Am],
-      bars(
-        { 0: 'A-2', 2: 'C-3', 4: 'F-3', 6: 'E-3', 8: 'C-3', 10: 'A-2', 12: 'C-3', 14: 'D-3' },
-        { 0: 'B-2', 2: 'D-3', 4: 'G-3', 6: 'F-3', 8: 'D-3', 10: 'B-2', 12: 'D-3', 14: 'E-3' },
-        { 0: 'G#2', 2: 'B-2', 4: 'E-3', 6: 'G#3', 8: 'B-3', 12: 'G#3', 14: 'E-3' },
-        { 0: 'A-3', 8: 'E-3', 12: 'C-3', 14: 'B-2' },
-      ),
-      'full',
-    ],
+  const Bb = ch('A#1', false);
+  // [two chords per pattern (32 rows each), lead, drums on?]
+  const sets: [Chord[], Record<number, string>, 'thud' | 'still' | 'pulse'][] = [
+    [[Am, F], { 8: 'E-3', 24: 'C-3', 40: 'A-2', 52: 'C-3' }, 'still'],
+    [[Dm, E], { 4: 'F-3', 20: 'E-3', 36: 'G#2', 48: 'B-2', 60: 'E-3' }, 'thud'],
+    [[Am, Bb], { 0: 'A-3', 16: 'G-3', 32: 'F-3', 44: 'D-3' }, 'pulse'],
+    [[C, G], { 8: 'E-3', 24: 'D-3', 40: 'B-2', 56: 'D-3' }, 'thud'],
+    [[F, E], { 0: 'C-3', 12: 'A-2', 32: 'B-2', 48: 'G#2' }, 'pulse'],
   ];
   const patterns = sets.map(([chords, lead, kind]) => {
     const p = emptyPattern();
-    if (kind === 'full') {
-      voice(p, 0, S.bass, bassLine(chords, [0, 3, 6, 8, 11, 14]), 0x04);
-      stabs(p, 1, S.chord, chords, [2, 6, 10, 14]);
-      voice(p, 2, S.lead, lead, 0x01);
-      drums(p, 3, [0, 8, 10], [4, 12], [2, 6, 14]);
-    } else {
-      voice(p, 0, S.bass, bassLine(chords, [0, 8]), 0x01);
-      arpBed(p, 1, S.thin, chords);
-      voice(p, 2, S.lead, lead, 0, (r) => (lead[r] ? undefined : { fx: FX.vib, param: 0x43 }));
-      drums(p, 3, [0], [], [8]);
+    const bass: Record<number, string> = {};
+    chords.forEach((c, i) => {
+      bass[i * 32] = c.root;
+      bass[i * 32 + 24] = transpose(c.root, 12);
+    });
+    voice(p, 0, S.bass, bass, 0x01);
+    brokenChord(p, 1, S.mellow, chords, 32, 4);
+    voice(p, 2, S.soft, lead, 0, (r) => (lead[r] ? undefined : { fx: FX.vib, param: 0x23 }));
+    // distant artillery: a low, slowed-down kick; soft ticks in the "pulse" sections
+    for (let r = 0; r < 64; r++) {
+      if (kind !== 'still' && r % 32 === 0) p[r]![3] = { note: 'F-1', sample: S.kick };
+      else if (kind === 'thud' && r % 32 === 22)
+        p[r]![3] = { note: 'D-1', sample: S.kick, fx: FX.vol, param: 28 };
+      else if (kind === 'pulse' && r % 8 === 4)
+        p[r]![3] = { note: 'C-2', sample: S.hat, fx: FX.vol, param: r % 16 === 4 ? 14 : 8 };
     }
-    // tempo on the very first row: speed 6, 136 BPM
     return p;
   });
+  // tempo on the very first row: speed 6, 84 BPM
   patterns[0]![0]![3] = { ...patterns[0]![0]![3], fx: 0xf, param: 6 };
-  patterns[0]![1]![3] = { fx: 0xf, param: 136 };
-  return writeMod('mudders battle', samples(), patterns, [0, 1, 0, 2, 3, 1]);
+  patterns[0]![1]![3] = { fx: 0xf, param: 84 };
+  return writeMod('mudders battle', samples(), patterns, [0, 1, 2, 3, 0, 1, 4, 3]);
 }
 
 /** Title: an unhurried arpeggio bed in A minor at ~100 BPM, two patterns. */
