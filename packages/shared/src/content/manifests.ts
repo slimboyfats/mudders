@@ -347,8 +347,24 @@ export const PropSchema = z.strictObject({
       z.strictObject({
         name: z.string().min(1),
         roles: z.array(z.string().min(1)).min(1),
-        /** Damage pool: one cell an op tries to remove costs 1 (scaled by `resistance`). */
-        integrity: z.number().int().min(1).max(100_000),
+        /**
+         * How the group holds together. `whole`: hits drain `integrity` and are undone until it
+         * runs out, then the whole group breaks at once. `local`: glued only until hit; a hit
+         * frees the cells it touched plus `loosen` cells around them (as `breakInto`), and any
+         * piece no longer joined to the ground comes loose and falls.
+         */
+        glue: z.enum(['whole', 'local']).default('whole'),
+        /** `local` glue: how far around a hit the glue gives way, in cells. */
+        loosen: z.number().int().min(0).max(8).default(2),
+        /**
+         * `local` glue: the group shields what is behind it. A blast's reach stops once its line
+         * from the blast centre has crossed this many of the group's cells, so ground and tanks
+         * behind or under thick rock are untouched (the rock itself still chips where hit).
+         * 0 = no shield.
+         */
+        shield: z.number().int().min(0).max(64).default(0),
+        /** Damage pool (`whole` glue): one cell an op tries to remove costs 1, scaled by `resistance`. */
+        integrity: z.number().int().min(1).max(100_000).default(100),
         /** Per damage type, on top of the materials' own strength; 2 = takes half damage. */
         resistance: z.partialRecord(DamageTypeSchema, z.number().min(0.05).max(64)).default({}),
         /** Material → what it turns into when the group breaks; unlisted cells just come loose. */
@@ -367,8 +383,26 @@ export const PropSchema = z.strictObject({
       maxSlope: z.number().int().min(0).max(64).default(6),
       /** Free columns kept between the prop and a tank spawn. */
       clearance: z.number().int().min(0).max(400).default(24),
+      /**
+       * Passes of random edge wear (cells chipped off the outline, bumps added on top), so every
+       * copy on a map looks a little different. 0 stamps the shape exactly.
+       */
+      roughen: z.number().int().min(0).max(6).default(0),
+      /** Placed facing either way, at random. */
+      mirror: z.boolean().default(false),
+      /**
+       * A tank may stand under it: generator placement may put it over a spawn (the tank in an
+       * opening at least 16 rows tall), and tanks start on the ground beneath it, not on top.
+       */
+      shelter: z.boolean().default(false),
+      /**
+       * Rows the prop's root (its left end, or right when mirrored) is sunk into a hillside that
+       * falls away under the rest, so it juts out of the slope half buried. 0 = it stands level on
+       * the ground. `maxSlope` is then ignored.
+       */
+      embed: z.number().int().min(0).max(48).default(0),
     })
-    .default({ maxSlope: 6, clearance: 24 }),
+    .default({ maxSlope: 6, clearance: 24, roughen: 0, mirror: false, shelter: false, embed: 0 }),
 });
 export type PropManifest = z.infer<typeof PropSchema>;
 

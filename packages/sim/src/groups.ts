@@ -8,8 +8,16 @@ import type { Prng } from './prng';
 /** Group slots per map; slot 0 means "no group". */
 export const MAX_GROUPS = 255;
 
+/** A shelter's opening: free rows above the ground, and half its width around a tank spawn. */
+export const SHELTER_ROWS = 16;
+export const SHELTER_HALF = 10;
+
 /** A prop's group compiled to lookup tables. */
 interface GroupDef {
+  /** `local` glue: hits free cells where they land instead of draining integrity. */
+  local: boolean;
+  loosen: number;
+  shield: number;
   integrity: number;
   /** ×256 per damage type. */
   resist: Uint16Array;
@@ -31,6 +39,14 @@ interface CompiledProp {
   supports: number[][];
   maxSlope: number;
   clearance: number;
+  embed: number;
+  roughen: number;
+  mirror: boolean;
+  shelter: boolean;
+  /** Per shape column: 1 when its bottom SHELTER_ROWS rows are empty (a tank fits under). */
+  open: Uint8Array;
+  /** Middle of the widest opening a tank fits in, or -1. */
+  openMid: number;
 }
 
 /** Order-free hash for which cells crack first. */
@@ -76,6 +92,23 @@ export class Groups {
   readonly pending = new Int32Array(MAX_GROUPS + 1);
   /** Rows a dropping group has fallen so far. */
   readonly fallen = new Int32Array(MAX_GROUPS + 1);
+  /** `local` groups whose hold on the ground must be checked again while things settle. */
+  readonly recheck = new Uint8Array(MAX_GROUPS + 1);
+  /** Flood-fill scratch for `local` groups, sized to the grid on first use. */
+  private mark = new Uint8Array(0);
+  private queue = new Int32Array(0);
+  /** Pre-op copy of the cells around a blast while a shield is up (see `shieldBegin`). */
+  private snapMat = new Uint8Array(0);
+  private snapCoat = new Uint8Array(0);
+  private snapState = new Uint8Array(0);
+  private snapGroup = new Uint8Array(0);
+  private shieldOn = false;
+  private sx = 0;
+  private sy = 0;
+  private sx0 = 0;
+  private sy0 = 0;
+  private sx1 = -1;
+  private sy1 = -1;
   private readonly def: GroupDef[] = [];
   private readonly props: CompiledProp[] = [];
   private readonly propIndex: Record<string, number> = {};
@@ -106,6 +139,12 @@ export class Groups {
     this.broken.fill(0);
     this.stage.fill(0);
     this.fallen.fill(0);
+    this.recheck.fill(0);
+  }
+
+  /** True for a slot whose glue is `local` (its cells may be knocked loose one by one). */
+  isLocal(slot: number): boolean {
+    return this.def[slot]?.local === true;
   }
 
   private compile(p: PropManifest): CompiledProp {
@@ -143,7 +182,15 @@ export class Groups {
       for (const [from, to] of Object.entries(g.breakInto)) breakInto[ref(from)] = ref(to);
       const crack = new Uint8Array(256).fill(KEEP);
       for (const [from, to] of Object.entries(g.crack)) crack[ref(from)] = ref(to);
-      return { integrity: g.integrity, resist, breakInto, crack };
+      return {
+        local: g.glue === 'local',
+        loosen: g.loosen,
+        shield: g.glue === 'local' ? g.shield : 0,
+        integrity: g.integrity,
+        resist,
+        breakInto,
+        crack,
+      };
     });
     const names = p.groups.map((g) => g.name);
     const supports = p.groups.map((g) =>
@@ -153,6 +200,24 @@ export class Groups {
         return k;
       }),
     );
+    const open = new Uint8Array(width);
+    let openMid = -1;
+    let best = 2 * SHELTER_HALF;
+    for (let x = 0, run = 0; x <= width; x++) {
+      let free = x < width && height >= SHELTER_ROWS;
+      for (let y = height - SHELTER_ROWS; free && y < height; y++)
+        if (mat[y * width + x] !== 0) free = false;
+      if (free) {
+        open[x] = 1;
+        run++;
+        continue;
+      }
+      if (run > best) {
+        best = run;
+        openMid = x - run + (run >> 1);
+      }
+      run = 0;
+    }
     return {
       id: p.id,
       width,
@@ -163,6 +228,12 @@ export class Groups {
       supports,
       maxSlope: p.placement.maxSlope,
       clearance: p.placement.clearance,
+      embed: p.placement.embed,
+      roughen: p.placement.roughen,
+      mirror: p.placement.mirror,
+      shelter: p.placement.shelter,
+      open,
+      openMid,
     };
   }
 
@@ -175,6 +246,7 @@ export class Groups {
   place(grid: Grid, rng: Prng, list: readonly GenProp[], spawns: readonly number[]): void {
     const taken: number[] = [];
     for (const s of spawns) taken.push(s - 12, s + 12);
+    const covered = new Uint8Array(spawns.length);
     for (const entry of list) {
       const k = this.propIndex[entry.prop];
       if (k === undefined) throw new Error(`unknown prop ${entry.prop}`);
@@ -186,13 +258,24 @@ export class Groups {
       let prev = -1;
       for (let c = 0; c < n; c++) {
         for (let attempt = 0; attempt < 24; attempt++) {
-          const x =
-            entry.cluster && prev >= 0 && attempt < 12
-              ? prev + (rng.chance(1, 2) ? 1 : -1) * (p.width + rng.range(2, 10))
-              : rng.range(4, grid.width - p.width - 4);
+          const flip = p.mirror && rng.chance(1, 2);
+          let x: number;
+          if (p.shelter && p.openMid >= 0 && attempt < 8 && spawns.length > 0) {
+            // shelters first try to stand over a tank that has none yet
+            const k = rng.int(spawns.length);
+            if (covered[k] !== 0) continue;
+            x = spawns[k]! - (flip ? p.width - 1 - p.openMid : p.openMid);
+          } else {
+            x =
+              entry.cluster && prev >= 0 && attempt < 12
+                ? prev + (rng.chance(1, 2) ? 1 : -1) * (p.width + rng.range(2, 10))
+                : rng.range(4, grid.width - p.width - 4);
+          }
           if (x < 4 || x + p.width > grid.width - 4) continue;
-          if (!this.fits(grid, p, x, taken)) continue;
-          this.stamp(grid, p, x);
+          if (!this.fits(grid, p, x, taken, spawns.length, flip)) continue;
+          this.stamp(grid, p, x, flip, rng);
+          for (let k = 0; k < spawns.length; k++)
+            if (spawns[k]! >= x && spawns[k]! < x + p.width) covered[k] = 1;
           taken.push(x - 2, x + p.width + 2);
           prev = x;
           break;
@@ -201,19 +284,62 @@ export class Groups {
     }
   }
 
-  /** Stamp one prop with its left edge at column x (scenario showcases). */
-  placeAt(grid: Grid, id: string, x: number): void {
+  /**
+   * Stamp one prop centred on column x (scenario showcases); a shelter's opening goes over x. With `rng` a `mirror`/`roughen`
+   * prop is varied as on a generated map; without it the shape goes down exactly as drawn.
+   */
+  placeAt(grid: Grid, id: string, x: number, rng?: Prng): void {
     const k = this.propIndex[id];
     if (k === undefined) throw new Error(`unknown prop ${id}`);
     const p = this.props[k]!;
-    this.stamp(grid, p, Math.max(0, Math.min(grid.width - p.width, x - (p.width >> 1))));
+    // an embedded prop always roots in the higher side of the slope; others face either way
+    const flip =
+      p.embed > 0
+        ? p.mirror && grid.surfaceY(x - (p.width >> 1)) > grid.surfaceY(x + (p.width >> 1))
+        : rng !== undefined && p.mirror && rng.chance(1, 2);
+    // a shelter goes with its opening over x (where the scenario puts the tank)
+    const mid =
+      p.shelter && p.openMid >= 0 ? (flip ? p.width - 1 - p.openMid : p.openMid) : p.width >> 1;
+    const x0 = Math.max(0, Math.min(grid.width - p.width, x - mid));
+    this.stamp(grid, p, x0, flip, rng);
   }
 
-  private fits(grid: Grid, p: CompiledProp, x: number, taken: readonly number[]): boolean {
+  /**
+   * Room for the prop at column x: clear of other props, on gentle enough ground. The first
+   * `nSpawns` taken spans are tank spawns; a shelter may cover one if the tank fits its opening.
+   */
+  private fits(
+    grid: Grid,
+    p: CompiledProp,
+    x: number,
+    taken: readonly number[],
+    nSpawns: number,
+    flip: boolean,
+  ): boolean {
     for (let i = 0; i < taken.length; i += 2) {
+      if (p.shelter && i < nSpawns * 2) {
+        const s = (taken[i]! + taken[i + 1]!) >> 1;
+        if (s + SHELTER_HALF < x || s - SHELTER_HALF >= x + p.width) continue;
+        for (let c = s - SHELTER_HALF; c <= s + SHELTER_HALF; c++) {
+          const sx = flip ? x + p.width - 1 - c : c - x;
+          if (sx < 0 || sx >= p.width || p.open[sx] === 0) return false;
+        }
+        continue;
+      }
       const a = taken[i]! - p.clearance;
       const b = taken[i + 1]! + p.clearance;
       if (x + p.width > a && x < b) return false;
+    }
+    if (p.embed > 0) {
+      // the root end sits in the slope; the ground must fall away under the far end by at least
+      // the prop's visible height, and no hill may stand above the prop's top
+      const rootY = Groups.rootGround(grid, p, x, flip);
+      const farY = grid.surfaceY(flip ? x : x + p.width - 1);
+      const topY = rootY + p.embed - p.height;
+      if (farY - rootY < p.height - p.embed + 4 || topY < 8 || rootY + p.embed >= grid.height - 4)
+        return false;
+      for (let c = x; c < x + p.width; c++) if (grid.surfaceY(c) <= topY + 2) return false;
+      return true;
     }
     let top = grid.height;
     let bottom = 0;
@@ -225,17 +351,108 @@ export class Groups {
     return bottom - top <= p.maxSlope && top - p.height > 8 && bottom < grid.height - 4;
   }
 
-  private stamp(grid: Grid, p: CompiledProp, x0: number): void {
+  /** Lowest ground under the root third of an embedded prop (left third, or right when flipped). */
+  private static rootGround(grid: Grid, p: CompiledProp, x0: number, flip: boolean): number {
+    let low = 0;
+    const third = Math.max(1, Math.floor(p.width / 3));
+    for (let k = 0; k < third; k++) {
+      const sy = grid.surfaceY(flip ? x0 + p.width - 1 - k : x0 + k);
+      if (sy > low) low = sy;
+    }
+    return low;
+  }
+
+  /** The shape as this copy will be stamped: mirrored and worn per the prop's placement. */
+  private variant(p: CompiledProp, flip: boolean, rng: Prng | undefined): [Uint8Array, Uint8Array] {
+    const w = p.width;
+    const ht = p.height;
+    if (!flip && (rng === undefined || p.roughen === 0)) return [p.mat, p.grp];
+    const mat = new Uint8Array(w * ht);
+    const grp = new Uint8Array(w * ht);
+    for (let y = 0; y < ht; y++) {
+      for (let x = 0; x < w; x++) {
+        const from = y * w + (flip ? w - 1 - x : x);
+        mat[y * w + x] = p.mat[from]!;
+        grp[y * w + x] = p.grp[from]!;
+      }
+    }
+    if (rng === undefined || p.roughen === 0) return [mat, grp];
+    const mark = new Uint8Array(w * ht);
+    for (let pass = 0; pass < p.roughen; pass++) {
+      mark.fill(0);
+      // the bottom row is the footing and stays; above it outline cells chip off, and bumps
+      // grow on top of solid cells (never under an overhang, so openings only get bigger)
+      for (let y = 0; y < ht - 1; y++) {
+        for (let x = 0, i = y * w; x < w; x++, i++) {
+          if (mat[i] !== 0) {
+            const edge =
+              x === 0 ||
+              x === w - 1 ||
+              y === 0 ||
+              mat[i - 1] === 0 ||
+              mat[i + 1] === 0 ||
+              mat[i - w] === 0 ||
+              mat[i + w] === 0;
+            if (edge && rng.chance(1, 4)) mark[i] = 1;
+          } else if (
+            x > 0 &&
+            x < w - 1 &&
+            mat[i + w] !== 0 &&
+            mat[i + w - 1] !== 0 &&
+            mat[i + w + 1] !== 0 &&
+            rng.chance(1, 5)
+          ) {
+            mark[i] = 2;
+          }
+        }
+      }
+      for (let i = 0; i < w * ht; i++) {
+        if (mark[i] === 1) {
+          mat[i] = 0;
+          grp[i] = 0;
+        } else if (mark[i] === 2) {
+          mat[i] = mat[i + w]!;
+          grp[i] = grp[i + w]!;
+        }
+      }
+    }
+    // no crumbs or needles: a cell with air on both sides and above goes (twice, top down, so
+    // two-cell spikes go too), as does one with nothing under it either
+    for (let k = 0; k < 2; k++) {
+      for (let y = 0; y < ht - 1; y++) {
+        for (let x = 0, i = y * w; x < w; x++, i++) {
+          if (mat[i] === 0) continue;
+          const l = x > 0 ? mat[i - 1]! : 0;
+          const r = x < w - 1 ? mat[i + 1]! : 0;
+          const u = y > 0 ? mat[i - w]! : 0;
+          if (l === 0 && r === 0 && u === 0) {
+            mat[i] = 0;
+            grp[i] = 0;
+          }
+        }
+      }
+    }
+    return [mat, grp];
+  }
+
+  private stamp(grid: Grid, p: CompiledProp, x0: number, flip = false, rng?: Prng): void {
     const W = grid.width;
     const slot0 = this.count;
     if (slot0 + p.groups.length > MAX_GROUPS) return;
+    const [shapeMat, shapeGrp] = this.variant(p, flip, rng);
     // the base row sits at the footprint's median ground height: columns lower than that get a
     // foundation of whatever tops them, higher ones are cut back, so the prop sits level
-    const heights: number[] = [];
-    for (let c = x0; c < x0 + p.width; c++) heights.push(grid.surfaceY(c));
-    heights.sort((a, b) => a - b);
-    const base = heights[heights.length >> 1]!;
-    for (let c = x0; c < x0 + p.width; c++) {
+    let base: number;
+    if (p.embed > 0) {
+      // jutting out of a slope: the root end goes `embed` rows into the ground, nothing is levelled
+      base = Groups.rootGround(grid, p, x0, flip) + p.embed;
+    } else {
+      const heights: number[] = [];
+      for (let c = x0; c < x0 + p.width; c++) heights.push(grid.surfaceY(c));
+      heights.sort((a, b) => a - b);
+      base = heights[heights.length >> 1]!;
+    }
+    for (let c = x0; c < x0 + p.width && p.embed === 0; c++) {
       const s = grid.surfaceY(c);
       if (s < base) {
         for (let y = s; y < base; y++) grid.clearCell(y * W + c);
@@ -258,6 +475,7 @@ export class Groups {
       this.broken[slot] = 0;
       this.pending[slot] = 0;
       this.fallen[slot] = 0;
+      this.recheck[slot] = 0;
       const sup = p.supports[k]!;
       for (let s = 0; s < 4; s++)
         this.support[slot * 4 + s] = s < sup.length ? slot0 + sup[s]! + 1 : 0;
@@ -268,14 +486,14 @@ export class Groups {
       const gy = top + y;
       if (gy < 0) continue;
       for (let x = 0; x < p.width; x++) {
-        const m = p.mat[y * p.width + x]!;
+        const m = shapeMat[y * p.width + x]!;
         if (m === 0) continue;
         const gx = x0 + x;
         const i = gy * W + gx;
         grid.material[i] = m;
         grid.coating[i] = 0;
         grid.cellState[i] = 0;
-        const gk = p.grp[y * p.width + x]!;
+        const gk = shapeGrp[y * p.width + x]!;
         if (gk === 0) {
           grid.group[i] = 0;
           continue;
@@ -318,6 +536,10 @@ export class Groups {
     const act = this.mats.active;
     for (let g = 1; g <= this.count; g++) {
       if (this.broken[g] !== 0) continue;
+      if (this.def[g]!.local) {
+        this.guardLocal(grid, g, x0, y0, x1, y1, fx);
+        continue;
+      }
       let hits = this.pending[g]!;
       this.pending[g] = 0;
       const gx0 = Math.max(x0, this.minX[g]!);
@@ -364,6 +586,307 @@ export class Groups {
       this.crack(grid, g, fx);
     }
     this.absorbLosses(grid, fx);
+  }
+
+  /**
+   * `local` glue after an op: cells it changed leave the group and keep what the op did; group
+   * cells within `loosen` of them come loose as `breakInto`; then whatever is no longer joined
+   * to the ground falls. An op that only touched the ground nearby (undermining) still triggers
+   * the check.
+   */
+  private guardLocal(
+    grid: Grid,
+    g: number,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    fx: EffectSink,
+  ): void {
+    this.pending[g] = 0;
+    const gx0 = Math.max(x0, this.minX[g]! - 1);
+    const gx1 = Math.min(x1, this.maxX[g]! + 1);
+    const gy0 = Math.max(y0, this.minY[g]! - 1);
+    const gy1 = Math.min(y1, this.maxY[g]! + 1);
+    if (gx0 > gx1 || gy0 > gy1) return;
+    const W = grid.width;
+    const mat = grid.material;
+    const group = grid.group;
+    const want = grid.groupMat;
+    this.ensureScratch(grid);
+    const q = this.queue;
+    let n = 0;
+    for (let y = gy0; y <= gy1; y++) {
+      for (let x = gx0, i = y * W + gx0; x <= gx1; x++, i++) {
+        if (group[i] !== g || mat[i] === want[i]) continue;
+        group[i] = 0;
+        q[n++] = i;
+      }
+    }
+    this.cells[g] = this.cells[g]! - n;
+    const r = this.def[g]!.loosen;
+    const into = this.def[g]!.breakInto;
+    let freed = n;
+    if (n > 0 && r > 0) {
+      for (let k = 0; k < n; k++) {
+        const i = q[k]!;
+        const cx = i % W;
+        const cy = (i - cx) / W;
+        for (let y = Math.max(0, cy - r); y <= Math.min(grid.height - 1, cy + r); y++) {
+          for (let x = Math.max(0, cx - r), j = y * W + x; x <= Math.min(W - 1, cx + r); x++, j++) {
+            if (group[j] !== g) continue;
+            this.release(grid, j, into);
+            freed++;
+          }
+        }
+      }
+      grid.markDirty(gx0 - r, gy0 - r, gx1 + r, gy1 + r);
+    }
+    if (freed > 0) fx.emit('creak', (gx0 + gx1) >> 1, (gy0 + gy1) >> 1, 4, { cells: freed });
+    this.recheck[g] = 1;
+    this.holdOn(grid, g, fx);
+  }
+
+  private ensureScratch(grid: Grid): void {
+    if (this.mark.length === grid.size) return;
+    this.mark = new Uint8Array(grid.size);
+    this.queue = new Int32Array(grid.size);
+    this.snapMat = new Uint8Array(grid.size);
+    this.snapCoat = new Uint8Array(grid.size);
+    this.snapState = new Uint8Array(grid.size);
+    this.snapGroup = new Uint8Array(grid.size);
+  }
+
+  // ── shields ───────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Before an op call centred on (cx, cy) with reach `r`: if an intact shielding group is in
+   * reach, copy the cells around so `shieldEnd` can put back whatever the rock hid. Returns
+   * whether a shield is up.
+   */
+  shieldBegin(grid: Grid, cx: number, cy: number, r: number): boolean {
+    this.shieldOn = false;
+    const x0 = Math.max(0, cx - r - 1);
+    const x1 = Math.min(grid.width - 1, cx + r + 1);
+    const y0 = Math.max(0, cy - r - 1);
+    const y1 = Math.min(grid.height - 1, cy + r + 1);
+    let any = false;
+    for (let g = 1; g <= this.count && !any; g++) {
+      if (this.broken[g] !== 0 || this.def[g]!.shield === 0) continue;
+      any =
+        this.minX[g]! <= x1 && this.maxX[g]! >= x0 && this.minY[g]! <= y1 && this.maxY[g]! >= y0;
+    }
+    if (!any || x1 < x0 || y1 < y0) return false;
+    this.ensureScratch(grid);
+    const W = grid.width;
+    for (let y = y0; y <= y1; y++) {
+      const a = y * W + x0;
+      const b = y * W + x1 + 1;
+      this.snapMat.set(grid.material.subarray(a, b), a);
+      this.snapCoat.set(grid.coating.subarray(a, b), a);
+      this.snapState.set(grid.cellState.subarray(a, b), a);
+      this.snapGroup.set(grid.group.subarray(a, b), a);
+    }
+    this.shieldOn = true;
+    this.sx = cx;
+    this.sy = cy;
+    this.sx0 = x0;
+    this.sy0 = y0;
+    this.sx1 = x1;
+    this.sy1 = y1;
+    return true;
+  }
+
+  /**
+   * Shield cells crossed on the straight line from (ax, ay) to (bx, by), ends excluded, stopping
+   * once a crossed group's `shield` depth is reached. `pre` reads the pre-op copy.
+   */
+  private blocked(
+    grid: Grid,
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    pre: boolean,
+  ): boolean {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const n = Math.max(dx < 0 ? -dx : dx, dy < 0 ? -dy : dy);
+    if (n < 2) return false;
+    const W = grid.width;
+    const group = pre ? this.snapGroup : grid.group;
+    let crossed = 0;
+    for (let k = 1; k < n; k++) {
+      const x = ax + Math.floor((dx * k * 2 + n) / (2 * n));
+      const y = ay + Math.floor((dy * k * 2 + n) / (2 * n));
+      const g = group[y * W + x]!;
+      if (g === 0 || this.broken[g] !== 0) continue;
+      const depth = this.def[g]!.shield;
+      if (depth === 0) continue;
+      if (++crossed >= depth) return true;
+    }
+    return false;
+  }
+
+  /** During a shielded op: may the cell at index i be launched? */
+  shields(grid: Grid, i: number): boolean {
+    if (!this.shieldOn) return false;
+    const x = i % grid.width;
+    const y = (i - x) / grid.width;
+    if (x < this.sx0 || x > this.sx1 || y < this.sy0 || y > this.sy1) return false;
+    return this.underRock(grid, x, y) || this.blocked(grid, this.sx, this.sy, x, y, true);
+  }
+
+  /**
+   * A shielding group's footing: a non-group cell with the group's rock within `shield` rows
+   * above it, which no blast may dig out (the rock stands on it; a blast can't undercut it).
+   */
+  private underRock(grid: Grid, x: number, y: number): boolean {
+    const W = grid.width;
+    const sg = this.snapGroup;
+    if (sg[y * W + x] !== 0) return false;
+    for (let k = 1; k <= 8 && y - k >= 0; k++) {
+      const g = sg[(y - k) * W + x]!;
+      if (g === 0 || this.broken[g] !== 0) continue;
+      if (this.def[g]!.shield !== 0 && k <= this.def[g]!.shield) return true;
+    }
+    return false;
+  }
+
+  /** After a shielded op: undo whatever it did to cells the rock hid from the blast. */
+  shieldEnd(grid: Grid): void {
+    if (!this.shieldOn) return;
+    this.shieldOn = false;
+    const W = grid.width;
+    const mat = grid.material;
+    let n = 0;
+    for (let y = this.sy0; y <= this.sy1; y++) {
+      for (let x = this.sx0, i = y * W + x; x <= this.sx1; x++, i++) {
+        if (mat[i] === this.snapMat[i] && grid.coating[i] === this.snapCoat[i]) continue;
+        if (!this.underRock(grid, x, y) && !this.blocked(grid, this.sx, this.sy, x, y, true))
+          continue;
+        mat[i] = this.snapMat[i]!;
+        grid.coating[i] = this.snapCoat[i]!;
+        grid.cellState[i] = this.snapState[i]!;
+        grid.fallVel[i] = 0;
+        grid.group[i] = this.snapGroup[i]!;
+        n++;
+      }
+    }
+    if (n > 0)
+      grid.addRenderRect(this.sx0, this.sy0, this.sx1 - this.sx0 + 1, this.sy1 - this.sy0 + 1);
+  }
+
+  /** Is the line from a blast at (ax, ay) to (bx, by) behind enough intact rock to stop it? */
+  shelters(grid: Grid, ax: number, ay: number, bx: number, by: number): boolean {
+    if (this.count === 0) return false;
+    return this.blocked(grid, ax, ay, bx, by, false);
+  }
+
+  /** One cell of a `local` group comes loose. */
+  private release(grid: Grid, i: number, into: Uint8Array): void {
+    grid.group[i] = 0;
+    const b = into[grid.material[i]!]!;
+    if (b !== KEEP) {
+      grid.material[i] = b;
+      if (b === 0) grid.coating[i] = 0;
+      grid.cellState[i] = 0;
+    }
+  }
+
+  /**
+   * `local` glue: flood the group from the cells that hold on to something (anything solid right
+   * under them, or a static cell or another group beside or above them); every group cell the
+   * flood doesn't reach comes loose and falls as `breakInto`.
+   */
+  private holdOn(grid: Grid, g: number, fx: EffectSink): void {
+    const x0 = this.minX[g]!;
+    const x1 = this.maxX[g]!;
+    const y0 = this.minY[g]!;
+    const y1 = this.maxY[g]!;
+    if (x1 < x0) return;
+    this.ensureScratch(grid);
+    const W = grid.width;
+    const H = grid.height;
+    const mat = grid.material;
+    const group = grid.group;
+    const kind = this.mats.settle;
+    const mark = this.mark;
+    const q = this.queue;
+    let head = 0;
+    let tail = 0;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+        if (group[i] !== g) continue;
+        const below = y === H - 1 || (mat[i + W] !== 0 && group[i + W] !== g);
+        if (
+          below ||
+          (x > 0 && Groups.holds(mat, group, kind, g, i - 1)) ||
+          (x < W - 1 && Groups.holds(mat, group, kind, g, i + 1)) ||
+          (y > 0 && Groups.holds(mat, group, kind, g, i - W))
+        ) {
+          mark[i] = 1;
+          q[tail++] = i;
+        }
+      }
+    }
+    while (head < tail) {
+      const i = q[head++]!;
+      const x = i % W;
+      if (x > 0 && group[i - 1] === g && mark[i - 1] === 0) {
+        mark[i - 1] = 1;
+        q[tail++] = i - 1;
+      }
+      if (x < W - 1 && group[i + 1] === g && mark[i + 1] === 0) {
+        mark[i + 1] = 1;
+        q[tail++] = i + 1;
+      }
+      if (i >= W && group[i - W] === g && mark[i - W] === 0) {
+        mark[i - W] = 1;
+        q[tail++] = i - W;
+      }
+      if (i + W < W * H && group[i + W] === g && mark[i + W] === 0) {
+        mark[i + W] = 1;
+        q[tail++] = i + W;
+      }
+    }
+    const into = this.def[g]!.breakInto;
+    let fell = 0;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+        if (group[i] !== g) continue;
+        if (mark[i] !== 0) {
+          mark[i] = 0;
+          continue;
+        }
+        this.release(grid, i, into);
+        fell++;
+      }
+    }
+    this.cells[g] = tail;
+    if (fell > 0) {
+      grid.markDirty(x0, y0, x1, y1);
+      fx.emit('collapse', (x0 + x1) >> 1, (y0 + y1) >> 1, Math.max(x1 - x0, y1 - y0) >> 1, {
+        cells: fell,
+      });
+    }
+    if (tail === 0) {
+      this.broken[g] = 1;
+      this.recheck[g] = 0;
+    }
+  }
+
+  /** A neighbour a `local` group can hang on to sideways: static terrain or another prop. */
+  private static holds(
+    mat: Uint8Array,
+    group: Uint8Array,
+    kind: Uint8Array,
+    g: number,
+    j: number,
+  ): boolean {
+    const m = mat[j]!;
+    if (m === 0 || group[j] === g) return false;
+    return group[j] !== 0 || kind[m] === 0;
   }
 
   /** Advance the crack stage when integrity crosses ⅔ and ⅓. */
@@ -443,7 +966,11 @@ export class Groups {
       grid.groupLost[g] = 0;
       if (this.broken[g] !== 0) continue;
       this.cells[g] = this.cells[g]! - lost;
-      if (this.cells[g]! * 2 < this.origCells[g]!) this.break(grid, g, fx);
+      if (this.def[g]!.local) {
+        // knocked loose (launched, burnt): see what still holds
+        this.holdOn(grid, g, fx);
+        this.recheck[g] = 1;
+      } else if (this.cells[g]! * 2 < this.origCells[g]!) this.break(grid, g, fx);
     }
   }
 
@@ -456,7 +983,13 @@ export class Groups {
   checkBases(grid: Grid, fx: EffectSink): void {
     const W = grid.width;
     for (let g = 1; g <= this.count; g++) {
-      if (this.broken[g] !== 0 || this.support[g * 4] !== 0) continue;
+      if (this.broken[g] !== 0) continue;
+      if (this.def[g]!.local) {
+        // what held it a moment ago may have been loose rubble that has since fallen away
+        if (this.recheck[g] !== 0) this.holdOn(grid, g, fx);
+        continue;
+      }
+      if (this.support[g * 4] !== 0) continue;
       const y = this.maxY[g]!;
       let cols = 0;
       let held = 0;
@@ -531,11 +1064,17 @@ export class Groups {
     else this.crack(grid, g, fx);
   }
 
+  /** The grid has gone still: nothing `local` groups lean on can still fall away. */
+  settled(): void {
+    this.recheck.fill(0);
+  }
+
   hash(h: Hasher): void {
     h.num(this.count);
     for (let g = 1; g <= this.count; g++) {
       h.num(this.integrity[g]!).num(this.cells[g]!).num(this.stage[g]!).num(this.broken[g]!);
       h.num(this.pending[g]!).num(this.fallen[g]!).num(this.minY[g]!);
+      if (this.def[g]!.local) h.num(this.recheck[g]!);
     }
   }
 }

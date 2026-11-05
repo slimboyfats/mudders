@@ -131,6 +131,29 @@ reaction consumes leave the group (`leaveGroup`); losing half its cells breaks a
 grid is settling, `checkBases` drops a group with nothing under its base as a rigid block (landing
 damage grows with the fall) and breaks a wide group whose base has lost most support.
 
+`placement.roughen` wears a copy's outline (outline cells chip off, bumps grow on flat tops, then
+needles are trimmed) and `mirror` flips it, both from the match PRNG, so rock formations differ per
+map; with neither set no PRNG is drawn. A `shelter` prop (`rock-arch`, `rock-ledge`) may stand over
+a tank spawn when the tank fits its opening (bottom `SHELTER_ROWS` rows free); placement tries to
+cover a spawn first, `placeAt` puts the opening over the given column, and round-start tanks rest
+on the highest non-group cell, i.e. the ground under the roof.
+
+Groups have a `glue`. `whole` (houses, trees, boulder) works as above. `local` (rock formations) is
+glued only until hit: `guardLocal` keeps what the op did to the cells it changed, frees group cells
+within `loosen` of them as `breakInto`, and `launch` lets their cells fly. Then `holdOn` floods the
+group from cells that hold on to something (anything solid under them, or static terrain or
+another group beside or above) and frees every cell the flood misses, so a cut-off roof or shelf
+falls as rubble. Because what held a piece may itself be loose rubble, flagged groups are flooded
+again every tick while the grid settles. `placement.embed` sinks a prop's root into a slope that
+falls away under the rest (`rock-outcrop`), with no levelling.
+
+A `local` group with `shield` > 0 blocks blasts. Before each op call `shieldBegin` snapshots the
+cells in reach; afterwards `shieldEnd` restores any changed cell whose straight line from the
+blast centre crosses `shield` intact group cells, or that is ground with the group's rock within
+`shield` rows above it (a blast can't undercut the rock). `launch` refuses the same cells, and
+`explode` skips tanks behind that much rock. Rock formations are drawn as low-poly facets in
+`material.rock-lit` / `rock` / `rock-shade`, which behave exactly like rock.
+
 ### 3.3 Determinism (§6.3)
 
 - Seeded PRNG (mulberry32 or xoshiro128**) owned by match state; the only randomness source.

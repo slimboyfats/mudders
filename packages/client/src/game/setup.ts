@@ -13,12 +13,21 @@ export const PRESETS = {
 } as const;
 export type Preset = keyof typeof PRESETS;
 
+const SCENERY_GEN = {
+  none: 'gen.hills',
+  village: 'gen.village',
+  badlands: 'gen.badlands',
+} as const;
+
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
 export interface MatchSetup {
   slots: Slot[];
   size: MapSize;
-  /** Props on the map (§4c): bare hills, or a village with houses, trees and boulders. */
-  scenery: 'none' | 'village';
+  /**
+   * Props on the map (§4c): bare hills, a village with houses, trees and boulders, or badlands
+   * with stone arches and ledges to shelter under.
+   */
+  scenery: 'none' | 'village' | 'badlands';
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
@@ -49,6 +58,7 @@ export function loadSetup(): MatchSetup {
     if (raw) {
       const s = { ...defaultSetup(), ...(JSON.parse(raw) as Partial<MatchSetup>) };
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
+      if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
       return s;
     }
   } catch {
@@ -83,7 +93,7 @@ export function toWorldOptions(s: MatchSetup, seed: number): WorldOptions {
     seed,
     mode: 'mode.classic',
     players: slots.length,
-    map: { ...MAP_SIZES[s.size], generator: s.scenery === 'village' ? 'gen.village' : 'gen.hills' },
+    map: { ...MAP_SIZES[s.size], generator: SCENERY_GEN[s.scenery] },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     rules,
   };

@@ -1,0 +1,12 @@
+{
+  "id": "material.rock-shade",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shaded rock",
+    "description": "The shadowed faces of rock formations. Behaves exactly like rock; only the colour differs.",
+    "since": "core@0.5.0",
+    "color": "#4f4c57"
+  },
+  "extends": "material.rock",
+  "cell": 22
+}

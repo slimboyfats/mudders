@@ -439,7 +439,7 @@ export class World implements SimApi {
       (_, p) => this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0,
     );
     if (genItem.props) this.groups.place(g, this.rng, genItem.props, spawns);
-    for (const sp of this.options.props ?? []) this.groups.placeAt(g, sp.prop, sp.x);
+    for (const sp of this.options.props ?? []) this.groups.placeAt(g, sp.prop, sp.x, this.rng);
     // Pre-settle anything loose the generator left, so a round starts still.
     g.markDirty(0, 0, g.width - 1, g.height - 1);
     for (let i = 0; i < 2000 && g.settling; i++) settleStep(g, this.mats, i, g.size);
@@ -484,10 +484,21 @@ export class World implements SimApi {
     return 0;
   }
 
-  /** Highest surface under the tank's footprint. */
+  /**
+   * Highest ground under the tank's footprint at round start. Intact prop cells don't count, so a
+   * tank spawned under a rock arch stands on the ground beneath it, not on top.
+   */
   private restingY(t: Tank): number {
-    let y = this.grid.height;
-    for (let x = t.x - TANK_HALF; x < t.x + TANK_HALF; x++) y = Math.min(y, this.grid.surfaceY(x));
+    const g = this.grid;
+    let y = g.height;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      for (let r = 0, i = x; r < y; r++, i += g.width) {
+        if (g.material[i] !== 0 && g.group[i] === 0) {
+          y = r;
+          break;
+        }
+      }
+    }
     return y;
   }
 
@@ -526,10 +537,16 @@ export class World implements SimApi {
     const m = g.material[cellIndex]!;
     if (m === 0) return false;
     const slot = g.group[cellIndex]!;
+    // rock between the blast and this cell stops it
+    if (this.groups.shields(g, cellIndex)) return false;
     if (slot !== 0) {
-      // an intact prop group holds: the hit is charged to its integrity instead
-      this.groups.refuse(slot);
-      return false;
+      if (!this.groups.isLocal(slot)) {
+        // an intact prop group holds: the hit is charged to its integrity instead
+        this.groups.refuse(slot);
+        return false;
+      }
+      // locally glued rock: a blasted cell flies off like any other
+      g.leaveGroup(cellIndex);
     }
     const x = cellIndex % g.width;
     const y = (cellIndex - x) / g.width;
@@ -578,6 +595,7 @@ export class World implements SimApi {
     if (this.groups.any) {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
+      else this.groups.settled();
     }
     this.stepTanks();
 
@@ -901,6 +919,8 @@ export class World implements SimApi {
       const d = isqrt(dx * dx + dy * dy);
       const reach = e.radius + TANK_HALF;
       if (d >= reach) continue;
+      // sheltered behind (or under) thick rock: the blast doesn't reach it
+      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, t.y - TANK_H / 2)) continue;
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
         this.damageTank(t, Math.trunc(base * scale), owner);
@@ -935,7 +955,9 @@ export class World implements SimApi {
       owner,
     };
     this.grid.clearWatch();
+    const shielded = this.groups.any && this.groups.shieldBegin(this.grid, x, y, radius);
     const data = site.b.start(this, site.params, call);
+    if (shielded) this.groups.shieldEnd(this.grid);
     if (this.groups.any) this.groups.guard(this.grid, call.damageTypeIndex, this);
     if (data) this.ops.push({ op, call, t: 0, data });
   }
@@ -947,8 +969,11 @@ export class World implements SimApi {
       inst.t++;
       const site = this.opSites[inst.op]!;
       this.grid.clearWatch();
+      const c = inst.call;
+      const shielded = this.groups.any && this.groups.shieldBegin(this.grid, c.x, c.y, c.radius);
       const more = site.b.step?.(this, site.params, inst) ?? false;
-      if (this.groups.any) this.groups.guard(this.grid, inst.call.damageTypeIndex, this);
+      if (shielded) this.groups.shieldEnd(this.grid);
+      if (this.groups.any) this.groups.guard(this.grid, c.damageTypeIndex, this);
       if (more) next.push(inst);
     }
     this.ops = next;

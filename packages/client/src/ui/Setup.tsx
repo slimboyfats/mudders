@@ -142,6 +142,7 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
           >
             <option value="none">Bare hills</option>
             <option value="village">Village</option>
+            <option value="badlands">Badlands</option>
           </select>
         </label>
         <label>

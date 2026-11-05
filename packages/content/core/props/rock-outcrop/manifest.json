@@ -1,0 +1,81 @@
+{
+  "id": "prop.rock-outcrop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rock Outcrop",
+    "description": "A sharp-edged, low-poly wedge of stone half buried in a hillside, jutting out over the slope below. Glued only until hit: knock through its neck and the overhang crashes down as rubble.",
+    "since": "core@0.5.0"
+  },
+  "shape": [
+    " ",
+    " ",
+    " ",
+    " ",
+    "                     LL",
+    "                    LLLLLL",
+    "                   LLLLLLLLLL                 LLLSS",
+    "                  LLLLLLLLLLLLLL      LLLLLLLLLLSSSSSS",
+    "                 LLLLLLLLLLLLLLLLSLLLLLLLLLLLLLSSSSSSSSSS",
+    "               LLLLLLLLLLLLLLLLLSSSLLLLLLLLLLLSSSSSSSSSSSSSS",
+    "              LLLLLLLLLLLLLLLLLSSSSSLLLLLLLLSSSSSSSSSSSSSSSSSSS",
+    "             LLLLLLLLLLLLLLLLLSSSSSSSLLLLLLSSSSSSSSSSSSSSSSSSSSSSS",
+    "            LLLLLLLLLLLLLLLLSSSSSSSSSSLLLLSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "           LLLLLLLLLLLLLLLLSSSSSSSSSSSSLLSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "          SSSLLLLLLLLLLLLLSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "         SSSSSSSSSSSLLLLLSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "     SSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDDDDDD",
+    "     SSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDDDDD",
+    "    SSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDD",
+    "   SSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDD",
+    "  SSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDD",
+    " SSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDDDDD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDDD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDDDD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSDDD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSD",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+  ],
+  "legend": {
+    "L": "lit",
+    "S": "stone",
+    "D": "shade"
+  },
+  "materials": {
+    "lit": "material.rock-lit",
+    "stone": "material.rock",
+    "shade": "material.rock-shade"
+  },
+  "groups": [
+    {
+      "name": "outcrop",
+      "roles": ["lit", "stone", "shade"],
+      "glue": "local",
+      "loosen": 2,
+      "shield": 6,
+      "breakInto": {
+        "material.rock": "material.rubble",
+        "material.rock-lit": "material.rubble",
+        "material.rock-shade": "material.rubble"
+      }
+    }
+  ],
+  "placement": {
+    "clearance": 24,
+    "embed": 24,
+    "roughen": 0,
+    "mirror": true
+  }
+}

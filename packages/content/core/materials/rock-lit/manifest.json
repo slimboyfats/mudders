@@ -1,0 +1,12 @@
+{
+  "id": "material.rock-lit",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lit rock",
+    "description": "The sunlit faces of rock formations. Behaves exactly like rock; only the colour differs.",
+    "since": "core@0.5.0",
+    "color": "#8f8b98"
+  },
+  "extends": "material.rock",
+  "cell": 21
+}
