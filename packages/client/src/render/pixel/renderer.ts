@@ -81,6 +81,11 @@ export class PixelRenderer implements Renderer {
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
   private coatTex!: WebGLTexture;
+  /** Where grass may grow (R8UI, 1 = round-start surface), seeded once per round. */
+  private grassTex!: WebGLTexture;
+  private readonly grassMask: Uint8Array;
+  /** Round the grass mask was seeded for (snapshot turn / 1000); -1 = not yet. */
+  private grassRound = -1;
   /** Shaded terrain colours, one texel per cell, re-shaded only inside dirty rects. */
   private colorTex!: WebGLTexture;
   private colorFbo!: WebGLFramebuffer;
@@ -116,6 +121,7 @@ export class PixelRenderer implements Renderer {
       | 'u_starColor'
       | 'u_scenery'
       | 'u_grass'
+      | 'u_grassMask'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -155,6 +161,7 @@ export class PixelRenderer implements Renderer {
       | 'u_grass'
       | 'u_ground'
       | 'u_flowers'
+      | 'u_grassMask'
     >
   >;
   private uPost!: ReturnType<
@@ -206,6 +213,7 @@ export class PixelRenderer implements Renderer {
   ) {
     this.camera = new Camera(mapWidth, mapHeight);
     this.terrain = new Uint8Array(mapWidth * mapHeight);
+    this.grassMask = new Uint8Array(mapWidth * mapHeight);
     this.probe = {
       width: mapWidth,
       height: mapHeight,
@@ -248,6 +256,7 @@ export class PixelRenderer implements Renderer {
       'u_grass',
       'u_ground',
       'u_flowers',
+      'u_grassMask',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -272,6 +281,7 @@ export class PixelRenderer implements Renderer {
       'u_starColor',
       'u_scenery',
       'u_grass',
+      'u_grassMask',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -315,6 +325,18 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_BYTE,
       new Uint8Array(this.mapWidth * this.mapHeight),
+    );
+    this.grassTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.grassMask,
     );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
@@ -509,6 +531,30 @@ export class PixelRenderer implements Renderer {
     }
     this.terrain = s.terrain;
     this.coating = s.coating;
+    // grass belongs to the ground a round starts with: craters dug later stay bare. The round
+    // number goes up when a round ends; the next map arrives later as one whole-map rect.
+    const round = Math.floor(s.turn / 1000);
+    const fresh =
+      this.grassRound < 0 ||
+      (round !== this.grassRound &&
+        s.dirtyRects.some((r) => r.x === 0 && r.y === 0 && r.w >= s.width && r.h >= s.height));
+    if (fresh && s.width === this.mapWidth && s.height === this.mapHeight) {
+      this.grassRound = round;
+      grassMask(s.terrain, s.width, s.height, this.grassMask);
+      gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        s.width,
+        s.height,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        this.grassMask,
+      );
+      this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+    }
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
@@ -656,7 +702,10 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneryTex);
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
     gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_grassMask, 6);
     gl.uniform1i(this.uBg.u_terrain, 1);
     gl.uniform1i(this.uBg.u_coat, 2);
     gl.uniform1i(this.uBg.u_look, 3);
@@ -794,6 +843,9 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.uniform1i(this.uTer.u_look, 3);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.uniform1i(this.uTer.u_grassMask, 4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
@@ -936,4 +988,22 @@ export function meanGround(terrain: Uint8Array, w: number, h: number): number {
     sum += y;
   }
   return w > 0 ? sum / w : h;
+}
+
+/**
+ * Grass mask for a round's starting ground: 1 on each surface cell (solid with air or the map top
+ * above) and one row either side of it, so a cell of settling doesn't strip the grass. Ground
+ * exposed later by a blast is lower than this, so it stays bare dirt.
+ */
+export function grassMask(terrain: Uint8Array, w: number, h: number, out: Uint8Array): void {
+  out.fill(0);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      if (terrain[row + x] === 0 || (y > 0 && terrain[row - w + x] !== 0)) continue;
+      out[row + x] = 1;
+      if (y > 0) out[row - w + x] = 1;
+      if (y + 1 < h) out[row + w + x] = 1;
+    }
+  }
 }

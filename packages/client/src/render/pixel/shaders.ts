@@ -74,6 +74,7 @@ uniform float u_stars;
 uniform vec3 u_starColor;
 uniform sampler2D u_scenery; // sky, clouds and ranges per 2×2 cells; a = open sky
 uniform vec4 u_grass;        // rgb, enabled
+uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -144,9 +145,11 @@ void main() {
       if (u_grass.a > 0.0) {
         uint b1 = mat(cell + ivec2(0, 1));
         float h = hash(cell + ivec2(5, 9));
-        if (topsoil(b1) && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
+        bool grown = cell.y + 1 < int(u_map.y) && texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r != 0u;
+        if (topsoil(b1) && grown && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
           c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
-        } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && hash(cell + ivec2(5, 10)) > 0.86 &&
+        } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && cell.y + 2 < int(u_map.y) &&
+                   texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r != 0u && hash(cell + ivec2(5, 10)) > 0.86 &&
                    hash(cell + ivec2(2, 3)) > 0.45) {
           c = u_grass.rgb * 0.8;
         }
@@ -378,6 +381,7 @@ uniform sampler2D u_look;
 uniform vec4 u_grass;
 uniform vec3 u_ground;       // theme tint multiplied into still ground
 uniform float u_flowers;     // flower specks in the grass, 0–1
+uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -422,7 +426,9 @@ void main() {
   float depth = -0.42 * yb - 0.14 * band;
   vec3 col = base * (1.0 + g + under + depth);
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
-  bool soil = still && lk.a > 0.5;
+  // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
+  // ground stays bare dirt (render-only, the sim never sees it)
+  bool soil = still && lk.a > 0.5 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
   if (still) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
@@ -484,6 +490,23 @@ void main() {
       }
     }
     rim *= 0.35;
+  }
+  if (still && lk.a > 0.5 && !soil && sd > 0 && sd <= 26) {
+    // freshly blasted dirt: scorched near-black at the surface where the blast hit, lightening
+    // through charred and baked bands into warm dirt and then the plain subsoil. Hard tone steps
+    // with ordered dither between them, in short horizontal strokes of three tones
+    int sx = (ap.x + (ap.y & 3) * 3) >> 2;
+    float h = hash(ivec2(sx, ap.y + 733));
+    float t = h > 0.7 ? 1.07 : h > 0.3 ? 1.0 : 0.93;
+    int lv = int(floor(float(sd - 1) / 21.0 * 5.0 + bayer(ap)));
+    float k = lv <= 0 ? 0.36 : lv == 1 ? 0.55 : lv == 2 ? 0.74 : lv == 3 ? 0.92 : lv == 4 ? 1.08 : 1.0;
+    vec3 tint = lv <= 1 ? vec3(0.95, 0.92, 0.95) : lv <= 3 ? vec3(1.06, 0.97, 0.88) : vec3(1.04, 1.0, 0.92);
+    vec3 b = col * tint * k * t;
+    // the odd ember still glowing in the char, and dark clods through the baked bands
+    if (lv <= 0 && hash(c + ivec2(23, 61)) > 0.985) b = vec3(0.62, 0.22, 0.08);
+    else if (lv >= 2 && hash(ap + ivec2(41, 17)) > 0.94) b *= 0.8;
+    if (lv <= 5) col = b;
+    rim *= 0.2;
   }
   if (still) col *= u_ground;
   col += u_light * rim;
