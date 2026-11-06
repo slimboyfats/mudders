@@ -41,6 +41,8 @@ export interface MaterialLook {
   hot: boolean;
   /** Grows the theme's grass on exposed tops. */
   topsoil?: boolean;
+  /** Crystalline: scattered cells glint white for a moment (frost). */
+  glint?: boolean;
 }
 
 export interface RendererOptions {

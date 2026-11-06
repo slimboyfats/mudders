@@ -20,6 +20,8 @@ export interface HudTank {
   health: number;
   angle: number;
   power: number;
+  /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
+  chill: number;
   weapon: string;
   inventory: { id: string; name: string; count: number }[];
   /** AI personality name, or '' for a human. */
@@ -154,6 +156,7 @@ export abstract class SimMatch implements SnapshotStream {
         health: t.health,
         angle: t.angle,
         power: t.power,
+        chill: t.chill,
         weapon: w.weaponId(t.weapon),
         inventory: t.inventory
           .map((count, i) => ({ id: w.weaponId(i), name: this.names[w.weaponId(i)] ?? '', count }))

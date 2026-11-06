@@ -15,6 +15,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         ticks: m.look.cycleTicks,
         hot: m.look.hot,
         topsoil: m.look.topsoil,
+        glint: m.look.glint,
       });
     }
   }
