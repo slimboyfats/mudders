@@ -593,6 +593,7 @@ export class PixelRenderer implements Renderer {
     this.entities = s.entities;
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
+    this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
     this.lastTick = s.tick;
@@ -604,6 +605,73 @@ export class PixelRenderer implements Renderer {
       if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
     }
     this.updateTrails(s);
+  }
+
+  /**
+   * Gas clouds wither the grass they creep over: grass-mask cells under a puff turn from 1 (grass)
+   * to 2 (withered, drawn dry and brown). Cosmetic and one-way, like the burn marks.
+   */
+  private witherGrass(): void {
+    const m = this.grassMask;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    let x0 = w;
+    let y0 = h;
+    let x1 = 0;
+    let y1 = 0;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (!pf || pf.length === 0 || z.look !== 'toxic') continue;
+      // the cloud swells over its first second; reach the grass once it has
+      const r = Math.round((z.puffRadius ?? 8) * Math.min(1, 0.3 + (z.age ?? 1000) / 50));
+      for (let i = 0; i < pf.length; i += 2) {
+        const px = pf[i]!;
+        const py = pf[i + 1]!;
+        const ya = Math.max(0, py - r);
+        const yb = Math.min(h - 1, py + 4);
+        for (let x = Math.max(0, px - r); x <= Math.min(w - 1, px + r); x++) {
+          const dx = x - px;
+          for (let y = ya; y <= yb; y++) {
+            const k = y * w + x;
+            if (m[k] !== 1) continue;
+            const dy = Math.max(0, py - y);
+            if (dx * dx + dy * dy > r * r) continue;
+            m[k] = 2;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+      }
+    }
+    if (x0 > x1) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      x0,
+      y0,
+      x1 - x0 + 1,
+      y1 - y0 + 1,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      m,
+    );
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    // re-shade the turf under it (shading reads up to 32 rows down from the surface)
+    const d = this.dirty;
+    const clean = d[0]! >= d[2]!;
+    d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+    d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, y0 - 1));
+    d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 2));
+    d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + 34));
   }
 
   /** Stamp a blast's tick over the cells it reached, so the char there smoulders for a while. */

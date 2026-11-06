@@ -1,0 +1,59 @@
+{
+  "id": "weapon.toxic-gas",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Toxic Gas",
+    "description": "Cracks open into a rolling green cloud. The gas is heavier than air: it spills downhill, pools in valleys and craters, and drifts with the wind. Every tank caught in it chokes at the end of each turn for four turns, and the grass it creeps over withers.",
+    "category": "weird",
+    "since": "core@0.13.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 8,
+        "effects": {
+          "burst": {
+            "count": 10
+          },
+          "flash": {
+            "strength": 0.3
+          },
+          "gasBurst": {
+            "count": 28
+          }
+        }
+      }
+    },
+    {
+      "zone": {
+        "radius": 22,
+        "turns": 4,
+        "damage": 8,
+        "damageType": "corrosive",
+        "look": "toxic",
+        "cloud": {
+          "puffs": 28,
+          "puffRadius": 22,
+          "billow": 2.2,
+          "drift": 8,
+          "sink": 0.3
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 6000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0
+  }
+}

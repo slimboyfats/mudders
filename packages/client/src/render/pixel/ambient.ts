@@ -105,6 +105,10 @@ export function drawZones(
 ): void {
   for (let zi = 0; zi < zones.length; zi++) {
     const z = zones[zi]!;
+    if (z.puffs && z.puffs.length > 0) {
+      drawCloud(normal, z, t, probe, mult);
+      continue;
+    }
     const R = Math.max(4, z.radius);
     const fade = Math.min(1, 0.45 + z.turns * 0.2);
     const salt = z.x * 131 + z.y * 7;
@@ -152,6 +156,183 @@ export function drawZones(
       const beat = mod(t, 25) < 4 ? 1 : 0.5;
       additive.push(z.x + 0.5, z.y + 0.5, 6, 6, ZONE_COLOR[2], 0.5 * beat * fade, Shape.Pixel);
     }
+  }
+}
+
+/** Gas cloud bands, dark core to lit top: colour and alpha. */
+const GAS_CORE = 0x4a7a0c;
+const GAS_MID = 0x8cc81a;
+const GAS_LIGHT = 0xb8ec2c;
+const GAS_TOP = 0xeaff7a;
+const GAS_EDGE = 0xa6e024;
+
+/** Gas density per cell over the cloud's box (reused between frames). */
+let dens = new Float32Array(4096);
+
+/** Smooth value noise in [0, 1) on an integer lattice (cosmetic only). */
+function vnoise(x: number, y: number, salt: number): number {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = x - ix;
+  const fy = y - iy;
+  const sx = fx * fx * (3 - 2 * fx);
+  const sy = fy * fy * (3 - 2 * fy);
+  const a = lat(ix, iy, salt);
+  const b = lat(ix + 1, iy, salt);
+  const c = lat(ix, iy + 1, salt);
+  const top = a + (b - a) * sx;
+  const bot = c + (lat(ix + 1, iy + 1, salt) - c) * sx;
+  return top + (bot - top) * sy;
+}
+
+function lat(x: number, y: number, salt: number): number {
+  return h01((x & 1023) + ((y & 1023) << 10), salt);
+}
+
+/**
+ * Gas cloud (sim puffs): a density field summed from wobbling puffs, rolled by moving noise, then
+ * cut into hard colour bands per map cell: dark core, acid body, lit tops, dithered fringe. Only
+ * air cells are drawn, so the gas fills a valley or crater to the shape of the ground. Bright
+ * bubbles rise through it. Horizontal runs of one band go out as one quad.
+ */
+function drawCloud(
+  normal: QuadBatch,
+  z: ZoneView,
+  t: number,
+  probe: AmbientProbe,
+  mult: number,
+): void {
+  const pf = z.puffs!;
+  const n = pf.length >> 1;
+  const R0 = Math.max(3, z.puffRadius ?? 10);
+  const age = z.age ?? 1000;
+  // bursts out small and swells over the first second; thins on its last turn
+  const grow = Math.min(1, 0.3 + age / 50);
+  const thin = z.turns <= 1 ? 0.8 : 1;
+  let mx0 = Infinity;
+  let my0 = Infinity;
+  let mx1 = -Infinity;
+  let my1 = -Infinity;
+  for (let i = 0; i < n; i++) {
+    mx0 = Math.min(mx0, pf[2 * i]!);
+    mx1 = Math.max(mx1, pf[2 * i]!);
+    my0 = Math.min(my0, pf[2 * i + 1]!);
+    my1 = Math.max(my1, pf[2 * i + 1]!);
+  }
+  const pad = Math.ceil(R0 * 1.5) + 3;
+  const x0 = Math.max(0, mx0 - pad);
+  const y0 = Math.max(0, my0 - pad - 4);
+  const x1 = Math.min(probe.width, mx1 + pad);
+  const y1 = Math.min(probe.height, my1 + pad);
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return;
+  if (dens.length < w * h) dens = new Float32Array(w * h * 2);
+  dens.fill(0, 0, w * h);
+  for (let i = 0; i < n; i++) {
+    const ph = i * 2.399;
+    const R = R0 * grow * (0.82 + 0.22 * Math.sin(t * 0.045 + ph));
+    const cx = pf[2 * i]! + 0.5 + Math.sin(t * 0.031 + ph * 1.3) * 1.6;
+    // puffs sit on the ground: lift each one so most of it is above its centre cell
+    const cy = pf[2 * i + 1]! + 0.5 - R * 0.35 + Math.cos(t * 0.037 + ph) * 1.1;
+    const reach = R * 1.2;
+    const inv = 1 / (reach * reach);
+    const ra = Math.max(x0, Math.floor(cx - reach));
+    const rb = Math.min(x1 - 1, Math.ceil(cx + reach));
+    const ca = Math.max(y0, Math.floor(cy - reach));
+    const cb = Math.min(y1 - 1, Math.ceil(cy + reach));
+    for (let y = ca; y <= cb; y++) {
+      // a little flatter than round: gas spreads more than it stacks
+      const dy = (y + 0.5 - cy) * 1.25;
+      const row = (y - y0) * w - x0;
+      for (let x = ra; x <= rb; x++) {
+        const dx = x + 0.5 - cx;
+        const q = 1 - (dx * dx + dy * dy) * inv;
+        if (q > 0) dens[row + x] = dens[row + x]! + q * thin;
+      }
+    }
+  }
+  const roll = t * 0.05;
+  for (let y = y0; y < y1; y++) {
+    const row = (y - y0) * w - x0;
+    let runX = -1;
+    let runC = 0;
+    let runA = 0;
+    for (let x = x0; x <= x1; x++) {
+      let c = 0;
+      let a = 0;
+      if (x < x1) {
+        const d0 = dens[row + x]!;
+        if (d0 > 0.12 && !probe.solid(x, y)) {
+          // rolling billows: noise drifting sideways and up through the body
+          const nz =
+            vnoise((x - roll) / 7, (y + roll * 0.6) / 5, 41) * 0.7 +
+            vnoise(x / 3, (y + roll) / 3, 42) * 0.3;
+          const d = d0 * (0.6 + 0.8 * nz);
+          const above = y - 2 >= y0 ? dens[row - 2 * w + x]! : 0;
+          if (d > 1.7) {
+            c = GAS_CORE;
+            a = 0.72;
+          } else if (d > 0.9) {
+            c = above < 0.45 ? GAS_TOP : GAS_MID;
+            a = above < 0.45 ? 0.78 : 0.62;
+          } else if (d > 0.45) {
+            c = above < 0.25 ? GAS_TOP : GAS_LIGHT;
+            a = 0.5;
+          } else if (d > 0.2 && ((x + y) & 1) === 0) {
+            c = GAS_EDGE;
+            a = 0.45;
+          } else if (d > 0.3 && ((x ^ y) & 3) === 1) {
+            c = GAS_EDGE;
+            a = 0.35;
+          }
+        }
+      }
+      if (c === runC && a === runA && runX >= 0) continue;
+      if (runX >= 0 && runC !== 0) normal.rect(runX, y, x - runX, 1, runC, runA);
+      runX = x;
+      runC = c;
+      runA = a;
+    }
+  }
+  // wisps: thin dithered tendrils curling up off the top of the cloud and thinning out
+  const wisps = Math.round(n * 1.5 * Math.max(0.4, mult));
+  for (let i = 0; i < wisps; i++) {
+    const k = i % n;
+    const R = R0 * grow;
+    const life = 90 + h01(i, 61) * 80;
+    const ph = mod(t + h01(i, 62) * life, life) / life;
+    const bx = pf[2 * k]! + (h01(i, 63) - 0.5) * R * 1.6;
+    const top = pf[2 * k + 1]! - R * 0.9;
+    const len = 6 + Math.floor(h01(i, 64) * 10);
+    for (let s = 0; s < len; s++) {
+      const y = Math.floor(top - ph * R * 1.2 - s);
+      const x = Math.floor(bx + Math.sin(t * 0.04 + s * 0.45 + i) * (1 + s * 0.25));
+      if (((x + y) & 1) === 1 && s > 2) continue;
+      if (y < 0 || probe.solid(x, y)) break;
+      normal.push(
+        x + 0.5,
+        y + 0.5,
+        1,
+        1,
+        s < 3 ? GAS_LIGHT : GAS_EDGE,
+        (1 - ph) * (1 - s / len) * 0.6 * thin,
+      );
+    }
+  }
+  // bubbles: single bright cells rising through the thick of it and popping at the top
+  const bubbles = Math.round(n * 2 * Math.max(0.4, mult));
+  const salt = 977;
+  for (let i = 0; i < bubbles; i++) {
+    const k = i % n;
+    const R = R0 * grow;
+    const span = R * 1.4;
+    const rise = mod(t * (0.18 + h01(i, salt) * 0.2) + h01(i, salt + 1) * span, span);
+    const x = Math.floor(pf[2 * k]! + (h01(i, salt + 2) - 0.5) * R * 1.4);
+    const y = Math.floor(pf[2 * k + 1]! + 1 - rise);
+    if (x < x0 || x >= x1 || y < y0 || y >= y1) continue;
+    if (dens[(y - y0) * w + (x - x0)]! < 0.5 || probe.solid(x, y)) continue;
+    normal.push(x + 0.5, y + 0.5, 1, 1, rise > span * 0.85 ? 0xffffc0 : GAS_TOP, 0.9 * thin);
   }
 }
 

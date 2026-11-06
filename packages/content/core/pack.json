@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -160,6 +160,7 @@
     "weapon.tectonic-charge",
     "weapon.terraformer",
     "weapon.ton-of-dirt",
+    "weapon.toxic-gas",
     "weapon.tracer",
     "weapon.trencher",
     "weapon.water-cannon",
