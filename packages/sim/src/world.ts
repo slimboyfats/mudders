@@ -737,6 +737,22 @@ export class World implements SimApi {
     return true;
   }
 
+  hold(player: number, x: number, y: number): void {
+    const t = this.tanks[player];
+    if (!t || !t.alive) return;
+    t.x = Math.max(TANK_HALF, Math.min(this.grid.width - 1 - TANK_HALF, x));
+    t.y = Math.max(TANK_H, Math.min(this.grid.height - 1, y));
+    if (!t.falling) {
+      t.falling = true;
+      t.fallFrom = t.y;
+    } else if (t.y < t.fallFrom) {
+      t.fallFrom = t.y;
+    }
+    // stepTanks adds 1 before moving it, so a held tank stays put this tick
+    t.fallVel = -1;
+    t.sunk = 0;
+  }
+
   emit(type: string, x: number, y: number, radius: number, params?: Record<string, number>): void {
     this.effects.push({ type, tick: this.tick, x, y, radius, params: params ?? {} });
   }

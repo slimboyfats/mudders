@@ -1206,6 +1206,7 @@ export class PixelRenderer implements Renderer {
     const mult = this.fx.mult;
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
+    this.fx.drawFunnels(this.normal, this.additive, t);
     this.drawDebris();
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
