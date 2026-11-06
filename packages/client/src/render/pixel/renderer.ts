@@ -54,6 +54,8 @@ const SCENERY_UNIFORMS = [
 const TANK_W = 16;
 /** How long fresh char smoulders after a blast (ticks; keep in step with the shader). */
 const EMBER_TICKS = 600;
+/** Most flaming surface cells tracked between look scans. */
+const FLAME_CAP = 2048;
 const TANK_H = 10;
 const GRAVITY = 0.12;
 
@@ -146,6 +148,9 @@ export class PixelRenderer implements Renderer {
    * and low-end phones). */
   private anyCycle = false;
   private anyHot = false;
+  /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
+  private readonly flameCells = new Int32Array(FLAME_CAP);
+  private flameN = 0;
   private coating: Uint8Array = new Uint8Array(0);
   /** Dirty bounding box awaiting re-shade: x0, y0, x1, y1 (exclusive); x0 > x1 when clean. */
   private dirty = [0, 0, 0, 0];
@@ -437,10 +442,10 @@ export class PixelRenderer implements Renderer {
       if (l.cell <= 0 || l.cell > 255) continue;
       const n = Math.min(8, l.cycle.length);
       look[l.cell * 4] = n >= 2 ? n : 0;
-      this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0);
+      this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
       look[l.cell * 4 + 2] = l.hot ? 255 : 0;
-      look[l.cell * 4 + 3] = l.topsoil ? 255 : 0;
+      look[l.cell * 4 + 3] = l.topsoil ? 255 : l.char ? 128 : 0;
       for (let i = 0; i < n; i++) {
         const o = ((1 + i) * 256 + l.cell) * 4;
         const c = l.cycle[i]!;
@@ -602,6 +607,8 @@ export class PixelRenderer implements Renderer {
     for (const e of s.effectEvents) {
       this.fx.handle(e);
       if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
+      // dirt geysers throw the char wider than the crater
+      else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
     }
     this.updateTrails(s);
   }
@@ -697,6 +704,132 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
+    this.flameN = 0;
+    if ((any & 4) === 0) return;
+    // flaming cells with air above: where the flame tongues lick up from
+    const w = this.mapWidth;
+    for (let i = w; i < t.length && this.flameN < FLAME_CAP; i++) {
+      if ((f[t[i]!]! & 4) !== 0 && t[i - w] === 0) this.flameCells[this.flameN++] = i;
+    }
+  }
+
+  /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
+  private stepFlames(): void {
+    const n = this.flameN;
+    if (n === 0) return;
+    const w = this.mapWidth;
+    const t = this.terrain;
+    const f = this.lookFlags;
+    const mult = QUALITY_PARTICLES[this.quality].mult;
+    const tries = Math.min(n, Math.round((4 + n / 6) * mult));
+    let s = Math.imul(this.fxTick + 1, 2654435761) >>> 0;
+    let bx0 = w;
+    let bx1 = 0;
+    let by0 = this.mapHeight;
+    let by1 = 0;
+    let grassBurnt = false;
+    for (let k = 0; k < tries; k++) {
+      s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+      const i = this.flameCells[s % n]!;
+      if ((f[t[i]!]! & 4) === 0 || t[i - w] !== 0) continue; // burnt out or buried since the scan
+      const x = (i % w) + 0.5;
+      const y = Math.floor(i / w);
+      const r = (s >>> 8) & 255;
+      // the ground under burning jelly chars and keeps smouldering after it burns out
+      const bx = i % w;
+      const stamp = this.fxTick + 1;
+      for (let dy = -1; dy <= 3; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= this.mapHeight) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const cx = bx + dx;
+          if (cx < 0 || cx >= w) continue;
+          const j = yy * w + cx;
+          this.burn[j] = stamp;
+          // and the grass under it burns away for the rest of the round
+          if (this.grassMask[j] !== 0) {
+            this.grassMask[j] = 0;
+            grassBurnt = true;
+          }
+        }
+      }
+      if (bx - 1 < bx0) bx0 = bx - 1;
+      if (bx + 2 > bx1) bx1 = bx + 2;
+      if (y - 1 < by0) by0 = Math.max(0, y - 1);
+      if (y + 4 > by1) by1 = y + 4;
+      // a tongue: a short-lived column of hot cells, yellow core over orange
+      this.particles.add({
+        x,
+        y: y - 1,
+        vx: ((r & 15) - 7.5) * 0.02,
+        vy: -0.3 - (r >> 4) * 0.04,
+        life: 8 + (r & 7),
+        size: 1 + (r & 1) + ((r >> 7) & 1),
+        color: 0,
+        kind: PKind.Flame,
+      });
+      if ((r & 7) === 0) {
+        this.particles.add({
+          x,
+          y: y - 2,
+          vx: ((r & 15) - 7.5) * 0.04,
+          vy: -0.9 - (r >> 5) * 0.05,
+          life: 18,
+          size: 1,
+          color: 0xffc040,
+          kind: PKind.Spark,
+        });
+      }
+      if ((r & 15) === 0) {
+        this.particles.add({
+          x,
+          y: y - 6,
+          vx: this.wind * 0.08,
+          vy: -0.35,
+          life: 70,
+          size: 3 + (r & 3),
+          color: 0x2a2428,
+          kind: PKind.Smoke,
+        });
+      }
+    }
+    if (bx1 > bx0) {
+      const x0 = Math.max(0, bx0);
+      const x1 = Math.min(w, bx1);
+      const y1 = Math.min(this.mapHeight, by1);
+      this.lastBurn = Math.max(this.lastBurn, this.fxTick);
+      this.uploadBurn(x0, by0, x1 - x0, y1 - by0);
+      if (grassBurnt) {
+        const gl = this.gl;
+        gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, by0);
+        const gw = x1 - x0;
+        const gh = y1 - by0;
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          x0,
+          by0,
+          gw,
+          gh,
+          gl.RED_INTEGER,
+          gl.UNSIGNED_BYTE,
+          this.grassMask,
+        );
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+        // re-shade the burnt patch (shading looks up to 32 rows down for soil depth)
+        const d = this.dirty;
+        const clean = d[0]! >= d[2]!;
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+        d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, by0 - 1));
+        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 1));
+        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + 32));
+      }
+    }
   }
 
   private stepFx(): void {
@@ -704,6 +837,25 @@ export class PixelRenderer implements Renderer {
     this.stepWrecks();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
+    this.stepFlames();
+    // burning shells shed flames as they fly
+    const shells = this.palette.shells;
+    if (shells) {
+      for (const e of this.entities) {
+        if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'fire') continue;
+        const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
+        this.particles.add({
+          x: e.x + ((r >>> 4) & 3) - 1.5,
+          y: e.y + ((r >>> 8) & 3) - 1.5,
+          vx: 0,
+          vy: -0.2,
+          life: 10 + ((r >>> 12) & 7),
+          size: 2 + ((r >>> 16) & 1),
+          color: 0,
+          kind: PKind.Flame,
+        });
+      }
+    }
     // smoke from wrecks
     if (this.fxTick % 9 === 0) {
       for (const e of this.entities) {
@@ -728,6 +880,7 @@ export class PixelRenderer implements Renderer {
     for (const t of this.trails) t.live = false;
     for (const e of s.entities) {
       if (e.kind !== 'projectile') continue;
+      if (this.palette.shells?.[e.weapon]?.trail === false) continue;
       let tr = this.trails.find((t) => t.id === e.id);
       if (!tr) {
         // a new shot clears trails from earlier turns (they persist faintly until then, §3.3)
@@ -1073,8 +1226,18 @@ export class PixelRenderer implements Renderer {
 
   private drawProjectiles(): void {
     const g = this.additive;
+    const shells = this.palette.shells;
     for (const e of this.entities) {
       if (e.kind !== 'projectile') continue;
+      if (shells?.[e.weapon]?.shell === 'fire') {
+        // a burning gob: orange body, yellow-white heart
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
+        this.normal.push(x, y, 3, 3, 0xff8a20, 1);
+        g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
     }

@@ -85,7 +85,9 @@ uint mat(ivec2 c) {
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
 ${NOISE}
-bool topsoil(uint m) { return m != 0u && look(m).a > 0.5; }
+bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
+// chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
+bool charrable(uint m) { return m != 0u && look(m).a > 0.25; }
 // one cycle step for a cell of animated material m: hard diagonal bands that crawl over time
 vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   vec4 l = look(m);
@@ -140,7 +142,7 @@ void main() {
           uint mm = mat(cell);
           int sd = 0;
           for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
-          if (sd > 0 && topsoil(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+          if (sd > 0 && charrable(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
             float cool = age / 600.0;
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
@@ -452,7 +454,7 @@ void main() {
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
-  bool soil = still && lk.a > 0.5 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  bool soil = still && lk.a > 0.75 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
   if (still) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
@@ -515,7 +517,7 @@ void main() {
     }
     rim *= 0.35;
   }
-  if (still && lk.a > 0.5 && !soil && sd > 0 && sd <= 26) {
+  if (still && lk.a > 0.25 && !soil && sd > 0 && sd <= 26) {
     // freshly blasted dirt: scorched near-black at the surface where the blast hit, lightening
     // through charred and baked bands into warm dirt and then the plain subsoil. Hard tone steps
     // with ordered dither between them, in short horizontal strokes of three tones

@@ -7,6 +7,6 @@
     "since": "core@0.7.0"
   },
   "behaviour": "flight.lightning",
-  "speed": 10,
+  "speed": 32,
   "maxTicks": 200
 }

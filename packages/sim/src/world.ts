@@ -185,6 +185,7 @@ interface RtSpawn {
   spread: number;
   jitter: number;
   up: number;
+  stagger: number;
 }
 
 interface RtZoneSpec {
@@ -416,6 +417,7 @@ export class World implements SimApi {
           spread: toFixed(sp.spread),
           jitter: toFixed(sp.jitter),
           up: toFixed(sp.up),
+          stagger: toFixed(sp.stagger),
         },
       };
     }
@@ -1134,6 +1136,7 @@ export class World implements SimApi {
         vy += this.rng.range(-j, j) << 8;
       }
       vy -= s.up;
+      if (s.stagger > 0) vy -= s.stagger * (p.vx >= 0 ? i : s.count - 1 - i);
       this.projectiles.push({
         id: this.nextProjectileId++,
         weapon,

@@ -14,8 +14,14 @@ export const PKind = {
   Smoke: 2,
   /** Soft puff hugging the ground, no gravity. */
   Dust: 3,
+  /** Fire: a solid pixel blob that rises, steps yellow → orange → red → soot in hard bands and
+   * shrinks out. Its own colour is ignored. */
+  Flame: 4,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
+
+/** Flame particle colour bands over its life. */
+const FLAME_RAMP = [0xfff0a0, 0xffa020, 0xe04a10, 0x3a2a26] as const;
 
 export interface Emit {
   x: number;
@@ -102,6 +108,9 @@ export class Particles {
       } else if (k === PKind.Smoke) {
         vy = vy * 0.94 - 0.012;
         vx = vx * 0.94 + wind * 4;
+      } else if (k === PKind.Flame) {
+        vy = vy * 0.95 - 0.02;
+        vx = vx * 0.92 + wind * 3;
       } else {
         vx *= 0.9;
         vy = vy * 0.9 - 0.004;
@@ -140,6 +149,13 @@ export class Particles {
           c,
           t < 0.7 ? 1 : (1 - t) / 0.3,
         );
+      } else if (k === PKind.Flame) {
+        const band = Math.min(3, Math.floor(t * 4));
+        const sz = Math.max(1, Math.round(s * (1 - t * 0.6)));
+        const x = Math.floor(this.x[i]!) + 0.5;
+        const y = Math.floor(this.y[i]!) + 0.5;
+        normal.push(x, y, sz, sz, FLAME_RAMP[band]!, band === 3 ? 0.7 : 1, Shape.Pixel);
+        if (band < 2) additive.push(x, y, Math.max(1, sz - 2), Math.max(1, sz - 2), 0xffd060, 0.5);
       } else {
         const grow = k === PKind.Smoke ? 1 + t * 2.2 : 1 + t * 1.4;
         const alpha = (k === PKind.Smoke ? 0.5 : 0.42) * (1 - t) * Math.min(1, t * 6 + 0.2);

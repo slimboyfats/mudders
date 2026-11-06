@@ -175,6 +175,10 @@ export const MaterialSchema = z.strictObject({
       hot: z.boolean().default(false),
       /** Soil that grows the theme's grass on exposed tops (and tufts in the air above). */
       topsoil: z.boolean().default(false),
+      /** Chars black and smoulders with embers after a blast, like topsoil, without the grass. */
+      char: z.boolean().default(false),
+      /** Licks pixel flames and black smoke up from exposed tops (napalm, burning oil). */
+      flames: z.boolean().default(false),
     })
     .optional(),
 });
@@ -259,6 +263,8 @@ const WeaponIdSchema = ContentIdSchema.refine(
  * Velocities are in cells/tick: `inherit` × the parent's velocity, children fanned evenly across
  * ±`spread` horizontally, ±`jitter` at random (match PRNG) on both axes, and `up` added upward.
  * `bounce` > 0 replaces the vertical part with a rebound: −|parent vy| × `bounce`.
+ * `stagger` lifts each child a little more than the last, counted in the parent's direction of
+ * travel, so the far children fly higher and land one after another (MIRV's rolling carpet).
  */
 export const SpawnSchema = z.strictObject({
   /** One weapon, or a pool picked from at random per child (Mystery). */
@@ -269,6 +275,7 @@ export const SpawnSchema = z.strictObject({
   spread: z.number().min(0).max(20).default(0),
   jitter: z.number().min(0).max(20).default(0),
   up: z.number().min(-20).max(20).default(0),
+  stagger: z.number().min(0).max(4).default(0),
 });
 export type Spawn = z.infer<typeof SpawnSchema>;
 
@@ -322,6 +329,16 @@ export const WeaponSchema = z.strictObject({
   }),
   /** Sounds (cosmetic, client only): `fire` replaces the default shot sound. */
   audio: z.strictObject({ fire: ref('audio') }).optional(),
+  /**
+   * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
+   * gob shedding flames instead of the default spark; `trail: false` leaves no trail line.
+   */
+  look: z
+    .strictObject({
+      shell: z.enum(['spark', 'fire']).default('spark'),
+      trail: z.boolean().default(true),
+    })
+    .optional(),
 });
 export type WeaponManifest = z.infer<typeof WeaponSchema>;
 
