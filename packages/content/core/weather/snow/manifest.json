@@ -1,0 +1,20 @@
+{
+  "id": "weather.snow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Snow",
+    "description": "A snowstorm. Cold air drags on every shell. At each turn fresh snow settles on the ground, piling up into a soft blanket that shells dig through easily, blasts pack into ice, and fire melts into water.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "weather.snow",
+  "label": "Snow",
+  "drag": 1,
+  "ambient": {
+    "kind": "snow",
+    "density": 140,
+    "color": "#ffffff"
+  },
+  "fall": 450,
+  "maxDepth": 12,
+  "hush": 180
+}

@@ -33,10 +33,12 @@
   "audio.music-battle",
   "audio.music-title",
   "audio.parachute",
+  "audio.rain",
   "audio.resonate",
   "audio.rift",
   "audio.round-end",
   "audio.shield-up",
+  "audio.snowfall",
   "audio.splash",
   "audio.tank-death",
   "audio.tsunami",
@@ -102,6 +104,7 @@
   "material.scorch",
   "material.shard",
   "material.slag",
+  "material.snow",
   "material.splinter",
   "material.water",
   "material.wood",
@@ -225,5 +228,7 @@
   "weapon.tracer",
   "weapon.trencher",
   "weapon.water-cannon",
-  "weapon.water-cannon-drop"
+  "weapon.water-cannon-drop",
+  "weather.rain",
+  "weather.snow"
 ]

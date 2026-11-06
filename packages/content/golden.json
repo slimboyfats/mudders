@@ -1,5 +1,5 @@
 {
-  "contentHash": "409cc44eedd7f33a",
+  "contentHash": "52a49ebc9689af73",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -137,6 +137,10 @@
       "ticks": 307,
       "hash": "69d023a45ea54629"
     },
+    "audio.rain": {
+      "ticks": 480,
+      "hash": "298fef6ed5d505ab"
+    },
     "audio.resonate": {
       "ticks": 158,
       "hash": "1f2460e7b2f6d224"
@@ -152,6 +156,10 @@
     "audio.shield-up": {
       "ticks": 343,
       "hash": "718feb57a6419eba"
+    },
+    "audio.snowfall": {
+      "ticks": 480,
+      "hash": "37bab5fc99f8360e"
     },
     "audio.splash": {
       "ticks": 158,
@@ -412,6 +420,10 @@
     "material.slag": {
       "ticks": 89,
       "hash": "183bdd0afdffb303"
+    },
+    "material.snow": {
+      "ticks": 743,
+      "hash": "2ef468bb9c15641f"
     },
     "material.splinter": {
       "ticks": 210,
@@ -928,6 +940,14 @@
     "weapon.water-cannon": {
       "ticks": 686,
       "hash": "bdcc7072d70eab52"
+    },
+    "weather.rain": {
+      "ticks": 3086,
+      "hash": "f709ecdc2024137e"
+    },
+    "weather.snow": {
+      "ticks": 940,
+      "hash": "526f2c60d4886f73"
     }
   }
 }

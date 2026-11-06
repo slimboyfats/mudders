@@ -61,6 +61,8 @@ export interface MatchSetup {
   /** Seconds; 0 = off. */
   turnTimer: number;
   wind: WindType;
+  /** Weather (§3.4): rain or snow change shots and terrain; random picks one from the match seed. */
+  weather?: WeatherPick | undefined;
   suddenDeath: boolean;
   startingCash: number;
   /**
@@ -84,6 +86,16 @@ export function defaultTeams(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i % 2);
 }
 
+export const WEATHER_PICKS = ['clear', 'rain', 'snow', 'random'] as const;
+export type WeatherPick = (typeof WEATHER_PICKS)[number];
+
+/** The `weather.*` id a pick plays with (random: drawn from the seed, so every peer agrees). */
+export function weatherFor(pick: WeatherPick, seed: number): string | undefined {
+  const p = pick === 'random' ? (['clear', 'rain', 'snow'] as const)[(seed >>> 0) % 3] : pick;
+  if (!p) return undefined;
+  return p === 'clear' ? undefined : `weather.${p}`;
+}
+
 const KEY = 'mudders.setup.v1';
 
 export function defaultSetup(): MatchSetup {
@@ -95,6 +107,7 @@ export function defaultSetup(): MatchSetup {
     rounds: 3,
     turnTimer: 15,
     wind: 'perTurn',
+    weather: 'clear',
     suddenDeath: true,
     startingCash: 3000,
     teams: null,
@@ -109,6 +122,7 @@ export function loadSetup(): MatchSetup {
       const s = { ...defaultSetup(), ...(JSON.parse(raw) as Partial<MatchSetup>) };
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
       if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
+      if (!s.weather || !WEATHER_PICKS.includes(s.weather)) s.weather = 'clear';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
       const tanks: unknown = s.tanks;
       s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
@@ -190,6 +204,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     tanks: activeTanks(s),
     rules,
+    weather: weatherFor(s.weather ?? 'clear', seed),
     ...(teams ? { teams } : {}),
   };
 }

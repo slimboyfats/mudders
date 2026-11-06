@@ -31,6 +31,7 @@ export const CONTENT_TYPES = [
   'audio',
   'tank',
   'gear',
+  'weather',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -49,6 +50,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   audio: 'audio',
   tank: 'tanks',
   gear: 'gear',
+  weather: 'weather',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -829,6 +831,33 @@ export const PackSchema = z.strictObject({
 });
 export type PackManifest = z.infer<typeof PackSchema>;
 
+// ── weather ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Weather (§3.4), chosen in setup and the same for every peer. The kernel reads `drag` (shells lose
+ * that many thousandths of their speed every tick) and calls the behaviour at every turn start (to
+ * soak, pile or melt the terrain) and every tick. `ambient` is what the renderer draws falling, in
+ * place of the theme's own; `wet` darkens exposed ground like a rain theme. Everything else on the
+ * manifest is the behaviour's params.
+ */
+export const WeatherSchema = z.looseObject({
+  ...behaviourBacked,
+  drag: z.number().int().min(0).max(50).default(0),
+  ambient: z.strictObject({
+    kind: z.enum(AmbientKinds),
+    /** Particles per 1000 map cells of width at high quality. */
+    density: z.number().min(0).max(400),
+    color: HexColorSchema,
+  }),
+  wet: z.number().min(0).max(1).default(0),
+  /** Short label for the HUD and setup screen. */
+  label: z.string().min(1).max(12),
+});
+export type WeatherManifest = z.infer<typeof WeatherSchema>;
+
+/** Keys the weather schema defines itself; everything else goes to its behaviour. */
+export const WEATHER_CORE_KEYS: readonly string[] = Object.keys(WeatherSchema.shape);
+
 export const MANIFEST_SCHEMAS = {
   material: MaterialSchema,
   gen: GeneratorSchema,
@@ -843,6 +872,7 @@ export const MANIFEST_SCHEMAS = {
   audio: AudioSchema,
   tank: TankSchema,
   gear: GearSchema,
+  weather: WeatherSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -859,6 +889,7 @@ export interface ManifestByType {
   audio: AudioManifest;
   tank: TankManifest;
   gear: GearManifest;
+  weather: WeatherManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

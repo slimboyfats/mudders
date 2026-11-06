@@ -25,7 +25,14 @@ import {
   TERRAIN_FS,
   TERRAIN_VS,
 } from './shaders';
-import { DEFAULT_THEME, pixelTheme, playerColor, shade, type PixelTheme } from './theme';
+import {
+  DEFAULT_THEME,
+  pixelTheme,
+  playerColor,
+  shade,
+  withWeather,
+  type PixelTheme,
+} from './theme';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -140,6 +147,9 @@ export class PixelRenderer implements Renderer {
   private canvas!: HTMLCanvasElement;
   private unsubscribe: (() => void) | undefined;
   private theme: PixelTheme = DEFAULT_THEME;
+  /** The chosen theme before the match weather is laid over it. */
+  private baseTheme: PixelTheme = DEFAULT_THEME;
+  private weather: RenderSnapshot['weather'] = undefined;
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
@@ -325,7 +335,8 @@ export class PixelRenderer implements Renderer {
     if (!gl) throw new Error('WebGL2 is not available');
     this.gl = gl;
     this.palette = options.palette;
-    this.theme = pixelTheme(options.theme, options.palette.themes);
+    this.baseTheme = pixelTheme(options.theme, options.palette.themes);
+    this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
@@ -552,7 +563,8 @@ export class PixelRenderer implements Renderer {
   }
 
   setTheme(id: string): void {
-    this.theme = pixelTheme(id, this.palette.themes);
+    this.baseTheme = pixelTheme(id, this.palette.themes);
+    this.theme = withWeather(this.baseTheme, this.weather);
     this.dirty = [0, 0, this.mapWidth, this.mapHeight];
   }
 
@@ -675,6 +687,11 @@ export class PixelRenderer implements Renderer {
     this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
+    if ((s.weather?.id ?? '') !== (this.weather?.id ?? '')) {
+      this.weather = s.weather;
+      this.theme = withWeather(this.baseTheme, s.weather);
+      this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+    }
     this.lastTick = s.tick;
     if (this.fxTick < 0) this.fxTick = s.tick;
     // catch cosmetic time up to this snapshot before spawning its events

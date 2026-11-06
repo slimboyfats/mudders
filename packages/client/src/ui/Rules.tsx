@@ -100,6 +100,18 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Weather
+        <select
+          value={value.weather ?? 'clear'}
+          onChange={(e) => onChange({ weather: e.target.value as MatchSetup['weather'] })}
+        >
+          <option value="clear">Clear</option>
+          <option value="rain">Rain</option>
+          <option value="snow">Snow</option>
+          <option value="random">Random</option>
+        </select>
+      </label>
+      <label>
         Starting cash
         <select
           value={value.startingCash}
