@@ -1,5 +1,5 @@
 import { z } from '@mudders/shared';
-import { defineAi } from '@mudders/sim';
+import { AI_FUEL, defineAi, type AiPurchase } from '@mudders/sim';
 import { enemies, me } from '../../../src/ai';
 
 const params = z.strictObject({
@@ -7,12 +7,20 @@ const params = z.strictObject({
   maxPower: z.number().int().min(0).max(1000),
 });
 
-/** Random angle (towards the enemies' side), power and weapon; never adjusts (§3.7). */
+/**
+ * Random angle (towards the enemies' side), power and weapon; never adjusts (§3.7). Half its
+ * turns it drives off somewhere at random first.
+ */
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.moron',
-  version: 1,
+  version: 2,
   params,
+  move(api) {
+    if (!api.rng.chance(1, 2)) return me(api).x;
+    const r = api.reach(api.rng.chance(1, 2) ? -1 : 1);
+    return r.length > 0 ? r[api.rng.int(r.length)]!.x : me(api).x;
+  },
   aim(api, p) {
     const m = me(api);
     const foes = enemies(api);
@@ -27,9 +35,13 @@ export default defineAi<z.infer<typeof params>>({
     };
   },
   shop(api) {
-    const out: { item: number; packs: number }[] = [];
+    const out: AiPurchase[] = [];
     const items = api.items.filter((i) => i.price > 0 && i.count >= 0);
     let money = api.money;
+    if (api.fuel < api.fuelMax && api.fuelPrice <= money && api.rng.chance(1, 3)) {
+      out.push({ item: AI_FUEL, packs: 1 });
+      money -= api.fuelPrice;
+    }
     for (let k = 0; k < 3 && items.length > 0; k++) {
       const it = items[api.rng.int(items.length)]!;
       if (it.price <= money) {

@@ -215,7 +215,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Tanks have a small collision footprint and can be hit directly by projectiles.
 - **Tank types** (`tank.*` content, core@0.13.0): each seat picks a tank on the setup screen or in the online lobby (guests pick their own; bots default to their personality's favourite; "Random" draws from the match seed). Every strength costs something: Classic (default, the standard tank), Bruiser (150% health, big 20×12 body, half drive), Howitzer (+30% shell damage, 80% health), Scout (12×7 body, double drive, 70% health), Bulwark (50-point shield that soaks hits first and refills each round, −15% shell damage), Longshot (+20% shell speed, 85% health). The kernel reads only numbers (health %, shield, body, damage %, muzzle %, drive %); the sprite is renderer-only.
 - Tanks can move left/right a limited distance per turn if they have fuel (bought in the shop). Movement is blocked by slopes above a threshold.
-  - Implemented (core@0.16.0): hold ◀ ▶ (or A / D) while aiming, and the tank is drawn leaning with the slope it stands on; a `drive` input starts or stops rolling one cell every `mode.drive.ticksPerCell` ticks. Each turn allows `mode.drive.cells` (40) × the tank type's `drive` percent; steps up to `drive.climb` (3) cells are climbed, anything steeper stops the tank. Every cell burns one fuel: tanks start with `drive.startFuel` (80), keep leftovers between rounds and buy a Fuel Tank (+40 for $500, up to 400) in the shop. Driving never ends the turn: drive, then aim and fire. Bots don't drive yet.
+  - Implemented (core@0.16.0): hold ◀ ▶ (or A / D) while aiming, and the tank is drawn leaning with the slope it stands on; a `drive` input starts or stops rolling one cell every `mode.drive.ticksPerCell` ticks. Each turn allows `mode.drive.cells` (40) × the tank type's `drive` percent; steps up to `drive.climb` (3) cells are climbed, anything steeper stops the tank. Every cell burns one fuel: tanks start with `drive.startFuel` (80), keep leftovers between rounds and buy a Fuel Tank (+40 for $500, up to 400) in the shop. Driving never ends the turn: drive, then aim and fire. Bots drive too (core@0.17.0, see §3.7).
 - Death: tank explodes (configurable size, destroys terrain, can damage neighbours — chain reactions are a feature, not a bug).
 
 ### 3.3 Aiming and firing
@@ -255,6 +255,7 @@ Several AI personalities, selectable per bot slot. Minimum set:
 - **Tosser** — like Poolshark but prefers lobbing (high angles) and heavy weapons.
 - **Cyborg** — near-perfect aim, buys optimally, targets the weakest/closest player.
 AI decisions run inside the deterministic simulation so all peers compute the same result.
+- Bots can do everything a human player can except host: pick a tank type, drive (burning fuel), buy weapons and fuel in the shop, and fire any weapon they own. Implemented in core@0.17.0: Cyborg and Poolshark drive to a spot with a clear shot when theirs is blocked, Tosser backs off from close tanks, Shooter closes in on far ones and dodges after a hit, Moron wanders at random; each tops up its fuel in the shop, and Poolshark/Tosser now and then use the dirt and terrain weapons they buy.
 
 ---
 

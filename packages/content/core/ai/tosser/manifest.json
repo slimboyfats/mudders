@@ -11,5 +11,9 @@
   "angles": [78, 72, 66, 60],
   "angleError": 2,
   "powerError": 10,
-  "reserve": 300
+  "reserve": 300,
+  "minRange": 140,
+  "step": 10,
+  "keepFuel": 20,
+  "fuel": 100
 }

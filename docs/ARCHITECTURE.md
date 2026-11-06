@@ -103,6 +103,12 @@ AI players are `ai.*` content (behaviour kind `ai`). When a bot is up the kernel
 `shop(AiShopApi)` and validates each purchase like a human's. `AiApi.predict` runs the weapon's
 own flight behaviour and the kernel's tracer against the current terrain (no side effects), so
 solvers like `ai.poolshark` account for wind and terrain exactly. Bot memory is a hashed `number[]`.
+Bots drive (kernel 0.7.0): a few ticks into the think time the kernel calls the optional
+`move(AiApi)`, which returns a column from `AiApi.reach(dir)` (a side-effect-free dry run of the
+drive rules, limited by allowance and fuel and stopping before any drop that would cause fall damage); the kernel then drives
+there cell by cell exactly like a held drive button (`Tank.botGoal`, hashed) and the think countdown
+resumes once it stops. `predict(…, from)` simulates a shot from a reachable spot, and applies the
+frost power cap. In the shop a purchase with `item: AI_FUEL` buys fuel packs via `buyFuel`.
 
 ### 3.2b Reactions and decay (milestone 3)
 

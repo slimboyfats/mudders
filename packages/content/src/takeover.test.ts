@@ -25,7 +25,8 @@ describe('takeover input', () => {
     expect(w.botId(w.tanks[p]!.bot)).toBe('ai.shooter');
     // a human input is ignored while the bot holds the tank
     w.applyInput(p, { type: 'aim', angle: 3, power: 3 });
-    w.run(BOT_THINK_TICKS + 1);
+    // it thinks, may drive (one turn's allowance at most), then fires
+    for (let i = 0; i < 1000 && w.phase === 'aim'; i++) w.step();
     expect(w.phase).toBe('resolve');
     expect(w.tanks[p]!.angle).not.toBe(3);
     w.applyInput(p, { type: 'takeover', bot: null });

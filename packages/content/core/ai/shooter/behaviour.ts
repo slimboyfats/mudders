@@ -1,20 +1,48 @@
 import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
-import { buyByValue, cheapest, flatPower, me, nearest, strongest } from '../../../src/ai';
+import {
+  buyByValue,
+  cheapest,
+  driveEnd,
+  flatPower,
+  me,
+  moneyAfter,
+  nearest,
+  strongest,
+  topUpFuel,
+} from '../../../src/ai';
 
 const params = z.strictObject({
   /** Launch angle (mirrored for targets on the left). */
   angle: z.number().int().min(10).max(80),
   /** ± power noise per shot. */
   jitter: z.number().int().min(0).max(200),
+  /** Drives toward the nearest tank while it is farther than this many cells. */
+  approach: z.number().int().min(0),
+  fuel: z.number().int().min(0),
 });
 
-/** Memory: [target player, last power] — bracketing restarts when the target changes. */
+/**
+ * Memory: [target player, last power, health at my last turn]: bracketing restarts when the
+ * target changes. Drives up to targets that are far away, and dodges after taking a hit.
+ */
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.shooter',
-  version: 1,
+  version: 2,
   params,
+  move(api, p) {
+    const m = me(api);
+    const mem = api.memory;
+    const hit = mem[2] !== undefined && m.health < mem[2];
+    mem[2] = m.health;
+    const target = nearest(api);
+    if (hit && api.rng.chance(1, 2)) return driveEnd(api, api.rng.chance(1, 2) ? -1 : 1);
+    if (target && Math.abs(target.x - m.x) > p.approach) {
+      return driveEnd(api, target.x > m.x ? 1 : -1);
+    }
+    return m.x;
+  },
   aim(api, p) {
     const m = me(api);
     const target = nearest(api);
@@ -39,7 +67,9 @@ export default defineAi<z.infer<typeof params>>({
     mem[1] = power;
     return { weapon: w.index, angle, power };
   },
-  shop(api) {
-    return buyByValue(api, (i) => i.expectedDamage, 0, 2);
+  shop(api, p) {
+    const fuel = topUpFuel(api, p.fuel, 0);
+    const spent = api.money - moneyAfter(api, fuel);
+    return [...fuel, ...buyByValue(api, (i) => i.expectedDamage, spent, 2)];
   },
 });

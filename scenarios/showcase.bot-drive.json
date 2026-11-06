@@ -1,0 +1,37 @@
+{
+  "id": "showcase.bot-drive",
+  "schemaVersion": 1,
+  "description": "Bots drive: two Shooters (a Scout and a Classic) start far apart, roll toward each other burning fuel, then trade shots.",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 700,
+    "height": 320,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 60,
+      "tank": "tank.scout"
+    },
+    {
+      "x": 640,
+      "tank": "tank.classic"
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "bots": ["ai.shooter", "ai.shooter"],
+  "rules": {
+    "rounds": 1,
+    "suddenDeath": false,
+    "turnCap": 4
+  },
+  "inputs": [],
+  "capture": {
+    "maxTicks": 4000,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}
