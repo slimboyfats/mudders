@@ -34,8 +34,10 @@ export interface RenderPalette {
 
 /** How a weapon's shell is drawn in flight (from its manifest `look`). */
 export interface ShellLook {
-  shell: 'spark' | 'fire' | 'mud';
+  shell: 'spark' | 'fire' | 'ricochet' | 'meteor' | 'mud';
   trail: boolean;
+  /** Scale of a meteor head and streak. */
+  size?: number;
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */
@@ -53,6 +55,8 @@ export interface MaterialLook {
   char?: boolean;
   /** Pixel flames and smoke rise off exposed tops. */
   flames?: boolean;
+  /** Crystalline: scattered cells glint white for a moment (frost). */
+  glint?: boolean;
 }
 
 export interface RendererOptions {

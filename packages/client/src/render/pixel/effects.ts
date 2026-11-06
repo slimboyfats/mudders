@@ -39,6 +39,8 @@ interface Front {
   start: number;
   dur: number;
   rng: FxRng;
+  /** A frost front: ice glints and cold mist instead of dust and grit. */
+  cold?: boolean;
 }
 
 /** A singularity's hang: grit and light spiralling into a growing black core. */
@@ -50,6 +52,20 @@ interface Vortex {
   dur: number;
   rng: FxRng;
 }
+
+interface Crystal {
+  /** Cells of the spikes, x0,y0,x1,y1,… */
+  cells: Int32Array;
+  x: number;
+  y: number;
+  /** Longest spike, in cells. */
+  len: number;
+  start: number;
+  dur: number;
+}
+
+/** Ice colours, light to deep, for shards, glints and the frost front. */
+const ICE = [0xffffff, 0xe6f6ff, 0xbfe4fa, 0x8ccbef, 0x5ea8dc] as const;
 
 /** A mud geyser's erupting column, fed with particles every tick while it lasts. */
 interface Jet {
@@ -110,6 +126,8 @@ export class EffectSystem {
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
   private jets: Jet[] = [];
+  /** Frost Bomb starbursts: jagged ice spikes out of the impact. */
+  private crystals: Crystal[] = [];
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private shakeAmp = 0;
@@ -120,6 +138,13 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /**
+   * Ricochet Ball heat: bounces of the ball in flight (0 = fresh), from its `ricochet` events.
+   * Only one shot flies at a time, so a single counter is enough; it resets on the final burst
+   * or after a long gap.
+   */
+  ricochetHeat = 0;
+  private ricochetLast = -1000;
 
   constructor(
     private readonly particles: Particles,
@@ -177,8 +202,17 @@ export class EffectSystem {
       case 'fireball':
         this.fireball(e, e.params.strength ?? 1);
         break;
+      case 'meteorCall':
+        this.meteorCall(e);
+        break;
       case 'geyser':
         this.geyser(e, e.params.strength ?? 1);
+        break;
+      case 'ricochet':
+        this.ricochet(e);
+        break;
+      case 'ricochetBurst':
+        this.ricochetBurst(e, e.params.strength ?? 1);
         break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
@@ -312,6 +346,39 @@ export class EffectSystem {
       case 'arcs':
         this.arcs(e, e.params.strength ?? 1);
         break;
+      case 'frostBlast':
+        this.frostBlast(e);
+        break;
+      case 'frostFront':
+        this.fronts.push({
+          x: e.x,
+          y: e.y,
+          maxR: e.radius,
+          start: e.tick,
+          dur: Math.max(4, e.params.ticks ?? 30),
+          rng: this.rngFor(e, 43),
+          cold: true,
+        });
+        break;
+      case 'frosted': {
+        // a tank caught in the cold: a puff of frost and glints all over it
+        const rng = this.rngFor(e, 47);
+        const n = Math.round(24 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-9, 9),
+            y: e.y + rng.range(-5, 4),
+            vx: rng.range(-0.3, 0.3),
+            vy: -rng.range(0.1, 0.8),
+            life: rng.range(14, 30),
+            size: 1,
+            color: ICE[Math.floor(rng.next() * 3)]!,
+            kind: PKind.Spark,
+          });
+        }
+        this.puff(e, 0xd8eefa, 10);
+        break;
+      }
       case 'quake': {
         // ground shudder: shake plus dust kicked up along the surface around the epicentre
         const strength = e.params.strength ?? 1;
@@ -336,6 +403,9 @@ export class EffectSystem {
         }
         break;
       }
+      case 'rift':
+        this.rift(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -359,6 +429,9 @@ export class EffectSystem {
         break;
       case 'zone':
         this.puff(e, ZONE_COLOR[e.params.look ?? 0] ?? 0x9ab83a, 30);
+        break;
+      case 'gasBurst':
+        this.gasBurst(e);
         break;
       case 'zoneHurt':
         this.puff(e, 0xb8f040, 8);
@@ -764,6 +837,248 @@ export class EffectSystem {
   }
 
   /**
+   * A Meteor Shower's mark: a red flare shoots straight up out of the ground and the sky turns
+   * an ominous red before the meteors come in.
+   */
+  private meteorCall(e: EffectEvent): void {
+    const rng = this.rngFor(e, 59);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 30,
+      maxR: 40,
+      width: 8,
+      strength: 0.6,
+    });
+    const n = Math.round(40 * this.mult) + 10;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 2,
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(2.5, 6),
+        life: rng.range(25, 50),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: rng.next() < 0.3 ? 0xffe070 : 0xff3a20,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - rng.range(2, 14),
+        vx: rng.range(-0.1, 0.1),
+        vy: -rng.range(0.1, 0.4),
+        life: rng.range(60, 100),
+        size: rng.range(3, 6),
+        color: 0x8a2a24,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky(DT_LOOK[2]!, 0.45);
+  }
+
+  /**
+   * Frost Bomb burst: a hard-banded white-blue flash and a cold sky, a starburst of ice spikes,
+   * shards of ice and glints thrown out, a second, tighter distortion band, and then cold mist
+   * along the ground and snow drifting down over the whole frozen area.
+   */
+  private frostBlast(e: EffectEvent): void {
+    const r = e.radius;
+    const k = e.params.strength ?? 1;
+    const look = DT_LOOK[3]!;
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.8,
+      start: e.tick,
+      dur: 16,
+      color: look[0],
+      strength: 1.1 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.35,
+      start: e.tick,
+      dur: 20,
+      color: 0xf4fbff,
+      strength: 1.3 * k,
+    });
+    this.tintSky(look, 0.7 * k);
+    this.split = Math.max(this.split, 1.5 * k);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 4,
+      dur: 40,
+      maxR: r * 1.6,
+      width: 10,
+      strength: 0.8 * k,
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 3 + r / 25);
+    this.shakeStart = e.tick;
+    const rng = this.rngFor(e, 53);
+    // starburst: jagged ice spikes shooting out of the impact, upward-biased (the ground stops the rest)
+    const pts: number[] = [];
+    const spikes = 11;
+    for (let s = 0; s < spikes; s++) {
+      const a = (-0.12 + (1.24 * (s + rng.range(0.15, 0.85))) / spikes) * Math.PI;
+      const len = r * rng.range(0.45, 0.95);
+      let x = e.x;
+      let y = e.y;
+      const steps = 4;
+      for (let j = 1; j <= steps; j++) {
+        const d = (len * j) / steps;
+        const jit = (len / 14) * (j < steps ? 1 : 0);
+        const nx = Math.round(e.x + Math.cos(a) * d + rng.range(-jit, jit));
+        const ny = Math.round(e.y - Math.sin(a) * d + rng.range(-jit, jit));
+        line(x, y, nx, ny, pts);
+        x = nx;
+        y = ny;
+      }
+    }
+    this.crystals.push({
+      cells: Int32Array.from(pts),
+      x: e.x,
+      y: e.y,
+      len: r,
+      start: e.tick,
+      dur: 28,
+    });
+    // shards of ice and glints
+    const n = Math.round((90 + r) * this.mult);
+    const fast = 1.6 + r / 28;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0.04, 0.96) * Math.PI;
+      const s = rng.range(0.3, 1) * fast;
+      const glint = i % 3 === 0;
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y + rng.range(-3, 2),
+        vx: Math.cos(a) * s * 1.15,
+        vy: -Math.sin(a) * s,
+        life: rng.range(30, 70),
+        size: glint ? 1 : rng.range(1, 2.4),
+        color: ICE[Math.floor(rng.next() * (glint ? 2 : ICE.length))]!,
+        kind: glint ? PKind.Spark : PKind.Chunk,
+      });
+    }
+    // a freezing cloud rolling out of the crater
+    const nMist = Math.round((10 + r / 4) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nMist; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.35,
+        y: e.y + rng.range(-r, r) * 0.15,
+        vx: rng.range(-0.6, 0.6),
+        vy: -rng.range(0.02, 0.3),
+        life: rng.range(70, 130),
+        size: rng.range(r * 0.15, r * 0.3),
+        color: i % 2 === 0 ? 0xdcefff : 0xb4d8f2,
+        kind: PKind.Smoke,
+      });
+    }
+    // snow drifting down over the frozen ground for a few seconds
+    const nSnow = Math.round((60 + r * 1.2) * this.mult);
+    for (let i = 0; i < nSnow; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1.3, 1.3) * r,
+        y: e.y - rng.range(0.2, 1.8) * r,
+        vx: rng.range(-0.1, 0.1),
+        vy: rng.range(0, 0.15),
+        life: rng.range(140, 260),
+        size: 1,
+        color: rng.next() < 0.7 ? 0xffffff : 0xd6ecfa,
+        kind: PKind.Snow,
+      });
+    }
+  }
+
+  /**
+   * A fissure ripping open (Fault Line): a jolt, a lens kick through the ground, and a geyser of
+   * dust and clods out of the crack mouth; a magma crack also throws up a spray of embers.
+   */
+  private rift(e: EffectEvent): void {
+    const rng = this.rngFor(e, 43);
+    const depth = Math.max(8, e.radius);
+    const w = Math.max(1, e.params.width ?? 3);
+    const hot = (e.params.hot ?? 0) > 0;
+    this.shakeAmp = Math.max(this.shakeAmp, hot ? 9 : 6);
+    this.shakeStart = e.tick;
+    this.ripples.push({
+      x: e.x,
+      y: e.y + depth * 0.4,
+      start: e.tick,
+      dur: 30,
+      maxR: depth * 1.6,
+      width: 10,
+      strength: hot ? 1.1 : 0.8,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: depth * 0.9,
+      start: e.tick,
+      dur: 18,
+      rng: this.rngFor(e, 47),
+    });
+    this.tintSky(DT_LOOK[5]!, hot ? 0.3 : 0.18);
+    const col = this.dustColor(e.x, e.y + 4);
+    // the geyser: a tall narrow column of dust, then clods thrown up and out
+    const nDust = Math.round((26 + depth / 2) * this.mult) + 4;
+    for (let i = 0; i < nDust; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-w, w),
+        y: e.y - rng.range(0, 4),
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(0.6, 2.6) * (0.6 + depth / 120),
+        life: rng.range(30, 70),
+        size: rng.range(2.5, 6),
+        color: shade(col, rng.range(0.85, 1.25)),
+        kind: PKind.Dust,
+      });
+    }
+    const nChunk = Math.round((30 + depth / 2) * this.mult) + 4;
+    for (let i = 0; i < nChunk; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: e.x + rng.range(-w, w) * 0.5,
+        y: e.y - 1,
+        vx: side * rng.range(0.1, 1.4),
+        vy: -rng.range(1.2, 3.8),
+        life: rng.range(40, 80),
+        size: rng.range(1, 2),
+        color: shade(col, rng.range(0.7, 1.1)),
+        kind: PKind.Chunk,
+      });
+    }
+    if (!hot) return;
+    const nSpark = Math.round(40 * this.mult) + 6;
+    for (let i = 0; i < nSpark; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-w, w) * 0.5,
+        y: e.y + rng.range(0, 3),
+        vx: rng.range(-0.8, 0.8),
+        vy: -rng.range(1.5, 4.2),
+        life: rng.range(24, 60),
+        size: 1,
+        color: rng.next() < 0.35 ? 0xffe070 : rng.next() < 0.6 ? 0xff7a1a : 0xe8401a,
+        kind: PKind.Spark,
+      });
+    }
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 6 + w,
+      start: e.tick,
+      dur: 12,
+      color: 0xff7a24,
+      strength: 1,
+    });
+  }
+
+  /**
    * A mud geyser blowing: the ground heaves (distortion ring, dust front, brown sky), then a
    * column of mud chunks and steam roars up out of the vent for `ticks` ticks (fed in `tick`).
    */
@@ -1035,6 +1350,147 @@ export class EffectSystem {
     }
   }
 
+  /** Current Ricochet Ball heat at tick `t` (0 once the last bounce is long past). */
+  heatAt(t: number): number {
+    return t - this.ricochetLast > RICOCHET_GAP ? 0 : this.ricochetHeat;
+  }
+
+  /**
+   * A Ricochet Ball striking the ground: a hard pop in the ball's heat colour, a fan of sparks
+   * thrown up off the surface, a tiny lens kick, and a scorched glint left on the ground. Each
+   * bounce burns hotter: more sparks, a bigger pop, colours climbing towards white.
+   */
+  private ricochet(e: EffectEvent): void {
+    const heat = this.heatAt(e.tick) + 1;
+    this.ricochetHeat = heat;
+    this.ricochetLast = e.tick;
+    const rng = this.rngFor(e, 61);
+    const h = Math.min(heat, RICOCHET_HEAT.length - 1);
+    const col = RICOCHET_HEAT[h]!;
+    const hot = RICOCHET_HEAT[Math.min(h + 1, RICOCHET_HEAT.length - 1)]!;
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 8 + heat * 2.5,
+      start: e.tick,
+      dur: 7,
+      color: col,
+      strength: 1.2,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 14,
+      maxR: 12 + heat * 4,
+      width: 5,
+      strength: 0.5 + heat * 0.1,
+    });
+    const n = Math.round((20 + heat * 12) * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      // a fan up and out off the surface, hottest sparks fastest
+      const a = Math.PI + rng.range(0.1, Math.PI - 0.1);
+      const s = rng.range(0.8, 2 + heat * 0.35);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 1,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rng.range(10, 18 + heat * 3),
+        size: 1,
+        color: i % 4 === 0 ? 0xffffff : rng.next() < 0.5 ? col : hot,
+        kind: PKind.Spark,
+      });
+    }
+    // a crackle of short arcs licking along the ground from the bounce, from the third bounce on
+    if (heat >= 3) this.arcs({ ...e, radius: 4 + heat }, 0.35);
+    this.shakeAmp = Math.max(this.shakeAmp, 0.6 + heat * 0.25);
+    this.shakeStart = e.tick;
+  }
+
+  /**
+   * The Ricochet Ball going off: a white-hot core that blooms through the ball's colours in hard
+   * bands, a sphere of sparks, arcs crawling out across the ground, motes of energy drifting up
+   * and the sky blinking violet.
+   */
+  private ricochetBurst(e: EffectEvent, k: number): void {
+    const heat = Math.max(1, this.heatAt(e.tick));
+    this.ricochetHeat = 0;
+    this.ricochetLast = -1000;
+    const rng = this.rngFor(e, 67);
+    const r = Math.max(8, e.radius);
+    // nested hard-banded blooms: violet rim, pink body, white heart, staggered so it swells
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 1.7,
+      start: e.tick,
+      dur: 22,
+      color: 0x8040ff,
+      strength: 1.1 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 1.15,
+      start: e.tick,
+      dur: 16,
+      color: 0xff60d0,
+      strength: 1.3 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.6,
+      start: e.tick,
+      dur: 12,
+      color: 0xffffff,
+      strength: 1.6 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.9,
+      start: e.tick + 3,
+      dur: 14,
+      color: 0x70e0ff,
+      strength: 0.9 * k,
+    });
+    const n = Math.round((90 + heat * 12) * k * this.mult) + 10;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.08, 0.08);
+      const s = rng.range(1.2, 2.2 + r / 10);
+      const c = rng.next();
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 0.6,
+        life: rng.range(14, 30),
+        size: 1,
+        color: c < 0.3 ? 0xffffff : c < 0.55 ? 0xff70d0 : c < 0.8 ? 0xb080ff : 0x70e0ff,
+        kind: PKind.Spark,
+      });
+    }
+    // slow motes of energy that hang in the air after the flash
+    const motes = Math.round(24 * k * this.mult) + 4;
+    for (let i = 0; i < motes; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r * 0.6, r * 0.6),
+        y: e.y + rng.range(-r * 0.6, r * 0.3),
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(0.6, 1.4),
+        life: rng.range(40, 70),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffa0f0 : 0xa0f0ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.arcs({ ...e, radius: r * 0.7 }, 0.8 * k);
+    this.tintSky([0, 0.55, 0.3, 0.9], 0.35 * k);
+    this.split = Math.max(this.split, 1.5 * k);
+  }
+
   /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
   private dustColor(x: number, y: number): number {
     const p = this.probe;
@@ -1113,6 +1569,10 @@ export class EffectSystem {
       const k = (t - f.start) / f.dur;
       if (k > 1) return false;
       const r = f.maxR * k;
+      if (f.cold) {
+        this.frostFrontTick(f, r);
+        return true;
+      }
       for (const side of [-1, 1]) {
         const x = Math.round(f.x + side * r);
         const y = this.surfaceNear(x, f.y, f.maxR);
@@ -1174,6 +1634,7 @@ export class EffectSystem {
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
+    this.crystals = this.crystals.filter((b) => t - b.start <= b.dur);
     const s = this.sky;
     s[0] *= 0.86;
     s[1] *= 0.86;
@@ -1184,6 +1645,61 @@ export class EffectSystem {
       s[0] = s[1] = s[2] = 0;
     }
     this.split = this.split > 0.3 ? this.split * 0.9 : 0;
+  }
+
+  /**
+   * One tick of a frost front: at the ring's edge on both sides, ice glints spark up off the
+   * surface, frost crystals crackle out and a low cold mist is left behind it.
+   */
+  private frostFrontTick(f: Front, r: number): void {
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < 2; j++) {
+        const x = Math.round(f.x + side * (r - j * 2));
+        const y = this.surfaceNear(x, f.y, f.maxR);
+        if (y < 0) continue;
+        const n = Math.max(1, Math.round(3 * this.mult));
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: x + f.rng.range(-1.5, 1.5),
+            y: y - f.rng.range(0, 1.5),
+            vx: side * f.rng.range(0.05, 0.6),
+            vy: -f.rng.range(0.4, 1.6),
+            life: f.rng.range(10, 26),
+            size: 1,
+            color: ICE[Math.floor(f.rng.next() * 3)]!,
+            kind: PKind.Spark,
+          });
+        }
+        if (f.rng.next() < 0.5 * this.mult) {
+          this.particles.add({
+            x,
+            y: y - 1,
+            vx: side * f.rng.range(0.1, 0.5),
+            vy: -f.rng.range(0.03, 0.12),
+            life: f.rng.range(60, 110),
+            size: f.rng.range(4, 8),
+            color: f.rng.next() < 0.5 ? 0xe4f2fc : 0xc2def2,
+            kind: PKind.Dust,
+          });
+        }
+      }
+    }
+    // the leading edge itself: a ring of cold light hugging the ground
+    const gx = Math.round(f.x - r);
+    const hx = Math.round(f.x + r);
+    for (const x of [gx, hx]) {
+      const y = this.surfaceNear(x, f.y, f.maxR);
+      if (y >= 0)
+        this.glows.push({
+          x,
+          y,
+          r: 3,
+          start: Math.floor(f.start + (r / f.maxR) * f.dur),
+          dur: 6,
+          color: 0xbfe4fa,
+          strength: 0.9,
+        });
+    }
   }
 
   /** Top surface row near (x, y): first solid cell with air above, scanning ±range. */
@@ -1204,6 +1720,53 @@ export class EffectSystem {
     if (this.shakeAmp <= 0 || age > 18 || age < 0) return [0, 0];
     const a = this.shakeAmp * (1 - age / 18) ** 2;
     return [Math.sin(age * 2.1) * a, Math.cos(age * 2.9) * a * 0.6];
+  }
+
+  /**
+   * A gas canister cracking open: a jet of green spray and droplets up out of the crater, fat
+   * toxic puffs rolling out low to both sides, and a sickly tint on the sky.
+   */
+  private gasBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 23);
+    const n = Math.round((e.params.count ?? 18) * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y - rng.range(0, 3),
+        vx: side * rng.range(0.4, 1.6),
+        vy: -rng.range(0.05, 0.5),
+        life: rng.range(40, 80),
+        size: rng.range(4, 8),
+        color: rng.next() < 0.5 ? 0x7fb51e : 0xa8dc30,
+        kind: PKind.Dust,
+      });
+    }
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 1,
+        vx: rng.range(-0.7, 0.7),
+        vy: -rng.range(1.2, 2.8),
+        life: rng.range(20, 40),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xf0ff90 : 0xa8dc30,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - 2,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.4, 0.9),
+        life: rng.range(40, 70),
+        size: rng.range(4, 7),
+        color: 0x6a9a1a,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
   }
 
   drawGlows(additive: QuadBatch, t: number): void {
@@ -1245,6 +1808,35 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Frost starbursts: ice spikes that shoot out from the impact in the first ticks (drawn up to a
+   * growing length along each spike), hold, then shatter away from the tips in whole steps.
+   */
+  drawCrystals(additive: QuadBatch, t: number): void {
+    for (const b of this.crystals) {
+      const age = t - b.start;
+      if (age < 0 || age > b.dur) continue;
+      const c = b.cells;
+      const n = c.length;
+      // shoot out over 5 ticks, hold, then shatter: tips first, then random cells drop out
+      const reach = b.len * Math.min(1, (age + 1) / 5);
+      const fade = age < 12 ? 1 : 1 - (age - 12) / (b.dur - 12);
+      const tip = b.len * Math.max(0, fade);
+      for (let i = 0; i < n; i += 2) {
+        const dx = c[i]! - b.x;
+        const dy = c[i + 1]! - b.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > reach || d > tip + 2) continue;
+        const h = ((c[i]! * 73856093) ^ (c[i + 1]! * 19349663)) >>> 0;
+        if (fade < 1 && ((h >>> 8) & 255) / 255 > fade + 0.3) continue;
+        const x = c[i]! + 0.5;
+        const y = c[i + 1]! + 0.5;
+        additive.push(x, y, 3, 3, 0x5ea8dc, 0.45 * fade);
+        additive.push(x, y, 1, 1, (h & 7) === 0 ? 0xffffff : 0xd6f0ff, fade);
+      }
+    }
+  }
+
   /** Low quality has no distortion pass: draw ripples as plain rings instead. */
   drawRippleRings(additive: QuadBatch, t: number): void {
     for (const r of this.ripples) {
@@ -1270,6 +1862,7 @@ export class EffectSystem {
     this.fronts = [];
     this.bolts = [];
     this.jets = [];
+    this.crystals = [];
     this.mushrooms = [];
     this.vortices = [];
     this.shakeAmp = 0;
@@ -1279,8 +1872,16 @@ export class EffectSystem {
   }
 }
 
-/** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff] as const;
+/** Ticks without a bounce after which the Ricochet Ball counts as cooled (a new shot). */
+const RICOCHET_GAP = 240;
+
+/** Ricochet Ball colour per heat (bounces so far): cold cyan climbing to white-hot. */
+export const RICOCHET_HEAT = [
+  0x50e8ff, 0x70b0ff, 0x9a80ff, 0xd070ff, 0xff68c8, 0xffb0f0, 0xffffff,
+] as const;
+
+/** Zone looks by index (gas, acid, resonance, toxic), matching the sim's zone `look` order. */
+export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {

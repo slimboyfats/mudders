@@ -4,17 +4,19 @@ import type {
   RenderPalette,
   Renderer,
   RendererOptions,
+  ShellLook,
   SnapshotStream,
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
-import { EffectSystem, QUALITY_PARTICLES } from './effects';
+import { EffectSystem, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import {
   BG_FS,
+  CUT_REACH,
   FULLSCREEN_VS,
   MAX_RIPPLES,
   POST_FS,
@@ -205,6 +207,8 @@ export class PixelRenderer implements Renderer {
   /** Latest snapshot state the renderer mirrors (read-only views). */
   private terrain: Uint8Array;
   private entities: EntityView[] = [];
+  /** Meteor shells: last position and per-tick motion by projectile id (for streaks and trails). */
+  private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
   private debris: RenderSnapshot['debris'] = {
@@ -442,9 +446,12 @@ export class PixelRenderer implements Renderer {
       if (l.cell <= 0 || l.cell > 255) continue;
       const n = Math.min(8, l.cycle.length);
       look[l.cell * 4] = n >= 2 ? n : 0;
-      this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
+      // glinting cells animate too, so they keep the animated-terrain pass on
+      this.lookFlags[l.cell] = (n >= 2 || l.glint ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
-      look[l.cell * 4 + 2] = l.hot ? 255 : 0;
+      // b: 255 hot, 96 glint (the shader tells them apart by range)
+      look[l.cell * 4 + 2] = l.hot ? 255 : l.glint ? 96 : 0;
+      // a: 255 topsoil, 128 char-only
       look[l.cell * 4 + 3] = l.topsoil ? 255 : l.char ? 128 : 0;
       for (let i = 0; i < n; i++) {
         const o = ((1 + i) * 256 + l.cell) * 4;
@@ -550,12 +557,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 32 up for soil depth, 1 down/sideways): widen the box
+        // shading reads neighbours (up to 32 up for soil depth, 1 down, CUT_REACH sideways for
+        // crater walls cut through the turf): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
-        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
+        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 32));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
@@ -598,6 +606,7 @@ export class PixelRenderer implements Renderer {
     this.entities = s.entities;
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
+    this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
     this.lastTick = s.tick;
@@ -613,6 +622,73 @@ export class PixelRenderer implements Renderer {
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
     }
     this.updateTrails(s);
+  }
+
+  /**
+   * Gas clouds wither the grass they creep over: grass-mask cells under a puff turn from 1 (grass)
+   * to 2 (withered, drawn dry and brown). Cosmetic and one-way, like the burn marks.
+   */
+  private witherGrass(): void {
+    const m = this.grassMask;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    let x0 = w;
+    let y0 = h;
+    let x1 = 0;
+    let y1 = 0;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (!pf || pf.length === 0 || z.look !== 'toxic') continue;
+      // the cloud swells over its first second; reach the grass once it has
+      const r = Math.round((z.puffRadius ?? 8) * Math.min(1, 0.3 + (z.age ?? 1000) / 50));
+      for (let i = 0; i < pf.length; i += 2) {
+        const px = pf[i]!;
+        const py = pf[i + 1]!;
+        const ya = Math.max(0, py - r);
+        const yb = Math.min(h - 1, py + 4);
+        for (let x = Math.max(0, px - r); x <= Math.min(w - 1, px + r); x++) {
+          const dx = x - px;
+          for (let y = ya; y <= yb; y++) {
+            const k = y * w + x;
+            if (m[k] !== 1) continue;
+            const dy = Math.max(0, py - y);
+            if (dx * dx + dy * dy > r * r) continue;
+            m[k] = 2;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+      }
+    }
+    if (x0 > x1) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      x0,
+      y0,
+      x1 - x0 + 1,
+      y1 - y0 + 1,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      m,
+    );
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    // re-shade the turf under it (shading reads up to 32 rows down from the surface)
+    const d = this.dirty;
+    const clean = d[0]! >= d[2]!;
+    d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+    d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, y0 - 1));
+    d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 2));
+    d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + 34));
   }
 
   /** Stamp a blast's tick over the cells it reached, so the char there smoulders for a while. */
@@ -826,13 +902,94 @@ export class PixelRenderer implements Renderer {
         // re-shade the burnt patch (shading looks up to 32 rows down for soil depth)
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, by0 - 1));
-        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 1));
+        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + 32));
       }
     }
   }
+
+  /**
+   * Meteors: a dense tail of fire filled in along each tick's move, burning out into a long
+   * column of black smoke, with sparks shed backwards. Waiting (hidden) meteors and the jump to
+   * their entry point are skipped.
+   */
+  private stepMeteors(shells: Readonly<Record<string, ShellLook>>): void {
+    const live = this.meteorLive;
+    live.clear();
+    for (const e of this.entities) {
+      if (e.kind !== 'projectile') continue;
+      const look = shells[e.weapon];
+      if (look?.shell !== 'meteor') continue;
+      live.add(e.id);
+      const m = this.meteors.get(e.id);
+      if (!m) {
+        this.meteors.set(e.id, { x: e.x, y: e.y, dx: 0, dy: 0 });
+        continue;
+      }
+      const dx = e.x - m.x;
+      const dy = e.y - m.y;
+      const x0 = m.x;
+      const y0 = m.y;
+      m.x = e.x;
+      m.y = e.y;
+      if (dy <= 0 || dy > 24 || Math.abs(dx) > 24) {
+        m.dx = 0;
+        m.dy = 0;
+        continue;
+      }
+      m.dx = dx;
+      m.dy = dy;
+      if (e.y < -8) continue;
+      const sz = look.size ?? 1;
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), dy) / 1.5));
+      const mult = QUALITY_PARTICLES[this.quality].mult;
+      let r = (Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503)) >>> 0;
+      for (let i = 0; i < steps; i++) {
+        r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+        const t = i / steps;
+        this.particles.add({
+          x: x0 + dx * t + ((r & 3) - 1.5) * 0.6 * sz,
+          y: y0 + dy * t + (((r >>> 2) & 3) - 1.5) * 0.6 * sz,
+          vx: -dx * 0.03,
+          vy: -dy * 0.03 - 0.15,
+          life: (12 + ((r >>> 4) & 15)) * (0.7 + sz * 0.3),
+          size: Math.round((2 + ((r >>> 8) & 1)) * sz),
+          color: 0,
+          kind: PKind.Flame,
+        });
+        if (((r >>> 9) & 3) === 0 && mult > 0.4) {
+          this.particles.add({
+            x: x0 + dx * t,
+            y: y0 + dy * t,
+            vx: -dx * 0.12 + (((r >>> 12) & 15) - 7.5) * 0.06,
+            vy: -dy * 0.12 - 0.2,
+            life: 14 + ((r >>> 16) & 15),
+            size: 1,
+            color: (r >>> 20) & 1 ? 0xffe070 : 0xff8a20,
+            kind: PKind.Spark,
+          });
+        }
+      }
+      // the smoke column it leaves hanging in the sky
+      if (((r >>> 24) & 1) === 0 || sz > 1) {
+        this.particles.add({
+          x: x0 - dx * 0.5,
+          y: y0 - dy * 0.5,
+          vx: this.wind * 0.06,
+          vy: -0.05,
+          life: 110 + ((r >>> 25) & 63),
+          size: Math.round((3 + ((r >>> 26) & 3)) * sz),
+          color: (r >>> 28) & 1 ? 0x2a2428 : 0x4a4044,
+          kind: PKind.Smoke,
+        });
+      }
+    }
+    for (const id of [...this.meteors.keys()]) if (!live.has(id)) this.meteors.delete(id);
+  }
+
+  private readonly meteorLive = new Set<number>();
 
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
@@ -843,6 +1000,7 @@ export class PixelRenderer implements Renderer {
     // burning shells shed flames as they fly
     const shells = this.palette.shells;
     if (shells) {
+      this.stepMeteors(shells);
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -874,6 +1032,28 @@ export class PixelRenderer implements Renderer {
           color: 0,
           kind: PKind.Flame,
         });
+      }
+    }
+    // ricochet balls shed sparks in their heat colour
+    if (shells) {
+      const heat = Math.min(this.fx.heatAt(this.fxTick), RICOCHET_HEAT.length - 1);
+      for (const e of this.entities) {
+        if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'ricochet') continue;
+        let r = (Math.imul(this.fxTick + 7, 2654435761) ^ Math.imul(e.id + 3, 40503)) >>> 0;
+        const n = 1 + (heat >> 1);
+        for (let i = 0; i < n; i++) {
+          r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+          this.particles.add({
+            x: e.x + ((r >>> 4) & 3) - 1.5,
+            y: e.y + ((r >>> 8) & 3) - 1.5,
+            vx: (((r >>> 12) & 15) - 7.5) * 0.04,
+            vy: (((r >>> 16) & 15) - 7.5) * 0.04,
+            life: 8 + ((r >>> 20) & 7) + heat * 2,
+            size: 1,
+            color: (r & 3) === 0 ? 0xffffff : RICOCHET_HEAT[heat]!,
+            kind: PKind.Spark,
+          });
+        }
       }
     }
     // smoke from wrecks
@@ -1030,6 +1210,7 @@ export class PixelRenderer implements Renderer {
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
+    this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
@@ -1202,6 +1383,7 @@ export class PixelRenderer implements Renderer {
       // turret dome
       b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
       this.coverTank(x, y);
+      if (e.chill > 0) this.frostTank(x, y, t);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       this.drawDigit(x - 13, y - 16, e.player + 1);
       // health bar
@@ -1214,6 +1396,36 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
     }
+  }
+
+  /**
+   * A frosted tank (Frost Bomb): rimed hull and dome, icicles hanging off the hull, a glint that
+   * hops around in whole steps, and a snowflake mark beside the health bar so the state reads
+   * without colour.
+   */
+  private frostTank(x: number, y: number, t: number): void {
+    const b = this.normal;
+    b.rect(x - 7, y - 6, 14, 3, 0xd6ecfa, 0.55);
+    b.rect(x - 7, y - 6, 14, 1, 0xffffff, 0.8);
+    b.push(x + 0.5, y - 7, 7, 5, 0xe6f6ff, 0.45, Shape.Disc);
+    for (let i = 0; i < ICICLES.length; i += 2) {
+      b.rect(x + ICICLES[i]!, y - 3, 1, ICICLES[i + 1]!, 0xe6f6ff, 0.95);
+    }
+    const st = Math.floor(t / 9);
+    const gx = x - 7 + ((st * 5 + x) % 14);
+    const gy = y - 6 - ((st * 3) % 3);
+    b.rect(gx, gy, 1, 1, 0xffffff);
+    // snowflake: a 5×5 plus with diagonal tips, right of the health bar
+    const sx = x + 10;
+    const sy = y - 16;
+    b.rect(sx - 1, sy - 1, 7, 7, 0x000000, 0.6);
+    b.rect(sx + 2, sy, 1, 5, 0xbfe4fa);
+    b.rect(sx, sy + 2, 5, 1, 0xbfe4fa);
+    b.rect(sx, sy, 1, 1, 0xbfe4fa);
+    b.rect(sx + 4, sy, 1, 1, 0xbfe4fa);
+    b.rect(sx, sy + 4, 1, 1, 0xbfe4fa);
+    b.rect(sx + 4, sy + 4, 1, 1, 0xbfe4fa);
+    b.rect(sx + 2, sy + 2, 1, 1, 0xffffff);
   }
 
   /** A 3×5 pixel digit (1–9) on a dark backing, top-left at (x, y). */
@@ -1250,7 +1462,16 @@ export class PixelRenderer implements Renderer {
     const shells = this.palette.shells;
     for (const e of this.entities) {
       if (e.kind !== 'projectile') continue;
-      if (shells?.[e.weapon]?.shell === 'fire') {
+      const look = shells?.[e.weapon];
+      if (look?.shell === 'ricochet') {
+        this.drawRicochetBall(e.x, e.y, e.id);
+        continue;
+      }
+      if (look?.shell === 'meteor') {
+        this.drawMeteor(e.id, e.x, e.y, look.size ?? 1);
+        continue;
+      }
+      if (look?.shell === 'fire') {
         // a burning gob: orange body, yellow-white heart
         const x = Math.floor(e.x) + 0.5;
         const y = Math.floor(e.y) + 0.5;
@@ -1271,6 +1492,63 @@ export class PixelRenderer implements Renderer {
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
     }
+  }
+
+  /**
+   * A Ricochet Ball: a ball of energy in hard concentric bands (halo, body, white heart) that
+   * swells and climbs from cyan to white-hot with each bounce, with a crackle of stray cells
+   * flickering around it.
+   */
+  private drawRicochetBall(fx: number, fy: number, id: number): void {
+    const g = this.additive;
+    const heat = Math.min(this.fx.heatAt(this.fxTick), RICOCHET_HEAT.length - 1);
+    const col = RICOCHET_HEAT[heat]!;
+    const hot = RICOCHET_HEAT[Math.min(heat + 2, RICOCHET_HEAT.length - 1)]!;
+    const x = Math.floor(fx) + 0.5;
+    const y = Math.floor(fy) + 0.5;
+    // pulse a cell bigger every few ticks
+    const pulse = (this.fxTick >> 1) & 1;
+    const body = 4 + heat;
+    g.push(x, y, body * 2 + 6 + pulse * 2, body * 2 + 6 + pulse * 2, col, 0.3, Shape.Pixel);
+    g.push(x, y, body + 2, body + 2, col, 0.8, Shape.Pixel);
+    g.push(x, y, body, body, hot, 1, Shape.Pixel);
+    g.push(x, y, Math.max(1, body - 2), Math.max(1, body - 2), 0xffffff, 1, Shape.Pixel);
+    // crackle: a few cells jumping around the rim, more as it heats up
+    let r = (Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(id + 1, 40503)) >>> 0;
+    const n = 2 + heat;
+    const reach = (body >> 1) + 2 + (heat >> 1);
+    for (let i = 0; i < n; i++) {
+      r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+      const dx = ((r >>> 4) % (2 * reach + 1)) - reach;
+      const dy = ((r >>> 12) % (2 * reach + 1)) - reach;
+      g.push(x + dx, y + dy, 1, 1, (r & 1) === 0 ? 0xffffff : col, 0.9);
+    }
+  }
+
+  /** A meteor: a white-hot head on a tapering streak that bands yellow → orange → red. */
+  private drawMeteor(id: number, ex: number, ey: number, sz: number): void {
+    const m = this.meteors.get(id);
+    if (!m || m.dy <= 0) return; // waiting above the map
+    const g = this.additive;
+    const len = Math.hypot(m.dx, m.dy) || 1;
+    const ux = m.dx / len;
+    const uy = m.dy / len;
+    const n = Math.round(14 * sz);
+    const BANDS = [0xfff6d0, 0xffd060, 0xff8a20, 0xe04a10, 0xa02810] as const;
+    for (let k = n; k >= 1; k--) {
+      const f = k / n;
+      const x = Math.floor(ex - ux * k * 1.4) + 0.5;
+      const y = Math.floor(ey - uy * k * 1.4) + 0.5;
+      const w = Math.max(1, Math.round(3 * sz * (1 - f * 0.75)));
+      g.push(x, y, w, w, BANDS[Math.min(4, Math.floor(f * 5))]!, 1 - f * 0.55, Shape.Pixel);
+    }
+    const x = Math.floor(ex) + 0.5;
+    const y = Math.floor(ey) + 0.5;
+    const hs = Math.round(4 + 3 * sz);
+    g.push(x, y, hs * 2, hs * 2, 0xff6a14, 0.35, Shape.Pixel);
+    g.push(x, y, hs, hs, 0xff9a30, 0.7, Shape.Pixel);
+    this.normal.push(x, y, Math.round(2 + 2 * sz), Math.round(2 + 2 * sz), 0xffd890, 1);
+    g.push(x, y, Math.round(1 + sz), Math.round(1 + sz), 0xffffff, 1);
   }
 
   unmount(): void {
@@ -1295,6 +1573,9 @@ export class PixelRenderer implements Renderer {
     this.fx.clear();
   }
 }
+
+/** Icicles under a frosted tank's hull: x offset from the centre, length in cells. */
+const ICICLES = [-6, 2, -3, 1, 0, 3, 3, 1, 5, 2] as const;
 
 /** Mean row of the topmost solid cell per column (columns with no ground count as the bottom). */
 export function meanGround(terrain: Uint8Array, w: number, h: number): number {

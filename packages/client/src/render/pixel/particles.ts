@@ -17,6 +17,8 @@ export const PKind = {
   /** Fire: a solid pixel blob that rises, steps yellow → orange → red → soot in hard bands and
    * shrinks out. Its own colour is ignored. */
   Flame: 4,
+  /** One opaque cell drifting slowly down, swaying on the wind (snowflakes). */
+  Snow: 5,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 
@@ -105,6 +107,9 @@ export class Particles {
       } else if (k === PKind.Chunk) {
         vy += gravity;
         vx *= 0.99;
+      } else if (k === PKind.Snow) {
+        vy = Math.min(vy + gravity * 0.04, 0.32);
+        vx = vx * 0.95 + wind * 3 + Math.sin(a * 0.11 + i * 1.7) * 0.012;
       } else if (k === PKind.Smoke) {
         vy = vy * 0.94 - 0.012;
         vx = vx * 0.94 + wind * 4;
@@ -140,6 +145,15 @@ export class Particles {
         // one bright cell, snapped to the grid
         const fade = t < 0.6 ? 1 : (1 - t) / 0.4;
         additive.push(Math.floor(this.x[i]!) + 0.5, Math.floor(this.y[i]!) + 0.5, 1, 1, c, fade);
+      } else if (k === PKind.Snow) {
+        normal.push(
+          Math.floor(this.x[i]!) + 0.5,
+          Math.floor(this.y[i]!) + 0.5,
+          s,
+          s,
+          c,
+          t < 0.8 ? 0.95 : (1 - t) / 0.2,
+        );
       } else if (k === PKind.Chunk) {
         normal.push(
           Math.floor(this.x[i]!) + 0.5,

@@ -1,0 +1,26 @@
+{
+  "id": "terrainop.frost",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Flash Freeze",
+    "description": "A frost front races outward from the centre: the exposed skin of soft ground freezes into slippery frost, water freezes into ice, lava sets into rock and fire goes out.",
+    "since": "core@0.13.0"
+  },
+  "behaviour": "terrainop.frost",
+  "skin": [
+    "material.dirt",
+    "material.sand",
+    "material.ash",
+    "material.mud",
+    "material.packed-mud",
+    "material.liquid-dirt"
+  ],
+  "into": "material.frost",
+  "depth": 4,
+  "deep": [
+    { "from": ["material.water"], "into": "material.ice" },
+    { "from": ["material.lava"], "into": "material.rock" },
+    { "from": ["material.fire", "material.napalm"], "into": "air" }
+  ],
+  "expandTicks": 36
+}

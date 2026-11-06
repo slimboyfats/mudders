@@ -1,0 +1,51 @@
+{
+  "id": "weapon.fault-line",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fault Line",
+    "description": "Splits the ground open. Fissures crack outward from the impact and spew dirt over everything near them, the ground under the hit drops into a rift valley while the slabs beside it heave up, and tanks ride up, topple into the chasms or end up buried. Magma glows at the bottom of the deepest cracks.",
+    "since": "core@0.13.0",
+    "category": "terrain-dynamics"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 15,
+        "damageType": "shock",
+        "effects": {
+          "shake": {
+            "strength": 6
+          },
+          "burst": {
+            "count": 36
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.rift"
+      },
+      "radius": 220,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 10000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 25,
+    "terrainValue": 0.9
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

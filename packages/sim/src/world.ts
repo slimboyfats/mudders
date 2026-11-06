@@ -34,7 +34,7 @@ import {
   type TerrainOpBehaviour,
 } from './behaviours';
 import { behaviourParams, type ResolvedContent } from './content/resolve';
-import { FP, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
+import { FP, FP_SHIFT, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
 import { DebrisPool } from './debris';
 import { Grid } from './grid';
 import { Groups } from './groups';
@@ -52,6 +52,8 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** Highest power (of 1000) a frosted tank can fire with. */
+export const CHILL_POWER = 500;
 /** Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. */
 export const BOT_THINK_TICKS = 50;
 /** Longest flight the AI's predictor simulates. */
@@ -135,6 +137,8 @@ export interface Tank extends TankHandle {
   fallVel: number;
   /** Cells sunk into quicksand-like ground since the tank last fell or the round started. */
   sunk: number;
+  /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
+  chill: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -171,6 +175,7 @@ interface RtExplosion {
   dt: number;
   linear: boolean;
   push: number;
+  chill: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -197,6 +202,8 @@ interface RtZoneSpec {
   op: number;
   damageType: DamageType;
   look: number;
+  /** Gas cloud (null = fixed zone). Fixed-point speeds. */
+  cloud: { puffs: number; puffRadius: number; billow: number; drift: number; sink: number } | null;
 }
 
 type RtImpact =
@@ -217,13 +224,29 @@ export interface Zone {
   dt: number;
   look: number;
   owner: number;
+  /**
+   * Gas cloud puffs, flattened x, y, vx, vy per puff in fixed-point cells (empty for a fixed
+   * zone). `x`,`y` above follow the cloud's middle.
+   */
+  puffs: number[];
+  puffRadius: number;
+  /** Fixed-point: wind multiplier, and sink acceleration per tick. */
+  drift: number;
+  sink: number;
+  /** Ticks since the zone was laid. */
+  age: number;
 }
+
+/** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
+const PUFF_PUSH = FP >> 6;
+const PUFF_LIFT = FP >> 6;
+const PUFF_SLIDE = FP >> 6;
 
 /** Most zones alive at once; the oldest goes first. */
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic'] as const;
 
 interface RtWeapon {
   id: string;
@@ -433,6 +456,15 @@ export class World implements SimApi {
           op: z.terrainOp ? this.bindOp(z.terrainOp) : -1,
           damageType: z.damageType,
           look: ZONE_LOOKS.indexOf(z.look),
+          cloud: z.cloud
+            ? {
+                puffs: z.cloud.puffs,
+                puffRadius: z.cloud.puffRadius,
+                billow: toFixed(z.cloud.billow),
+                drift: toFixed(z.cloud.drift),
+                sink: toFixed(z.cloud.sink),
+              }
+            : null,
         },
       };
     }
@@ -459,6 +491,7 @@ export class World implements SimApi {
       dt: damageTypeIndex(e.damageType),
       linear: e.falloff === 'linear',
       push: e.push,
+      chill: e.chill,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -528,6 +561,7 @@ export class World implements SimApi {
         fallFrom: 0,
         fallVel: 0,
         sunk: 0,
+        chill: 0,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -593,6 +627,7 @@ export class World implements SimApi {
       tank.fallFrom = 0;
       tank.fallVel = 0;
       tank.sunk = 0;
+      tank.chill = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -655,7 +690,7 @@ export class World implements SimApi {
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
-      !this.tanks.some((t) => t.falling)
+      !this.tanks.some((t) => t.falling || (t.alive && this.slipDir(t) !== 0))
     );
   }
 
@@ -720,6 +755,7 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     this.stepOps();
+    this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
@@ -801,7 +837,8 @@ export class World implements SimApi {
     const a = t.angle * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = Math.trunc((this.maxSpeed * t.power) / 1000);
+    const power = t.chill > 0 ? Math.min(t.power, CHILL_POWER) : t.power;
+    const speed = Math.trunc((this.maxSpeed * power) / 1000);
     const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
     const y = (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP);
     this.projectiles.push({
@@ -1154,10 +1191,30 @@ export class World implements SimApi {
 
   private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
     if (this.zones.length >= MAX_ZONES) this.zones.shift();
+    const c = z.cloud;
+    const puffs: number[] = [];
+    if (c) {
+      // lift the burst point out of the ground, then fling the puffs out in a ring
+      const g = this.grid;
+      let sy = Math.min(y, g.height - 1);
+      for (let k = 0; k < 32 && sy > 0 && g.material[sy * g.width + x] !== 0; k++) sy--;
+      y = sy;
+      for (let i = 0; i < c.puffs; i++) {
+        const a = Math.trunc((i * 3600) / c.puffs) + this.rng.range(-150, 150);
+        const sp = c.billow - this.rng.int((c.billow >> 1) + 1);
+        // flattened: more sideways than up, as heavy gas spills out rather than rising
+        puffs.push(
+          x * FP + FP / 2,
+          y * FP + FP / 2,
+          Math.trunc((cosDeci(a) * sp) / FP),
+          Math.trunc((sinDeci(a) * sp) / FP / 2),
+        );
+      }
+    }
     this.zones.push({
       x,
       y,
-      radius: z.radius,
+      radius: c ? c.puffRadius : z.radius,
       turns: z.turns,
       damage: z.damage,
       amplify: z.amplify,
@@ -1165,8 +1222,154 @@ export class World implements SimApi {
       dt: damageTypeIndex(z.damageType),
       look: z.look,
       owner,
+      puffs,
+      puffRadius: c ? c.puffRadius : 0,
+      drift: c ? c.drift : 0,
+      sink: c ? c.sink : 0,
+      age: 0,
     });
-    this.emit('zone', x, y, z.radius, { look: z.look, turns: z.turns });
+    this.emit('zone', x, y, c ? c.puffRadius * 2 : z.radius, { look: z.look, turns: z.turns });
+  }
+
+  /**
+   * Gas clouds move every tick (aim and resolve alike): each puff eases toward the wind's drift,
+   * sinks, keeps clear of the other puffs, slides down slopes and climbs only gentle ones. A puff
+   * blown off the map or buried under new ground is gone; a cloud with no puffs left is gone.
+   */
+  private stepClouds(): void {
+    if (this.zones.length === 0) return;
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    let emptied = false;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (pf.length === 0) continue;
+      z.age++;
+      // puffs settle about half a radius apart: a thick blanket, not a row of balls
+      const r = Math.max(2, z.puffRadius >> 1);
+      const tvx = Math.trunc((this.wind * z.drift) / FP);
+      let n = pf.length >> 2;
+      let sx = 0;
+      let sy = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        let x = pf[o]!;
+        let y = pf[o + 1]!;
+        let vx = pf[o + 2]!;
+        let vy = pf[o + 3]!;
+        // wind and weight
+        vx += (tvx - vx) >> 5;
+        vy += z.sink >> 4;
+        vy -= vy >> 4;
+        // keep apart: puffs closer than a radius push each other away (spreads the cloud out)
+        const cx0 = x >> FP_SHIFT;
+        const cy0 = y >> FP_SHIFT;
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue;
+          const dx = cx0 - (pf[j << 2]! >> FP_SHIFT);
+          const dy = cy0 - (pf[(j << 2) + 1]! >> FP_SHIFT);
+          if (dx >= r || dx <= -r || dy >= r || dy <= -r) continue;
+          vx += dx > 0 ? PUFF_PUSH : dx < 0 ? -PUFF_PUSH : i < j ? -PUFF_PUSH : PUFF_PUSH;
+          if (dy < 0 || (dy === 0 && i < j)) vy -= PUFF_LIFT;
+        }
+        // across: climb at most two cells, else stall
+        let nx = x + vx;
+        let cx = nx >> FP_SHIFT;
+        if (cx < 0 || cx >= W) {
+          pf[o] = -1;
+          continue;
+        }
+        let cy = y >> FP_SHIFT;
+        if (cy >= 0 && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 2 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up <= 2) {
+            y -= up * FP;
+            cy -= up;
+          } else {
+            nx = x;
+            cx = x >> FP_SHIFT;
+            vx = -(vx >> 1);
+          }
+        }
+        x = nx;
+        // down (or up): rest on the ground, then slide toward the lower side
+        const ny = y + vy;
+        const ncy = ny >> FP_SHIFT;
+        if (ncy >= H || (ncy >= 0 && mat[ncy * W + cx] !== 0)) {
+          vy = 0;
+          // which way is down: the deeper drop three cells to either side
+          const dl = cx >= 3 ? dropBelow(mat, W, H, cx - 3, cy) : 0;
+          const dr = cx + 3 < W ? dropBelow(mat, W, H, cx + 3, cy) : 0;
+          if (dl > dr) vx -= PUFF_SLIDE;
+          else if (dr > dl) vx += PUFF_SLIDE;
+        } else {
+          y = ny < 0 ? 0 : ny;
+          if (ny < 0) vy = 0;
+        }
+        // buried by new ground: rise out, or be smothered
+        cy = y >> FP_SHIFT;
+        if (cy < H && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 12 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up > 12 || cy - up < 0) {
+            pf[o] = -1;
+            continue;
+          }
+          y -= up * FP;
+          vy = 0;
+        }
+        pf[o] = x;
+        pf[o + 1] = y;
+        pf[o + 2] = vx;
+        pf[o + 3] = vy;
+      }
+      // drop dead puffs (in order), re-centre the zone on the rest
+      let k = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        if (pf[o]! < 0) continue;
+        if (k !== i) {
+          const q = k << 2;
+          pf[q] = pf[o]!;
+          pf[q + 1] = pf[o + 1]!;
+          pf[q + 2] = pf[o + 2]!;
+          pf[q + 3] = pf[o + 3]!;
+        }
+        sx += pf[k << 2]! >> FP_SHIFT;
+        sy += pf[(k << 2) + 1]! >> FP_SHIFT;
+        k++;
+      }
+      if (k < n) pf.length = k << 2;
+      n = k;
+      if (n === 0) {
+        emptied = true;
+        z.turns = 0;
+        continue;
+      }
+      z.x = Math.trunc(sx / n);
+      z.y = Math.trunc(sy / n);
+    }
+    if (emptied) this.zones = this.zones.filter((z) => z.turns > 0);
+  }
+
+  /** True if a tank-centred point is inside the zone (any puff, for a cloud). */
+  private inZone(z: Zone, x: number, y: number): boolean {
+    const reach = z.radius + TANK_HALF;
+    const pf = z.puffs;
+    if (pf.length === 0) {
+      const dx = x - z.x;
+      const dy = y - z.y;
+      return dx * dx + dy * dy < reach * reach;
+    }
+    for (let o = 0; o < pf.length; o += 4) {
+      const dx = x - (pf[o]! >> FP_SHIFT);
+      const dy = y - (pf[o + 1]! >> FP_SHIFT);
+      if (dx * dx + dy * dy < reach * reach) return true;
+    }
+    return false;
   }
 
   /** End of a turn: zones hurt the tanks inside them and re-run their op, then age (§4a). */
@@ -1176,10 +1379,7 @@ export class World implements SimApi {
       if (z.damage > 0) {
         for (const t of this.tanks) {
           if (!t.alive) continue;
-          const dx = t.x - z.x;
-          const dy = t.y - TANK_H / 2 - z.y;
-          const reach = z.radius + TANK_HALF;
-          if (dx * dx + dy * dy >= reach * reach) continue;
+          if (!this.inZone(z, t.x, t.y - TANK_H / 2)) continue;
           this.emit('zoneHurt', t.x, t.y - TANK_H / 2, TANK_HALF, {
             damage: z.damage,
             look: z.look,
@@ -1213,6 +1413,13 @@ export class World implements SimApi {
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
         this.damageTank(t, Math.trunc(base * scale), owner);
+      }
+      if (e.chill > 0) {
+        // frosted for its next own turns; a tank that frosts itself keeps it past this turn too
+        const turns =
+          e.chill + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        if (turns > t.chill) t.chill = turns;
+        this.emit('frosted', t.x, t.y - TANK_H / 2, TANK_HALF, { player: t.player });
       }
       if (e.push > 0 && dx !== 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
@@ -1358,6 +1565,48 @@ export class World implements SimApi {
   }
 
   /**
+   * Which way a tank on slick ground (frost) slides: toward a side whose surface drops below the
+   * row it stands on, lower side first; 0 when it is not mostly on slick cells or the ground is
+   * level. Also returns the slick material's ticks per cell through `slipTicks`.
+   */
+  private slipDir(t: Tank): number {
+    const g = this.grid;
+    if (t.y >= g.height || t.sunk !== 0) return 0;
+    const st = this.mats.slickTicks;
+    const row = t.y * g.width;
+    let n = 0;
+    let solid = 0;
+    let ticks = 0;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      const m = g.material[row + x]!;
+      if (m === 0) continue;
+      solid++;
+      if (st[m] !== 0) {
+        n++;
+        ticks = st[m]!;
+      }
+    }
+    if (solid === 0 || n * 2 < solid) return 0;
+    const l = t.x - TANK_HALF - 1 >= 0 ? g.surfaceY(t.x - TANK_HALF - 1) : -1;
+    const r = t.x + TANK_HALF < g.width ? g.surfaceY(t.x + TANK_HALF) : -1;
+    if (l <= t.y && r <= t.y) return 0;
+    const dir = l > r ? -1 : 1;
+    const nx = t.x + dir;
+    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return 0;
+    this.slipTicks = ticks;
+    return dir;
+  }
+
+  private slipTicks = 1;
+
+  /** On slick ground (frost) the tank slides downhill one cell every few ticks. */
+  private slip(t: Tank): void {
+    const dir = this.slipDir(t);
+    if (dir === 0 || this.tick % this.slipTicks !== 0) return;
+    t.x += dir;
+  }
+
+  /**
    * On `sink` ground (quicksand) the tank settles into it: one cell every `sink.ticks` ticks, up to
    * `sink.depth` cells. Its lower body then sits inside the terrain, which the renderer draws over
    * it. It needs sink material under at least half the treads.
@@ -1416,6 +1665,7 @@ export class World implements SimApi {
         // once it has started to sink the tank is bogged down and no longer slides
         this.sink(t);
         if (t.sunk === 0 && this.grid.settling) this.slide(t);
+        if (!t.falling) this.slip(t);
       } else {
         t.falling = false;
         const dist = t.y - t.fallFrom;
@@ -1477,6 +1727,8 @@ export class World implements SimApi {
   }
 
   private endTurn(): void {
+    const active = this.tanks[this.activePlayer];
+    if (active && active.chill > 0) active.chill--;
     this.turn++;
     turnDecay(this.grid, this.mats);
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
@@ -1671,6 +1923,7 @@ export class World implements SimApi {
         health: t.health,
         alive: t.alive,
         power: t.power,
+        chill: t.chill,
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -1691,6 +1944,13 @@ export class World implements SimApi {
         radius: z.radius,
         look: ZONE_LOOKS[z.look] ?? 'gas',
         turns: z.turns,
+        ...(z.puffs.length > 0
+          ? {
+              puffs: puffCells(z.puffs),
+              puffRadius: z.puffRadius,
+              age: z.age,
+            }
+          : {}),
       });
     }
     const effectEvents = this.effects;
@@ -1746,6 +2006,7 @@ export class World implements SimApi {
         .num(t.fallFrom)
         .num(t.fallVel)
         .num(t.sunk)
+        .num(t.chill)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)
@@ -1777,6 +2038,8 @@ export class World implements SimApi {
     for (const z of this.zones) {
       h.num(z.x).num(z.y).num(z.radius).num(z.turns).num(z.damage).num(z.amplify);
       h.num(z.op).num(z.dt).num(z.look).num(z.owner);
+      h.num(z.puffRadius).num(z.drift).num(z.sink).num(z.age).num(z.puffs.length);
+      for (const v of z.puffs) h.num(v);
     }
     h.num(this.ops.length);
     for (const o of this.ops) {
@@ -1785,4 +2048,18 @@ export class World implements SimApi {
     }
     return h.hex();
   }
+}
+
+/** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
+function puffCells(pf: readonly number[]): number[] {
+  const out: number[] = [];
+  for (let o = 0; o < pf.length; o += 4) out.push(pf[o]! >> FP_SHIFT, pf[o + 1]! >> FP_SHIFT);
+  return out;
+}
+
+/** Air cells straight down from (x, y), at most 8 (how far the ground falls away there). */
+function dropBelow(mat: Uint8Array, W: number, H: number, x: number, y: number): number {
+  let d = 0;
+  for (let r = y; d < 8 && r < H && r >= 0 && mat[r * W + x] === 0; r++) d++;
+  return d;
 }
