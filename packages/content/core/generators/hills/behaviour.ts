@@ -24,6 +24,22 @@ const params = z.strictObject({
    */
   mudDepth: z.number().int().min(0).max(64).default(0),
   mudLevel: z.number().min(-0.2).max(0.3).default(0),
+  /**
+   * Clay (gen.claypits): a band `clayDepth` cells thick. Where the surface lies below the mean
+   * surface plus `clayLevel` (fraction of map height) it starts right at the surface as bare clay
+   * pits; elsewhere it runs under `claySoil` cells of dirt.
+   */
+  clayDepth: z.number().int().min(0).max(64).default(0),
+  clayLevel: z.number().min(-0.3).max(0.3).default(0),
+  claySoil: z.number().int().min(0).max(32).default(6),
+  /**
+   * Ice (gen.glacier): valleys below the mean surface plus `iceLevel` fill with flat frozen lakes
+   * up to that line, frozen `iceDepth` cells into the ground beneath; peaks more than `iceCap`
+   * (fraction of map height) above the mean wear an ice cap `iceDepth` thick.
+   */
+  iceDepth: z.number().int().min(0).max(64).default(0),
+  iceLevel: z.number().min(-0.3).max(0.3).default(0),
+  iceCap: z.number().min(0).max(0.5).default(0.5),
 });
 type Params = z.infer<typeof params>;
 
@@ -126,6 +142,22 @@ export default defineGenerator<Params>({
       }
     }
 
+    let mean = 0;
+    for (let x = 0; x < W; x++) mean += surface[x]!;
+    mean = Math.floor(mean / W);
+
+    // Clay band: no rng either.
+    if (p.clayDepth > 0) {
+      const clay = mats.cellOf('material.clay');
+      const line = mean + Math.round(p.clayLevel * H);
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        const start = s >= line ? s : s + p.claySoil;
+        const bottom = Math.min(H, start + p.clayDepth);
+        for (let y = start; y < bottom; y++) if (mat[y * W + x] !== rock) mat[y * W + x] = clay;
+      }
+    }
+
     // Rock pockets: blobs buried in the dirt.
     for (let i = 0; i < p.rockPockets; i++) {
       const cx = rng.range(0, W - 1);
@@ -137,6 +169,28 @@ export default defineGenerator<Params>({
           const dx = x - cx;
           const dy = y - cy;
           if (dx * dx + dy * dy <= r * r && mat[y * W + x] !== 0) mat[y * W + x] = rock;
+        }
+      }
+    }
+
+    // Frozen lakes in the valleys and ice caps on the peaks (after the pockets, which need ground).
+    if (p.iceDepth > 0) {
+      const ice = mats.cellOf('material.ice');
+      const line = mean + Math.round(p.iceLevel * H);
+      const cap = mean - Math.round(p.iceCap * H);
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        let from = -1;
+        let to = -1;
+        if (s > line) {
+          from = line;
+          to = s + p.iceDepth;
+        } else if (s < cap) {
+          from = s;
+          to = s + p.iceDepth;
+        }
+        for (let y = Math.max(0, from); y < Math.min(H, to); y++) {
+          if (mat[y * W + x] !== rock) mat[y * W + x] = ice;
         }
       }
     }
