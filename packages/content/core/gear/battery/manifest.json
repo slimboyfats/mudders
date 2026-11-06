@@ -1,0 +1,17 @@
+{
+  "id": "gear.battery",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Battery",
+    "description": "Switch it on while aiming (it doesn't use your turn): restores 30 health, up to what you started the round with.",
+    "since": "core@0.18.0"
+  },
+  "deploy": "manual",
+  "heal": 30,
+  "shop": {
+    "price": 1500,
+    "pack": 1,
+    "max": 9
+  },
+  "label": "Battery"
+}

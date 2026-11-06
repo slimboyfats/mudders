@@ -391,6 +391,7 @@ Design rule: every weapon is a content module per §2c — a manifest composing 
 - **Vortex Shell**, **Levitator**, **Crystal Seed**: see §4d catalogue — post-v1.
 
 **Defensive / utility items** — Shield, Deflector Shield (bounces projectiles), Mag Deflector (repels), Heavy Shield, Parachute (auto-deploys on fall), Battery (restores health), Auto Defense (auto shield when hit), Fuel Tank, Tracer, Triple Turret (fire three at offset angles).
+- Implemented (core@0.18.0, `gear.*` content type, kept in its own inventory): Shield (raises the shield to 50, $2000), Heavy Shield (to 100, $5000), Battery (+30 health up to the round-start health, $1500) are switched on while aiming and never end the turn, and are refused when they would change nothing; Parachute ($800 for 2) opens by itself when a fall would hurt, the tank drifts down at 1 cell/tick and lands unhurt (falling off the map is still fatal). Fixed prices, carry limits per item. Bots buy gear by personality (`gear` plan in each `ai.*` manifest) and switch shields/batteries on before their shot.
 
 Each weapon manifest fills the slots in §2c.2. The lists above are a target catalogue, not a class hierarchy — many are the same behaviours with different parameters.
 

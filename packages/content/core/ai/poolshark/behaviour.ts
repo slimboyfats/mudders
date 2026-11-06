@@ -11,6 +11,9 @@ import {
   terrainWeapon,
   topUpFuel,
   weakest,
+  buyGear,
+  gearToUse,
+  GearPlanSchema,
 } from '../../../src/ai';
 
 const params = z.strictObject({
@@ -25,6 +28,8 @@ const params = z.strictObject({
   step: z.number().int().min(1).max(40),
   keepFuel: z.number().int().min(0),
   fuel: z.number().int().min(0),
+  /** Gear it keeps in stock (§5.1). */
+  gear: GearPlanSchema,
 });
 
 /**
@@ -35,7 +40,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.poolshark',
-  version: 2,
+  version: 3,
   params,
   move(api, p) {
     return moveForShot(
@@ -47,6 +52,9 @@ export default defineAi<z.infer<typeof params>>({
       p.keepFuel,
       6,
     );
+  },
+  gear(api) {
+    return gearToUse(api);
   },
   aim(api, p) {
     const m = me(api);
@@ -76,8 +84,9 @@ export default defineAi<z.infer<typeof params>>({
   },
   shop(api, p) {
     const fuel = topUpFuel(api, p.fuel, p.reserve);
-    const spent = api.money - moneyAfter(api, fuel);
+    const gear = buyGear(api, p.gear, p.reserve + api.money - moneyAfter(api, fuel));
+    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
     const value = (i: (typeof api.items)[number]) => i.expectedDamage + i.terrainValue * 20;
-    return [...fuel, ...buyByValue(api, value, p.reserve + spent, 3)];
+    return [...fuel, ...gear, ...buyByValue(api, value, p.reserve + spent, 3)];
   },
 });

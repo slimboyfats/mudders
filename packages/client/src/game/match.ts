@@ -31,11 +31,22 @@ export interface HudTank {
   chill: number;
   weapon: string;
   inventory: { id: string; name: string; count: number }[];
+  /** Gear carried (§5.1), with whether switching it on now would do anything. */
+  gear: HudGear[];
   /** AI personality name, or '' for a human. */
   bot: string;
   money: number;
   score: number;
   ready: boolean;
+}
+
+export interface HudGear {
+  id: string;
+  name: string;
+  label: string;
+  deploy: 'manual' | 'fall';
+  count: number;
+  useful: boolean;
 }
 
 export interface ShopItem {
@@ -45,6 +56,8 @@ export interface ShopItem {
   category: string;
   price: number;
   pack: number;
+  /** Gear (§5.1): fixed price, carry limit. */
+  gear?: { max: number };
 }
 
 export interface HudState {
@@ -85,6 +98,8 @@ export abstract class SimMatch implements SnapshotStream {
   /** `ai.*` id → display name. */
   private readonly botNames: Record<string, string> = {};
   private readonly shopItems: (ShopItem & { index: number })[] = [];
+  private readonly gearItems: ShopItem[] = [];
+  private readonly gearLabels: Record<string, string> = {};
 
   constructor(
     readonly content: ResolvedContent,
@@ -107,6 +122,20 @@ export abstract class SimMatch implements SnapshotStream {
     }
     this.shopItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
     for (const a of content.list('ai')) this.botNames[a.id] = a.meta.name;
+    for (const g of content.list('gear')) {
+      this.names[g.id] = g.meta.name;
+      this.gearLabels[g.id] = g.label;
+      this.gearItems.push({
+        id: g.id,
+        name: g.meta.name,
+        description: g.meta.description,
+        category: g.deploy === 'fall' ? 'gear · automatic' : 'gear',
+        price: g.shop.price,
+        pack: g.shop.pack,
+        gear: { max: g.shop.max },
+      });
+    }
+    this.gearItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
   }
 
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
@@ -157,7 +186,10 @@ export abstract class SimMatch implements SnapshotStream {
       teams: w.options.teams !== undefined,
       winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
       results: w.results,
-      shop: this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
+      shop: [
+        ...this.gearItems,
+        ...this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
+      ],
       tanks: w.tanks.map((t) => ({
         // follows the live tank, so an AI takeover (§6.1) shows in the HUD
         bot: t.bot >= 0 ? (this.botNames[w.botId(t.bot)] ?? '') : '',
@@ -180,6 +212,14 @@ export abstract class SimMatch implements SnapshotStream {
         inventory: t.inventory
           .map((count, i) => ({ id: w.weaponId(i), name: this.names[w.weaponId(i)] ?? '', count }))
           .filter((x) => x.count !== 0),
+        gear: w.gear.map((g, i) => ({
+          id: g.id,
+          name: this.names[g.id] ?? '',
+          label: this.gearLabels[g.id] ?? '',
+          deploy: g.deploy,
+          count: t.gear[i] ?? 0,
+          useful: w.gearUseful(t, i),
+        })),
       })),
     };
   }
@@ -220,6 +260,7 @@ export function hudKey(h: HudState): string {
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
     for (const i of t.inventory) k += `,${i.count}`;
+    for (const g of t.gear) k += `;${g.count}${g.useful ? 'u' : ''}`;
   }
   return k;
 }

@@ -30,6 +30,7 @@ export const CONTENT_TYPES = [
   'theme',
   'audio',
   'tank',
+  'gear',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -47,6 +48,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   theme: 'themes',
   audio: 'audio',
   tank: 'tanks',
+  gear: 'gear',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -544,6 +546,34 @@ export const TankSchema = z.strictObject({
 });
 export type TankManifest = z.infer<typeof TankSchema>;
 
+// ── gear ────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Defensive gear (§5.1): bought in the shop like weapons, kept in a separate inventory, and used
+ * without spending the turn. The kernel reads only these numbers:
+ * - `deploy: "manual"`: the owner switches it on while aiming. `shield` raises the tank's shield to
+ *   that many points (never lowers it); `heal` restores that much health, up to the round-start
+ *   health. It can't be used when it would change nothing.
+ * - `deploy: "fall"`: opens by itself when a fall would hurt; the tank drifts down at `fallSpeed`
+ *   cells per tick and lands unhurt (falling out of the map is still fatal).
+ */
+export const GearSchema = z.strictObject({
+  ...base,
+  deploy: z.enum(['manual', 'fall']),
+  shield: z.number().int().min(0).max(400).default(0),
+  heal: z.number().int().min(0).max(400).default(0),
+  fallSpeed: z.number().int().min(1).max(8).default(1),
+  shop: z.strictObject({
+    price: z.number().int().min(1),
+    pack: z.number().int().min(1).max(20),
+    /** Most a tank may carry. */
+    max: z.number().int().min(1).max(99).default(9),
+  }),
+  /** Short label for the in-match button (renderer/UI only). */
+  label: z.string().min(1).max(12),
+});
+export type GearManifest = z.infer<typeof GearSchema>;
+
 // ── prop ────────────────────────────────────────────────────────────────────────────────────
 
 const MaterialIdSchema = ContentIdSchema.refine(
@@ -805,6 +835,7 @@ export const MANIFEST_SCHEMAS = {
   theme: ThemeSchema,
   audio: AudioSchema,
   tank: TankSchema,
+  gear: GearSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -820,6 +851,7 @@ export interface ManifestByType {
   theme: ThemeManifest;
   audio: AudioManifest;
   tank: TankManifest;
+  gear: GearManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

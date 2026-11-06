@@ -78,6 +78,25 @@ const STANDARD_LOOK: TankLook = {
 };
 
 /** Sprite cell code (manifest `look.sprite`) → colour in this player's colour. */
+/** Parachute canopy, top row first: `c` player colour, `w` white panel, `d` shade. */
+const CHUTE = [
+  '......ccwwwcc......',
+  '...cccwwcccwwccc...',
+  '.ccwwcccwwwcccwwcc.',
+  'cccwwcccwwwcccwwccc',
+  'cccwwcccwwwcccwwccc',
+  'd.d.d.d.d.d.d.d.d.d',
+];
+/** Cords: column offsets at the canopy rim → at the hull top. */
+const CHUTE_CORDS: readonly (readonly [number, number])[] = [
+  [-9, -6],
+  [-4, -2],
+  [4, 2],
+  [9, 6],
+];
+/** How long a battery's plus signs show, in ticks. */
+const BATTERY_TICKS = 45;
+
 function spriteColor(code: number, col: number, shieldOn: boolean): number {
   switch (code) {
     case 72: // H
@@ -272,6 +291,9 @@ export class PixelRenderer implements Renderer {
   private rippleW = new Float32Array(MAX_RIPPLES);
   /** Tick each player's shield last soaked a hit (for the flash). */
   private shieldHitAt: number[] = [];
+  /** Tick each player last switched a shield on, or used a battery (gear, §5.1). */
+  private shieldUpAt: number[] = [];
+  private batteryAt: number[] = [];
 
   constructor(
     readonly mapWidth: number,
@@ -666,6 +688,8 @@ export class PixelRenderer implements Renderer {
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
+      else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
+      else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
     }
     this.fx.lances.track(s.entities, s.tick);
     this.updateTrails(s);
@@ -1494,6 +1518,9 @@ export class PixelRenderer implements Renderer {
       }
       if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
       this.coverTank(x, y, sw, sh);
+      if (e.chute) this.drawChute(e.player, x, y0, t);
+      const charged = t - (this.batteryAt[e.player] ?? -1e9);
+      if (charged < BATTERY_TICKS) this.drawCharge(x, y0, charged);
       if (e.chill > 0) this.frostTank(x, y, t);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
@@ -1523,8 +1550,17 @@ export class PixelRenderer implements Renderer {
     const b = this.normal;
     const rx = (sw >> 1) + 2;
     const ry = sh + 2;
-    const hit = this.shieldHitAt[e.player] ?? -1e9;
+    const hit = Math.max(this.shieldHitAt[e.player] ?? -1e9, this.shieldUpAt[e.player] ?? -1e9);
     const flash = t - hit < 18 ? 1 - (t - hit) / 18 : 0;
+    // switching a shield on: a band of whole cells sweeps up over the tank first
+    const up = t - (this.shieldUpAt[e.player] ?? -1e9);
+    if (up >= 0 && up < 24) {
+      const rowY = y - Math.floor(((sh + 4) * up) / 24);
+      const half = (sw >> 1) + 2;
+      for (let cx = x - half; cx <= x + half; cx++) {
+        b.rect(cx, rowY, 1, 1, (cx & 1) === 0 ? 0xe8fbff : SHIELD_RGB, 0.9);
+      }
+    }
     const left = e.shield / Math.max(1, e.maxShield);
     const alpha = Math.min(1, 0.3 + 0.4 * left + 0.6 * flash);
     const phase = Math.floor(t / 8);
@@ -1537,6 +1573,58 @@ export class PixelRenderer implements Renderer {
         if (((cx + cy + phase) & 1) !== 0 && flash === 0) continue;
         b.rect(cx, cy, 1, 1, flash > 0 ? 0xe8fbff : SHIELD_RGB, alpha);
       }
+    }
+  }
+
+  /**
+   * An open parachute (gear, §5.1): a stepped dome of whole cells in the player's colour with
+   * white panels, swaying a cell either way, on four cords down to the hull.
+   */
+  private drawChute(player: number, x: number, top: number, t: number): void {
+    const b = this.normal;
+    const col = playerColor(player);
+    const sway = Math.round(Math.sin(t * 0.08));
+    const cx = x + sway;
+    // high enough to clear the player number and health bar
+    const cy = top - 9 - CHUTE.length - 6;
+    for (let r = 0; r < CHUTE.length; r++) {
+      const row = CHUTE[r]!;
+      const x0 = cx - (row.length >> 1);
+      for (let c = 0; c < row.length; c++) {
+        const code = row[c];
+        if (code === '.') continue;
+        b.rect(
+          x0 + c,
+          cy + r,
+          1,
+          1,
+          code === 'w' ? 0xf2efe6 : code === 'd' ? 0x000000 : col,
+          code === 'd' ? 0.35 : 1,
+        );
+      }
+    }
+    // cords: whole cells from the canopy's rim to the hull top
+    const bottom = cy + CHUTE.length;
+    for (const [from, to] of CHUTE_CORDS) {
+      const steps = top - bottom;
+      for (let i = 0; i <= steps; i++) {
+        const px = Math.round(cx + from + ((to - from - sway) * i) / Math.max(1, steps));
+        b.rect(px, bottom + i, 1, 1, 0xcfc8b8, 0.85);
+      }
+    }
+  }
+
+  /** Battery (gear, §5.1): green plus signs climb off the hull for a moment, in whole cells. */
+  private drawCharge(x: number, top: number, age: number): void {
+    const b = this.normal;
+    const fade = 1 - age / BATTERY_TICKS;
+    for (let k = 0; k < 3; k++) {
+      const a = age - k * 8;
+      if (a < 0) continue;
+      const px = x - 6 + k * 6;
+      const py = top - 2 - Math.floor(a / 3);
+      b.rect(px, py - 1, 1, 3, 0x7cf07c, fade);
+      b.rect(px - 1, py, 3, 1, 0x7cf07c, fade);
     }
   }
 

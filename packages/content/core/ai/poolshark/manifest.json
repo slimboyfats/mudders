@@ -14,5 +14,10 @@
   "reserve": 500,
   "step": 8,
   "keepFuel": 20,
-  "fuel": 100
+  "fuel": 100,
+  "gear": {
+    "chute": 2,
+    "shield": 1,
+    "battery": 1
+  }
 }

@@ -1,0 +1,45 @@
+{
+  "id": "audio.shield-up",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shield Up",
+    "description": "A rising square-wave arpeggio with a shimmer: a shield switching on.",
+    "since": "core@0.18.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 330,
+        "to": 660,
+        "hold": 0.12,
+        "release": 0.25,
+        "volume": 0.35,
+        "arp": [0, 4, 7, 12]
+      },
+      {
+        "wave": "triangle",
+        "freq": 880,
+        "to": 1760,
+        "delay": 0.05,
+        "release": 0.3,
+        "volume": 0.25,
+        "vibrato": {
+          "rate": 14,
+          "depth": 0.5
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "shieldUp"
+    }
+  ]
+}

@@ -22,7 +22,12 @@ export const InputSchema = z.discriminatedUnion('type', [
     type: z.literal('drive'),
     dir: z.union([z.literal(-1), z.literal(0), z.literal(1)]),
   }),
-  /** Shop (§3.6): buy `packs` packs of a weapon at this round's price. */
+  /**
+   * Switch on a piece of `gear.*` (shield, battery) while aiming (§5.1). It doesn't use up the
+   * turn; the kernel ignores it when the gear would change nothing.
+   */
+  z.strictObject({ type: z.literal('useGear'), gear: ContentIdSchema }),
+  /** Shop (§3.6): buy `packs` packs of a weapon or `gear.*` item at this round's price. */
   z.strictObject({
     type: z.literal('buy'),
     item: ContentIdSchema,

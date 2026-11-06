@@ -1,0 +1,67 @@
+{
+  "id": "audio.parachute",
+  "schemaVersion": 1,
+  "description": "Plays audio.parachute in context (audio is client-only): P1 drops a Riot Bomb between two tanks: P2's parachute opens and it drifts down unhurt, P3 (no parachute) crashes into the pit and takes fall damage.",
+  "subject": "audio.parachute",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.riot-bomb": 1
+      }
+    },
+    {
+      "x": 585,
+      "inventory": {
+        "gear.parachute": 2
+      }
+    },
+    {
+      "x": 665
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.riot-bomb"
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 599
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

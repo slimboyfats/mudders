@@ -19,6 +19,7 @@ import {
   AI_FUEL,
   type AiApi,
   type AiBehaviour,
+  type AiGearView,
   type AiSpot,
   type AiShopApi,
   type AiWeaponView,
@@ -183,6 +184,12 @@ export interface Tank extends TankHandle {
   maxHealth: number;
   /** Shield points left this round; they soak damage before health. */
   shield: number;
+  /** Most shield points this tank has held this round (for the shield bar). */
+  shieldMax: number;
+  /** Gear counts (`gear.*`, §5.1) by index into `World.gear`; a match total like weapons. */
+  gear: number[];
+  /** A parachute opened during the current fall: it drifts down and lands unhurt. */
+  chute: boolean;
   angle: number;
   power: number;
   weapon: number;
@@ -329,6 +336,18 @@ interface RtWeapon {
   terrainValue: number;
 }
 
+/** A `gear.*` item as the kernel uses it (§5.1). */
+export interface RtGear {
+  readonly id: string;
+  readonly deploy: 'manual' | 'fall';
+  readonly shield: number;
+  readonly heal: number;
+  readonly fallSpeed: number;
+  readonly price: number;
+  readonly pack: number;
+  readonly max: number;
+}
+
 interface PendingDeath {
   player: number;
   killer: number;
@@ -348,6 +367,8 @@ export class World implements SimApi {
   readonly scratch: Scratch;
   readonly tanks: Tank[] = [];
   readonly weapons: RtWeapon[] = [];
+  /** Defensive gear (§5.1), in id order; sold at fixed prices (no jitter, so no RNG draws). */
+  readonly gear: RtGear[] = [];
   readonly mode: ModeManifest;
   readonly gravity: number;
   /** Effective match rules (mode values with setup-screen overrides applied). */
@@ -393,6 +414,7 @@ export class World implements SimApi {
   private readonly deathExplosion: RtExplosion;
   private readonly windLocked: boolean;
   private readonly weaponIndex: Record<string, number> = {};
+  private readonly gearIndex: Record<string, number> = {};
   private nextProjectileId = 1;
   private shooter = -1;
   private pendingInputs: { player: number; input: Input }[] = [];
@@ -459,6 +481,19 @@ export class World implements SimApi {
         tier: w.shop.tier,
         expectedDamage: w.ai.expectedDamage,
         terrainValue: w.ai.terrainValue,
+      });
+    }
+    for (const g of content.list('gear')) {
+      this.gearIndex[g.id] = this.gear.length;
+      this.gear.push({
+        id: g.id,
+        deploy: g.deploy,
+        shield: g.shield,
+        heal: g.heal,
+        fallSpeed: g.fallSpeed,
+        price: g.shop.price,
+        pack: g.shop.pack,
+        max: g.shop.max,
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
@@ -599,11 +634,17 @@ export class World implements SimApi {
     const cash = this.options.rules?.startingCash ?? this.mode.economy.startingCash;
     for (let p = 0; p < this.options.players; p++) {
       const inventory = new Array<number>(this.weapons.length).fill(0);
+      const gear = new Array<number>(this.gear.length).fill(0);
       for (const l of loadout) inventory[this.weaponIndex[l.weapon]!] = l.count;
       const setup = this.options.tankSetup?.[p];
       if (setup?.inventory) {
-        // order-independent: each key sets its own slot
+        // order-independent: each key sets its own slot (weapons and gear alike)
         for (const id of Object.keys(setup.inventory)) {
+          const gi = Object.hasOwn(this.gearIndex, id) ? this.gearIndex[id] : undefined;
+          if (gi !== undefined) {
+            gear[gi] = Math.max(0, setup.inventory[id]!);
+            continue;
+          }
           const w = Object.hasOwn(this.weaponIndex, id) ? this.weaponIndex[id] : undefined;
           if (w === undefined) throw new Error(`unknown weapon in tank setup: ${id}`);
           inventory[w] = setup.inventory[id]!;
@@ -624,6 +665,9 @@ export class World implements SimApi {
         health: 0,
         maxHealth: 0,
         shield: 0,
+        shieldMax: 0,
+        gear,
+        chute: false,
         angle: 90,
         power: 500,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
@@ -728,6 +772,8 @@ export class World implements SimApi {
       tank.health = this.options.tankSetup?.[p]?.health ?? full;
       tank.maxHealth = Math.max(full, tank.health);
       tank.shield = tank.type.shield;
+      tank.shieldMax = tank.type.shield;
+      tank.chute = false;
       tank.angle = tank.x < g.width / 2 ? 45 : 135;
       if (tank.inventory[tank.weapon] === 0) tank.weapon = this.firstWeapon(tank);
       tank.falling = false;
@@ -938,7 +984,60 @@ export class World implements SimApi {
       case 'drive':
         t.driving = t.driveLeft > 0 && t.fuel > 0 ? input.dir : 0;
         break;
+      case 'useGear': {
+        const g = Object.hasOwn(this.gearIndex, input.gear)
+          ? this.gearIndex[input.gear]
+          : undefined;
+        if (g !== undefined) this.useGear(t, g);
+        break;
+      }
     }
+  }
+
+  /** Whether switching on gear `g` now would change anything for this tank. */
+  gearUseful(t: Tank, g: number): boolean {
+    const gear = this.gear[g];
+    if (!gear || gear.deploy !== 'manual' || !t.alive) return false;
+    return (gear.shield > 0 && t.shield < gear.shield) || (gear.heal > 0 && t.health < t.maxHealth);
+  }
+
+  /**
+   * Switch on a piece of gear while aiming (§5.1); it doesn't use up the turn. A shield raises the
+   * tank's shield to the gear's points, a battery restores health up to the round-start health.
+   * Returns false (changing nothing) when the tank has none or it would do nothing.
+   */
+  useGear(t: Tank, g: number): boolean {
+    if (this.phase !== 'aim' || t.player !== this.activePlayer) return false;
+    if ((t.gear[g] ?? 0) <= 0 || !this.gearUseful(t, g)) return false;
+    const gear = this.gear[g]!;
+    t.gear[g]!--;
+    const cy = t.y - (t.h >> 1);
+    if (gear.shield > t.shield) {
+      t.shield = gear.shield;
+      t.shieldMax = Math.max(t.shieldMax, t.shield);
+      this.emit('shieldUp', t.x, cy, t.half + 2, { player: t.player, shield: t.shield });
+    }
+    if (gear.heal > 0 && t.health < t.maxHealth) {
+      const healed = Math.min(gear.heal, t.maxHealth - t.health);
+      t.health += healed;
+      this.emit('battery', t.x, cy, t.half + 2, { player: t.player, healed });
+    }
+    return true;
+  }
+
+  /**
+   * Buy `packs` packs of gear at its fixed price, never past its carry limit. Returns false
+   * (changing nothing) when it isn't shop time, the tank is full or can't afford it.
+   */
+  buyGear(t: Tank, g: number, packs: number): boolean {
+    const gear = this.gear[g];
+    if (!gear || this.phase !== 'shop' || packs < 1) return false;
+    const have = t.gear[g] ?? 0;
+    const cost = gear.price * packs;
+    if (have >= gear.max || cost > t.money) return false;
+    t.money -= cost;
+    t.gear[g] = Math.min(gear.max, have + gear.pack * packs);
+    return true;
   }
 
   /**
@@ -1039,6 +1138,7 @@ export class World implements SimApi {
    * afford it.
    */
   buy(t: Tank, item: string, packs: number): boolean {
+    if (Object.hasOwn(this.gearIndex, item)) return this.buyGear(t, this.gearIndex[item]!, packs);
     const w = Object.hasOwn(this.weaponIndex, item) ? this.weaponIndex[item] : undefined;
     if (w === undefined || this.phase !== 'shop' || packs < 1) return false;
     const rw = this.weapons[w]!;
@@ -1144,6 +1244,7 @@ export class World implements SimApi {
       me: t.player,
       tanks: this.tanks,
       weapons,
+      gear: this.gearView(t),
       width: this.grid.width,
       height: this.grid.height,
       wind: this.wind,
@@ -1165,6 +1266,19 @@ export class World implements SimApi {
     };
   }
 
+  /** What gear a tank carries, for its bot (§5.1). */
+  private gearView(t: Tank): AiGearView[] {
+    return this.gear.map((g, i) => ({
+      index: i,
+      id: g.id,
+      deploy: g.deploy,
+      shield: g.shield,
+      heal: g.heal,
+      count: t.gear[i] ?? 0,
+      useful: this.gearUseful(t, i),
+    }));
+  }
+
   /** A bot that drives picks a reachable column and starts rolling there. */
   private botMove(t: Tank): void {
     const bot = this.bots[t.bot]!;
@@ -1181,6 +1295,12 @@ export class World implements SimApi {
 
   private botAim(t: Tank): void {
     const bot = this.bots[t.bot]!;
+    if (bot.b.gear) {
+      // gear first (a shield up before the shot), each use validated like a human's
+      for (const g of bot.b.gear(this.aiApi(t), bot.params)) {
+        if (Number.isInteger(g)) this.useGear(t, g);
+      }
+    }
     const shot = bot.b.aim(this.aiApi(t), bot.params);
     if (t.inventory[shot.weapon] !== undefined && t.inventory[shot.weapon] !== 0) {
       t.weapon = shot.weapon;
@@ -1944,6 +2064,28 @@ export class World implements SimApi {
     return false;
   }
 
+  /**
+   * A falling tank that is about to take fall damage opens a parachute if it carries one (the
+   * first `deploy: "fall"` gear in id order), using it up.
+   */
+  private openChute(t: Tank): void {
+    for (let g = 0; g < this.gear.length; g++) {
+      if (this.gear[g]!.deploy !== 'fall' || (t.gear[g] ?? 0) <= 0) continue;
+      t.gear[g]!--;
+      t.chute = true;
+      t.fallVel = Math.min(t.fallVel, this.gear[g]!.fallSpeed);
+      this.emit('chute', t.x, t.y - t.h, t.half + 2, { player: t.player });
+      return;
+    }
+  }
+
+  /** Fall speed under an open parachute: the slowest `fall` gear's speed. */
+  private chuteSpeed(): number {
+    let v = MAX_TANK_FALL;
+    for (const g of this.gear) if (g.deploy === 'fall') v = Math.min(v, g.fallSpeed);
+    return v;
+  }
+
   private stepTanks(): void {
     const fd = this.mode.fallDamage;
     for (const t of this.tanks) {
@@ -1955,7 +2097,8 @@ export class World implements SimApi {
           t.fallVel = 0;
           t.sunk = 0;
         }
-        t.fallVel = Math.min(t.fallVel + 1, MAX_TANK_FALL);
+        if (!t.chute && t.y - t.fallFrom >= fd.safeCells && fd.perCell > 0) this.openChute(t);
+        t.fallVel = Math.min(t.fallVel + 1, t.chute ? this.chuteSpeed() : MAX_TANK_FALL);
         for (let i = 0; i < t.fallVel && !this.supported(t); i++) t.y++;
       } else if (!t.falling) {
         // once it has started to sink the tank is bogged down and no longer slides
@@ -1964,6 +2107,8 @@ export class World implements SimApi {
         if (!t.falling) this.slip(t);
       } else {
         t.falling = false;
+        const chute = t.chute;
+        t.chute = false;
         const dist = t.y - t.fallFrom;
         const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
         if (t.y >= this.grid.height) {
@@ -1972,8 +2117,8 @@ export class World implements SimApi {
           this.damageTank(t, t.health, by, true);
           continue;
         }
-        const dmg = Math.trunc(Math.max(0, dist - fd.safeCells) * fd.perCell);
-        this.emit('land', t.x, t.y, t.half, { distance: dist });
+        const dmg = chute ? 0 : Math.trunc(Math.max(0, dist - fd.safeCells) * fd.perCell);
+        this.emit('land', t.x, t.y, t.half, { distance: chute ? 0 : dist });
         this.damageTank(t, dmg, by);
       }
     }
@@ -2159,6 +2304,18 @@ export class World implements SimApi {
       fuelPack: this.mode.drive.fuelPack,
       fuelPrice: this.mode.drive.fuelPrice,
       driveCells: this.driveCells(t),
+      health: t.maxHealth,
+      gear: this.gear.map((g, i) => ({
+        index: i,
+        id: g.id,
+        deploy: g.deploy,
+        shield: g.shield,
+        heal: g.heal,
+        price: g.price,
+        pack: g.pack,
+        max: g.max,
+        count: t.gear[i] ?? 0,
+      })),
       items: this.weapons.map((w, i) => ({
         index: i,
         id: w.id,
@@ -2173,6 +2330,10 @@ export class World implements SimApi {
     for (const b of bot.b.shop(api, bot.params)) {
       if (b.item === AI_FUEL) {
         this.buyFuel(t, b.packs);
+        continue;
+      }
+      if (b.gear === true) {
+        this.buyGear(t, b.item, b.packs);
         continue;
       }
       const w = this.weapons[b.item];
@@ -2232,7 +2393,8 @@ export class World implements SimApi {
         health: t.health,
         maxHealth: t.maxHealth,
         shield: t.shield,
-        maxShield: t.type.shield,
+        maxShield: t.shieldMax,
+        chute: t.chute,
         tank: t.type.id,
         alive: t.alive,
         power: t.power,
@@ -2316,6 +2478,11 @@ export class World implements SimApi {
         .num(t.angle)
         .num(t.power);
       h.str(t.type.id).num(t.w).num(t.h).num(t.maxHealth).num(t.shield);
+      // gear (kernel 0.8.0)
+      h.num(t.shieldMax)
+        .num(t.chute ? 1 : 0)
+        .num(t.gear.length);
+      for (const v of t.gear) h.num(v);
       h.num(t.weapon)
         .num(t.falling ? 1 : 0)
         .num(t.fallFrom)

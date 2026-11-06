@@ -1,0 +1,39 @@
+{
+  "id": "audio.battery",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Battery",
+    "description": "A bright charging trill climbing up the scale: health restored.",
+    "since": "core@0.18.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 523,
+        "hold": 0.3,
+        "release": 0.15,
+        "volume": 0.3,
+        "arp": [0, 4, 7, 12, 16, 19, 24]
+      },
+      {
+        "wave": "triangle",
+        "freq": 262,
+        "to": 523,
+        "release": 0.45,
+        "volume": 0.25
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "battery"
+    }
+  ]
+}

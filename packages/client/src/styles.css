@@ -417,6 +417,33 @@ button.primary,
   font-size: 0.8rem;
 }
 
+/* gear (§5.1): switch on without using the turn; parachutes are automatic, shown as a chip */
+.weapons .gear-btn {
+  border-color: #3f7f8c;
+  background: #15282c;
+}
+
+.weapons .gear-btn:disabled {
+  opacity: 0.45;
+}
+
+.gear-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 72px;
+  padding: 0 10px;
+  border: 1px dashed #3f7f8c;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.shop .gear-card {
+  border-color: #3f7f8c;
+}
+
 .fire {
   min-width: 96px;
   min-height: 72px;
@@ -454,6 +481,9 @@ button.primary,
   .weapons button {
     min-height: 48px;
     min-width: 84px;
+  }
+  .weapons .gear-btn {
+    min-width: 64px;
   }
   .drive-btn {
     min-height: 48px;

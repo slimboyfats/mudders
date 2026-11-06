@@ -279,6 +279,32 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
         </div>
         <Drive tank={t} disabled={!canAim} send={send} />
         <div className="weapons" role="listbox" aria-label="Weapons">
+          {t?.gear
+            .filter((g) => g.count > 0)
+            .map((g) =>
+              g.deploy === 'manual' ? (
+                <button
+                  key={g.id}
+                  className="gear-btn"
+                  disabled={!canAim || !g.useful}
+                  onClick={() => send({ type: 'useGear', gear: g.id })}
+                  aria-label={`Use ${g.name} (${g.count} left)`}
+                  data-testid={`gear-${g.id}`}
+                >
+                  <span className="wname">{g.label}</span>
+                  <span className="count">use · {g.count}</span>
+                </button>
+              ) : (
+                <span
+                  key={g.id}
+                  className="gear-chip"
+                  title={`${g.name}: opens by itself on a long fall`}
+                >
+                  <span className="wname">{g.label}</span>
+                  <span className="count">auto · {g.count}</span>
+                </span>
+              ),
+            )}
           {t?.inventory.map((w) => (
             <button
               key={w.id}

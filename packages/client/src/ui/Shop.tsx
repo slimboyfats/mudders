@@ -76,7 +76,8 @@ export function Shop({ hud, controls, send }: ShopProps) {
   const [sel, setSel] = useState(firstOpen?.player ?? 0);
   const me = hud.tanks[sel] && controls(sel) ? hud.tanks[sel] : firstOpen;
   const last = hud.results[hud.results.length - 1];
-  const owned = (id: string) => me?.inventory.find((i) => i.id === id)?.count ?? 0;
+  const owned = (id: string) =>
+    me?.gear.find((g) => g.id === id)?.count ?? me?.inventory.find((i) => i.id === id)?.count ?? 0;
 
   return (
     <div className="shop" role="dialog" aria-label="Shop">
@@ -145,16 +146,19 @@ export function Shop({ hud, controls, send }: ShopProps) {
             </div>
             {hud.shop.map((it) => {
               const have = owned(it.id);
-              const can = !me.ready && have >= 0 && me.money >= it.price;
+              const full = it.gear !== undefined && have >= it.gear.max;
+              const can = !me.ready && have >= 0 && !full && me.money >= it.price;
               return (
-                <div key={it.id} className="card">
+                <div key={it.id} className={`card${it.gear ? ' gear-card' : ''}`}>
                   <div className="card-top">
                     <b>{it.name}</b>
                     <small>{it.category}</small>
                   </div>
                   <p>{it.description}</p>
                   <div className="card-bottom">
-                    <span className="own">{have < 0 ? '∞' : `×${have}`}</span>
+                    <span className="own">
+                      {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
+                    </span>
                     <button
                       disabled={!can}
                       onClick={() => {

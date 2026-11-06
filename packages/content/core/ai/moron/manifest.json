@@ -9,5 +9,10 @@
   "behaviour": "ai.moron",
   "tank": "tank.classic",
   "minPower": 250,
-  "maxPower": 900
+  "maxPower": 900,
+  "gear": {
+    "chute": 1,
+    "shield": 0,
+    "battery": 0
+  }
 }
