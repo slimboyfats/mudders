@@ -360,11 +360,11 @@ export const WeaponSchema = z.strictObject({
    * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
-   * smoke; `trail: false` leaves no trail line.
+   * smoke, `mud` a dripping glob of wet mud; `trail: false` leaves no trail line.
    */
   look: z
     .strictObject({
-      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor']).default('spark'),
+      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor', 'mud']).default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */
       size: z.number().min(0.5).max(3).default(1),
