@@ -41,6 +41,16 @@ interface Front {
   rng: FxRng;
 }
 
+/** A singularity's hang: grit and light spiralling into a growing black core. */
+interface Vortex {
+  x: number;
+  y: number;
+  r: number;
+  start: number;
+  dur: number;
+  rng: FxRng;
+}
+
 /** A mud geyser's erupting column, fed with particles every tick while it lasts. */
 interface Jet {
   x: number;
@@ -101,6 +111,7 @@ export class EffectSystem {
   private bolts: Bolt[] = [];
   private jets: Jet[] = [];
   private mushrooms: Mushroom[] = [];
+  private vortices: Vortex[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -131,6 +142,7 @@ export class EffectSystem {
       case 'flash': {
         const look = DT_LOOK[e.params.dt ?? 0] ?? DT_LOOK[0]!;
         const strength = e.params.strength ?? 1;
+        if (strength <= 0) break; // a silent blast (e.g. a singularity's opening pull)
         this.glows.push({
           x: e.x,
           y: e.y,
@@ -280,6 +292,22 @@ export class EffectSystem {
       }
       case 'bolt':
         this.bolt(e);
+        break;
+      case 'pressureWave':
+        this.pressureWave(e, e.params.strength ?? 1);
+        break;
+      case 'vortex':
+        this.vortices.push({
+          x: e.x,
+          y: e.y,
+          r: Math.max(10, e.radius),
+          start: e.tick,
+          dur: Math.max(8, e.params.ticks ?? 40),
+          rng: this.rngFor(e, 61),
+        });
+        break;
+      case 'eruption':
+        this.eruption(e, e.params.strength ?? 1);
         break;
       case 'arcs':
         this.arcs(e, e.params.strength ?? 1);
@@ -607,13 +635,142 @@ export class EffectSystem {
   }
 
   /**
+   * A huge pressure wave without fire (Heavy Shockwave, a Singularity's blow-out): a wide lens
+   * band racing out over the map, a second tighter one behind it, a dust wall along the ground
+   * and a ring of dirt clods thrown flat and fast.
+   */
+  private pressureWave(e: EffectEvent, k: number): void {
+    const r = Math.max(20, e.radius);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 60,
+      maxR: r * 3.2 * k,
+      width: 22,
+      strength: 1.4 * k,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 5,
+      dur: 50,
+      maxR: r * 2,
+      width: 10,
+      strength: 0.8 * k,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: r * 1.3,
+      start: e.tick,
+      dur: 30,
+      rng: this.rngFor(e, 67),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 3 + (r / 25) * k);
+    this.shakeStart = e.tick;
+    this.tintSky([0, 0.55, 0.6, 0.75], 0.25 * k);
+    const rng = this.rngFor(e, 71);
+    const base = this.dustColor(e.x, e.y + 4);
+    const n = Math.round((60 + r) * k * this.mult);
+    for (let i = 0; i < n; i++) {
+      // flat and fast: mostly sideways, a little up
+      const side = i % 2 === 0 ? -1 : 1;
+      const a = rng.range(0.05, 0.45) * Math.PI;
+      const s = rng.range(1.5, 4.5) * (0.6 + r / 150);
+      this.particles.add({
+        x: e.x + side * rng.range(2, r * 0.2),
+        y: e.y - rng.range(0, 4),
+        vx: side * Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(40, 80),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: shade(base, rng.range(0.7, 1.2)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * A volcanic eruption (Magma Bomb): a fountain of glowing lava bombs and sparks thrown high,
+   * a short burst of fire at the vent and a plume of dark ash rolling up.
+   */
+  private eruption(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(10, e.radius);
+    const n = Math.round((40 + r) * k * this.mult);
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0.3, 0.7) * Math.PI;
+      const s = rng.range(2, 5.5) * k;
+      const lump = i % 3 === 0;
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.25,
+        y: e.y - 2,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(40, 75),
+        size: lump ? 2 : 1,
+        color: lump
+          ? rng.next() < 0.5
+            ? 0xff5a1f
+            : 0xd8400c
+          : rng.next() < 0.4
+            ? 0xffe070
+            : 0xff8a20,
+        kind: lump ? PKind.Chunk : PKind.Spark,
+      });
+    }
+    const nf = Math.round((10 + r / 2) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nf; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y - rng.range(0, r * 0.4),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.6, 1.6),
+        life: rng.range(24, 44),
+        size: rng.range(3, 7),
+        color: 0,
+        kind: PKind.Flame,
+      });
+    }
+    const ns = Math.round((10 + r / 2) * Math.max(0.5, this.mult));
+    for (let i = 0; i < ns; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y - rng.range(r * 0.3, r * 1.6),
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.3, 0.9),
+        life: rng.range(110, 170),
+        size: rng.range(r * 0.3, r * 0.6),
+        color: rng.next() < 0.5 ? 0x2a2224 : 0x40363a,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky(DT_LOOK[2]!, 0.35 * k);
+    this.shakeAmp = Math.max(this.shakeAmp, 4 * k);
+    this.shakeStart = e.tick;
+  }
+
+  /** Singularity cores: a black pixel disc with a violet rim, growing as the hang goes on. */
+  drawVortices(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const v of this.vortices) {
+      const k = (t - v.start) / v.dur;
+      if (k < 0 || k > 1) continue;
+      const core = 3 + Math.round(k * k * v.r * 0.18);
+      additive.push(v.x, v.y, core * 2 + 6, core * 2 + 6, 0x8040ff, 0.35 + 0.3 * k, Shape.Pixel);
+      normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
+      normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
+    }
+  }
+
+  /**
    * A mud geyser blowing: the ground heaves (distortion ring, dust front, brown sky), then a
    * column of mud chunks and steam roars up out of the vent for `ticks` ticks (fed in `tick`).
    */
   private mudGeyser(e: EffectEvent): void {
     const h = e.params.height ?? 120;
     const dur = Math.max(20, e.params.ticks ?? 90);
-    this.jets.push({ x: e.x, y: e.y, height: h, start: e.tick, dur, rng: this.rngFor(e, 71) });
+    this.jets.push({ x: e.x, y: e.y, height: h, start: e.tick, dur, rng: this.rngFor(e, 101) });
     this.ripples.push({
       x: e.x,
       y: e.y,
@@ -629,13 +786,13 @@ export class EffectSystem {
       maxR: h * 0.55,
       start: e.tick,
       dur: 30,
-      rng: this.rngFor(e, 73),
+      rng: this.rngFor(e, 103),
     });
     this.shakeAmp = Math.max(this.shakeAmp, 5);
     this.shakeStart = e.tick;
     this.tintSky([0, 0.34, 0.27, 0.16], 0.45);
     // the first slug of mud: a fat burst straight up out of the vent
-    const rng = this.rngFor(e, 79);
+    const rng = this.rngFor(e, 107);
     const v0 = Math.sqrt(2 * 0.12 * h);
     const n = Math.round(140 * this.mult) + 6;
     for (let i = 0; i < n; i++) {
@@ -719,7 +876,7 @@ export class EffectSystem {
 
   /** A glob of mud landing: a wet crown of mud thrown sideways and a puff of steam. */
   private mudSplat(e: EffectEvent, count: number): void {
-    const rng = this.rngFor(e, 83);
+    const rng = this.rngFor(e, 109);
     const n = Math.round(count * this.mult) + 3;
     for (let i = 0; i < n; i++) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -989,6 +1146,31 @@ export class EffectSystem {
       }
       return true;
     });
+    this.vortices = this.vortices.filter((v) => {
+      const k = (t - v.start) / v.dur;
+      if (k > 1) return false;
+      if (k < 0) return true;
+      const n = Math.max(1, Math.round((3 + k * 6) * this.mult));
+      // spiral in: mostly tangential, pulled inward, faster as it tightens
+      for (let i = 0; i < n; i++) {
+        const a = v.rng.range(0, Math.PI * 2);
+        const rr = v.r * v.rng.range(0.5, 1.1);
+        const life = v.rng.range(14, 24);
+        const sp = rr / life;
+        this.particles.add({
+          x: v.x + Math.cos(a) * rr,
+          y: v.y + Math.sin(a) * rr * 0.8,
+          vx: -Math.cos(a) * sp * 0.9 - Math.sin(a) * sp * 0.8,
+          vy: (-Math.sin(a) * sp * 0.9 + Math.cos(a) * sp * 0.8) * 0.8,
+          life,
+          size: 1,
+          color: v.rng.next() < 0.35 ? 0xffffff : v.rng.next() < 0.5 ? 0xb070ff : 0x6040c0,
+          kind: PKind.Spark,
+        });
+      }
+      if (t === v.start) this.tintSky([0, 0.2, 0.08, 0.45], 0.3);
+      return true;
+    });
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -1089,6 +1271,7 @@ export class EffectSystem {
     this.bolts = [];
     this.jets = [];
     this.mushrooms = [];
+    this.vortices = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
