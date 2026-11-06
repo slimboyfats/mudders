@@ -145,7 +145,7 @@ void main() {
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
             float f = hash(cell + ivec2(st * 7, st * 3 + 91));
-            float dens = (sd == 1 ? 0.34 : sd == 2 ? 0.18 : 0.08) * (1.0 - cool) * (1.0 - cool);
+            float dens = (sd == 1 ? 0.12 : sd == 2 ? 0.05 : 0.0) * (1.0 - cool) * (1.0 - cool);
             if (f < dens) {
               float pick = hash(cell + ivec2(st * 5 + 3, 17)) + cool * 0.5;
               c = pick < 0.3 ? vec3(1.0, 0.86, 0.32) : pick < 0.7 ? vec3(0.98, 0.5, 0.12) : vec3(0.78, 0.16, 0.08);
