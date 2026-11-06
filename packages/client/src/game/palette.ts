@@ -14,6 +14,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         cycle: (m.look.cycle ?? []).map((c) => parseHex(c, 0xff00ff)),
         ticks: m.look.cycleTicks,
         hot: m.look.hot,
+        topsoil: m.look.topsoil,
       });
     }
   }

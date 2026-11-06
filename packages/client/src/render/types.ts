@@ -39,6 +39,8 @@ export interface MaterialLook {
   ticks: number;
   /** The air above shimmers (heat haze). */
   hot: boolean;
+  /** Grows the theme's grass on exposed tops. */
+  topsoil?: boolean;
 }
 
 export interface RendererOptions {

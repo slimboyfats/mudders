@@ -20,5 +20,14 @@
     "density": 90,
     "color": "#a0f0ff"
   },
-  "scanlines": 0.35
+  "scanlines": 0.35,
+  "scenery": {
+    "clouds": {
+      "cover": 0.25,
+      "light": "#ff7ad8",
+      "shadow": "#3a1870"
+    },
+    "ranges": ["#2a1a66", "#1c1050", "#100834"],
+    "grass": "#2ee06a"
+  }
 }

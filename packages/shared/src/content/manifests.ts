@@ -159,6 +159,8 @@ export const MaterialSchema = z.strictObject({
       cycle: z.array(HexColorSchema).min(2).max(8).optional(),
       cycleTicks: z.number().int().min(1).max(60).default(8),
       hot: z.boolean().default(false),
+      /** Soil that grows the theme's grass on exposed tops (and tufts in the air above). */
+      topsoil: z.boolean().default(false),
     })
     .optional(),
 });
@@ -512,6 +514,26 @@ export const ThemeSchema = z.strictObject({
   scanlines: z.number().min(0).max(1).default(0),
   /** Lightning flicker in the sky every N ticks on average (storms); 0 = never. */
   flicker: z.number().int().min(0).max(3600).default(0),
+  /**
+   * Painted scenery behind the battlefield (cosmetic): shaded pixel clouds, up to three parallax
+   * ranges (far to near, hazing into the sky's bottom colour) and the grass on topsoil materials.
+   */
+  scenery: z
+    .strictObject({
+      clouds: z
+        .strictObject({
+          /** 0 = clear sky, 1 = overcast. */
+          cover: z.number().min(0).max(1),
+          light: HexColorSchema,
+          shadow: HexColorSchema,
+        })
+        .optional(),
+      /** Silhouette colours, far to near: mountains, hills, treeline. */
+      ranges: z.array(HexColorSchema).max(3).default([]),
+      /** Grass on `topsoil` materials; without it they keep their own colour. */
+      grass: HexColorSchema.optional(),
+    })
+    .default({ ranges: [] }),
 });
 export type ThemeManifest = z.infer<typeof ThemeSchema>;
 
