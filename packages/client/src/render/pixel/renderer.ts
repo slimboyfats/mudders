@@ -16,6 +16,7 @@ import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import {
   BG_FS,
+  CUT_REACH,
   FULLSCREEN_VS,
   MAX_RIPPLES,
   POST_FS,
@@ -556,12 +557,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 32 up for soil depth, 1 down/sideways): widen the box
+        // shading reads neighbours (up to 32 up for soil depth, 1 down, CUT_REACH sideways for
+        // crater walls cut through the turf): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
-        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
+        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 32));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
@@ -832,9 +834,9 @@ export class PixelRenderer implements Renderer {
         // re-shade the burnt patch (shading looks up to 32 rows down for soil depth)
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, by0 - 1));
-        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 1));
+        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + 32));
       }
     }

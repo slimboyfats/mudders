@@ -405,6 +405,10 @@ void main() {
  * Palette-lookup terrain shader (§2a): one cell = one grid pixel, nearest-neighbour. Shading only
  * lights and colours cells (per-cell grain, a lit top edge, darker overhangs, depth), never smooths.
  */
+/** Cells beside a crater wall (horizontally) that lose their turf; the renderer widens dirty
+ * rects by this much. */
+export const CUT_REACH = 16;
+
 export const TERRAIN_FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -475,6 +479,32 @@ void main() {
   float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
   bool frozen = topB > 0.25 && topB < 0.5;
   if (frozen) soil = false;
+  // a blast cut through the turf: cells near a crater (air dug out below the round-start surface,
+  // beside them or diagonally above) keep only a thin cap of grass; below it the cut face shows
+  // the topsoil and dirt instead of a deep band of green. Natural slopes have their air above the
+  // surface row, so the scan up that air column finds no grass mask there. Each direction tests
+  // only the first air cell it meets.
+  int cut = 0;
+  if (soil && sd > 2 && u_grass.a > 0.0) {
+    ivec2 dirs[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(-1, -1), ivec2(1, -1));
+    int open = 0; // bit per direction: already met air (or the map edge)
+    for (int d = 1; d <= ${CUT_REACH} && cut == 0; d++) {
+      for (int i = 0; i < 4; i++) {
+        if ((open & (1 << i)) != 0) continue;
+        ivec2 n = c + dirs[i] * d;
+        if (n.x < 0 || n.y < 0 || n.x >= int(u_map.x)) { open |= 1 << i; continue; }
+        if (mat(n) != 0u) continue;
+        open |= 1 << i;
+        for (int k = 2; k <= 34; k++) {
+          if (k > sd + 2 || n.y - k < 0) break;
+          if (texelFetch(u_grassMask, n - ivec2(0, k), 0).r != 0u) { cut = d; break; }
+        }
+        if (cut != 0) break;
+      }
+    }
+  }
+  // dither the last few cells so the turf ends in a ragged edge, not a ruled line
+  bool bare = cut > 0 && (cut <= 10 || bayer(ap) > float(cut - 10) / 7.0);
   if (still) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
@@ -506,13 +536,13 @@ void main() {
     col = mix(col, vec3(0.7, 0.8, 0.9) * (0.85 + g) * (sd <= 4 ? 1.12 : 1.0), sd <= 4 ? 0.8 : 0.6);
   }
   float rim = lit + side;
-  if (soil && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
+  if (soil && !bare && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
     // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
     // with depth and dithering into the topsoil at its foot
     float k = float(sd - 10) / 14.0;
     if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(u_grass.rgb, ap, k);
   }
-  if (soil && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
+  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
