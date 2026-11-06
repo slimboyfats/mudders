@@ -49,7 +49,7 @@ import { Prng } from './prng';
 import { Scratch } from './scratch';
 import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
-import { SETTLE_FLOW } from './materials';
+import { KEEP, SETTLE_FLOW } from './materials';
 
 /**
  * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
@@ -422,6 +422,10 @@ export class World implements SimApi {
   private readonly walls: WallRule;
   private readonly settleCap: number;
   private readonly deathExplosion: RtExplosion;
+  /** Per material cell: the explosion its bursts set off (lit gunpowder), else null. */
+  private readonly burstExplosion: (RtExplosion | null)[] = new Array<RtExplosion | null>(256).fill(
+    null,
+  );
   private readonly windLocked: boolean;
   private readonly weaponIndex: Record<string, number> = {};
   private readonly gearIndex: Record<string, number> = {};
@@ -507,6 +511,9 @@ export class World implements SimApi {
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
+    for (const m of content.list('material')) {
+      if (m.detonate) this.burstExplosion[m.cell] = this.bindExplosion(m.detonate.explosion);
+    }
 
     this.modeApi = {
       rng: this.rng,
@@ -958,6 +965,7 @@ export class World implements SimApi {
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
     reactStep(this.grid, this.mats, this.tick);
+    if (this.grid.burstCount > 0) this.bursts();
     if (this.groups.any) {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
@@ -1841,6 +1849,7 @@ export class World implements SimApi {
   private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
+    if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
       if (!t.alive) continue;
@@ -1876,6 +1885,55 @@ export class World implements SimApi {
     // renderers tint the flash and sky by damage type (cosmetic)
     for (const [type, params] of e.effects) {
       this.emit(type, x, y, e.radius, { ...params, dt: e.dt });
+    }
+  }
+
+  /**
+   * Lit gunpowder going off (§4b): explosions the reaction pass queued, in cell order, owned by
+   * the player whose shot lit the seam. Their blasts light the cells around them in turn.
+   */
+  private bursts(): void {
+    const g = this.grid;
+    const n = g.burstCount;
+    g.burstCount = 0;
+    const owner = this.phase === 'resolve' ? this.activePlayer : -1;
+    for (let k = 0; k < n; k += 2) {
+      const i = g.bursts[k]!;
+      const e = this.burstExplosion[g.bursts[k + 1]!];
+      if (!e) continue;
+      const x = i % g.width;
+      this.explode(e, x, (i - x) / g.width, owner, false);
+    }
+  }
+
+  /** A blast lights the `ignite` cells (gunpowder) it reached but didn't carve away. */
+  private ignite(x: number, y: number, radius: number, dt: number): void {
+    const g = this.grid;
+    const W = g.width;
+    const mat = g.material;
+    const into = this.mats.igniteInto;
+    const by = this.mats.igniteBy;
+    const bit = 1 << dt;
+    const keep = KEEP;
+    const r = radius + 2;
+    const x0 = Math.max(0, x - r);
+    const x1 = Math.min(W - 1, x + r);
+    const y0 = Math.max(0, y - r);
+    const y1 = Math.min(g.height - 1, y + r);
+    const rr = r * r;
+    for (let cy = y0; cy <= y1; cy++) {
+      const dy = cy - y;
+      for (let cx = x0, i = cy * W + x0; cx <= x1; cx++, i++) {
+        const m = mat[i]!;
+        const to = into[m]!;
+        if (to === keep || (by[m]! & bit) === 0) continue;
+        const dx = cx - x;
+        if (dx * dx + dy * dy > rr) continue;
+        g.leaveGroup(i);
+        mat[i] = to;
+        g.cellState[i] = 0;
+        g.markDirty(cx, cy, cx, cy);
+      }
     }
   }
 

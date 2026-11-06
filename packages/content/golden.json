@@ -1,5 +1,5 @@
 {
-  "contentHash": "409cc44eedd7f33a",
+  "contentHash": "ea4e5d486a958bf0",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -259,11 +259,11 @@
     },
     "gen.badlands": {
       "ticks": 66,
-      "hash": "c5fd2aa483fd8a7e"
+      "hash": "8d9768218ec49a86"
     },
     "gen.caves": {
       "ticks": 91,
-      "hash": "6513f0d9feffc43a"
+      "hash": "da5b93837d3b5e85"
     },
     "gen.city": {
       "ticks": 150,
@@ -333,6 +333,10 @@
       "ticks": 156,
       "hash": "93d2de47d50f7d2d"
     },
+    "material.gunpowder": {
+      "ticks": 444,
+      "hash": "c1eaa3c780e9ffca"
+    },
     "material.ice": {
       "ticks": 165,
       "hash": "7fbc74306f5e7e5e"
@@ -351,11 +355,19 @@
     },
     "material.limestone": {
       "ticks": 91,
-      "hash": "6513f0d9feffc43a"
+      "hash": "da5b93837d3b5e85"
     },
     "material.liquid-dirt": {
       "ticks": 368,
       "hash": "f11ee901080cddc7"
+    },
+    "material.lit-gunpowder": {
+      "ticks": 393,
+      "hash": "4976187367080729"
+    },
+    "material.magma": {
+      "ticks": 234,
+      "hash": "545e3bac1a167d7b"
     },
     "material.meteorite": {
       "ticks": 89,
@@ -443,7 +455,7 @@
     },
     "prop.cave-roof": {
       "ticks": 91,
-      "hash": "6513f0d9feffc43a"
+      "hash": "da5b93837d3b5e85"
     },
     "prop.house": {
       "ticks": 531,

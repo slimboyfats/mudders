@@ -1,0 +1,39 @@
+{
+  "id": "material.magma",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magma pocket",
+    "description": "Molten rock trapped deep underground, held in by the ground around it. It stays put until a crater opens it to the air, then pours out as lava that runs downhill and cools to rock.",
+    "since": "core@0.21.0",
+    "color": "#d8401a"
+  },
+  "cell": 63,
+  "settle": "static",
+  "density": 220,
+  "strength": {
+    "blast": 1.5,
+    "kinetic": 1.5,
+    "heat": 8,
+    "shock": 2,
+    "dig": 1.5
+  },
+  "cohesion": 0,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "air",
+      "into": "material.lava",
+      "chance": 0.35
+    },
+    {
+      "with": "material.lava",
+      "into": "material.lava",
+      "chance": 0.08
+    }
+  ],
+  "look": {
+    "cycle": ["#c8301a", "#e8501c", "#ff7a24", "#e8501c"],
+    "cycleTicks": 9,
+    "hot": true
+  }
+}

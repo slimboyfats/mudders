@@ -1,0 +1,61 @@
+{
+  "id": "material.lit-gunpowder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Burning gunpowder",
+    "description": "A gunpowder seam on fire. The fizzing flame eats along the seam, throws sparks into any air next to it, and every so often a burnt-out grain sets off a blast that lights the powder around it.",
+    "since": "core@0.21.0",
+    "color": "#ffd040"
+  },
+  "cell": 62,
+  "settle": "fall",
+  "density": 90,
+  "strength": {
+    "blast": 0.5,
+    "kinetic": 0.5,
+    "heat": 0.5
+  },
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "air",
+    "ticks": 10
+  },
+  "detonate": {
+    "explosion": {
+      "use": "explosion.standard",
+      "radius": 11,
+      "damage": 30,
+      "effects": {
+        "burst": {
+          "count": 14
+        },
+        "flash": {
+          "strength": 0.6
+        },
+        "shake": {
+          "strength": 1
+        }
+      }
+    },
+    "chance": 0.04
+  },
+  "reactions": [
+    {
+      "with": "material.gunpowder",
+      "other": "material.lit-gunpowder",
+      "chance": 0.45
+    },
+    {
+      "with": "air",
+      "spawn": "material.fire",
+      "chance": 0.05
+    }
+  ],
+  "look": {
+    "cycle": ["#ffd040", "#ff8a20", "#fff0a0", "#ff6a1a"],
+    "cycleTicks": 2,
+    "hot": true,
+    "flames": true
+  }
+}

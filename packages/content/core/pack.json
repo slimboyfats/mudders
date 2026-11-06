@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -87,12 +87,15 @@
     "material.frost",
     "material.fulgurite",
     "material.glass",
+    "material.gunpowder",
     "material.ice",
     "material.lance-slag",
     "material.lava",
     "material.leaf",
     "material.limestone",
     "material.liquid-dirt",
+    "material.lit-gunpowder",
+    "material.magma",
     "material.meteorite",
     "material.mud",
     "material.napalm",
