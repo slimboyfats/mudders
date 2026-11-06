@@ -101,7 +101,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
   return (
     <>
       <div className="hud-top">
-        <div className="players">
+        <div className={`players${hud.tanks.length > 4 ? ' many' : ''}`}>
           {hud.tanks.map((p) => (
             <div
               key={p.player}

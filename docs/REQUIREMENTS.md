@@ -21,7 +21,7 @@ Name: **Mudders**. Tagline: *Set the mud on fire.* Package scope `@mudders/*`.
 ### Non-goals (v1)
 - Not a copy. The feel is Scorched Earth; the *effects* are what make it a successor — shader-driven weapons and terrain that moves, flows and reshapes rather than only cratering (see §2a, §4a). Still not 3D.
 - No accounts, no persistent progression, no ranked ladder in v1.
-- No more than 4 players per match in v1. The sim and net code must not hard-code 4 (target 8 later), but UI, map sizing and balance are tuned for 2–4.
+- No more than 4 players per match in v1. The sim and net code must not hard-code 4 (target 8 later), but UI, map sizing and balance are tuned for 2–4. Milestone 7 raised the cap to 8 (`MAX_PLAYERS`); 2–4 stays the tuned default.
 - No long-form matches (hour-long 8-player slogs). Short rounds are the design, not a limitation.
 - No reproduction of Scorched Earth assets, names of weapons, or text. Original content only.
 
@@ -200,7 +200,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 ## 3. Core gameplay
 
 ### 3.1 Match structure
-- 2–4 players per match in v1 (humans and/or AI bots). Code paths are written for N players; the cap is a config constant.
+- 2–4 players per match in v1 (humans and/or AI bots), 2–8 from milestone 7. Code paths are written for N players; the cap is a config constant.
 - **Target match length: 5–10 minutes.** Default 3 rounds; "quick" preset = 1 round, "long" = 5. Each round is played on a freshly generated map.
 - Pacing budget (per 4-player round, must be verified in playtesting): ~8 turns per player × ~10 s per turn ≈ 2–2.5 min of play + ~30 s shop. Everything below serves that budget.
 - Turn order: configurable — simultaneous (all players fire, then resolve), sequential (random order each round), or sequential ordered by previous-round score (lowest first). Default: sequential, random.
@@ -403,7 +403,7 @@ Each weapon manifest fills the slots in §2c.2. The lists above are a target cat
 - Players connect over the internet from different networks.
 - Public games: anyone can browse and join.
 - Private games: joinable only with a code/link.
-- Up to 4 players in v1 (host holds ≤3 connections); design for 8. Latency tolerance is high (turn-based), but turn resolution must appear within ~1 s for everyone.
+- Up to 4 players in v1 (host holds ≤3 connections); up to 8 from milestone 7 (≤7 connections). Latency tolerance is high (turn-based), but turn resolution must appear within ~1 s for everyone.
 - Mobile networks: connections must survive a brief interruption (screen lock, app switch, cell/Wi-Fi handover). Inputs are buffered and re-sent; a peer gets ~20 s to reconnect before AI takeover.
 - Zero-cost hosting.
 - Graceful disconnect: a disconnected human is replaced by an AI for the rest of the round, with a rejoin window (host setting).

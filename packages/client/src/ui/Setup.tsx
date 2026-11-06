@@ -33,12 +33,18 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
     update({ ...setup, slots });
   };
   const n = activeSlots(setup).length;
+  // Up to 8 players (milestone 7): show the seats in use plus one free one, at least four.
+  let last = -1;
+  setup.slots.forEach((x, i) => {
+    if (x !== 'off') last = i;
+  });
+  const shown = Math.min(setup.slots.length, Math.max(4, last + 2));
 
   return (
     <main className="setup">
       <h2>Local game</h2>
       <section className="slots" aria-label="Players">
-        {setup.slots.map((slot, i) => (
+        {setup.slots.slice(0, shown).map((slot, i) => (
           <label key={i} className={`slot${slot === 'off' ? ' off' : ''}`}>
             <span className="swatch" style={{ background: css(PLAYER_COLORS[i] ?? 0xffffff) }} />
             <span className="slot-name">Player {i + 1}</span>
@@ -57,6 +63,11 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
             </select>
           </label>
         ))}
+        {n > 4 && setup.size === 'small' && (
+          <p className="hint" data-testid="crowded">
+            {n} players is a crowd on a small map: try Medium or Large.
+          </p>
+        )}
         <button className="link" onClick={() => setOpen(open === 'ai' ? null : 'ai')}>
           {open === 'ai' ? 'Hide' : 'About'} the AI players
         </button>

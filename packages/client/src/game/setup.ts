@@ -41,7 +41,7 @@ const KEY = 'mudders.setup.v1';
 export function defaultSetup(): MatchSetup {
   const small = typeof window !== 'undefined' && Math.min(innerWidth, innerHeight) < 500;
   return {
-    slots: ['human', 'ai.shooter', 'off', 'off'],
+    slots: ['human', 'ai.shooter', 'off', 'off', 'off', 'off', 'off', 'off'],
     size: small ? 'small' : 'medium',
     scenery: 'village',
     rounds: 3,
