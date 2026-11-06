@@ -1,0 +1,63 @@
+{
+  "id": "weapon.baby-nuke-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Baby Nuke core",
+    "description": "The delayed main blast of a Baby Nuke: a deep crater and a terrain-shoving shockwave.",
+    "category": "submunition",
+    "since": "core@0.12.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 40
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 45,
+        "damage": 80,
+        "effects": {
+          "burst": {
+            "count": 112
+          },
+          "flash": {
+            "strength": 1.5
+          },
+          "shake": {
+            "strength": 4
+          },
+          "nukeBlast": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 70,
+        "damage": 0,
+        "push": 14,
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

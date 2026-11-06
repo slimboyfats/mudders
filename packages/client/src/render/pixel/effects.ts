@@ -137,9 +137,11 @@ export class EffectSystem {
           });
           this.split = Math.max(this.split, Math.min(4, e.radius / 30));
         }
-        if (isNukeFlash(e.radius, strength, e.params.dt ?? 0)) this.nuke(e);
         break;
       }
+      case 'nukeBlast':
+        this.nuke(e);
+        break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
         this.shakeStart = e.tick;
@@ -364,11 +366,14 @@ export class EffectSystem {
   }
 
   /**
-   * Nuke-class blast: a mushroom cloud, a map-wide distortion shockwave (the approved moving-pixel
-   * lens band, scaled up, no light ring) and a ground dust front racing out along the surface.
+   * A nuke's main blast: the mushroom cloud, a map-wide distortion shockwave (the approved moving-pixel lens band,
+   * scaled up, no light ring), a ground dust front, and debris and sparks thrown out from the
+   * centre in every direction.
    */
   private nuke(e: EffectEvent): void {
     const r = e.radius;
+    const k = e.params.strength ?? 1;
+    // the mushroom cloud starts with the bang, together with the shockwave
     this.mushrooms.push(makeMushroom(e.x, e.y, r, e.tick, this.rngFor(e, 31).next() * 4294967296));
     this.ripples.push({
       x: e.x,
@@ -377,7 +382,7 @@ export class EffectSystem {
       dur: 70,
       maxR: r * 7,
       width: 26,
-      strength: 1.5,
+      strength: 1.5 * k,
     });
     this.ripples.push({
       x: e.x,
@@ -386,7 +391,7 @@ export class EffectSystem {
       dur: 60,
       maxR: r * 4.5,
       width: 12,
-      strength: 0.9,
+      strength: 0.9 * k,
     });
     this.fronts.push({
       x: e.x,
@@ -398,6 +403,26 @@ export class EffectSystem {
     });
     this.shakeAmp = Math.max(this.shakeAmp, 4 + r / 12);
     this.shakeStart = e.tick;
+    const rng = this.rngFor(e, 41);
+    const base = this.dustColor(e.x, e.y + r * 0.5);
+    const n = Math.round((120 + r * 2) * this.mult);
+    const fast = 3 + r / 20;
+    for (let i = 0; i < n; i++) {
+      // a full circle, biased upward: whatever is below is ground and stops it anyway
+      const a = rng.range(-0.15, 1.15) * Math.PI;
+      const s = rng.range(0.35, 1) * fast;
+      const spark = i % 2 === 0;
+      this.particles.add({
+        x: e.x + Math.cos(a) * r * 0.3,
+        y: e.y - Math.sin(a) * r * 0.3,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(50, 100),
+        size: spark ? 1 : rng.range(1.5, 2.5),
+        color: spark ? (rng.next() < 0.4 ? 0xfff0a0 : 0xff7a1a) : shade(base, rng.range(0.7, 1.2)),
+        kind: spark ? PKind.Spark : PKind.Chunk,
+      });
+    }
   }
 
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
@@ -685,15 +710,6 @@ export class EffectSystem {
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
     this.split = 0;
   }
-}
-
-/**
- * Nuke-class blasts get the mushroom cloud. Render-only, so it keys off the existing flash event
- * (no manifest or sim change): a blast-type flash at least 40 cells wide and strength >= 1.5.
- * In core that is exactly Baby Nuke, Nuke and Heavy Nuke.
- */
-export function isNukeFlash(radius: number, strength: number, dt: number): boolean {
-  return dt === 0 && radius >= 40 && strength >= 1.5;
 }
 
 /** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */

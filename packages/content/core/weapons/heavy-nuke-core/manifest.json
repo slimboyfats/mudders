@@ -1,0 +1,63 @@
+{
+  "id": "weapon.heavy-nuke-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Nuke core",
+    "description": "The delayed main blast of a Heavy Nuke: a deep crater and a terrain-shoving shockwave.",
+    "category": "submunition",
+    "since": "core@0.12.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 60
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 100,
+        "damage": 120,
+        "effects": {
+          "burst": {
+            "count": 144
+          },
+          "flash": {
+            "strength": 1.6
+          },
+          "shake": {
+            "strength": 5
+          },
+          "nukeBlast": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 150,
+        "damage": 0,
+        "push": 30,
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

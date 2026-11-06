@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Nuke",
-    "description": "The biggest bang in the shop. Clears a hillside and anyone standing on it.",
+    "description": "The biggest bang in the shop. Clears a hillside and anyone standing on it. It pulls in with a small pop, then the main blast throws up a mushroom cloud and a shockwave.",
     "category": "explosive",
     "since": "core@0.3.0"
   },
@@ -14,33 +14,15 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
-        "radius": 72,
-        "damage": 100,
-        "effects": {
-          "burst": {
-            "count": 110
-          },
-          "flash": {
-            "strength": 2
-          },
-          "shake": {
-            "strength": 6
-          }
-        }
+        "use": "explosion.nuke-pull",
+        "radius": 24
       }
     },
     {
-      "explosion": {
-        "use": "explosion.shockwave",
-        "radius": 110,
-        "damage": 0,
-        "push": 22,
-        "effects": {
-          "burst": {
-            "count": 0
-          }
-        }
+      "spawn": {
+        "weapon": "weapon.nuke-core",
+        "inherit": 0,
+        "count": 1
       }
     }
   ],

@@ -19,9 +19,8 @@ const N_STEM = 40;
 const N_SKIRT = 16;
 const N = N_CAP + N_DOME + N_STEM + N_SKIRT;
 
-/** Ticks the cloud lives; it rises for RISE ticks, then hangs, cools and thins out. */
-export const MUSHROOM_LIFE = 300;
-const RISE = 160;
+/** Ticks the cloud lives after the main blast; it keeps climbing slowly the whole time. */
+export const MUSHROOM_AFTER = 240;
 
 export interface Mushroom {
   x: number;
@@ -29,6 +28,10 @@ export interface Mushroom {
   y: number;
   r: number;
   start: number;
+  /** Ticks from the cloud's start to the main blast (the pause the player watches). */
+  fuse: number;
+  /** Total ticks the cloud lives. */
+  life: number;
   /** Highest the cap centre may climb (stays on screen). */
   top: number;
   /** Per-puff random params: phase, size jitter, heat jitter, spread. */
@@ -41,11 +44,12 @@ export function makeMushroom(
   r: number,
   start: number,
   seed: number,
+  fuse = 0,
 ): Mushroom {
   const rng = new FxRng(seed);
   const p = new Float32Array(N * 4);
   for (let i = 0; i < p.length; i++) p[i] = rng.next();
-  return { x, y, r, start, top: Math.max(r * 0.55 + 6, 0), p };
+  return { x, y, r, start, fuse, life: fuse + MUSHROOM_AFTER, top: Math.max(r * 0.55 + 6, 0), p };
 }
 
 const ease = (k: number) => 1 - (1 - k) * (1 - k);
@@ -79,18 +83,21 @@ export function drawMushroom(
 ): boolean {
   const age = t - m.start;
   if (age < 0) return true;
-  if (age > MUSHROOM_LIFE) return false;
-  const { x, y, r, p } = m;
-  const rise = ease(Math.min(1, age / RISE));
+  if (age > m.life) return false;
+  const { x, y, r, p, life, fuse } = m;
+  // one slow, steady climb over the whole life: never snaps up and hangs
+  const rise = ease(Math.min(1, age / (life * 0.9)));
   // cap height: about 2.4 radii above ground zero, clamped to stay on the map
-  const h = Math.min(r * 2.4, y - m.top) * (0.12 + 0.88 * rise);
+  const h = Math.min(r * 2.4, y - m.top) * (0.1 + 0.9 * rise);
   const capY = y - h;
-  const capW = r * (0.32 + 0.78 * ease(Math.min(1, age / (RISE * 1.3))));
+  const capW = r * (0.3 + 0.8 * ease(Math.min(1, age / life)));
   const capH = capW * 0.42;
-  // cooling: white-hot at first, smoke by the end; the cap's underside stays hot longest
-  const cool = Math.min(1, age / 170);
-  const baseHeat = 0.2 + cool * 6.4;
-  const fade = age < MUSHROOM_LIFE - 80 ? 1 : (MUSHROOM_LIFE - age) / 80;
+  // cooling: white-hot at first, smoke by the end; the main blast re-heats it for a moment
+  const cool = Math.min(1, age / (life * 0.75));
+  const since = age - fuse;
+  const boom = since >= 0 && since < 50 ? (1 - since / 50) * 3 : 0;
+  const baseHeat = 0.2 + cool * 6.4 - boom;
+  const fade = age < life - 70 ? 1 : (life - age) / 70;
   const drift = age * 0.02; // the whole cloud leans gently with the hang time
   const roll = age * 0.035;
 
@@ -109,7 +116,7 @@ export function drawMushroom(
     const size = Math.max(3, w * 1.7 * (0.85 + 0.3 * p[q + 1]!));
     const heat = baseHeat - 0.8 + (1 - f) * 0.9 + p[q + 2]! * 0.8;
     // the stem thins out first as it is drawn up into the cap
-    const stemFade = fade * (age < MUSHROOM_LIFE - 120 ? 1 : (MUSHROOM_LIFE - 40 - age) / 80);
+    const stemFade = fade * (age < life - 110 ? 1 : (life - 30 - age) / 80);
     puff(normal, px, py, size, heat, Math.min(1, Math.max(0, stemFade)) * 0.95);
   }
 
@@ -157,8 +164,9 @@ export function drawMushroom(
   }
 
   // fireball glow inside the cap and stem while it is still hot (hard bands, additive)
-  if (age < 150) {
-    const k = 1 - age / 150;
+  const hot = boom > 0 ? since : age;
+  if (hot < 120) {
+    const k = 1 - hot / 120;
     const g = capW * 0.9;
     additive.push(x + drift, capY + capH * 0.2, g, g * 0.7, 0xff8a30, 0.55 * k * k, Shape.Pixel);
     additive.push(
