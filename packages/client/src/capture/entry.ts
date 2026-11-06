@@ -92,6 +92,7 @@ const api: CaptureApi = {
           count: w.debris.x.length,
           x: Int32Array.from(w.debris.x),
           y: Int32Array.from(w.debris.y),
+          vx: Int32Array.from(w.debris.vx),
           material: Uint8Array.from(w.debris.m),
         },
         wind: w.wind,

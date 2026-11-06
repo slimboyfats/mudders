@@ -1,0 +1,52 @@
+{
+  "id": "audio.dirt-burst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dirt Burst",
+    "description": "A deep chip whump as the dirt dome goes up, then a gritty patter as it rains back down.",
+    "since": "core@0.13.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 160,
+        "to": 38,
+        "release": 0.35,
+        "volume": 0.55
+      },
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 120,
+        "hold": 0.06,
+        "release": 0.45,
+        "volume": 0.6
+      },
+      {
+        "wave": "noise",
+        "freq": 2600,
+        "to": 1400,
+        "delay": 0.55,
+        "attack": 0.2,
+        "hold": 0.7,
+        "release": 0.9,
+        "volume": 0.3,
+        "arp": [0, 7, -5, 3, 12, -2],
+        "arpRate": 0.045
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "dirtBurst"
+    }
+  ],
+  "gap": 0.3
+}

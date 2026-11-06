@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -15,6 +15,7 @@
     "audio.collapse",
     "audio.creak",
     "audio.crunch",
+    "audio.dirt-burst",
     "audio.fire",
     "audio.fire-beam",
     "audio.fire-dig",
@@ -86,6 +87,7 @@
     "terrainop.carve",
     "terrainop.coat",
     "terrainop.convert",
+    "terrainop.dirt-burst",
     "terrainop.displace",
     "terrainop.harden",
     "terrainop.ignite",
@@ -112,6 +114,7 @@
     "weapon.cryo-shell",
     "weapon.digger",
     "weapon.dirt-ball",
+    "weapon.dirt-bomb",
     "weapon.dirt-charge",
     "weapon.dirt-clod",
     "weapon.earthquake",

@@ -65,6 +65,9 @@ interface Trail {
   live: boolean;
 }
 
+/** Hard shade bands for flying debris cells. */
+const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
+
 /**
  * The v1 pixel renderer (§2a, §2b) on raw WebGL2. Pipeline: sky → terrain (R8UI grid through a
  * palette shader, integer scale, nearest-neighbour, dirty-rect sub-uploads) → trails, debris and
@@ -206,6 +209,7 @@ export class PixelRenderer implements Renderer {
     count: 0,
     x: new Int32Array(0),
     y: new Int32Array(0),
+    vx: new Int32Array(0),
     material: new Uint8Array(0),
   };
   private wind = 0;
@@ -998,7 +1002,13 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < d.count; i++) {
       const x = Math.floor(d.x[i]! / FP);
       const y = Math.floor(d.y[i]! / FP);
-      this.normal.push(x + 0.5, y + 0.5, 1, 1, shade(pal[d.material[i]!] ?? 0x7a5a3a, 1.1), 1);
+      // a stable per-particle hash (debris never changes its sideways speed in flight) picks one
+      // of a few hard shade bands, and makes one in sixteen a 2×2 clod, so a shower reads as
+      // grit and clods instead of one flat colour
+      const h = Math.imul(d.vx[i]! ^ (d.material[i]! << 20), 0x9e3779b1) >>> 27;
+      const col = shade(pal[d.material[i]!] ?? 0x7a5a3a, DEBRIS_SHADES[h & 3]!);
+      if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
+      else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
     }
   }
 

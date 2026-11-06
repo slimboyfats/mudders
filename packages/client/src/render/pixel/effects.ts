@@ -6,6 +6,9 @@ import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
 
+/** Hard shade bands for cosmetic dirt clods. */
+const DIRT_BANDS = [0.62, 0.8, 1, 1.18, 1.32] as const;
+
 /**
  * Pixel-renderer implementations of renderer-agnostic effect events (§2b, §2c.3 `effect.*`).
  * Each event type maps to a handler; unknown types are ignored. Everything is seeded from the
@@ -141,6 +144,9 @@ export class EffectSystem {
       }
       case 'nukeBlast':
         this.nuke(e);
+        break;
+      case 'dirtBurst':
+        this.dirtBurst(e);
         break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
@@ -520,6 +526,65 @@ export class EffectSystem {
       }
     }
     return 0x7a5a3a;
+  }
+
+  /**
+   * Dirt Bomb: cosmetic clods in hard shade bands that fly the same fans as the sim's dirt (and
+   * fade before they land, so only sim debris makes ground), a dust surge rolling out along the
+   * ground both ways, and a dirty dust pall over the crater.
+   */
+  private dirtBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 13);
+    const base = this.dustColor(e.x, e.y + 4);
+    const lo = ((e.params.low ?? 20) * Math.PI) / 180;
+    const hi = ((e.params.high ?? 70) * Math.PI) / 180;
+    const vMax = e.params.speed ?? 4;
+    const lift = e.params.lift ?? 0;
+    const nClod = Math.round(160 * this.mult) + 8;
+    for (let i = 0; i < nClod; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      const a = rng.range(lo, hi);
+      const s = rng.range(0.45, 1) * vMax;
+      this.particles.add({
+        x: e.x + side * rng.range(0, 6),
+        y: e.y - lift + rng.range(-3, 3),
+        vx: side * Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(30, 70),
+        size: rng.next() < 0.25 ? 3 : 2,
+        color: shade(base, DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]!),
+        kind: PKind.Chunk,
+      });
+    }
+    const nSurge = Math.round(48 * this.mult) + 4;
+    for (let i = 0; i < nSurge; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + side * rng.range(2, 10),
+        y: e.y - rng.range(0, 4),
+        vx: side * rng.range(1, 3.2),
+        vy: -rng.range(0, 0.3),
+        life: rng.range(40, 80),
+        size: rng.range(3, 6),
+        color: shade(base, rng.next() < 0.5 ? 0.85 : 1.05),
+        kind: PKind.Dust,
+      });
+    }
+    const nPall = Math.round(14 * Math.max(0.5, this.mult));
+    for (let i = 0; i < nPall; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-12, 12),
+        y: e.y - rng.range(0, 14),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.1, 0.5),
+        life: rng.range(70, 120),
+        size: rng.range(5, 9),
+        color: shade(base, 0.7),
+        kind: PKind.Smoke,
+      });
+    }
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
   }
 
   private burst(e: EffectEvent, count: number): void {
