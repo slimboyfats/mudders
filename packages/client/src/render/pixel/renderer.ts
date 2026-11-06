@@ -664,6 +664,7 @@ export class PixelRenderer implements Renderer {
       }
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
+      else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
     }
     this.fx.lances.track(s.entities, s.tick);
@@ -735,6 +736,41 @@ export class PixelRenderer implements Renderer {
     d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, y0 - 1));
     d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 2));
     d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + 34));
+  }
+
+  /** A dirt wave rolled over these columns: the ground it leaves behind is bare, so no grass. */
+  private scour(front: number, dir: number, len: number): void {
+    const a = dir > 0 ? front - len : front - 2;
+    const b = dir > 0 ? front + 2 : front + len;
+    const x0 = Math.max(0, Math.floor(a));
+    const x1 = Math.min(this.mapWidth, Math.ceil(b) + 1);
+    if (x0 >= x1) return;
+    const w = this.mapWidth;
+    for (let y = 0; y < this.mapHeight; y++) this.grassMask.fill(0, y * w + x0, y * w + x1);
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      x0,
+      0,
+      x1 - x0,
+      this.mapHeight,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.grassMask,
+    );
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    const d = this.dirty;
+    const clean = d[0]! >= d[2]!;
+    d[0] = clean ? x0 : Math.min(d[0]!, x0);
+    d[1] = 0;
+    d[2] = clean ? x1 : Math.max(d[2]!, x1);
+    d[3] = this.mapHeight;
   }
 
   /** Stamp a blast's tick over the cells it reached, so the char there smoulders for a while. */

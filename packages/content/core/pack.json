@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -40,6 +40,8 @@
     "audio.round-end",
     "audio.splash",
     "audio.tank-death",
+    "audio.tsunami",
+    "audio.tsunami-crash",
     "audio.turn",
     "audio.ui-buy",
     "audio.ui-click",
@@ -113,6 +115,7 @@
     "terrainop.coat",
     "terrainop.convert",
     "terrainop.dirt-burst",
+    "terrainop.dirt-tsunami",
     "terrainop.displace",
     "terrainop.frost",
     "terrainop.harden",
@@ -145,6 +148,7 @@
     "weapon.dirt-bomb",
     "weapon.dirt-charge",
     "weapon.dirt-clod",
+    "weapon.dirt-tsunami",
     "weapon.earthquake",
     "weapon.fault-line",
     "weapon.flood",

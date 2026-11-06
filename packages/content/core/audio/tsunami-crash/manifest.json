@@ -1,0 +1,49 @@
+{
+  "id": "audio.tsunami-crash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tsunami Crash",
+    "description": "A heavy thump and a long falling roar of dirt as a Dirt Tsunami breaks.",
+    "since": "core@0.15.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 90,
+        "to": 28,
+        "release": 0.7,
+        "volume": 0.45
+      },
+      {
+        "wave": "noise",
+        "freq": 1600,
+        "to": 120,
+        "hold": 0.3,
+        "release": 1.2,
+        "volume": 0.5
+      },
+      {
+        "wave": "triangle",
+        "freq": 45,
+        "to": 25,
+        "delay": 0.05,
+        "release": 1.1,
+        "volume": 0.4
+      }
+    ],
+    "radiusRef": 30
+  },
+  "on": [
+    {
+      "event": "tsunamiCrash"
+    }
+  ],
+  "gap": 0.3
+}
