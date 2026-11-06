@@ -1,0 +1,2 @@
+import{D as e,F as t,d as n,i as r}from"./index-Dgj5D89J.js";import{n as i,t as a}from"./MatchView-C6iFE3Kj.js";var o=t(),s=r();function c({setup:t,settings:r,onExit:c}){let[l,u]=(0,o.useState)(0),[d]=(0,o.useState)(()=>Math.random()*4294967295>>>0),f=(0,o.useMemo)(()=>new i(n(),e(t,d+l*7919>>>0)),[d,l,t]),p=(0,o.useMemo)(()=>f.world.tanks.map(e=>e.bot<0),[f]);return(0,s.jsx)(a,{match:f,settings:r,controls:e=>p[e]??!1,onExit:c,onRematch:()=>u(e=>e+1)},l)}export{c as Play};
+//# sourceMappingURL=Play-DYGxIUVv.js.map
