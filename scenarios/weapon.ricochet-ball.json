@@ -1,0 +1,96 @@
+{
+  "id": "weapon.ricochet-ball",
+  "schemaVersion": 1,
+  "description": "Ricochet Ball fired from the high ground: a five-bounce run down the hill, a bank shot onto a tank, and a long skip into the valley.",
+  "subject": "weapon.ricochet-ball",
+  "mode": "mode.classic",
+  "seed": 4242,
+  "players": 4,
+  "map": {
+    "generator": "gen.hills",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 690,
+      "inventory": {
+        "weapon.ricochet-ball": -1
+      }
+    },
+    {
+      "x": 80
+    },
+    {
+      "x": 250
+    },
+    {
+      "x": 450
+    }
+  ],
+  "turnOrder": [0],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.ricochet-ball"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 115,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 145,
+        "power": 400
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 155,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 40
+  }
+}

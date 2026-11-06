@@ -1,0 +1,18 @@
+{
+  "id": "flight.ricochet",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ricochet",
+    "description": "Flies an arc and rebounds off the ground at the angle it came in, losing a little speed each time, until a tank, its last bounce or a dead stop sets it off.",
+    "since": "core@0.14.0"
+  },
+  "behaviour": "flight.ricochet",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "bounces": 5,
+  "restitution": 0.8,
+  "friction": 0.92,
+  "minSpeed": 0.6,
+  "probe": 3
+}

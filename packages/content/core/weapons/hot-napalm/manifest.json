@@ -24,6 +24,9 @@
           },
           "flash": {
             "strength": 1.0
+          },
+          "fireball": {
+            "strength": 1.4
           }
         }
       }
@@ -35,6 +38,16 @@
       },
       "radius": 21,
       "damageType": "heat"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.napalm-glob",
+        "count": 12,
+        "inherit": 0,
+        "spread": 2.6,
+        "jitter": 0.7,
+        "up": 2.8
+      }
     }
   ],
   "shop": {

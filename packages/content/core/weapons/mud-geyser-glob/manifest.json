@@ -1,0 +1,51 @@
+{
+  "id": "weapon.mud-geyser-glob",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mud glob",
+    "description": "One glob of scalding mud thrown up by a Mud Geyser.",
+    "category": "submunition",
+    "since": "core@0.14.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 4,
+        "damage": 7,
+        "damageType": "heat",
+        "terrainOp": null,
+        "effects": {
+          "mudSplat": {
+            "count": 14
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.mud"
+      },
+      "radius": 3,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "mud",
+    "trail": false
+  }
+}
