@@ -20,6 +20,8 @@ export interface EffectSink {
 /** Mutable tank view handed to behaviours that may shove tanks. */
 export interface TankHandle {
   readonly player: number;
+  /** Team (milestone 7); the player number in a free-for-all. */
+  readonly team: number;
   readonly alive: boolean;
   /** Hitbox half-width and height in cells (they differ per tank type). */
   readonly half: number;
