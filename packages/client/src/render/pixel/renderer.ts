@@ -625,6 +625,7 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
     }
+    this.fx.lances.track(s.entities, s.tick);
     this.updateTrails(s);
   }
 
@@ -1083,7 +1084,7 @@ export class PixelRenderer implements Renderer {
   private updateTrails(s: RenderSnapshot): void {
     for (const t of this.trails) t.live = false;
     for (const e of s.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       if (this.palette.shells?.[e.weapon]?.trail === false) continue;
       let tr = this.trails.find((t) => t.id === e.id);
       if (!tr) {
@@ -1215,6 +1216,7 @@ export class PixelRenderer implements Renderer {
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
+    this.fx.lances.draw(this.additive, t);
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
@@ -1472,7 +1474,7 @@ export class PixelRenderer implements Renderer {
     const g = this.additive;
     const shells = this.palette.shells;
     for (const e of this.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       const look = shells?.[e.weapon];
       if (look?.shell === 'ricochet') {
         this.drawRicochetBall(e.x, e.y, e.id);

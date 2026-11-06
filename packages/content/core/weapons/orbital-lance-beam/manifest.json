@@ -1,0 +1,131 @@
+{
+  "id": "weapon.orbital-lance-beam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Orbital Lance beam",
+    "description": "The beam an Orbital Lance beacon calls down: it cuts a shaft through everything under the beacon, glazes the walls and goes off at the bottom in a molten blast.",
+    "category": "submunition",
+    "since": "core@0.13.0"
+  },
+  "flight": {
+    "use": "flight.orbital-lance"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 20,
+        "damage": 70,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 70
+          },
+          "flash": {
+            "strength": 2.2
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 27,
+        "damage": 0,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.melt",
+          "core": 0.55,
+          "expandTicks": 8
+        },
+        "effects": {}
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 34,
+        "damage": 0,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.convert",
+          "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+          "into": "material.scorch",
+          "core": 0.6,
+          "expandTicks": 10
+        },
+        "effects": {}
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 9,
+        "damage": 5,
+        "damageType": "heat",
+        "falloff": "flat",
+        "effects": {
+          "burst": {
+            "count": 3
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 0,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.convert",
+          "from": [
+            "material.dirt",
+            "material.sand",
+            "material.ash",
+            "material.mud",
+            "material.packed-mud",
+            "material.liquid-dirt",
+            "material.rubble",
+            "material.scorch"
+          ],
+          "into": "material.lance-slag",
+          "core": 0.72,
+          "expandTicks": 1
+        },
+        "effects": {}
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 20,
+        "damage": 0,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.convert",
+          "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+          "into": "material.scorch",
+          "core": 0.55,
+          "expandTicks": 1
+        },
+        "effects": {}
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

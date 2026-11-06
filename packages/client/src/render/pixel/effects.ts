@@ -2,6 +2,7 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
+import { Lances } from './lance';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
@@ -143,6 +144,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** Orbital Lance lock-ons and beams. */
+  readonly lances: Lances;
   /**
    * Ricochet Ball heat: bounces of the ball in flight (0 = fresh), from its `ricochet` events.
    * Only one shot flies at a time, so a single counter is enough; it resets on the final burst
@@ -154,7 +157,9 @@ export class EffectSystem {
   constructor(
     private readonly particles: Particles,
     private readonly probe: TerrainProbe,
-  ) {}
+  ) {
+    this.lances = new Lances(particles);
+  }
 
   private rngFor(e: EffectEvent, salt: number): FxRng {
     return new FxRng(
@@ -334,6 +339,13 @@ export class EffectSystem {
       }
       case 'bolt':
         this.bolt(e);
+        break;
+      case 'lanceCharge':
+        this.lances.charge(e, this.rngFor(e, 43));
+        this.tintSky([0, 0.5, 0.06, 0.04], 0.12);
+        break;
+      case 'lance':
+        this.lanceFire(e);
         break;
       case 'pressureWave':
         this.pressureWave(e, e.params.strength ?? 1);
@@ -1375,6 +1387,27 @@ export class EffectSystem {
     for (const f of this.funnels) drawFunnel(f, normal, additive, t);
   }
 
+  /**
+   * An Orbital Lance fires: the sky blazes white-orange, a distortion lens punches out from the
+   * shaft mouth and the ground shakes; the beam itself is drawn by `lances`.
+   */
+  private lanceFire(e: EffectEvent): void {
+    this.lances.fire(e, this.rngFor(e, 47));
+    const surface = e.params.surface ?? e.y;
+    this.tintSky([0, 0.7, 0.5, 0.3], 0.9);
+    this.ripples.push({
+      x: e.x + 0.5,
+      y: surface,
+      start: e.tick,
+      dur: 40,
+      maxR: 150,
+      width: 18,
+      strength: 1.1,
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
+  }
+
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
@@ -1850,6 +1883,15 @@ export class EffectSystem {
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
+    if (this.lances.active) {
+      // a firing lance keeps the ground rumbling and the sky lit
+      const rumble = this.lances.tick(t, this.mult);
+      if (rumble > 0) {
+        this.shakeAmp = Math.max(this.shakeAmp * 0.9, rumble);
+        if (t - this.shakeStart > 6) this.shakeStart = t;
+        this.tintSky([0, 0.7, 0.45, 0.2], 0.06);
+      }
+    }
     this.crystals = this.crystals.filter((b) => t - b.start <= b.dur);
     const s = this.sky;
     s[0] *= 0.86;
@@ -2088,6 +2130,7 @@ export class EffectSystem {
     this.jets = [];
     this.crystals = [];
     this.mushrooms = [];
+    this.lances.clear();
     this.vortices = [];
     this.funnels = [];
     this.shakeAmp = 0;
