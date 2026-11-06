@@ -114,7 +114,7 @@ describe('bots drive (§3.2, §3.7)', () => {
     const bots = ['ai.moron', 'ai.shooter', 'ai.poolshark', 'ai.tosser', 'ai.cyborg'];
     const run = () => {
       const w = makeWorld({
-        seed: 11,
+        seed: 12,
         map: { width: 900, height: 320 },
         players: 5,
         bots,

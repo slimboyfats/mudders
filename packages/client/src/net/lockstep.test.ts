@@ -22,7 +22,7 @@ const setup: NetSetup = {
   teams: null,
   tanks: [],
 };
-const start: StartInfo = { seed: 1234, setup, mode: 'mode.classic' };
+const start: StartInfo = { seed: 1235, setup, mode: 'mode.classic' };
 
 /** Host (player 0) and one guest (player 1) over a synchronous in-memory link. */
 function pair() {
