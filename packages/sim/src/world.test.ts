@@ -361,6 +361,39 @@ describe('match loop', () => {
     expect(w.matchWinner).toBe(0);
   });
 
+  it('opening shop: shops on round 1’s map before the first turn, with the shop timer', () => {
+    const plain = mk();
+    const w = mk({ rules: { openingShop: true } });
+    expect(w.phase).toBe('shop');
+    expect(w.round).toBe(0);
+    expect(w.timer).toBe(120);
+    expect(w.grid.material).toEqual(plain.grid.material);
+    w.applyInput(0, { type: 'buy', item: 'weapon.shell', packs: 1 });
+    w.step();
+    expect(w.tanks[0]!.inventory[SHELL]).toBe(3);
+    expect(w.tanks[0]!.money).toBeLessThan(100);
+    // the timer runs out: round 1 starts on the same map, nobody's round is counted
+    w.run(118);
+    expect(w.phase).toBe('shop');
+    w.step();
+    expect(w.phase).toBe('aim');
+    expect(w.round).toBe(0);
+    expect(w.results).toHaveLength(0);
+    expect(w.tanks.every((t) => !t.ready)).toBe(true);
+    expect(w.grid.material).toEqual(plain.grid.material);
+  });
+
+  it('opening shop ends early once everyone is ready', () => {
+    const w = mk({ rules: { openingShop: true } });
+    w.applyInput(0, { type: 'ready' });
+    w.step();
+    expect(w.phase).toBe('shop');
+    w.applyInput(1, { type: 'ready' });
+    w.step();
+    expect(w.phase).toBe('aim');
+    expect(w.timer).toBe(60);
+  });
+
   it('sudden death doubles damage and collapses the map edges into the void', () => {
     const w = mk({ rules: { turnTimer: 0 }, tankColumns: [8, 150] });
     for (const t of w.tanks) t.health = 1000;

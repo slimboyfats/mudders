@@ -4,7 +4,7 @@
   "meta": {
     "name": "Office Tower",
     "description": "A tall concrete office block with a roof mast, built in three sections. Each section soaks up hits on its own, cracks and then pours down as rubble, so the top can be shot off while the base still stands. Bring the base down and the whole tower follows. Each section's windows shatter at the first hit.",
-    "since": "core@0.19.0"
+    "since": "core@0.20.0"
   },
   "shape": [
     "               AA               ",

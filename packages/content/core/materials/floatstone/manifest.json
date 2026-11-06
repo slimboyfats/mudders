@@ -4,7 +4,7 @@
   "meta": {
     "name": "Floatstone",
     "description": "The stone core of a floating island. Never moves, so it holds up the dirt above it; a bit tougher than dirt to blast, much softer than bedrock.",
-    "since": "core@0.19.0",
+    "since": "core@0.20.0",
     "color": "#6a5f7a"
   },
   "cell": 28,

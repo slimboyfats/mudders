@@ -4,7 +4,7 @@
   "meta": {
     "name": "City",
     "description": "Low, gently rolling ground built up with concrete office towers, brick apartment blocks and the odd house between the tanks. Every building soaks up hits, cracks and then comes down as rubble; a tower's top can be shot off on its own.",
-    "since": "core@0.19.0"
+    "since": "core@0.20.0"
   },
   "extends": "gen.hills",
   "amplitude": 0.05,

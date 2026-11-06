@@ -1,0 +1,129 @@
+{
+  "id": "showcase.gusty-wind",
+  "schemaVersion": 1,
+  "description": "Gusty wind: the wind keeps swinging while the shells fly, so the same aim lands differently; dashes streak across the sky on each strong gust.",
+  "subject": "mode.classic",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.004,
+  "rules": {
+    "windType": "gusty"
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.shockwave"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 560
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 57,
+        "power": 615
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 128,
+        "power": 600
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

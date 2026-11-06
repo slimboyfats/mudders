@@ -4,7 +4,7 @@
   "meta": {
     "name": "Caves",
     "description": "A cavern under a limestone roof hung with stalactites, with stone pillars between the tanks and a skylight or two. Shots must fit under the roof, or be blasted or dug through it.",
-    "since": "core@0.19.0"
+    "since": "core@0.20.0"
   },
   "behaviour": "gen.caves",
   "floorLevel": 0.72,

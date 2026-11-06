@@ -4,7 +4,7 @@
   "meta": {
     "name": "Cracked concrete",
     "description": "Concrete that has taken a beating: the darker cells show a building about to come down.",
-    "since": "core@0.19.0",
+    "since": "core@0.20.0",
     "color": "#625f5b"
   },
   "cell": 27,

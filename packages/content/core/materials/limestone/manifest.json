@@ -4,7 +4,7 @@
   "meta": {
     "name": "Limestone",
     "description": "Cave stone: roofs, stalactites and pillars. Never moves, so a cave roof stays up; tougher than dirt, softer than bedrock.",
-    "since": "core@0.19.0",
+    "since": "core@0.20.0",
     "color": "#7d7064"
   },
   "cell": 29,

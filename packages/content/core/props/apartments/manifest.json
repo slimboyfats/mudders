@@ -4,7 +4,7 @@
   "meta": {
     "name": "Apartment Block",
     "description": "A wide five-storey brick block with concrete floors and a wooden water tank on the roof. The walls take a lot of punishment before they crack and come down as rubble, roof, tank and all. The windows shatter at the first hit and the water tank burns.",
-    "since": "core@0.19.0"
+    "since": "core@0.20.0"
   },
   "shape": [
     "                                  TTTTTTTT          ",

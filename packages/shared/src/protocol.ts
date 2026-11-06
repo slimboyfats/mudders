@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAP_SIZES } from './constants';
-import { ContentIdSchema } from './content/manifests';
+import { ContentIdSchema, WindTypeSchema } from './content/manifests';
 import { InputSchema, TimedInputSchema } from './input';
 
 /**
@@ -185,7 +185,7 @@ export const NetSetupSchema = z.object({
   scenery: z.enum(['none', 'village', 'badlands', 'marsh', 'city', 'islands', 'caves']),
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),
-  wind: z.enum(['none', 'constant', 'perTurn']),
+  wind: WindTypeSchema,
   suddenDeath: z.boolean(),
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Team per seat (milestone 7), or null for a free-for-all. */

@@ -1,4 +1,4 @@
-import { MAP_SIZES, MAX_PLAYERS } from '@mudders/shared';
+import { MAP_SIZES, MAX_PLAYERS, type WindType } from '@mudders/shared';
 import type { MatchRules, WorldOptions } from '@mudders/sim';
 
 export type MapSize = keyof typeof MAP_SIZES;
@@ -33,6 +33,7 @@ const BETWEEN_ROUNDS = 20;
  */
 export function estimateMinutes(rounds: number, turnTimer: number, players: number): number {
   const turn = (turnTimer > 0 ? turnTimer : 20) * 0.5 + 6;
+  // every round opens with the shop, round 1 included
   const secs = rounds * (Math.max(2, players) * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
   return Math.max(1, Math.round(secs / 60));
 }
@@ -59,7 +60,7 @@ export interface MatchSetup {
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
-  wind: 'none' | 'constant' | 'perTurn';
+  wind: WindType;
   suddenDeath: boolean;
   startingCash: number;
   /**
@@ -178,6 +179,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     suddenDeath: s.suddenDeath,
     windType: s.wind,
     startingCash: s.startingCash,
+    // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)
+    openingShop: true,
   };
   return {
     seed,

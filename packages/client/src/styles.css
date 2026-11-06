@@ -260,6 +260,15 @@ button.primary,
   border-radius: 3px;
 }
 
+.wind-base {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+}
+
 .wind-value {
   font-variant-numeric: tabular-nums;
   min-width: 2.5em;
@@ -746,6 +755,11 @@ button.link {
   font-size: 1.3rem;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
+}
+
+.shop .timer.low {
+  color: #ff8a5c;
+  font-weight: 700;
 }
 
 .scores {

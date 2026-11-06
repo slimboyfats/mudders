@@ -1,4 +1,4 @@
-import type { DamageType, ZodType } from '@mudders/shared';
+import type { DamageType, WindType, ZodType } from '@mudders/shared';
 import type { DebrisPool } from './debris';
 import type { Grid } from './grid';
 import type { MaterialTable } from './materials';
@@ -175,18 +175,30 @@ export interface TerrainOpBehaviour<P = unknown> extends BehaviourBase<P> {
 
 // ── modes ───────────────────────────────────────────────────────────────────────────────────
 
-export interface ModeApi {
+export interface ModeApi extends EffectSink {
   readonly rng: Prng;
+  /** The match tick (for timing things like gusts). */
+  now(): number;
   readonly players: number;
   alive(player: number): boolean;
   /** Team of a player (milestone 7); the player number in a free-for-all. */
   team(player: number): number;
   /** Turns taken this round. */
   turn(): number;
-  /** Set wind, fixed-point cells/tick². */
+  /** Set the turn's wind (the base the gusts blow around), fixed-point cells/tick². */
   setWind(fixedWind: number): void;
+  /**
+   * Set the gust on top of the base wind, fixed-point cells/tick². The world's wind is base + gust;
+   * bots aim with the base (they can't see the next gust coming either).
+   */
+  setGust(fixedGust: number): void;
   readonly windMax: number;
-  readonly windType: 'none' | 'constant' | 'perTurn';
+  readonly windType: WindType;
+  /**
+   * Numbers the mode keeps between ticks (gust state, say). Hashed, reset by nothing: the mode owns
+   * it. Starts empty.
+   */
+  readonly memory: number[];
 }
 
 export interface ModeBehaviour<P = unknown> extends BehaviourBase<P> {
@@ -195,6 +207,8 @@ export interface ModeBehaviour<P = unknown> extends BehaviourBase<P> {
   turnOrder(api: ModeApi, params: P): number[];
   onRoundStart(api: ModeApi, params: P): void;
   onTurnStart(api: ModeApi, params: P): void;
+  /** Every tick of aiming and resolving (not the shop), before shells move. */
+  onTick?(api: ModeApi, params: P): void;
 }
 
 // ── AI personalities ────────────────────────────────────────────────────────────────────────

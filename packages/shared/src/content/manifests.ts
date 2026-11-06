@@ -380,6 +380,13 @@ export type WeaponManifest = z.infer<typeof WeaponSchema>;
 // ── mode ────────────────────────────────────────────────────────────────────────────────────
 
 export const WallRuleSchema = z.enum(['absorb', 'bounce', 'wrap', 'concrete']);
+
+/**
+ * How wind changes (§3.4): never, once per round, every turn, or every turn plus gusts that keep
+ * shifting it while you aim and while the shell is in the air.
+ */
+export const WindTypeSchema = z.enum(['none', 'constant', 'perTurn', 'gusty']);
+export type WindType = z.infer<typeof WindTypeSchema>;
 export type WallRule = z.infer<typeof WallRuleSchema>;
 
 export const ModeSchema = z.looseObject({
@@ -397,7 +404,7 @@ export const ModeSchema = z.looseObject({
     maxSpeed: z.number().positive(),
   }),
   wind: z.strictObject({
-    type: z.enum(['none', 'constant', 'perTurn']),
+    type: WindTypeSchema,
     /** Maximum wind acceleration, cells/tick². */
     max: z.number().min(0),
   }),

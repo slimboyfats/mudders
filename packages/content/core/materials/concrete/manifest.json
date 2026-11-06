@@ -4,7 +4,7 @@
   "meta": {
     "name": "Concrete",
     "description": "Cast building concrete. Harder to blast than brick, does not burn, and pours down as rubble once a building gives way.",
-    "since": "core@0.19.0",
+    "since": "core@0.20.0",
     "color": "#8d8a84"
   },
   "cell": 26,

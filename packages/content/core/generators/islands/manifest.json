@@ -4,7 +4,7 @@
   "meta": {
     "name": "Floating islands",
     "description": "Every tank starts on its own island of grassy dirt over a floatstone core, hanging over a deep drop; smaller islands drift between them as cover. Shoot the stone out from under an island and the dirt on top pours down, tank and all, for a long fall.",
-    "since": "core@0.19.0"
+    "since": "core@0.20.0"
   },
   "behaviour": "gen.islands",
   "floorLevel": 0.93,
