@@ -3,6 +3,7 @@ import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
 import { Lances } from './lance';
+import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
@@ -136,6 +137,7 @@ export class EffectSystem {
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private funnels: Funnel[] = [];
+  private magnets: MagnetFx[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -603,6 +605,35 @@ export class EffectSystem {
       case 'tornado':
         this.tornado(e);
         break;
+      case 'magnet':
+        this.magnet(e);
+        break;
+      case 'magnetOn':
+        // the field kicks in: a jolt and a short drop in the sky's light
+        this.shakeAmp = Math.max(this.shakeAmp, 2);
+        this.shakeStart = e.tick;
+        this.tintSky([0, 0.05, 0.2, 0.3], 0.15);
+        break;
+      case 'magnetClank': {
+        // a tank slams onto the mine: hard white and cyan sparks off the contact
+        const rng = this.rngFor(e, 67);
+        const n = Math.round(18 * this.mult) + 3;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-3, 3),
+            y: e.y + rng.range(-2, 2),
+            vx: rng.range(-1.6, 1.6),
+            vy: -rng.range(0.3, 1.8),
+            life: rng.range(8, 20),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xffffff : 0x7fd8f0,
+            kind: PKind.Spark,
+          });
+        }
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        break;
+      }
       case 'touchdown': {
         // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
         this.shakeAmp = Math.max(this.shakeAmp, 3);
@@ -1527,6 +1558,33 @@ export class EffectSystem {
     if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
   }
 
+  /** Update (or start) the magnet mine an event belongs to: one event per mine per tick. */
+  private magnet(e: EffectEvent): void {
+    const pr = e.params;
+    let m: MagnetFx | undefined;
+    for (const g of this.magnets) {
+      if (e.tick - g.last <= 3 && g.x === e.x && g.y === e.y) {
+        m = g;
+        break;
+      }
+    }
+    if (!m) {
+      m = { x: e.x, y: e.y, r: e.radius, age: 0, arm: 0, life: 0, strength: 0, last: e.tick };
+      this.magnets.push(m);
+    }
+    m.r = e.radius;
+    m.age = pr.age ?? 0;
+    m.arm = pr.arm ?? 0;
+    m.life = pr.life ?? 0;
+    m.strength = (pr.strength ?? 0) / 100;
+    m.last = e.tick;
+  }
+
+  /** Magnet mines and their fields. */
+  drawMagnets(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const m of this.magnets) drawMagnet(m, normal, additive, t);
+  }
+
   /** Dust skirt churned up round each tornado's base, once per tick. */
   private funnelDust(f: Funnel, t: number): void {
     if (f.down < 1 || f.strength <= 0.05 || t - f.last > 2) return;
@@ -2061,6 +2119,7 @@ export class EffectSystem {
     });
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
+    this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -2314,6 +2373,7 @@ export class EffectSystem {
     this.lances.clear();
     this.vortices = [];
     this.funnels = [];
+    this.magnets = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

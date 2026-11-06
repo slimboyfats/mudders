@@ -1,0 +1,57 @@
+{
+  "id": "weapon.magnet-mine",
+  "schemaVersion": 1,
+  "description": "Player 0 lands a Magnet Mine short of player 1; the field drags them onto it before it goes off.",
+  "subject": "weapon.magnet-mine",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.magnet-mine": 1
+      }
+    },
+    {
+      "x": 560
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.magnet-mine"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 490
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 700,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

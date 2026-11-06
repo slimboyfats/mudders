@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.21.0",
+  "version": "0.22.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -33,6 +33,8 @@
     "audio.lance",
     "audio.lance-charge",
     "audio.land",
+    "audio.magnet-clank",
+    "audio.magnet-hum",
     "audio.meteor-whistle",
     "audio.mud-splat",
     "audio.music-battle",
@@ -140,6 +142,7 @@
     "terrainop.harden",
     "terrainop.ignite",
     "terrainop.liquefy",
+    "terrainop.magnet",
     "terrainop.melt",
     "terrainop.quake",
     "terrainop.rift",
@@ -190,6 +193,8 @@
     "weapon.liquid-dirt",
     "weapon.magma-bomb",
     "weapon.magma-glob",
+    "weapon.magnet-mine",
+    "weapon.magnet-mine-core",
     "weapon.meteor",
     "weapon.meteor-boulder",
     "weapon.meteor-shower",
