@@ -6,6 +6,7 @@ import type {
   RendererOptions,
   ShellLook,
   SnapshotStream,
+  TankLook,
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
@@ -16,6 +17,7 @@ import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import {
   BG_FS,
+  CUT_REACH,
   FULLSCREEN_VS,
   MAX_RIPPLES,
   POST_FS,
@@ -52,13 +54,50 @@ const SCENERY_UNIFORMS = [
   'u_horizon',
   'u_cam',
 ] as const;
-const TANK_W = 16;
 /** How long fresh char smoulders after a blast (ticks; keep in step with the shader). */
 const EMBER_TICKS = 600;
 /** Most flaming surface cells tracked between look scans. */
 const FLAME_CAP = 2048;
-const TANK_H = 10;
 const GRAVITY = 0.12;
+const SHIELD_RGB = 0x7fe0ff;
+
+/** The standard tank's look, for tanks whose type has no sprite in the palette. */
+const STANDARD_LOOK: TankLook = {
+  sprite: [
+    '......HHHH......',
+    '.....hhhhhh.....',
+    '....hhhhhhhh....',
+    '.HHHHHHHHHHHHHH.',
+    '.hhhhhhhhhhhhhh.',
+    '.dhhhhhhhhhhhhd.',
+    'tttttttttttttttt',
+    'twwttwwttwwttwwt',
+    'tttttttttttttttt',
+  ],
+  barrel: { x: 0, y: 7, length: 8, width: 1 },
+};
+
+/** Sprite cell code (manifest `look.sprite`) → colour in this player's colour. */
+function spriteColor(code: number, col: number, shieldOn: boolean): number {
+  switch (code) {
+    case 72: // H
+      return shade(col, 1.3);
+    case 100: // d
+      return shade(col, 0.72);
+    case 116: // t
+      return 0x2b2622;
+    case 119: // w
+      return 0x55504a;
+    case 109: // m
+      return 0xd8d2c8;
+    case 115: // s
+      return shieldOn ? SHIELD_RGB : 0x4a5a60;
+    case 103: // g
+      return 0x9fd0e0;
+    default:
+      return col;
+  }
+}
 
 interface Trail {
   id: number;
@@ -67,6 +106,9 @@ interface Trail {
   pts: number[];
   live: boolean;
 }
+
+/** Hard shade bands for flying debris cells. */
+const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
 
 /**
  * The v1 pixel renderer (§2a, §2b) on raw WebGL2. Pipeline: sky → terrain (R8UI grid through a
@@ -214,6 +256,7 @@ export class PixelRenderer implements Renderer {
     count: 0,
     x: new Int32Array(0),
     y: new Int32Array(0),
+    vx: new Int32Array(0),
     material: new Uint8Array(0),
   };
   private wind = 0;
@@ -227,6 +270,8 @@ export class PixelRenderer implements Renderer {
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
+  /** Tick each player's shield last soaked a hit (for the flash). */
+  private shieldHitAt: number[] = [];
 
   constructor(
     readonly mapWidth: number,
@@ -556,12 +601,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 32 up for soil depth, 1 down/sideways): widen the box
+        // shading reads neighbours (up to 32 up for soil depth, 1 down, CUT_REACH sideways for
+        // crater walls cut through the turf): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
-        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
+        d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 32));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
@@ -604,6 +650,7 @@ export class PixelRenderer implements Renderer {
     this.entities = s.entities;
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
+    this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
     this.lastTick = s.tick;
@@ -618,8 +665,77 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
+      if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
     }
+    this.fx.lances.track(s.entities, s.tick);
     this.updateTrails(s);
+  }
+
+  /**
+   * Gas clouds wither the grass they creep over: grass-mask cells under a puff turn from 1 (grass)
+   * to 2 (withered, drawn dry and brown). Cosmetic and one-way, like the burn marks.
+   */
+  private witherGrass(): void {
+    const m = this.grassMask;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    let x0 = w;
+    let y0 = h;
+    let x1 = 0;
+    let y1 = 0;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (!pf || pf.length === 0 || z.look !== 'toxic') continue;
+      // the cloud swells over its first second; reach the grass once it has
+      const r = Math.round((z.puffRadius ?? 8) * Math.min(1, 0.3 + (z.age ?? 1000) / 50));
+      for (let i = 0; i < pf.length; i += 2) {
+        const px = pf[i]!;
+        const py = pf[i + 1]!;
+        const ya = Math.max(0, py - r);
+        const yb = Math.min(h - 1, py + 4);
+        for (let x = Math.max(0, px - r); x <= Math.min(w - 1, px + r); x++) {
+          const dx = x - px;
+          for (let y = ya; y <= yb; y++) {
+            const k = y * w + x;
+            if (m[k] !== 1) continue;
+            const dy = Math.max(0, py - y);
+            if (dx * dx + dy * dy > r * r) continue;
+            m[k] = 2;
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+      }
+    }
+    if (x0 > x1) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
+    gl.texSubImage2D(
+      gl.TEXTURE_2D,
+      0,
+      x0,
+      y0,
+      x1 - x0 + 1,
+      y1 - y0 + 1,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      m,
+    );
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+    // re-shade the turf under it (shading reads up to 32 rows down from the surface)
+    const d = this.dirty;
+    const clean = d[0]! >= d[2]!;
+    d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+    d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, y0 - 1));
+    d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 2));
+    d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + 34));
   }
 
   /** A dirt wave rolled over these columns: the ground it leaves behind is bare, so no grass. */
@@ -868,9 +984,9 @@ export class PixelRenderer implements Renderer {
         // re-shade the burnt patch (shading looks up to 32 rows down for soil depth)
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
-        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
+        d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, by0 - 1));
-        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 1));
+        d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + CUT_REACH));
         d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + 32));
       }
     }
@@ -968,8 +1084,26 @@ export class PixelRenderer implements Renderer {
     if (shells) {
       this.stepMeteors(shells);
       for (const e of this.entities) {
-        if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'fire') continue;
+        if (e.kind !== 'projectile') continue;
+        const look = shells[e.weapon]?.shell;
         const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
+        if (look === 'mud') {
+          // mud globs drip as they fly
+          if ((r >>> 20) % 3 === 0) {
+            this.particles.add({
+              x: e.x + ((r >>> 4) & 1) - 0.5,
+              y: e.y + 1.5,
+              vx: 0,
+              vy: 0.1,
+              life: 14 + ((r >>> 12) & 7),
+              size: 1,
+              color: (r >>> 8) & 1 ? 0x5a4c34 : 0x7a6a48,
+              kind: PKind.Chunk,
+            });
+          }
+          continue;
+        }
+        if (look !== 'fire') continue;
         this.particles.add({
           x: e.x + ((r >>> 4) & 3) - 1.5,
           y: e.y + ((r >>> 8) & 3) - 1.5,
@@ -1027,7 +1161,7 @@ export class PixelRenderer implements Renderer {
   private updateTrails(s: RenderSnapshot): void {
     for (const t of this.trails) t.live = false;
     for (const e of s.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       if (this.palette.shells?.[e.weapon]?.trail === false) continue;
       let tr = this.trails.find((t) => t.id === e.id);
       if (!tr) {
@@ -1150,6 +1284,7 @@ export class PixelRenderer implements Renderer {
     const mult = this.fx.mult;
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
+    this.fx.drawFunnels(this.normal, this.additive, t);
     this.drawDebris();
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
@@ -1158,6 +1293,7 @@ export class PixelRenderer implements Renderer {
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
+    this.fx.lances.draw(this.additive, t);
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
@@ -1301,47 +1437,102 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < d.count; i++) {
       const x = Math.floor(d.x[i]! / FP);
       const y = Math.floor(d.y[i]! / FP);
-      this.normal.push(x + 0.5, y + 0.5, 1, 1, shade(pal[d.material[i]!] ?? 0x7a5a3a, 1.1), 1);
+      // a stable per-particle hash (debris never changes its sideways speed in flight) picks one
+      // of a few hard shade bands, and makes one in sixteen a 2×2 clod, so a shower reads as
+      // grit and clods instead of one flat colour
+      const h = Math.imul(d.vx[i]! ^ (d.material[i]! << 20), 0x9e3779b1) >>> 27;
+      const col = shade(pal[d.material[i]!] ?? 0x7a5a3a, DEBRIS_SHADES[h & 3]!);
+      if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
+      else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
     }
   }
 
   private drawTanks(t: number): void {
     const b = this.normal;
+    const looks = this.palette.tanks;
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
       const y = this.tankY(e);
       const col = playerColor(e.player);
+      const look = (e.tank && looks?.[e.tank]) || STANDARD_LOOK;
+      const rows = look.sprite;
+      const sw = rows[0]?.length ?? 0;
+      const sh = rows.length;
+      const x0 = x - (sw >> 1);
+      const y0 = y - sh;
       if (!e.alive) {
-        b.rect(x - 7, y - 3, 14, 3, 0x2a2426);
+        // a flattened wreck as wide as the tank
+        b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
         b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
         continue;
       }
-      // treads + wheels
-      b.rect(x - TANK_W / 2, y - 3, TANK_W, 3, 0x2b2622);
-      for (let w = -6; w <= 6; w += 4) b.push(x + w, y - 1.5, 2.2, 2.2, 0x55504a, 1, Shape.Disc);
-      // hull
-      b.rect(x - 7, y - 6, 14, 3, col);
-      b.rect(x - 7, y - 6, 14, 1, shade(col, 1.3));
-      // barrel
+      // barrel first, so the turret covers its base; whole cells along the aim
+      const br = look.barrel;
       const a = (e.angle * Math.PI) / 180;
-      const bx = x + 0.5;
-      const by = y - 7.5;
-      b.line(bx, by, bx + Math.cos(a) * 8, by - Math.sin(a) * 8, 1.4, 0xd8d2c8);
-      // turret dome
-      b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
-      this.coverTank(x, y);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const px = x + br.x;
+      const py = y - br.y;
+      const off = br.width >> 1;
+      for (let i = 1; i <= br.length; i++) {
+        const cx = Math.round(px + ca * i);
+        const cy = Math.round(py - sa * i);
+        b.rect(cx - off, cy - off, br.width, br.width, i === br.length ? 0xa8a298 : 0xd8d2c8);
+      }
+      const shieldOn = e.shield > 0;
+      for (let r = 0; r < sh; r++) {
+        const row = rows[r]!;
+        for (let c = 0; c < sw; c++) {
+          const code = row.charCodeAt(c);
+          if (code === 46) continue; // '.'
+          b.rect(x0 + c, y0 + r, 1, 1, spriteColor(code, col, shieldOn));
+        }
+      }
+      if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
+      this.coverTank(x, y, sw, sh);
       if (e.chill > 0) this.frostTank(x, y, t);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
-      this.drawDigit(x - 13, y - 16, e.player + 1);
-      // health bar
-      const hp = Math.max(0, Math.min(1, e.health / 100));
-      b.rect(x - 8, y - 14, 16, 1.6, 0x000000, 0.55);
-      b.rect(x - 8, y - 14, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
+      const top = y0;
+      this.drawDigit(x - 13, top - 7, e.player + 1);
+      // health bar (and the shield left, above it)
+      const hp = Math.max(0, Math.min(1, e.health / Math.max(1, e.maxHealth)));
+      b.rect(x - 8, top - 5, 16, 1.6, 0x000000, 0.55);
+      b.rect(x - 8, top - 5, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
+      if (e.maxShield > 0) {
+        const sp = Math.max(0, Math.min(1, e.shield / e.maxShield));
+        b.rect(x - 8, top - 7, 16, 1, 0x000000, 0.55);
+        if (sp > 0) b.rect(x - 8, top - 7, Math.max(1, Math.round(16 * sp)), 1, SHIELD_RGB);
+      }
       if (e.active) {
         const bob = Math.sin(t * 0.12) * 1.2;
-        b.push(x + 0.5, y - 19 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
-        b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
+        b.push(x + 0.5, top - 10 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
+        b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
+      }
+    }
+  }
+
+  /**
+   * A shield is a dithered band of whole cells hugging the tank: a checkerboard that crawls with
+   * time, fainter as the shield wears down and bright for a moment after it soaks a hit.
+   */
+  private drawShield(e: TankView, x: number, y: number, sw: number, sh: number, t: number): void {
+    const b = this.normal;
+    const rx = (sw >> 1) + 2;
+    const ry = sh + 2;
+    const hit = this.shieldHitAt[e.player] ?? -1e9;
+    const flash = t - hit < 18 ? 1 - (t - hit) / 18 : 0;
+    const left = e.shield / Math.max(1, e.maxShield);
+    const alpha = Math.min(1, 0.3 + 0.4 * left + 0.6 * flash);
+    const phase = Math.floor(t / 8);
+    for (let cy = y - ry - 1; cy < y; cy++) {
+      const dy = (cy + 0.5 - y) / ry;
+      for (let cx = x - rx - 1; cx <= x + rx; cx++) {
+        const dx = (cx + 0.5 - x) / rx;
+        const d = dx * dx + dy * dy;
+        if (d < 0.78 || d > 1.06) continue;
+        if (((cx + cy + phase) & 1) !== 0 && flash === 0) continue;
+        b.rect(cx, cy, 1, 1, flash > 0 ? 0xe8fbff : SHIELD_RGB, alpha);
       }
     }
   }
@@ -1392,11 +1583,12 @@ export class PixelRenderer implements Renderer {
    * Terrain overlapping the tank body (sunk into quicksand, or buried) is drawn over the sprite,
    * cell by cell with a two-tone dither, so the tank reads as sitting in the ground.
    */
-  private coverTank(x: number, y: number): void {
+  private coverTank(x: number, y: number, sw: number, sh: number): void {
     const b = this.normal;
     const w = this.mapWidth;
-    for (let cy = Math.max(0, y - TANK_H); cy < Math.min(this.mapHeight, y); cy++) {
-      for (let cx = Math.max(0, x - TANK_W / 2); cx < Math.min(w, x + TANK_W / 2); cx++) {
+    const x0 = x - (sw >> 1);
+    for (let cy = Math.max(0, y - sh); cy < Math.min(this.mapHeight, y); cy++) {
+      for (let cx = Math.max(0, x0); cx < Math.min(w, x0 + sw); cx++) {
         const m = this.terrain[cy * w + cx]!;
         if (m === 0) continue;
         const c = this.palette.materials[m] ?? 0x7a5a3a;
@@ -1409,7 +1601,7 @@ export class PixelRenderer implements Renderer {
     const g = this.additive;
     const shells = this.palette.shells;
     for (const e of this.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       const look = shells?.[e.weapon];
       if (look?.shell === 'ricochet') {
         this.drawRicochetBall(e.x, e.y, e.id);
@@ -1426,6 +1618,15 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
         this.normal.push(x, y, 3, 3, 0xff8a20, 1);
         g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
+      if (shells?.[e.weapon]?.shell === 'mud') {
+        // a wet glob of mud: dark body, a lit cell on top where the light catches it
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        this.normal.push(x, y, 3, 3, 0x5a4c34, 1);
+        this.normal.push(x, y + 1, 1, 1, 0x3a3020, 1);
+        this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
         continue;
       }
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);

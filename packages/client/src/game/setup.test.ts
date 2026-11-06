@@ -27,6 +27,7 @@ describe('match setup', () => {
       wind: 'none' as const,
       suddenDeath: false,
       startingCash: 0,
+      tanks: ['tank.scout', 'auto', 'tank.bruiser', 'random'],
     };
     expect(canStart({ ...base, teams: null })).toBe(true);
     expect(canStart({ ...base, teams: [0, 0, 1, 0] })).toBe(false);
@@ -34,6 +35,8 @@ describe('match setup', () => {
     const o = toWorldOptions({ ...base, teams: [0, 1, 1, 0] }, 1);
     expect(o.mode).toBe('mode.teams');
     expect(o.teams).toEqual([0, 1, 0]);
+    // off seats drop out of the tank list too
+    expect(o.tanks).toEqual(['tank.scout', 'auto', 'random']);
     expect(toWorldOptions({ ...base, teams: null }, 1).mode).toBe('mode.classic');
   });
 });

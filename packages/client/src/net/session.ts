@@ -7,6 +7,7 @@ import {
   type PeerLobby,
   type PeerMessage,
   type PeerStart,
+  type TankPick,
 } from '@mudders/shared';
 import { KERNEL_VERSION, type ResolvedContent } from '@mudders/sim';
 import type { Link } from './link';
@@ -21,8 +22,13 @@ export const TAKEOVER_MS = 20_000;
 /** The personality that stands in for a dropped human. */
 export const STAND_IN = 'ai.shooter';
 
-/** Lobby rules without the slots: the host's seats decide those. */
-export type LobbyRules = Omit<NetSetup, 'slots'>;
+/** Lobby rules without the slots and tanks: the seats decide those. */
+export type LobbyRules = Omit<NetSetup, 'slots' | 'tanks'>;
+
+/** Is this a tank pick the content can honour ("auto", "random" or a loaded `tank.*`)? */
+export function validTankPick(content: ResolvedContent, tank: string): tank is TankPick {
+  return tank === 'auto' || tank === 'random' || (tank.startsWith('tank.') && content.has(tank));
+}
 
 export interface HostSeat {
   kind: 'host' | 'guest' | 'bot' | 'open';
@@ -39,6 +45,8 @@ export interface HostSeat {
   awaySince?: number;
   /** `ai.*` id playing for this human while they are away (§6.1 takeover). */
   standIn?: string;
+  /** Tank pick (§3.2); unset = "auto". Guests choose their own, the host the rest. */
+  tank?: TankPick;
 }
 
 /** Things the session needs from its environment; tests pass fakes. */
@@ -116,6 +124,7 @@ export class HostSession {
       slots: this.seats.map((s) =>
         s.kind === 'open' ? 'off' : s.kind === 'bot' ? (s.bot ?? 'ai.shooter') : 'human',
       ),
+      tanks: this.seats.map((s) => s.tank ?? 'auto'),
     };
   }
 
@@ -143,6 +152,18 @@ export class HostSession {
     const next = Array.from({ length: this.seats.length }, (_, k) => teams[k] ?? k % 2);
     next[i] = team;
     this.rules = { ...this.rules, teams: next };
+    this.changed();
+  }
+
+  /**
+   * Choose a seat's tank (§3.2). The host picks for itself and the bots; a guest's own pick
+   * arrives as `pickTank` (`byGuest`), and the host can't override it.
+   */
+  setTank(i: number, tank: string, byGuest = false): void {
+    const s = this.seats[i];
+    if (this.match || !s || s.kind === 'open' || !validTankPick(this.content, tank)) return;
+    if (s.kind === 'guest' && !byGuest) return;
+    s.tank = tank;
     this.changed();
   }
 
@@ -232,6 +253,10 @@ export class HostSession {
     }
     if (msg.type === 'bye') {
       s.link?.close();
+      return;
+    }
+    if (msg.type === 'pickTank') {
+      this.setTank(seat, msg.tank, true);
       return;
     }
     const p = this.playerOf[seat];
@@ -478,6 +503,12 @@ export class GuestSession {
     this.sentAt.set(n, now);
     this.sentAt.delete(n - 30);
     link.send({ type: 'ping', n });
+  }
+
+  /** Ask the host for this tank (§3.2); the lobby update confirms it. Lobby only. */
+  pickTank(tank: TankPick): void {
+    if (this.match || this.status !== 'lobby') return;
+    this.link?.send({ type: 'pickTank', tank });
   }
 
   leave(): void {

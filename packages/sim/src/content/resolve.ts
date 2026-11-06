@@ -2,6 +2,7 @@ import {
   CONTENT_TYPE_FOLDERS,
   MANIFEST_BASE_KEYS,
   MANIFEST_SCHEMAS,
+  AI_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   PackSchema,
@@ -284,7 +285,13 @@ export function resolveContent(source: ContentSource): ResolvedContent {
         item,
         id,
         kind,
-        type === 'mode' ? MODE_CORE_KEYS : type === 'gen' ? GEN_CORE_KEYS : [],
+        type === 'mode'
+          ? MODE_CORE_KEYS
+          : type === 'gen'
+            ? GEN_CORE_KEYS
+            : type === 'ai'
+              ? AI_CORE_KEYS
+              : [],
       );
     if (type === 'explosion') checkExplosion(item, id);
     if (type === 'weapon') {
@@ -314,6 +321,22 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       const fire = w.audio?.fire;
       if (fire && !items[fire]) problems.push(`${id}.audio.fire: "${fire}" is not loaded`);
     }
+    if (type === 'ai') {
+      const fav = (item as ManifestByType['ai']).tank;
+      if (fav && fav !== 'random' && (contentTypeOf(fav) !== 'tank' || !items[fav])) {
+        problems.push(`${id}.tank: "${fav}" is not a loaded tank.* item`);
+      }
+    }
+    if (type === 'tank') {
+      const t = item as ManifestByType['tank'];
+      const rows = t.look.sprite;
+      const w = rows[0]!.length;
+      if (rows.some((r) => r.length !== w))
+        problems.push(`${id}.look.sprite: rows differ in length`);
+      if (w > t.body.width + 4 || rows.length > t.body.height + 2) {
+        problems.push(`${id}.look.sprite: ${w}×${rows.length} is much bigger than its body`);
+      }
+    }
     if (type === 'audio') {
       const a = item as ManifestByType['audio'];
       if (!a.synth === !a.module) problems.push(`${id}: needs exactly one of synth or module`);
@@ -323,6 +346,9 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       checkExplosion(m.deathExplosion, `${id}.deathExplosion`);
       if (contentTypeOf(m.map.generator) !== 'gen' || !items[m.map.generator]) {
         problems.push(`${id}: map.generator "${m.map.generator}" is not a loaded gen.* item`);
+      }
+      if (m.tank && (contentTypeOf(m.tank) !== 'tank' || !items[m.tank])) {
+        problems.push(`${id}: tank "${m.tank}" is not a loaded tank.* item`);
       }
       for (const l of m.loadout) {
         if (contentTypeOf(l.weapon) !== 'weapon' || !items[l.weapon]) {

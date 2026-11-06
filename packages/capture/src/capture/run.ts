@@ -89,6 +89,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     palette: Array.from(pal.materials),
     looks: [...(pal.looks ?? [])],
     themes: { ...pal.themes },
+    tanks: { ...pal.tanks },
     shells: { ...pal.shells },
     quality: o.quality,
     theme,

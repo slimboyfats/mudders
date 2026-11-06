@@ -1,0 +1,25 @@
+{
+  "id": "tank.scout",
+  "schemaVersion": 1,
+  "extends": "tank.classic",
+  "meta": {
+    "name": "Scout",
+    "description": "Small and quick: a tiny 12×7 body that is hard to hit and drives twice as far, but only 70% health.",
+    "since": "core@0.13.0"
+  },
+  "health": 70,
+  "body": {
+    "width": 12,
+    "height": 7
+  },
+  "drive": 200,
+  "look": {
+    "sprite": [".....HH.....", "...HHhhHH...", ".HHhhhhhhHH.", "dhhhhhhhhhhd", "twwttwwttwwt"],
+    "barrel": {
+      "x": 0,
+      "y": 4,
+      "length": 6,
+      "width": 1
+    }
+  }
+}

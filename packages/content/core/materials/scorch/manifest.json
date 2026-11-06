@@ -1,0 +1,18 @@
+{
+  "id": "material.scorch",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Scorched earth",
+    "description": "Dirt baked black by an Orbital Lance, around the glass. Behaves like dirt; it just never grows grass again.",
+    "since": "core@0.13.0",
+    "color": "#1c1412"
+  },
+  "cell": 43,
+  "settle": "fall",
+  "density": 100,
+  "strength": {
+    "corrosive": 12
+  },
+  "cohesion": 0,
+  "coating": false
+}

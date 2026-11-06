@@ -113,6 +113,33 @@ describe('host and guest sessions', () => {
     expect(g.match!.world.tanks.map((t) => t.team)).toEqual([0, 1, 0, 1]);
   });
 
+  it('tank picks: guests choose their own, the host the rest, and every peer builds the same tanks', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', rules, e);
+    const g = new GuestSession(content, 'G', undefined, e);
+    connect(host, g);
+    host.setSeat(2, 'ai.shooter');
+    host.setSeat(3, 'ai.cyborg');
+    host.setTank(0, 'tank.bruiser');
+    host.setTank(1, 'tank.howitzer'); // the guest's seat: ignored
+    host.setTank(3, 'random');
+    g.pickTank('tank.scout');
+    host.setTank(2, 'tank.nope'); // unknown: ignored
+    expect(g.lobby?.setup.tanks.slice(0, 4)).toEqual([
+      'tank.bruiser',
+      'tank.scout',
+      'auto',
+      'random',
+    ]);
+    const match = host.start(5);
+    const ids = match.world.tanks.map((t) => t.type.id);
+    expect(ids.slice(0, 3)).toEqual(['tank.bruiser', 'tank.scout', 'tank.howitzer']);
+    expect(ids[3]).toMatch(/^tank\./);
+    expect(g.match!.world.tanks.map((t) => t.type.id)).toEqual(ids);
+    g.pickTank('tank.bulwark'); // too late: the match has started
+    expect(match.world.tanks[1]!.type.id).toBe('tank.scout');
+  });
+
   it('refuses a guest with different content or protocol, a full game and a started match', () => {
     const e = env();
     const host = new HostSession(content, 'Host', rules, e);

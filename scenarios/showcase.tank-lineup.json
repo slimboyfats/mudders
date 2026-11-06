@@ -1,0 +1,100 @@
+{
+  "id": "showcase.tank-lineup",
+  "schemaVersion": 1,
+  "description": "All six tank types side by side: the Howitzer shells the Bulwark (its shield soaks it), the Bulwark fires back, the Longshot reaches the Bruiser.",
+  "mode": "mode.classic",
+  "seed": 11,
+  "players": 6,
+  "map": {
+    "width": 940,
+    "height": 420,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 90,
+      "tank": "tank.classic"
+    },
+    {
+      "x": 240,
+      "tank": "tank.bruiser"
+    },
+    {
+      "x": 390,
+      "tank": "tank.howitzer"
+    },
+    {
+      "x": 540,
+      "tank": "tank.scout"
+    },
+    {
+      "x": 690,
+      "tank": "tank.bulwark"
+    },
+    {
+      "x": 840,
+      "tank": "tank.longshot"
+    }
+  ],
+  "turnOrder": [2, 4, 5, 0, 1, 3],
+  "wind": 0,
+  "rules": {
+    "rounds": 1,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 2,
+      "action": {
+        "type": "aim",
+        "angle": 50,
+        "power": 418
+      }
+    },
+    {
+      "t": 0,
+      "player": 2,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 125,
+      "player": 4,
+      "action": {
+        "type": "aim",
+        "angle": 130,
+        "power": 622
+      }
+    },
+    {
+      "t": 125,
+      "player": 4,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 242,
+      "player": 5,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 638
+      }
+    },
+    {
+      "t": 242,
+      "player": 5,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 559,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

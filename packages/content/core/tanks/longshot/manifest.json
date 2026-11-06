@@ -1,0 +1,31 @@
+{
+  "id": "tank.longshot",
+  "schemaVersion": 1,
+  "extends": "tank.classic",
+  "meta": {
+    "name": "Longshot",
+    "description": "Long barrel: its shells leave 20% faster, so it reaches across the whole map, but it has only 85% health.",
+    "since": "core@0.13.0"
+  },
+  "health": 85,
+  "muzzle": 120,
+  "look": {
+    "sprite": [
+      ".......mm.......",
+      "......hhhh......",
+      "....HHhhhhHH....",
+      ".HHHHHHHHHHHHHH.",
+      ".hhhhhhhhhhhhhh.",
+      ".dhhhhhhhhhhhhd.",
+      "tttttttttttttttt",
+      "twwttwwttwwttwwt",
+      "tttttttttttttttt"
+    ],
+    "barrel": {
+      "x": 0,
+      "y": 7,
+      "length": 13,
+      "width": 1
+    }
+  }
+}

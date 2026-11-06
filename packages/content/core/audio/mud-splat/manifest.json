@@ -1,0 +1,39 @@
+{
+  "id": "audio.mud-splat",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mud splat",
+    "description": "A short wet plop when a glob of mud lands.",
+    "since": "core@0.14.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 320,
+        "to": 90,
+        "release": 0.09,
+        "volume": 0.22
+      },
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 300,
+        "release": 0.12,
+        "volume": 0.16
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "mudSplat"
+    }
+  ],
+  "gap": 0.07
+}

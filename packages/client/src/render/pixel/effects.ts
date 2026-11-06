@@ -2,9 +2,14 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
+import { Lances } from './lance';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
+import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
+
+/** Hard shade bands for cosmetic dirt clods. */
+const DIRT_BANDS = [0.62, 0.8, 1, 1.18, 1.32] as const;
 
 /**
  * Pixel-renderer implementations of renderer-agnostic effect events (§2b, §2c.3 `effect.*`).
@@ -67,6 +72,22 @@ interface Crystal {
 /** Ice colours, light to deep, for shards, glints and the frost front. */
 const ICE = [0xffffff, 0xe6f6ff, 0xbfe4fa, 0x8ccbef, 0x5ea8dc] as const;
 
+/** A mud geyser's erupting column, fed with particles every tick while it lasts. */
+interface Jet {
+  x: number;
+  y: number;
+  /** Peak height of the column in cells. */
+  height: number;
+  start: number;
+  dur: number;
+  rng: FxRng;
+}
+
+/** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
+const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
+/** Steam puffs over a geyser. */
+const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
+
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
   cells: Int32Array;
@@ -109,10 +130,12 @@ export class EffectSystem {
   private glows: Glow[] = [];
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
+  private jets: Jet[] = [];
   /** Frost Bomb starbursts: jagged ice spikes out of the impact. */
   private crystals: Crystal[] = [];
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
+  private funnels: Funnel[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -121,6 +144,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** Orbital Lance lock-ons and beams. */
+  readonly lances: Lances;
   /**
    * Ricochet Ball heat: bounces of the ball in flight (0 = fresh), from its `ricochet` events.
    * Only one shot flies at a time, so a single counter is enough; it resets on the final burst
@@ -132,7 +157,9 @@ export class EffectSystem {
   constructor(
     private readonly particles: Particles,
     private readonly probe: TerrainProbe,
-  ) {}
+  ) {
+    this.lances = new Lances(particles);
+  }
 
   private rngFor(e: EffectEvent, salt: number): FxRng {
     return new FxRng(
@@ -196,6 +223,9 @@ export class EffectSystem {
         break;
       case 'ricochetBurst':
         this.ricochetBurst(e, e.params.strength ?? 1);
+        break;
+      case 'dirtBurst':
+        this.dirtBurst(e);
         break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
@@ -309,6 +339,13 @@ export class EffectSystem {
       }
       case 'bolt':
         this.bolt(e);
+        break;
+      case 'lanceCharge':
+        this.lances.charge(e, this.rngFor(e, 43));
+        this.tintSky([0, 0.5, 0.06, 0.04], 0.12);
+        break;
+      case 'lance':
+        this.lanceFire(e);
         break;
       case 'pressureWave':
         this.pressureWave(e, e.params.strength ?? 1);
@@ -465,6 +502,9 @@ export class EffectSystem {
       case 'zone':
         this.puff(e, ZONE_COLOR[e.params.look ?? 0] ?? 0x9ab83a, 30);
         break;
+      case 'gasBurst':
+        this.gasBurst(e);
+        break;
       case 'zoneHurt':
         this.puff(e, 0xb8f040, 8);
         break;
@@ -505,6 +545,90 @@ export class EffectSystem {
           });
         }
         this.tintSky([0, 0.2, 0.1, 0.4], 0.2);
+        break;
+      }
+      case 'mudGeyser':
+        this.mudGeyser(e);
+        break;
+      case 'mudSplat':
+        this.mudSplat(e, e.params.count ?? 12);
+        break;
+      case 'tornado':
+        this.tornado(e);
+        break;
+      case 'touchdown': {
+        // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        this.fronts.push({
+          x: e.x,
+          y: e.y,
+          maxR: 46,
+          start: e.tick,
+          dur: 24,
+          rng: this.rngFor(e, 43),
+        });
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: 60,
+          width: 10,
+          strength: 0.7,
+        });
+        break;
+      }
+      case 'tornadoGrab':
+      case 'tornadoThrow': {
+        const rng = this.rngFor(e, 47);
+        const n = Math.round(14 * this.mult) + 2;
+        const col = this.dustColor(e.x, e.y + 2);
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-8, 8),
+            y: e.y - rng.range(0, 6),
+            vx: rng.range(-1.2, 1.2),
+            vy: -rng.range(0.2, 1.4),
+            life: rng.range(20, 40),
+            size: 1,
+            color: shade(col, rng.range(0.7, 1.2)),
+            kind: PKind.Chunk,
+          });
+        }
+        if (e.type === 'tornadoGrab') {
+          this.shakeAmp = Math.max(this.shakeAmp, 2);
+          this.shakeStart = e.tick;
+        }
+        break;
+      }
+      case 'tornadoEnd': {
+        // the funnel breaks up: a burst of storm dust where it stood
+        const rng = this.rngFor(e, 53);
+        const n = Math.round(40 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          const a = rng.range(0, Math.PI * 2);
+          const s = rng.range(0.3, 1.4);
+          this.particles.add({
+            x: e.x + Math.cos(a) * e.radius * 0.5,
+            y: e.y + Math.sin(a) * e.radius * 1.2,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s * 0.6,
+            life: rng.range(40, 80),
+            size: rng.range(3, 7),
+            color: rng.next() < 0.5 ? 0x5e5a68 : 0x7a7684,
+            kind: PKind.Smoke,
+          });
+        }
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 36,
+          maxR: e.radius * 3,
+          width: 12,
+          strength: 0.8,
+        });
         break;
       }
       case 'tankDeath':
@@ -1104,6 +1228,238 @@ export class EffectSystem {
     });
   }
 
+  /**
+   * A mud geyser blowing: the ground heaves (distortion ring, dust front, brown sky), then a
+   * column of mud chunks and steam roars up out of the vent for `ticks` ticks (fed in `tick`).
+   */
+  private mudGeyser(e: EffectEvent): void {
+    const h = e.params.height ?? 120;
+    const dur = Math.max(20, e.params.ticks ?? 90);
+    this.jets.push({ x: e.x, y: e.y, height: h, start: e.tick, dur, rng: this.rngFor(e, 101) });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 40,
+      maxR: h * 0.9,
+      width: 14,
+      strength: 0.9,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: h * 0.55,
+      start: e.tick,
+      dur: 30,
+      rng: this.rngFor(e, 103),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
+    this.tintSky([0, 0.34, 0.27, 0.16], 0.45);
+    // the first slug of mud: a fat burst straight up out of the vent
+    const rng = this.rngFor(e, 107);
+    const v0 = Math.sqrt(2 * 0.12 * h);
+    const n = Math.round(140 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const up = rng.range(0.45, 1.08) * v0;
+      this.particles.add({
+        x: e.x + rng.range(-5, 5),
+        y: e.y - rng.range(0, 3),
+        vx: rng.range(-0.7, 0.7),
+        vy: -up,
+        // gone as it falls back to the vent's level (particles don't hit the ground)
+        life: (2 * up) / 0.12 + rng.range(0, 4),
+        size: rng.next() < 0.5 ? 2 : 1,
+        color: MUD[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** One tick of every live geyser column. */
+  private feedJets(t: number): void {
+    this.jets = this.jets.filter((j) => {
+      const age = t - j.start;
+      if (age > j.dur) return false;
+      if (age < 0) return true;
+      const k = age / j.dur;
+      // full roar, then sputtering down over the last half
+      const power = k < 0.45 ? 1 : Math.max(0.15, 1 - (k - 0.45) / 0.55);
+      const sputter = k > 0.6 && j.rng.next() < 0.35 ? 0.3 : 1;
+      const v0 = Math.sqrt(2 * 0.12 * j.height) * Math.sqrt(power) * sputter;
+      const rng = j.rng;
+      const n = Math.round(32 * power * this.mult) + 1;
+      for (let i = 0; i < n; i++) {
+        // the core of the column is tight; the skin of it peels off wider
+        const skin = i % 4 === 0;
+        const up = v0 * rng.range(skin ? 0.5 : 0.82, 1.02);
+        this.particles.add({
+          x: j.x + rng.range(-4.5, 4.5),
+          y: j.y - rng.range(0, 2),
+          vx: skin ? rng.range(-0.7, 0.7) : rng.range(-0.24, 0.24),
+          vy: -up,
+          life: (2 * up) / 0.12 + rng.range(0, 4),
+          size: skin ? 1 : rng.next() < 0.6 ? 2 : 3,
+          color: MUD[rng.next() < 0.12 ? 3 : Math.floor(rng.next() * 3)]!,
+          kind: PKind.Chunk,
+        });
+      }
+      // steam boiling off the column all the way up, thickest near the top
+      const hNow = j.height * power * sputter;
+      const ns = Math.round(1.5 * power * this.mult) + (age % 3 === 0 ? 1 : 0);
+      for (let i = 0; i < ns; i++) {
+        const along = 0.55 + 0.45 * rng.next();
+        this.particles.add({
+          x: j.x + rng.range(-4, 4) * (0.5 + along),
+          y: j.y - along * hNow,
+          vx: rng.range(-0.3, 0.3),
+          vy: -rng.range(0.2, 0.9),
+          life: rng.range(50, 100),
+          size: rng.range(3, 6),
+          color: STEAM[Math.floor(rng.next() * 3)]!,
+          kind: PKind.Smoke,
+        });
+      }
+      // mud boiling over the lip of the vent
+      if (age % 3 === 0) {
+        for (const side of [-1, 1]) {
+          this.particles.add({
+            x: j.x + side * rng.range(2, 5),
+            y: j.y - 1,
+            vx: side * rng.range(0.4, 1.4),
+            vy: -rng.range(0.6, 1.6),
+            life: 40,
+            size: 1,
+            color: MUD[1 + Math.floor(rng.next() * 2)]!,
+            kind: PKind.Chunk,
+          });
+        }
+      }
+      return true;
+    });
+  }
+
+  /** A glob of mud landing: a wet crown of mud thrown sideways and a puff of steam. */
+  private mudSplat(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 109);
+    const n = Math.round(count * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + side * rng.range(0, 2),
+        y: e.y - 1,
+        vx: side * rng.range(0.3, 1.3),
+        vy: -rng.range(0.5, 1.8),
+        life: rng.range(25, 45),
+        size: 1,
+        color: MUD[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 2; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y - 2,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.2, 0.5),
+        life: rng.range(30, 50),
+        size: rng.range(2, 4),
+        color: STEAM[1]!,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
+  /** Update (or start) the tornado an event belongs to: one event per tornado per tick. */
+  private tornado(e: EffectEvent): void {
+    const pr = e.params;
+    let f: Funnel | undefined;
+    for (const g of this.funnels) {
+      if (e.tick - g.last <= 3 && Math.abs(g.x - e.x) <= 12) {
+        f = g;
+        break;
+      }
+    }
+    if (!f) {
+      f = makeFunnel(this.rngFor(e, 59).next() * 4294967296, e.tick);
+      this.funnels.push(f);
+    }
+    f.x = e.x;
+    f.y = e.y;
+    f.h = e.radius;
+    f.base = pr.base ?? 4;
+    f.top = pr.top ?? 30;
+    f.lean = pr.lean ?? 0;
+    f.wobble = pr.wobble ?? 0;
+    f.age = pr.age ?? 0;
+    f.strength = (pr.strength ?? 0) / 100;
+    f.down = (pr.down ?? 100) / 100;
+    f.last = e.tick;
+    if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
+  }
+
+  /** Dust skirt churned up round each tornado's base, once per tick. */
+  private funnelDust(f: Funnel, t: number): void {
+    if (f.down < 1 || f.strength <= 0.05 || t - f.last > 2) return;
+    const n = Math.max(1, Math.round(4 * this.mult * f.strength));
+    const rng = new FxRng((Math.imul(t + 1, 2654435761) ^ Math.imul(f.x + 11, 40503)) >>> 0);
+    const w = funnelWidth(f, 0) + 3;
+    for (let i = 0; i < n; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: f.x + side * rng.range(0, w),
+        y: f.y - rng.range(0, 3),
+        vx: side * rng.range(0.4, 1.6),
+        vy: -rng.range(0.1, 0.9),
+        life: rng.range(24, 50),
+        size: rng.range(2.5, 5.5),
+        color: shade(f.dust, rng.range(0.95, 1.2)),
+        kind: PKind.Dust,
+      });
+    }
+    // grit flicked out of the funnel wall
+    if (rng.next() < 0.7 * this.mult) {
+      const hh = rng.range(0, f.h * 0.8);
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: f.x + side * (funnelWidth(f, hh) + 1),
+        y: f.y - hh,
+        vx: side * rng.range(0.8, 2.2),
+        vy: -rng.range(0, 1),
+        life: rng.range(30, 60),
+        size: 1,
+        color: shade(f.dust, rng.range(0.6, 1.1)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Tornadoes, drawn behind particles and debris; stale ones are dropped. */
+  drawFunnels(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const f of this.funnels) drawFunnel(f, normal, additive, t);
+  }
+
+  /**
+   * An Orbital Lance fires: the sky blazes white-orange, a distortion lens punches out from the
+   * shaft mouth and the ground shakes; the beam itself is drawn by `lances`.
+   */
+  private lanceFire(e: EffectEvent): void {
+    this.lances.fire(e, this.rngFor(e, 47));
+    const surface = e.params.surface ?? e.y;
+    this.tintSky([0, 0.7, 0.5, 0.3], 0.9);
+    this.ripples.push({
+      x: e.x + 0.5,
+      y: surface,
+      start: e.tick,
+      dur: 40,
+      maxR: 150,
+      width: 18,
+      strength: 1.1,
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
+  }
+
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
@@ -1394,6 +1750,65 @@ export class EffectSystem {
     return 0x7a5a3a;
   }
 
+  /**
+   * Dirt Bomb: cosmetic clods in hard shade bands that fly the same fans as the sim's dirt (and
+   * fade before they land, so only sim debris makes ground), a dust surge rolling out along the
+   * ground both ways, and a dirty dust pall over the crater.
+   */
+  private dirtBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 13);
+    const base = this.dustColor(e.x, e.y + 4);
+    const lo = ((e.params.low ?? 20) * Math.PI) / 180;
+    const hi = ((e.params.high ?? 70) * Math.PI) / 180;
+    const vMax = e.params.speed ?? 4;
+    const lift = e.params.lift ?? 0;
+    const nClod = Math.round(160 * this.mult) + 8;
+    for (let i = 0; i < nClod; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      const a = rng.range(lo, hi);
+      const s = rng.range(0.45, 1) * vMax;
+      this.particles.add({
+        x: e.x + side * rng.range(0, 6),
+        y: e.y - lift + rng.range(-3, 3),
+        vx: side * Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(30, 70),
+        size: rng.next() < 0.25 ? 3 : 2,
+        color: shade(base, DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]!),
+        kind: PKind.Chunk,
+      });
+    }
+    const nSurge = Math.round(48 * this.mult) + 4;
+    for (let i = 0; i < nSurge; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + side * rng.range(2, 10),
+        y: e.y - rng.range(0, 4),
+        vx: side * rng.range(1, 3.2),
+        vy: -rng.range(0, 0.3),
+        life: rng.range(40, 80),
+        size: rng.range(3, 6),
+        color: shade(base, rng.next() < 0.5 ? 0.85 : 1.05),
+        kind: PKind.Dust,
+      });
+    }
+    const nPall = Math.round(14 * Math.max(0.5, this.mult));
+    for (let i = 0; i < nPall; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-12, 12),
+        y: e.y - rng.range(0, 14),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.1, 0.5),
+        life: rng.range(70, 120),
+        size: rng.range(5, 9),
+        color: shade(base, 0.7),
+        kind: PKind.Smoke,
+      });
+    }
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
+  }
+
   private burst(e: EffectEvent, count: number): void {
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
@@ -1447,6 +1862,7 @@ export class EffectSystem {
 
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
+    this.feedJets(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
       const k = (t - f.start) / f.dur;
@@ -1514,9 +1930,20 @@ export class EffectSystem {
       if (t === v.start) this.tintSky([0, 0.2, 0.08, 0.45], 0.3);
       return true;
     });
+    for (const f of this.funnels) this.funnelDust(f, t);
+    this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
+    if (this.lances.active) {
+      // a firing lance keeps the ground rumbling and the sky lit
+      const rumble = this.lances.tick(t, this.mult);
+      if (rumble > 0) {
+        this.shakeAmp = Math.max(this.shakeAmp * 0.9, rumble);
+        if (t - this.shakeStart > 6) this.shakeStart = t;
+        this.tintSky([0, 0.7, 0.45, 0.2], 0.06);
+      }
+    }
     this.crystals = this.crystals.filter((b) => t - b.start <= b.dur);
     const s = this.sky;
     s[0] *= 0.86;
@@ -1528,6 +1955,14 @@ export class EffectSystem {
       s[0] = s[1] = s[2] = 0;
     }
     this.split = this.split > 0.3 ? this.split * 0.9 : 0;
+    // a tornado's storm darkens the sky while the funnel is up (held, after the flash decay)
+    for (const f of this.funnels) {
+      if (t - f.last > 2) continue;
+      const dim = 0.16 * Math.min(1, (t - f.born) / 30);
+      s[0] = Math.min(s[0], -dim);
+      s[1] = Math.min(s[1], -dim * 0.95);
+      s[2] = Math.min(s[2], -dim * 0.8);
+    }
   }
 
   /**
@@ -1603,6 +2038,53 @@ export class EffectSystem {
     if (this.shakeAmp <= 0 || age > 18 || age < 0) return [0, 0];
     const a = this.shakeAmp * (1 - age / 18) ** 2;
     return [Math.sin(age * 2.1) * a, Math.cos(age * 2.9) * a * 0.6];
+  }
+
+  /**
+   * A gas canister cracking open: a jet of green spray and droplets up out of the crater, fat
+   * toxic puffs rolling out low to both sides, and a sickly tint on the sky.
+   */
+  private gasBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 23);
+    const n = Math.round((e.params.count ?? 18) * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y - rng.range(0, 3),
+        vx: side * rng.range(0.4, 1.6),
+        vy: -rng.range(0.05, 0.5),
+        life: rng.range(40, 80),
+        size: rng.range(4, 8),
+        color: rng.next() < 0.5 ? 0x7fb51e : 0xa8dc30,
+        kind: PKind.Dust,
+      });
+    }
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 1,
+        vx: rng.range(-0.7, 0.7),
+        vy: -rng.range(1.2, 2.8),
+        life: rng.range(20, 40),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xf0ff90 : 0xa8dc30,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - 2,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.4, 0.9),
+        life: rng.range(40, 70),
+        size: rng.range(4, 7),
+        color: 0x6a9a1a,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
   }
 
   drawGlows(additive: QuadBatch, t: number): void {
@@ -1697,9 +2179,12 @@ export class EffectSystem {
     this.glows = [];
     this.fronts = [];
     this.bolts = [];
+    this.jets = [];
     this.crystals = [];
     this.mushrooms = [];
+    this.lances.clear();
     this.vortices = [];
+    this.funnels = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
@@ -1715,8 +2200,8 @@ export const RICOCHET_HEAT = [
   0x50e8ff, 0x70b0ff, 0x9a80ff, 0xd070ff, 0xff68c8, 0xffb0f0, 0xffffff,
 ] as const;
 
-/** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff] as const;
+/** Zone looks by index (gas, acid, resonance, toxic), matching the sim's zone `look` order. */
+export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {

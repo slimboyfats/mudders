@@ -1,5 +1,5 @@
 import { FP, z } from '@mudders/shared';
-import { SETTLE_STATIC, TANK_HALF, defineTerrainOp, type SimApi } from '@mudders/sim';
+import { SETTLE_STATIC, defineTerrainOp, type SimApi } from '@mudders/sim';
 
 const params = z.strictObject({
   /** Columns the wave front moves per tick. */
@@ -126,9 +126,9 @@ function reclaim(api: SimApi, x: number, n: number, k: number): number {
 }
 
 /** Highest ground under a tank's footprint. */
-function groundUnder(api: SimApi, x: number): number {
+function groundUnder(api: SimApi, x: number, half: number): number {
   let top = api.grid.height;
-  for (let c = x - TANK_HALF; c < x + TANK_HALF; c++) top = Math.min(top, api.grid.surfaceY(c));
+  for (let c = x - half; c < x + half; c++) top = Math.min(top, api.grid.surfaceY(c));
   return top;
 }
 
@@ -220,10 +220,10 @@ function stepWave(api: SimApi, p: Params, d: number[], o: number, dir: number, b
   for (const t of api.tanks) {
     if (!t.alive) continue;
     const ahead = dir * (front - t.x);
-    if (ahead < -TANK_HALF || ahead > TANK_HALF + p.speed) continue;
-    const nx = Math.max(TANK_HALF, Math.min(W - TANK_HALF - 1, front - dir * TANK_HALF));
+    if (ahead < -t.half || ahead > t.half + p.speed) continue;
+    const nx = Math.max(t.half, Math.min(W - t.half - 1, front - dir * t.half));
     t.x = nx;
-    t.y = groundUnder(api, nx);
+    t.y = groundUnder(api, nx, t.half);
   }
 
   // 5. the breaking lip: the top of the face is flung forward and lands just ahead

@@ -29,6 +29,7 @@ export const CONTENT_TYPES = [
   'prop',
   'theme',
   'audio',
+  'tank',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -45,6 +46,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   prop: 'props',
   theme: 'themes',
   audio: 'audio',
+  tank: 'tanks',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -296,7 +298,21 @@ export type Spawn = z.infer<typeof SpawnSchema>;
  * it (`damage`) and re-runs `terrainOp` over itself, for `turns` turns. `amplify` > 1 makes it a
  * resonance field instead: the next explosion centred inside it is scaled by that factor (radius,
  * damage and push) and the zone is used up. `look` tells renderers how to draw it.
+ *
+ * `cloud` makes it a moving gas cloud instead of a fixed circle: `puffs` puffs of `puffRadius`
+ * burst out from the impact at `billow` cells/tick, then drift with the wind (`drift` × wind),
+ * sink at up to `sink` cells/tick, slide downhill and pool in low ground. A tank inside any puff
+ * takes the zone's damage at the end of each turn; `radius` is unused for clouds.
  */
+export const ZoneCloudSchema = z.strictObject({
+  puffs: z.number().int().min(1).max(32),
+  puffRadius: z.number().int().min(2).max(60),
+  billow: z.number().min(0).max(4).default(1),
+  drift: z.number().min(0).max(40).default(8),
+  sink: z.number().min(0).max(2).default(0.3),
+});
+export type ZoneCloud = z.infer<typeof ZoneCloudSchema>;
+
 export const ZoneSchema = z.strictObject({
   radius: z.number().int().min(1).max(400),
   turns: z.number().int().min(1).max(10),
@@ -304,7 +320,8 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance']).default('gas'),
+  look: z.enum(['gas', 'acid', 'resonance', 'toxic']).default('gas'),
+  cloud: ZoneCloudSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
 
@@ -345,11 +362,11 @@ export const WeaponSchema = z.strictObject({
    * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
-   * smoke; `trail: false` leaves no trail line.
+   * smoke, `mud` a dripping glob of wet mud; `trail: false` leaves no trail line.
    */
   look: z
     .strictObject({
-      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor']).default('spark'),
+      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor', 'mud']).default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */
       size: z.number().min(0.5).max(3).default(1),
@@ -369,6 +386,8 @@ export const ModeSchema = z.looseObject({
   /** Turns per player before the round ends on points (§3.1). */
   turnCap: z.number().int().min(1),
   startingHealth: z.number().int().min(1).max(1000),
+  /** Default tank type (`tank.*`) for players the setup doesn't give one; unset = standard tank. */
+  tank: ContentIdSchema.optional(),
   physics: z.strictObject({
     /** Gravity in cells/tick². */
     gravity: z.number().positive(),
@@ -434,9 +453,71 @@ export type ModeManifest = z.infer<typeof ModeSchema>;
 
 // ── ai ──────────────────────────────────────────────────────────────────────────────────────
 
-/** AI personality (§3.7): a behaviour module plus its tuning; runs inside the sim. */
-export const AiSchema = z.looseObject({ ...behaviourBacked });
+/**
+ * AI personality (§3.7): a behaviour module plus its tuning; runs inside the sim. `tank` is the
+ * tank type the setup screen gives the bot by default (a `tank.*` id, or "random").
+ */
+export const AiSchema = z.looseObject({
+  ...behaviourBacked,
+  tank: z.union([z.literal('random'), ContentIdSchema]).optional(),
+});
 export type AiManifest = z.infer<typeof AiSchema>;
+
+/** Keys the ai schema defines itself; everything else on an ai item goes to its behaviour. */
+export const AI_CORE_KEYS: readonly string[] = ['tank'];
+
+// ── tank ────────────────────────────────────────────────────────────────────────────────────
+
+/** Sprite cell codes for a tank look (renderer-only). */
+export const TANK_SPRITE_CODES = '.hHdtwmsg';
+
+/**
+ * Tank type (§3.2): plain stats the kernel reads, plus a pixel look only the renderer reads. Every
+ * strength should cost something. Stats are relative to `tank.classic`, which matches the
+ * pre-0.13 tank exactly.
+ */
+export const TankSchema = z.strictObject({
+  ...base,
+  /** Starting health as a percentage of the mode's `startingHealth`. */
+  health: z.number().int().min(10).max(400),
+  /** Shield points: soak damage before health, refilled at every round start. */
+  shield: z.number().int().min(0).max(200).default(0),
+  /** Hitbox in cells (`width` even, so the tank stays centred on its column). */
+  body: z.strictObject({
+    width: z
+      .number()
+      .int()
+      .min(6)
+      .max(32)
+      .refine((n) => n % 2 === 0, 'width must be even'),
+    height: z.number().int().min(4).max(20),
+  }),
+  /** Damage this tank's shells deal, in percent (explosions and lingering zones it owns). */
+  damage: z.number().int().min(25).max(300).default(100),
+  /** Muzzle speed in percent: how fast (and so how far) its shells fly at a given power. */
+  muzzle: z.number().int().min(50).max(200).default(100),
+  /** How far it can drive per turn, in percent of the standard (driving lands in a later PR). */
+  drive: z.number().int().min(0).max(400).default(100),
+  /**
+   * Pixel look (renderer-only). `sprite` rows are drawn bottom-aligned and centred on the tank's
+   * column; codes: `.` empty, `h` hull (player colour), `H` hull highlight, `d` hull shade,
+   * `t` tread, `w` wheel, `m` metal, `s` shield emitter (glints while the shield holds), `g` glass.
+   * The barrel pivots at `barrel.x/y` (cells from the bottom-centre, y up).
+   */
+  look: z.strictObject({
+    sprite: z
+      .array(z.string().regex(/^[.hHdtwmsg]+$/, `sprite rows use only "${'.hHdtwmsg'}"`))
+      .min(1)
+      .max(20),
+    barrel: z.strictObject({
+      x: z.number().int().min(-16).max(16),
+      y: z.number().int().min(0).max(20),
+      length: z.number().int().min(2).max(20),
+      width: z.number().int().min(1).max(3),
+    }),
+  }),
+});
+export type TankManifest = z.infer<typeof TankSchema>;
 
 // ── prop ────────────────────────────────────────────────────────────────────────────────────
 
@@ -698,6 +779,7 @@ export const MANIFEST_SCHEMAS = {
   prop: PropSchema,
   theme: ThemeSchema,
   audio: AudioSchema,
+  tank: TankSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -712,6 +794,7 @@ export interface ManifestByType {
   prop: PropManifest;
   theme: ThemeManifest;
   audio: AudioManifest;
+  tank: TankManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

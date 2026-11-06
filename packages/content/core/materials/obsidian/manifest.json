@@ -1,0 +1,23 @@
+{
+  "id": "material.obsidian",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Obsidian",
+    "description": "Cooled slag: black volcanic glass lining an Orbital Lance shaft. Never moves; blasts crack it like rock.",
+    "since": "core@0.13.0",
+    "color": "#2a2030"
+  },
+  "cell": 42,
+  "settle": "static",
+  "density": 190,
+  "strength": {
+    "blast": 1.5,
+    "kinetic": 1.5,
+    "heat": 1.5,
+    "shock": 2,
+    "dig": 2,
+    "corrosive": 4
+  },
+  "cohesion": 0,
+  "coating": false
+}

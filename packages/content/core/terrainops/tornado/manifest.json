@@ -1,0 +1,25 @@
+{
+  "id": "terrainop.tornado",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tornado",
+    "description": "A funnel touches down and runs along the ground: it sucks loose cells up into a whirling column, carries tanks up and throws them, then flings its load outward to rain back down.",
+    "since": "core@0.13.0"
+  },
+  "behaviour": "terrainop.tornado",
+  "life": 330,
+  "touchdown": 40,
+  "ropeOut": 45,
+  "height": 150,
+  "baseWidth": 5,
+  "topWidth": 40,
+  "lean": 16,
+  "wobble": 6,
+  "speed": 0.75,
+  "suck": 20,
+  "lift": 1.8,
+  "tankLift": 0.9,
+  "carry": 48,
+  "throw": 1.6,
+  "fling": 2.2
+}

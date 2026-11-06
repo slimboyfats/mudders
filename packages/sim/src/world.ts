@@ -1,4 +1,5 @@
 import {
+  AI_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   type DamageType,
@@ -34,7 +35,7 @@ import {
   type TerrainOpBehaviour,
 } from './behaviours';
 import { behaviourParams, type ResolvedContent } from './content/resolve';
-import { FP, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
+import { FP, FP_SHIFT, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
 import { DebrisPool } from './debris';
 import { Grid } from './grid';
 import { Groups } from './groups';
@@ -46,7 +47,10 @@ import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
 import { SETTLE_FLOW } from './materials';
 
-/** Tank footprint (§2a: ~16×10). x is the centre column, y the row the tank stands on. */
+/**
+ * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
+ * loaded. x is the centre column, y the row the tank stands on. Tank types (`tank.*`) bring their own.
+ */
 export const TANK_W = 16;
 export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
@@ -115,7 +119,42 @@ export interface WorldOptions {
   bots?: readonly (string | null | undefined)[] | undefined;
   /** Extra props at fixed centre columns (showcases), placed after the generator's. */
   props?: readonly { prop: string; x: number }[] | undefined;
+  /**
+   * Tank type per player (`tank.*` id), `'random'` for one drawn from the seed (not the match
+   * RNG), `'auto'` for the player's bot's favourite (`ai.*` `tank`), or null/undefined for the
+   * mode's default tank.
+   */
+  tanks?: readonly (string | null | undefined)[] | undefined;
 }
+
+/** A tank type's numbers as the kernel uses them (§3.2). */
+export interface TankType {
+  /** `tank.*` id, or '' for the built-in standard tank. */
+  readonly id: string;
+  /** Percent of the mode's starting health. */
+  readonly health: number;
+  readonly shield: number;
+  readonly width: number;
+  readonly height: number;
+  /** Percent damage dealt by its shells. */
+  readonly damage: number;
+  /** Percent muzzle speed. */
+  readonly muzzle: number;
+  /** Percent drive distance (driving lands later). */
+  readonly drive: number;
+}
+
+/** The standard tank, used when a mode names no `tank` (or a match loads no tank types). */
+export const STANDARD_TANK: TankType = {
+  id: '',
+  health: 100,
+  shield: 0,
+  width: TANK_W,
+  height: TANK_H,
+  damage: 100,
+  muzzle: 100,
+  drive: 100,
+};
 
 /** `shop` sits between rounds; `over` is the end of the match. */
 export type Phase = 'aim' | 'resolve' | 'shop' | 'over';
@@ -124,10 +163,20 @@ export interface Tank extends TankHandle {
   readonly player: number;
   /** Team id (milestone 7); the player number in a free-for-all. */
   readonly team: number;
+  /** Tank type (§3.2); fixed for the match. */
+  readonly type: TankType;
+  /** Hitbox width (even) and half-width, and height, in cells. */
+  readonly w: number;
+  readonly half: number;
+  readonly h: number;
   alive: boolean;
   x: number;
   y: number;
   health: number;
+  /** Health at round start (for health bars). */
+  maxHealth: number;
+  /** Shield points left this round; they soak damage before health. */
+  shield: number;
   angle: number;
   power: number;
   weapon: number;
@@ -202,6 +251,8 @@ interface RtZoneSpec {
   op: number;
   damageType: DamageType;
   look: number;
+  /** Gas cloud (null = fixed zone). Fixed-point speeds. */
+  cloud: { puffs: number; puffRadius: number; billow: number; drift: number; sink: number } | null;
 }
 
 type RtImpact =
@@ -222,13 +273,29 @@ export interface Zone {
   dt: number;
   look: number;
   owner: number;
+  /**
+   * Gas cloud puffs, flattened x, y, vx, vy per puff in fixed-point cells (empty for a fixed
+   * zone). `x`,`y` above follow the cloud's middle.
+   */
+  puffs: number[];
+  puffRadius: number;
+  /** Fixed-point: wind multiplier, and sink acceleration per tick. */
+  drift: number;
+  sink: number;
+  /** Ticks since the zone was laid. */
+  age: number;
 }
+
+/** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
+const PUFF_PUSH = FP >> 6;
+const PUFF_LIFT = FP >> 6;
+const PUFF_SLIDE = FP >> 6;
 
 /** Most zones alive at once; the oldest goes first. */
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic'] as const;
 
 interface RtWeapon {
   id: string;
@@ -438,6 +505,15 @@ export class World implements SimApi {
           op: z.terrainOp ? this.bindOp(z.terrainOp) : -1,
           damageType: z.damageType,
           look: ZONE_LOOKS.indexOf(z.look),
+          cloud: z.cloud
+            ? {
+                puffs: z.cloud.puffs,
+                puffRadius: z.cloud.puffRadius,
+                billow: toFixed(z.cloud.billow),
+                drift: toFixed(z.cloud.drift),
+                sink: toFixed(z.cloud.sink),
+              }
+            : null,
         },
       };
     }
@@ -473,7 +549,7 @@ export class World implements SimApi {
   private bindBot(id: string): number {
     const item = this.content.get('ai', id);
     const b = this.content.behaviours.getKind(item.behaviour, 'ai');
-    this.bots.push({ b, params: b.params.parse(behaviourParams(item)) });
+    this.bots.push({ b, params: b.params.parse(behaviourParams(item, AI_CORE_KEYS)) });
     this.botIds.push(id);
     return this.bots.length - 1;
   }
@@ -519,13 +595,20 @@ export class World implements SimApi {
         }
       }
       const botId = this.options.bots?.[p];
+      const type = this.tankType(p);
       this.tanks.push({
         player: p,
         team: this.options.teams?.[p] ?? p,
+        type,
+        w: type.width,
+        half: type.width >> 1,
+        h: type.height,
         alive: true,
         x: 0,
         y: 0,
         health: 0,
+        maxHealth: 0,
+        shield: 0,
         angle: 90,
         power: 500,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
@@ -550,6 +633,35 @@ export class World implements SimApi {
         ready: false,
       });
     }
+  }
+
+  /**
+   * Player `p`'s tank type: the setup's pick, one drawn from the seed for `'random'` (a separate
+   * PRNG, so the match RNG and every golden stay put), else the mode's default tank.
+   */
+  private tankType(p: number): TankType {
+    const all = this.content.list('tank');
+    let id = this.options.tanks?.[p] ?? this.mode.tank;
+    if (id === 'auto') {
+      const bot = this.options.bots?.[p];
+      id = (bot ? this.content.get('ai', bot).tank : undefined) ?? this.mode.tank;
+    }
+    if (id === 'random' && all.length > 0) {
+      const r = new Prng((this.options.seed ^ Math.imul(p + 1, 0x9e3779b1)) >>> 0);
+      id = all[r.range(0, all.length - 1)]!.id;
+    }
+    if (!id || !id.startsWith('tank.') || !this.content.has(id)) return STANDARD_TANK;
+    const m = this.content.get('tank', id);
+    return {
+      id: m.id,
+      health: m.health,
+      shield: m.shield,
+      width: m.body.width,
+      height: m.body.height,
+      damage: m.damage,
+      muzzle: m.muzzle,
+      drive: m.drive,
+    };
   }
 
   private startRound(): void {
@@ -591,9 +703,12 @@ export class World implements SimApi {
     for (const tank of this.tanks) {
       const p = tank.player;
       const col = this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0;
-      tank.x = Math.max(TANK_HALF, Math.min(g.width - TANK_HALF - 1, col));
+      tank.x = Math.max(tank.half, Math.min(g.width - tank.half - 1, col));
       tank.alive = true;
-      tank.health = this.options.tankSetup?.[p]?.health ?? this.mode.startingHealth;
+      const full = Math.trunc((this.mode.startingHealth * tank.type.health) / 100);
+      tank.health = this.options.tankSetup?.[p]?.health ?? full;
+      tank.maxHealth = Math.max(full, tank.health);
+      tank.shield = tank.type.shield;
       tank.angle = tank.x < g.width / 2 ? 45 : 135;
       if (tank.inventory[tank.weapon] === 0) tank.weapon = this.firstWeapon(tank);
       tank.falling = false;
@@ -631,7 +746,7 @@ export class World implements SimApi {
   private restingY(t: Tank): number {
     const g = this.grid;
     let y = g.height;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       for (let r = 0, i = x; r < y; r++, i += g.width) {
         if (g.material[i] !== 0 && g.group[i] === 0) {
           y = r;
@@ -710,6 +825,22 @@ export class World implements SimApi {
     return true;
   }
 
+  hold(player: number, x: number, y: number): void {
+    const t = this.tanks[player];
+    if (!t || !t.alive) return;
+    t.x = Math.max(t.half, Math.min(this.grid.width - 1 - t.half, x));
+    t.y = Math.max(t.h, Math.min(this.grid.height - 1, y));
+    if (!t.falling) {
+      t.falling = true;
+      t.fallFrom = t.y;
+    } else if (t.y < t.fallFrom) {
+      t.fallFrom = t.y;
+    }
+    // stepTanks adds 1 before moving it, so a held tank stays put this tick
+    t.fallVel = -1;
+    t.sunk = 0;
+  }
+
   emit(type: string, x: number, y: number, radius: number, params?: Record<string, number>): void {
     this.effects.push({ type, tick: this.tick, x, y, radius, params: params ?? {} });
   }
@@ -728,6 +859,7 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     this.stepOps();
+    this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
@@ -810,9 +942,9 @@ export class World implements SimApi {
     const c = cosDeci(a);
     const s = sinDeci(a);
     const power = t.chill > 0 ? Math.min(t.power, CHILL_POWER) : t.power;
-    const speed = Math.trunc((this.maxSpeed * power) / 1000);
+    const speed = this.muzzleSpeed(t, power);
     const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
-    const y = (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP);
+    const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
     this.projectiles.push({
       id: this.nextProjectileId++,
       weapon: t.weapon,
@@ -834,6 +966,12 @@ export class World implements SimApi {
       angle: t.angle,
       weapon: t.weapon,
     });
+  }
+
+  /** Launch speed (fixed-point) for `power` 0–1000 from this tank's muzzle. */
+  private muzzleSpeed(t: Tank, power: number): number {
+    const v = Math.trunc((this.maxSpeed * Math.max(0, Math.min(1000, power))) / 1000);
+    return t.type.muzzle === 100 ? v : Math.trunc((v * t.type.muzzle) / 100);
   }
 
   // ── turn timer and bots ─────────────────────────────────────────────────────────────────
@@ -882,7 +1020,7 @@ export class World implements SimApi {
       height: this.grid.height,
       wind: this.wind,
       gravity: this.gravity,
-      maxSpeed: this.maxSpeed,
+      maxSpeed: this.muzzleSpeed(t, 1000),
       surfaceY: (x) => this.grid.surfaceY(x),
       predict: (w, angle, power) => this.predict(t, w, angle, power),
       lastShot:
@@ -911,13 +1049,13 @@ export class World implements SimApi {
     const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = Math.trunc((this.maxSpeed * Math.max(0, Math.min(1000, power))) / 1000);
+    const speed = this.muzzleSpeed(t, power);
     const p: Projectile = {
       id: 0,
       weapon,
       owner: t.player,
       x: t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP),
-      y: (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP),
+      y: (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP),
       vx: Math.trunc((speed * c) / FP),
       vy: -Math.trunc((speed * s) / FP),
       age: 0,
@@ -972,7 +1110,7 @@ export class World implements SimApi {
   private tankAt(cx: number, cy: number, p: Projectile): number {
     for (const t of this.tanks) {
       if (!t.alive || (t.player === p.owner && p.age < 4)) continue;
-      if (cx >= t.x - TANK_HALF && cx < t.x + TANK_HALF && cy >= t.y - TANK_H && cy < t.y) {
+      if (cx >= t.x - t.half && cx < t.x + t.half && cy >= t.y - t.h && cy < t.y) {
         return t.player;
       }
     }
@@ -1163,10 +1301,30 @@ export class World implements SimApi {
 
   private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
     if (this.zones.length >= MAX_ZONES) this.zones.shift();
+    const c = z.cloud;
+    const puffs: number[] = [];
+    if (c) {
+      // lift the burst point out of the ground, then fling the puffs out in a ring
+      const g = this.grid;
+      let sy = Math.min(y, g.height - 1);
+      for (let k = 0; k < 32 && sy > 0 && g.material[sy * g.width + x] !== 0; k++) sy--;
+      y = sy;
+      for (let i = 0; i < c.puffs; i++) {
+        const a = Math.trunc((i * 3600) / c.puffs) + this.rng.range(-150, 150);
+        const sp = c.billow - this.rng.int((c.billow >> 1) + 1);
+        // flattened: more sideways than up, as heavy gas spills out rather than rising
+        puffs.push(
+          x * FP + FP / 2,
+          y * FP + FP / 2,
+          Math.trunc((cosDeci(a) * sp) / FP),
+          Math.trunc((sinDeci(a) * sp) / FP / 2),
+        );
+      }
+    }
     this.zones.push({
       x,
       y,
-      radius: z.radius,
+      radius: c ? c.puffRadius : z.radius,
       turns: z.turns,
       damage: z.damage,
       amplify: z.amplify,
@@ -1174,8 +1332,156 @@ export class World implements SimApi {
       dt: damageTypeIndex(z.damageType),
       look: z.look,
       owner,
+      puffs,
+      puffRadius: c ? c.puffRadius : 0,
+      drift: c ? c.drift : 0,
+      sink: c ? c.sink : 0,
+      age: 0,
     });
-    this.emit('zone', x, y, z.radius, { look: z.look, turns: z.turns });
+    this.emit('zone', x, y, c ? c.puffRadius * 2 : z.radius, { look: z.look, turns: z.turns });
+  }
+
+  /**
+   * Gas clouds move every tick (aim and resolve alike): each puff eases toward the wind's drift,
+   * sinks, keeps clear of the other puffs, slides down slopes and climbs only gentle ones. A puff
+   * blown off the map or buried under new ground is gone; a cloud with no puffs left is gone.
+   */
+  private stepClouds(): void {
+    if (this.zones.length === 0) return;
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    let emptied = false;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (pf.length === 0) continue;
+      z.age++;
+      // puffs settle about half a radius apart: a thick blanket, not a row of balls
+      const r = Math.max(2, z.puffRadius >> 1);
+      const tvx = Math.trunc((this.wind * z.drift) / FP);
+      let n = pf.length >> 2;
+      let sx = 0;
+      let sy = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        let x = pf[o]!;
+        let y = pf[o + 1]!;
+        let vx = pf[o + 2]!;
+        let vy = pf[o + 3]!;
+        // wind and weight
+        vx += (tvx - vx) >> 5;
+        vy += z.sink >> 4;
+        vy -= vy >> 4;
+        // keep apart: puffs closer than a radius push each other away (spreads the cloud out)
+        const cx0 = x >> FP_SHIFT;
+        const cy0 = y >> FP_SHIFT;
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue;
+          const dx = cx0 - (pf[j << 2]! >> FP_SHIFT);
+          const dy = cy0 - (pf[(j << 2) + 1]! >> FP_SHIFT);
+          if (dx >= r || dx <= -r || dy >= r || dy <= -r) continue;
+          vx += dx > 0 ? PUFF_PUSH : dx < 0 ? -PUFF_PUSH : i < j ? -PUFF_PUSH : PUFF_PUSH;
+          if (dy < 0 || (dy === 0 && i < j)) vy -= PUFF_LIFT;
+        }
+        // across: climb at most two cells, else stall
+        let nx = x + vx;
+        let cx = nx >> FP_SHIFT;
+        if (cx < 0 || cx >= W) {
+          pf[o] = -1;
+          continue;
+        }
+        let cy = y >> FP_SHIFT;
+        if (cy >= 0 && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 2 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up <= 2) {
+            y -= up * FP;
+            cy -= up;
+          } else {
+            nx = x;
+            cx = x >> FP_SHIFT;
+            vx = -(vx >> 1);
+          }
+        }
+        x = nx;
+        // down (or up): rest on the ground, then slide toward the lower side
+        const ny = y + vy;
+        const ncy = ny >> FP_SHIFT;
+        if (ncy >= H || (ncy >= 0 && mat[ncy * W + cx] !== 0)) {
+          vy = 0;
+          // which way is down: the deeper drop three cells to either side
+          const dl = cx >= 3 ? dropBelow(mat, W, H, cx - 3, cy) : 0;
+          const dr = cx + 3 < W ? dropBelow(mat, W, H, cx + 3, cy) : 0;
+          if (dl > dr) vx -= PUFF_SLIDE;
+          else if (dr > dl) vx += PUFF_SLIDE;
+        } else {
+          y = ny < 0 ? 0 : ny;
+          if (ny < 0) vy = 0;
+        }
+        // buried by new ground: rise out, or be smothered
+        cy = y >> FP_SHIFT;
+        if (cy < H && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 12 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up > 12 || cy - up < 0) {
+            pf[o] = -1;
+            continue;
+          }
+          y -= up * FP;
+          vy = 0;
+        }
+        pf[o] = x;
+        pf[o + 1] = y;
+        pf[o + 2] = vx;
+        pf[o + 3] = vy;
+      }
+      // drop dead puffs (in order), re-centre the zone on the rest
+      let k = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        if (pf[o]! < 0) continue;
+        if (k !== i) {
+          const q = k << 2;
+          pf[q] = pf[o]!;
+          pf[q + 1] = pf[o + 1]!;
+          pf[q + 2] = pf[o + 2]!;
+          pf[q + 3] = pf[o + 3]!;
+        }
+        sx += pf[k << 2]! >> FP_SHIFT;
+        sy += pf[(k << 2) + 1]! >> FP_SHIFT;
+        k++;
+      }
+      if (k < n) pf.length = k << 2;
+      n = k;
+      if (n === 0) {
+        emptied = true;
+        z.turns = 0;
+        continue;
+      }
+      z.x = Math.trunc(sx / n);
+      z.y = Math.trunc(sy / n);
+    }
+    if (emptied) this.zones = this.zones.filter((z) => z.turns > 0);
+  }
+
+  /** True if a tank's centre is inside the zone (any puff, for a cloud). */
+  private inZone(z: Zone, t: Tank): boolean {
+    const x = t.x;
+    const y = t.y - (t.h >> 1);
+    const reach = z.radius + t.half;
+    const pf = z.puffs;
+    if (pf.length === 0) {
+      const dx = x - z.x;
+      const dy = y - z.y;
+      return dx * dx + dy * dy < reach * reach;
+    }
+    for (let o = 0; o < pf.length; o += 4) {
+      const dx = x - (pf[o]! >> FP_SHIFT);
+      const dy = y - (pf[o + 1]! >> FP_SHIFT);
+      if (dx * dx + dy * dy < reach * reach) return true;
+    }
+    return false;
   }
 
   /** End of a turn: zones hurt the tanks inside them and re-run their op, then age (§4a). */
@@ -1185,15 +1491,13 @@ export class World implements SimApi {
       if (z.damage > 0) {
         for (const t of this.tanks) {
           if (!t.alive) continue;
-          const dx = t.x - z.x;
-          const dy = t.y - TANK_H / 2 - z.y;
-          const reach = z.radius + TANK_HALF;
-          if (dx * dx + dy * dy >= reach * reach) continue;
-          this.emit('zoneHurt', t.x, t.y - TANK_H / 2, TANK_HALF, {
-            damage: z.damage,
+          if (!this.inZone(z, t)) continue;
+          const dmg = this.ownerScaled(z.damage, z.owner);
+          this.emit('zoneHurt', t.x, t.y - (t.h >> 1), t.half, {
+            damage: dmg,
             look: z.look,
           });
-          this.damageTank(t, z.damage, z.owner);
+          this.damageTank(t, dmg, z.owner);
         }
       }
       if (z.op >= 0) {
@@ -1206,35 +1510,47 @@ export class World implements SimApi {
 
   // ── explosions, ops, damage ─────────────────────────────────────────────────────────────
 
-  private explode(e0: RtExplosion, x: number, y: number, owner: number): void {
+  /**
+   * Damage from a shell `owner` fired, scaled by the owner's tank type (Howitzer hits harder).
+   * Integer percent, and exact for the standard 100%.
+   */
+  private ownerScaled(dmg: number, owner: number): number {
+    const k = owner >= 0 ? (this.tanks[owner]?.type.damage ?? 100) : 100;
+    return k === 100 ? dmg : Math.trunc((dmg * k) / 100);
+  }
+
+  /** `byWeapon` false for a tank's death blast, which the killer's tank type doesn't scale. */
+  private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
       if (!t.alive) continue;
       const dx = t.x - x;
-      const dy = t.y - TANK_H / 2 - y;
+      const cy = t.y - (t.h >> 1);
+      const dy = cy - y;
       const d = isqrt(dx * dx + dy * dy);
-      const reach = e.radius + TANK_HALF;
+      const reach = e.radius + t.half;
       if (d >= reach) continue;
       // sheltered behind (or under) thick rock: the blast doesn't reach it
-      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, t.y - TANK_H / 2)) continue;
+      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, cy)) continue;
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
-        this.damageTank(t, Math.trunc(base * scale), owner);
+        const dmg = Math.trunc(base * scale);
+        this.damageTank(t, byWeapon ? this.ownerScaled(dmg, owner) : dmg, owner);
       }
       if (e.chill > 0) {
         // frosted for its next own turns; a tank that frosts itself keeps it past this turn too
         const turns =
           e.chill + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
         if (turns > t.chill) t.chill = turns;
-        this.emit('frosted', t.x, t.y - TANK_H / 2, TANK_HALF, { player: t.player });
+        this.emit('frosted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       }
       if (e.push > 0 && dx !== 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
         t.x = Math.max(
-          TANK_HALF,
-          Math.min(this.grid.width - TANK_HALF - 1, t.x + (dx > 0 ? shove : -shove)),
+          t.half,
+          Math.min(this.grid.width - t.half - 1, t.x + (dx > 0 ? shove : -shove)),
         );
         t.lastHitBy = owner;
       }
@@ -1308,8 +1624,27 @@ export class World implements SimApi {
     this.ops = next;
   }
 
-  private damageTank(t: Tank, dmg: number, by: number): void {
-    if (dmg <= 0 || !t.alive) return;
+  /**
+   * Hurt a tank. Its shield soaks the hit first (§3.2); `pierce` skips the shield (falling out of
+   * the map is always fatal).
+   */
+  private damageTank(t: Tank, dmg0: number, by: number, pierce = false): void {
+    if (dmg0 <= 0 || !t.alive) return;
+    let dmg = dmg0;
+    if (t.shield > 0 && !pierce) {
+      const soak = Math.min(dmg, t.shield);
+      t.shield -= soak;
+      dmg -= soak;
+      this.emit('shieldHit', t.x, t.y - (t.h >> 1), t.half + 2, {
+        soaked: soak,
+        left: t.shield,
+        player: t.player,
+      });
+      if (dmg <= 0) {
+        if (by >= 0) t.lastHitBy = by;
+        return;
+      }
+    }
     const applied = Math.min(dmg, t.health);
     t.health -= applied;
     const src = by >= 0 ? this.tanks[by] : undefined;
@@ -1337,15 +1672,15 @@ export class World implements SimApi {
     for (const t of this.tanks) {
       if (!t.alive) continue;
       let worst = 0;
-      for (let y = Math.max(0, t.y - TANK_H); y <= Math.min(g.height - 1, t.y); y++) {
+      for (let y = Math.max(0, t.y - t.h); y <= Math.min(g.height - 1, t.y); y++) {
         const row = y * g.width;
-        for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+        for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
           const d = cd[g.material[row + x]!]!;
           if (d > worst) worst = d;
         }
       }
       if (worst > 0) {
-        this.emit('burn', t.x, t.y - TANK_H / 2, TANK_HALF, { damage: worst });
+        this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: worst });
         this.damageTank(t, worst, t.lastHitBy);
       }
     }
@@ -1358,18 +1693,18 @@ export class World implements SimApi {
     const row = t.y * g.width;
     let flow = 0;
     let solid = 0;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       const m = g.material[row + x]!;
       if (m === 0) continue;
       solid++;
       if (this.mats.settle[m] === SETTLE_FLOW) flow++;
     }
     if (flow * 2 < solid || solid === 0) return;
-    const l = g.surfaceY(t.x - TANK_HALF - 1);
-    const r = g.surfaceY(t.x + TANK_HALF);
+    const l = g.surfaceY(t.x - t.half - 1);
+    const r = g.surfaceY(t.x + t.half);
     if (l === r) return;
     const nx = t.x + (l > r ? -1 : 1);
-    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return;
+    if (nx < t.half || nx >= g.width - t.half) return;
     t.x = nx;
   }
 
@@ -1386,7 +1721,7 @@ export class World implements SimApi {
     let n = 0;
     let solid = 0;
     let ticks = 0;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       const m = g.material[row + x]!;
       if (m === 0) continue;
       solid++;
@@ -1396,12 +1731,12 @@ export class World implements SimApi {
       }
     }
     if (solid === 0 || n * 2 < solid) return 0;
-    const l = t.x - TANK_HALF - 1 >= 0 ? g.surfaceY(t.x - TANK_HALF - 1) : -1;
-    const r = t.x + TANK_HALF < g.width ? g.surfaceY(t.x + TANK_HALF) : -1;
+    const l = t.x - t.half - 1 >= 0 ? g.surfaceY(t.x - t.half - 1) : -1;
+    const r = t.x + t.half < g.width ? g.surfaceY(t.x + t.half) : -1;
     if (l <= t.y && r <= t.y) return 0;
     const dir = l > r ? -1 : 1;
     const nx = t.x + dir;
-    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return 0;
+    if (nx < t.half || nx >= g.width - t.half) return 0;
     this.slipTicks = ticks;
     return dir;
   }
@@ -1428,7 +1763,7 @@ export class World implements SimApi {
     let n = 0;
     let solid = 0;
     let best = 0;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       const m = g.material[row + x]!;
       if (m === 0) continue;
       solid++;
@@ -1437,7 +1772,7 @@ export class World implements SimApi {
         best = m;
       }
     }
-    if (n * 2 < solid || n * 2 < TANK_W) return;
+    if (n * 2 < solid || n * 2 < t.w) return;
     if (t.sunk >= this.mats.sinkDepth[best]! || this.tick % st[best]! !== 0) return;
     t.y++;
     t.sunk++;
@@ -1447,11 +1782,7 @@ export class World implements SimApi {
     if (t.y >= this.grid.height) return true;
     const m = this.grid.material;
     const row = t.y * this.grid.width;
-    for (
-      let x = Math.max(0, t.x - TANK_HALF);
-      x < Math.min(this.grid.width, t.x + TANK_HALF);
-      x++
-    ) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(this.grid.width, t.x + t.half); x++) {
       if (m[row + x] !== 0) return true;
     }
     return false;
@@ -1481,12 +1812,12 @@ export class World implements SimApi {
         const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
         if (t.y >= this.grid.height) {
           // Fell out of the map (sudden-death void, or dug to the bottom): lost.
-          this.emit('land', t.x, this.grid.height - 1, TANK_HALF, { distance: dist });
-          this.damageTank(t, t.health, by);
+          this.emit('land', t.x, this.grid.height - 1, t.half, { distance: dist });
+          this.damageTank(t, t.health, by, true);
           continue;
         }
         const dmg = Math.trunc(Math.max(0, dist - fd.safeCells) * fd.perCell);
-        this.emit('land', t.x, t.y, TANK_HALF, { distance: dist });
+        this.emit('land', t.x, t.y, t.half, { distance: dist });
         this.damageTank(t, dmg, by);
       }
     }
@@ -1494,8 +1825,8 @@ export class World implements SimApi {
     for (let i = 0; i < this.pendingDeaths.length; i++) {
       const d = this.pendingDeaths[i]!;
       const t = this.tanks[d.player]!;
-      this.emit('tankDeath', t.x, t.y - TANK_H / 2, TANK_W, { player: d.player });
-      this.explode(this.deathExplosion, t.x, t.y - TANK_H / 2, d.killer);
+      this.emit('tankDeath', t.x, t.y - (t.h >> 1), t.w, { player: d.player });
+      this.explode(this.deathExplosion, t.x, t.y - (t.h >> 1), d.killer, false);
     }
     this.pendingDeaths = [];
   }
@@ -1730,6 +2061,10 @@ export class World implements SimApi {
         y: t.y,
         angle: t.angle,
         health: t.health,
+        maxHealth: t.maxHealth,
+        shield: t.shield,
+        maxShield: t.type.shield,
+        tank: t.type.id,
         alive: t.alive,
         power: t.power,
         chill: t.chill,
@@ -1753,6 +2088,13 @@ export class World implements SimApi {
         radius: z.radius,
         look: ZONE_LOOKS[z.look] ?? 'gas',
         turns: z.turns,
+        ...(z.puffs.length > 0
+          ? {
+              puffs: puffCells(z.puffs),
+              puffRadius: z.puffRadius,
+              age: z.age,
+            }
+          : {}),
       });
     }
     const effectEvents = this.effects;
@@ -1771,6 +2113,7 @@ export class World implements SimApi {
         count: this.debris.count,
         x: this.debris.x,
         y: this.debris.y,
+        vx: this.debris.vx,
         material: this.debris.mat,
       },
       wind: this.wind / FP,
@@ -1803,6 +2146,7 @@ export class World implements SimApi {
         .num(t.health)
         .num(t.angle)
         .num(t.power);
+      h.str(t.type.id).num(t.w).num(t.h).num(t.maxHealth).num(t.shield);
       h.num(t.weapon)
         .num(t.falling ? 1 : 0)
         .num(t.fallFrom)
@@ -1840,6 +2184,8 @@ export class World implements SimApi {
     for (const z of this.zones) {
       h.num(z.x).num(z.y).num(z.radius).num(z.turns).num(z.damage).num(z.amplify);
       h.num(z.op).num(z.dt).num(z.look).num(z.owner);
+      h.num(z.puffRadius).num(z.drift).num(z.sink).num(z.age).num(z.puffs.length);
+      for (const v of z.puffs) h.num(v);
     }
     h.num(this.ops.length);
     for (const o of this.ops) {
@@ -1848,4 +2194,18 @@ export class World implements SimApi {
     }
     return h.hex();
   }
+}
+
+/** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
+function puffCells(pf: readonly number[]): number[] {
+  const out: number[] = [];
+  for (let o = 0; o < pf.length; o += 4) out.push(pf[o]! >> FP_SHIFT, pf[o + 1]! >> FP_SHIFT);
+  return out;
+}
+
+/** Air cells straight down from (x, y), at most 8 (how far the ground falls away there). */
+function dropBelow(mat: Uint8Array, W: number, H: number, x: number, y: number): number {
+  let d = 0;
+  for (let r = y; d < 8 && r < H && r >= 0 && mat[r * W + x] === 0; r++) d++;
+  return d;
 }

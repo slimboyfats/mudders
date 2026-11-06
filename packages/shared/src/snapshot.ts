@@ -32,6 +32,13 @@ export interface TankView {
   y: number;
   angle: number;
   health: number;
+  /** Health at round start, for health bars (100 for the standard tank). */
+  maxHealth: number;
+  /** Shield points left, and what the tank started the round with (0 = no shield). */
+  shield: number;
+  maxShield: number;
+  /** Tank type id (`tank.*`), or '' for the built-in standard tank; picks the renderer's sprite. */
+  tank: string;
   alive: boolean;
   /** Power 0–1000 (for aim previews). */
   power: number;
@@ -56,9 +63,15 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic';
   /** Turns left. */
   turns: number;
+  /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */
+  puffs?: number[];
+  /** Gas clouds: puff radius in cells. */
+  puffRadius?: number;
+  /** Gas clouds: ticks since the cloud burst out. */
+  age?: number;
 }
 
 export type EntityView = TankView | ProjectileView | ZoneView;
@@ -81,7 +94,7 @@ export interface RenderSnapshot {
    * Sim debris particles (cells in flight that become terrain where they land). Positions are
    * fixed-point (divide by FP); only the first `count` entries are valid. Read-only.
    */
-  debris: { count: number; x: Int32Array; y: Int32Array; material: Uint8Array };
+  debris: { count: number; x: Int32Array; y: Int32Array; vx: Int32Array; material: Uint8Array };
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   theme: string;

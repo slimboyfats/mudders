@@ -1,0 +1,18 @@
+{
+  "id": "terrainop.dirt-burst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dirt Burst",
+    "description": "Flings a dome of loose dirt both ways in a few quick shells, fastest first. It rains back down as a wide blanket with banks on both sides and buries whatever it lands on.",
+    "since": "core@0.13.0"
+  },
+  "behaviour": "terrainop.dirt-burst",
+  "material": "material.dirt",
+  "ticks": 5,
+  "rate": 900,
+  "minSpeed": 2.4,
+  "maxSpeed": 4.6,
+  "lowAngle": 22,
+  "highAngle": 72,
+  "lift": 10
+}

@@ -1,0 +1,101 @@
+{
+  "id": "showcase.tank-parade",
+  "schemaVersion": 1,
+  "description": "Close-up of the six tank types side by side on a small map, barrels raised, no shots.",
+  "mode": "mode.classic",
+  "seed": 4,
+  "players": 6,
+  "map": {
+    "width": 360,
+    "height": 160
+  },
+  "tanks": [
+    {
+      "x": 40,
+      "tank": "tank.classic"
+    },
+    {
+      "x": 96,
+      "tank": "tank.bruiser"
+    },
+    {
+      "x": 152,
+      "tank": "tank.howitzer"
+    },
+    {
+      "x": 208,
+      "tank": "tank.scout"
+    },
+    {
+      "x": 264,
+      "tank": "tank.bulwark"
+    },
+    {
+      "x": 320,
+      "tank": "tank.longshot"
+    }
+  ],
+  "turnOrder": [0, 1, 2, 3, 4, 5],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 70,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 2,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 3,
+      "action": {
+        "type": "aim",
+        "angle": 80,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 4,
+      "action": {
+        "type": "aim",
+        "angle": 120,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 5,
+      "action": {
+        "type": "aim",
+        "angle": 35,
+        "power": 500
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 40,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}
