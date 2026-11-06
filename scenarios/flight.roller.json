@@ -1,7 +1,7 @@
 {
   "id": "flight.roller",
   "schemaVersion": 1,
-  "description": "flight.roller in action, via weapon.roller.",
+  "description": "flight.roller in action, via weapon.roller: lands up the slope and rolls down into the hollow.",
   "subject": "flight.roller",
   "mode": "mode.classic",
   "seed": 7,
@@ -18,7 +18,7 @@
       }
     },
     {
-      "x": 620
+      "x": 506
     }
   ],
   "turnOrder": [0, 1],
@@ -38,7 +38,7 @@
       "action": {
         "type": "aim",
         "angle": 55,
-        "power": 605
+        "power": 440
       }
     },
     {

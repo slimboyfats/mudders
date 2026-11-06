@@ -154,8 +154,8 @@
       "hash": "6cf59ef34e954487"
     },
     "flight.roller": {
-      "ticks": 163,
-      "hash": "93100b94d56cde90"
+      "ticks": 189,
+      "hash": "a875d88ab4d0426b"
     },
     "flight.static": {
       "ticks": 249,
@@ -542,8 +542,8 @@
       "hash": "40dc39069f4c4358"
     },
     "weapon.roller": {
-      "ticks": 163,
-      "hash": "93100b94d56cde90"
+      "ticks": 189,
+      "hash": "a875d88ab4d0426b"
     },
     "weapon.scatter-bomb": {
       "ticks": 217,

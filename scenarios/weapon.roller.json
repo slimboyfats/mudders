@@ -1,7 +1,7 @@
 {
   "id": "weapon.roller",
   "schemaVersion": 1,
-  "description": "Player 0 fires a Roller at player 1 across the valley.",
+  "description": "Player 0 lands a Roller high on the slope; it rolls about 120 columns down into the hollow where player 1 hides.",
   "subject": "weapon.roller",
   "mode": "mode.classic",
   "seed": 7,
@@ -18,7 +18,7 @@
       }
     },
     {
-      "x": 620
+      "x": 506
     }
   ],
   "turnOrder": [0, 1],
@@ -38,7 +38,7 @@
       "action": {
         "type": "aim",
         "angle": 55,
-        "power": 605
+        "power": 440
       }
     },
     {
