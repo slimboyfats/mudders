@@ -1467,13 +1467,16 @@ export class PixelRenderer implements Renderer {
         b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
         continue;
       }
+      // the tank leans with the ground: each sprite column drops by whole cells (a pixel shear)
+      const tilt = this.tankTilt(x0, y, sw);
+      const lean = (c: number) => Math.round(tilt.slope * (c - tilt.pivot));
       // barrel first, so the turret covers its base; whole cells along the aim
       const br = look.barrel;
       const a = (e.angle * Math.PI) / 180;
       const ca = Math.cos(a);
       const sa = Math.sin(a);
       const px = x + br.x;
-      const py = y - br.y;
+      const py = y - br.y + lean(br.x + (sw >> 1));
       const off = br.width >> 1;
       for (let i = 1; i <= br.length; i++) {
         const cx = Math.round(px + ca * i);
@@ -1486,7 +1489,7 @@ export class PixelRenderer implements Renderer {
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
-          b.rect(x0 + c, y0 + r, 1, 1, spriteColor(code, col, shieldOn));
+          b.rect(x0 + c, y0 + r + lean(c), 1, 1, spriteColor(code, col, shieldOn));
         }
       }
       if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
@@ -1565,6 +1568,28 @@ export class PixelRenderer implements Renderer {
     b.rect(sx, sy + 4, 1, 1, 0xbfe4fa);
     b.rect(sx + 4, sy + 4, 1, 1, 0xbfe4fa);
     b.rect(sx + 2, sy + 2, 1, 1, 0xffffff);
+  }
+
+  /**
+   * How a tank standing at row `y` across columns `x0…x0+sw-1` leans: the ground's slope between
+   * its two ends (cells per column, at most about 22°), pivoting on the end that stands highest.
+   * The sim keeps tanks level on their highest support; this is only how they are drawn.
+   */
+  private tankTilt(x0: number, y: number, sw: number): { slope: number; pivot: number } {
+    const ground = (cx: number): number => {
+      const c = Math.max(0, Math.min(this.mapWidth - 1, cx));
+      const bottom = Math.min(this.mapHeight, y + 12);
+      for (let r = Math.max(0, y - 6); r < bottom; r++) {
+        if (this.terrain[r * this.mapWidth + c] !== 0) return r;
+      }
+      return bottom;
+    };
+    const l = ground(x0);
+    const r = ground(x0 + sw - 1);
+    if (l === r || sw < 2) return { slope: 0, pivot: 0 };
+    const slope = Math.max(-0.4, Math.min(0.4, (r - l) / (sw - 1)));
+    // pivot on the high end, so it stays planted while the low end drops to its ground
+    return { slope, pivot: r > l ? 0 : sw - 1 };
   }
 
   /** A 3×5 pixel digit (1–9) on a dark backing, top-left at (x, y). */

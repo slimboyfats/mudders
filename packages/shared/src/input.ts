@@ -14,12 +14,22 @@ export const InputSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ type: z.literal('selectWeapon'), weapon: ContentIdSchema }),
   z.strictObject({ type: z.literal('fire') }),
+  /**
+   * Start (-1 left, 1 right) or stop (0) driving while aiming (§3.2). The tank keeps rolling one
+   * cell every few ticks until it stops, runs out of drive for the turn, or meets a steep step.
+   */
+  z.strictObject({
+    type: z.literal('drive'),
+    dir: z.union([z.literal(-1), z.literal(0), z.literal(1)]),
+  }),
   /** Shop (§3.6): buy `packs` packs of a weapon at this round's price. */
   z.strictObject({
     type: z.literal('buy'),
     item: ContentIdSchema,
     packs: z.number().int().min(1).max(99),
   }),
+  /** Shop (§3.2): buy `packs` packs of drive fuel at the mode's fuel price. */
+  z.strictObject({ type: z.literal('buyFuel'), packs: z.number().int().min(1).max(99) }),
   /** Shop: done shopping. The next round starts when every human is ready or the timer runs out. */
   z.strictObject({ type: z.literal('ready') }),
   /**

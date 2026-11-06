@@ -94,6 +94,9 @@ bot's `ai.*` `tank` favourite); unset falls back to the mode's `tank`, else the 
 `STANDARD_TANK`. Each `Tank` carries its own hitbox (`w`/`half`/`h`), `maxHealth` and `shield`
 (hashed). `damageTank` drains the shield first unless `pierce` (falling out of the map), shells
 scale by the owner's `damage` percent (death blasts don't), and launch speed by `muzzle` percent.
+Driving is the `drive` input (dir −1/0/1) on the active human tank during `aim`: `driveStep` moves
+one cell per `mode.drive.ticksPerCell`, climbs ≤ `drive.climb`, and spends `driveLeft` (reset in
+`beginTurn` to `driveCells`); `fire` stops it. `driveLeft`/`driving` are hashed.
 
 AI players are `ai.*` content (behaviour kind `ai`). When a bot is up the kernel waits
 `BOT_THINK_TICKS`, calls `aim(AiApi)` halfway through and fires at the end; in the shop it calls

@@ -47,6 +47,58 @@ function Wind({ wind, max }: { wind: number; max: number }) {
   );
 }
 
+/**
+ * Hold ◀ or ▶ to drive (§3.2): pressing starts the tank rolling, releasing stops it. Shows the
+ * cells left this turn.
+ */
+function Drive({
+  tank,
+  disabled,
+  send,
+}: {
+  tank: HudState['tanks'][number] | undefined;
+  disabled: boolean;
+  send: (input: Input) => void;
+}) {
+  const left = Math.min(tank?.driveLeft ?? 0, tank?.fuel ?? 0);
+  const off = disabled || left <= 0;
+  const button = (dir: -1 | 1, label: string, glyph: string) => (
+    <button
+      className={`drive-btn${tank?.driving === dir ? ' on' : ''}`}
+      disabled={off}
+      aria-label={label}
+      data-testid={dir < 0 ? 'drive-left' : 'drive-right'}
+      onPointerDown={(e) => {
+        send({ type: 'drive', dir });
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // no live pointer (synthetic event): the release still stops the drive
+        }
+      }}
+      onPointerUp={() => send({ type: 'drive', dir: 0 })}
+      onPointerCancel={() => send({ type: 'drive', dir: 0 })}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {glyph}
+    </button>
+  );
+  return (
+    <div className="drive" aria-label="Drive">
+      {button(-1, 'Drive left', '◀')}
+      <span
+        className="drive-left"
+        aria-label={`Drive ${left} cells this turn, ${tank?.fuel ?? 0} fuel`}
+        title={`Fuel ${tank?.fuel ?? 0}`}
+      >
+        <span className="drive-n">{left}</span>
+        <small className="fuel">fuel {tank?.fuel ?? 0}</small>
+      </span>
+      {button(1, 'Drive right', '▶')}
+    </div>
+  );
+}
+
 function Stepper(props: {
   label: string;
   value: number;
@@ -225,6 +277,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             </span>
           )}
         </div>
+        <Drive tank={t} disabled={!canAim} send={send} />
         <div className="weapons" role="listbox" aria-label="Weapons">
           {t?.inventory.map((w) => (
             <button

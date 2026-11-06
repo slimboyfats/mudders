@@ -188,6 +188,11 @@ export interface Tank extends TankHandle {
   sunk: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
+  /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
+  driveLeft: number;
+  driving: number;
+  /** Drive fuel (one unit per cell); a match total, topped up in the shop. */
+  fuel: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -618,6 +623,9 @@ export class World implements SimApi {
         fallVel: 0,
         sunk: 0,
         chill: 0,
+        driveLeft: 0,
+        driving: 0,
+        fuel: this.mode.drive.startFuel,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -893,9 +901,10 @@ export class World implements SimApi {
     const t = this.tanks[player];
     if (!t) return;
     if (input.type === 'takeover') return this.takeover(t, input.bot);
-    if (input.type === 'buy' || input.type === 'ready') {
+    if (input.type === 'buy' || input.type === 'buyFuel' || input.type === 'ready') {
       if (this.phase !== 'shop' || t.ready) return;
       if (input.type === 'ready') t.ready = true;
+      else if (input.type === 'buyFuel') this.buyFuel(t, input.packs);
       else this.buy(t, input.item, input.packs);
       return;
     }
@@ -915,7 +924,65 @@ export class World implements SimApi {
       case 'fire':
         this.fire(t);
         break;
+      case 'drive':
+        t.driving = t.driveLeft > 0 && t.fuel > 0 ? input.dir : 0;
+        break;
     }
+  }
+
+  /**
+   * Buy drive fuel in the shop (§3.2): `packs` × `fuelPack` units at `fuelPrice` each pack, never
+   * past `fuelMax`. Returns false (changing nothing) when it isn't shop time, the tank is full or
+   * can't afford it.
+   */
+  buyFuel(t: Tank, packs: number): boolean {
+    const d = this.mode.drive;
+    const cost = d.fuelPrice * packs;
+    if (this.phase !== 'shop' || packs < 1 || t.fuel >= d.fuelMax || cost > t.money) return false;
+    t.money -= cost;
+    t.fuel = Math.min(d.fuelMax, t.fuel + d.fuelPack * packs);
+    return true;
+  }
+
+  /** Per-turn drive allowance for a tank: the mode's cells scaled by its type's `drive` percent. */
+  driveCells(t: Tank): number {
+    return Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
+  }
+
+  /**
+   * One cell of driving (§3.2). The tank climbs a step of up to `drive.climb` cells, rolls down
+   * one of the same, and stops at anything steeper (a wall, a prop, ground it is bogged in), at the
+   * map edge (or the sudden-death void) or when its drive runs out. A real drop it simply falls.
+   */
+  private driveStep(t: Tank): void {
+    const g = this.grid;
+    const dir = t.driving;
+    const nx = t.x + dir;
+    if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) {
+      t.driving = 0;
+      return;
+    }
+    const climb = this.mode.drive.climb;
+    const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
+    let top = t.y;
+    for (let r = Math.max(0, t.y - t.h); r < Math.min(g.height, t.y); r++) {
+      if (g.material[r * g.width + col] !== 0) {
+        top = r;
+        break;
+      }
+    }
+    if (t.y - top > climb) {
+      t.driving = 0;
+      this.emit('driveBlocked', t.x, t.y, t.half, { dir });
+      return;
+    }
+    t.x = nx;
+    t.y = top;
+    for (let d = 0; d < climb && !this.supported(t); d++) t.y++;
+    t.driveLeft--;
+    t.fuel--;
+    if (t.driveLeft <= 0 || t.fuel <= 0) t.driving = 0;
+    this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
   }
 
   /**
@@ -938,6 +1005,7 @@ export class World implements SimApi {
     const inv = t.inventory[t.weapon] ?? 0;
     if (inv === 0) return;
     if (inv > 0) t.inventory[t.weapon] = inv - 1;
+    t.driving = 0;
     const a = t.angle * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
@@ -988,6 +1056,9 @@ export class World implements SimApi {
       if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t);
       if (this.botWait <= 0) this.fire(t);
       return;
+    }
+    if (t.driving !== 0 && !t.falling && this.tick % this.mode.drive.ticksPerCell === 0) {
+      this.driveStep(t);
     }
     if (this.timer > 0 && --this.timer === 0) {
       // Out of time: fire with the current settings (§3.3).
@@ -1842,6 +1913,10 @@ export class World implements SimApi {
     const t = this.tanks[this.activePlayer];
     this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
     this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
+    if (t) {
+      t.driveLeft = this.driveCells(t);
+      t.driving = 0;
+    }
   }
 
   /** Sudden death: the outermost columns crumble into the void (§3.1). */
@@ -2153,6 +2228,9 @@ export class World implements SimApi {
         .num(t.fallVel)
         .num(t.sunk)
         .num(t.chill)
+        .num(t.driveLeft)
+        .num(t.driving)
+        .num(t.fuel)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)

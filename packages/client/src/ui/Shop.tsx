@@ -117,6 +117,32 @@ export function Shop({ hud, controls, send }: ShopProps) {
             <span className="cash">{money(me.money)}</span>
           </div>
           <div className="cards">
+            <div className="card fuel-card">
+              <div className="card-top">
+                <b>Fuel Tank</b>
+                <small>driving</small>
+              </div>
+              <p>
+                Fuel for driving with ◀ ▶: one unit per cell. Driving doesn't use up your turn, and
+                what you don't burn carries over to the next round.
+              </p>
+              <div className="card-bottom">
+                <span className="own">
+                  {me.fuel}/{hud.fuel.max}
+                </span>
+                <button
+                  disabled={me.ready || me.fuel >= hud.fuel.max || me.money < hud.fuel.price}
+                  onClick={() => {
+                    sfx('audio.ui-buy');
+                    send(me.player, { type: 'buyFuel', packs: 1 });
+                  }}
+                  aria-label={`Buy ${hud.fuel.pack} fuel for ${hud.fuel.price}`}
+                  data-testid="buy-fuel"
+                >
+                  +{hud.fuel.pack} · {money(hud.fuel.price)}
+                </button>
+              </div>
+            </div>
             {hud.shop.map((it) => {
               const have = owned(it.id);
               const can = !me.ready && have >= 0 && me.money >= it.price;
