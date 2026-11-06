@@ -176,6 +176,23 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Crater rim (ice, clay): when a carve of one of these `damage` types digs a crater, cells of
+   * this material up to `depth` cells beyond where it was carved away become `into`. Ice shatters
+   * into loose shards under blasts and melts into water under heat; clay bakes into brick. With
+   * `chance` below 1, a fixed per-cell hash picks which rim cells turn, for a ragged edge.
+   */
+  rim: z
+    .array(
+      z.strictObject({
+        damage: z.array(DamageTypeSchema).min(1),
+        into: MaterialRefSchema,
+        depth: z.number().int().min(1).max(8),
+        chance: z.number().min(0).max(1).default(1),
+      }),
+    )
+    .max(4)
+    .optional(),
+  /**
    * Blast-lit (gunpowder): an explosion of one of the `by` damage types that reaches this cell,
    * without carving it away, turns it into `into` (a burning fuse). Reactions light it from fire
    * and lava as usual.

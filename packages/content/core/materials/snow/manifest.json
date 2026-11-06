@@ -24,12 +24,12 @@
     {
       "with": "material.fire",
       "into": "material.water",
-      "chance": 0.3
+      "chance": 0.4
     },
     {
       "with": "material.lava",
       "into": "material.water",
-      "chance": 0.6
+      "chance": 0.7
     }
   ],
   "compact": {

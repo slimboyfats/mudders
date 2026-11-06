@@ -1,5 +1,5 @@
 {
-  "contentHash": "3f3a3d9f843ed3a8",
+  "contentHash": "b05d7c4bd16801f5",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -18,8 +18,8 @@
       "hash": "a6db1def8724978b"
     },
     "ai.tosser": {
-      "ticks": 1100,
-      "hash": "60fb911509a60711"
+      "ticks": 1101,
+      "hash": "0941d4b16d28a95f"
     },
     "audio.battery": {
       "ticks": 238,
@@ -317,6 +317,14 @@
       "ticks": 150,
       "hash": "76c3a6bda85c550b"
     },
+    "gen.claypits": {
+      "ticks": 394,
+      "hash": "07f9331843a82c36"
+    },
+    "gen.glacier": {
+      "ticks": 174,
+      "hash": "bb0cc60d771dbde6"
+    },
     "gen.hills": {
       "ticks": 11,
       "hash": "1777fb1fa338e938"
@@ -344,6 +352,10 @@
     "material.burning-oil": {
       "ticks": 608,
       "hash": "3ecce9f89c8ea0fd"
+    },
+    "material.clay": {
+      "ticks": 394,
+      "hash": "07f9331843a82c36"
     },
     "material.concrete": {
       "ticks": 142,
@@ -385,9 +397,13 @@
       "ticks": 444,
       "hash": "f102e273122876dc"
     },
+    "material.ice-shards": {
+      "ticks": 174,
+      "hash": "bb0cc60d771dbde6"
+    },
     "material.ice": {
-      "ticks": 165,
-      "hash": "8fd3c7f8188addb3"
+      "ticks": 174,
+      "hash": "bb0cc60d771dbde6"
     },
     "material.lance-slag": {
       "ticks": 324,
@@ -418,8 +434,8 @@
       "hash": "e93031632b3ec86a"
     },
     "material.meteorite": {
-      "ticks": 89,
-      "hash": "6674325e75eee76b"
+      "ticks": 98,
+      "hash": "f4a1fed83eb6b95e"
     },
     "material.mud": {
       "ticks": 162,
@@ -470,8 +486,8 @@
       "hash": "5e436c21519628a4"
     },
     "material.slag": {
-      "ticks": 89,
-      "hash": "6674325e75eee76b"
+      "ticks": 98,
+      "hash": "f4a1fed83eb6b95e"
     },
     "material.snow": {
       "ticks": 743,
@@ -485,6 +501,10 @@
       "ticks": 597,
       "hash": "1a974a1f9bbf804e"
     },
+    "material.wet-clay": {
+      "ticks": 414,
+      "hash": "4c8befcc9cbc8809"
+    },
     "material.wood": {
       "ticks": 325,
       "hash": "3b285a449a85ebd2"
@@ -495,7 +515,7 @@
     },
     "mode.teams": {
       "ticks": 2400,
-      "hash": "603fd37a04b5c214"
+      "hash": "888b70f5abb1c5fd"
     },
     "prop.apartments": {
       "ticks": 756,
@@ -518,8 +538,8 @@
       "hash": "f0f72e6f181fa1c3"
     },
     "prop.rock-ledge": {
-      "ticks": 1120,
-      "hash": "424400a1206f6970"
+      "ticks": 1122,
+      "hash": "ecc744380b9a3525"
     },
     "prop.rock-outcrop": {
       "ticks": 687,
@@ -546,8 +566,8 @@
       "hash": "3d688856fbc3e1b2"
     },
     "showcase.tank-lineup": {
-      "ticks": 419,
-      "hash": "b416b5a3b30fde0f"
+      "ticks": 420,
+      "hash": "6e5c648fbd2cd5ad"
     },
     "showcase.tank-parade": {
       "ticks": 40,
@@ -598,8 +618,8 @@
       "hash": "147985c06148b4a7"
     },
     "terrainop.convert": {
-      "ticks": 165,
-      "hash": "8fd3c7f8188addb3"
+      "ticks": 210,
+      "hash": "cef61f58490caf9c"
     },
     "terrainop.dirt-burst": {
       "ticks": 241,
@@ -618,8 +638,8 @@
       "hash": "feac0c8a722a548d"
     },
     "terrainop.harden": {
-      "ticks": 165,
-      "hash": "8fd3c7f8188addb3"
+      "ticks": 210,
+      "hash": "cef61f58490caf9c"
     },
     "terrainop.heave": {
       "ticks": 269,
@@ -742,8 +762,8 @@
       "hash": "94b21ab39616763c"
     },
     "weapon.cryo-shell": {
-      "ticks": 165,
-      "hash": "8fd3c7f8188addb3"
+      "ticks": 210,
+      "hash": "cef61f58490caf9c"
     },
     "weapon.digger": {
       "ticks": 158,
@@ -770,8 +790,8 @@
       "hash": "50a78276de013179"
     },
     "weapon.drill-torpedo": {
-      "ticks": 339,
-      "hash": "f1b58b2419d39373"
+      "ticks": 338,
+      "hash": "fbd75719f7fb8677"
     },
     "weapon.earthquake": {
       "ticks": 194,
@@ -867,15 +887,15 @@
     },
     "weapon.meteor-boulder": {
       "ticks": 104,
-      "hash": "53aead8d5153b201"
+      "hash": "4cddaf72595d7188"
     },
     "weapon.meteor-shower": {
       "ticks": 330,
       "hash": "bccb8c8fe8f7b5de"
     },
     "weapon.meteor": {
-      "ticks": 89,
-      "hash": "6674325e75eee76b"
+      "ticks": 98,
+      "hash": "f4a1fed83eb6b95e"
     },
     "weapon.mirv-warhead": {
       "ticks": 203,

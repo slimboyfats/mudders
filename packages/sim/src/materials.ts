@@ -59,6 +59,12 @@ export class MaterialTable {
   readonly compactInto = new Uint8Array(256).fill(KEEP);
   readonly compactRatio = new Uint16Array(256);
   readonly compactDepth = new Uint8Array(256);
+  /** Crater rim (§4b): rim[cell * NUM_DAMAGE_TYPES + damageType]: into (KEEP = none), depth, chance ×256. */
+  readonly rimInto = new Uint8Array(256 * NUM_DAMAGE_TYPES).fill(KEEP);
+  readonly rimDepth = new Uint8Array(256 * NUM_DAMAGE_TYPES);
+  readonly rimChance = new Uint16Array(256 * NUM_DAMAGE_TYPES);
+  /** Deepest rim of any material, so a carve knows how far past its radius to look. */
+  rimMaxDepth = 0;
   /**
    * Cell a blast lights this material into (KEEP = not blast-lit), whether any material is, and
    * per cell a bit mask of the damage types that light it.
@@ -132,6 +138,15 @@ export class MaterialTable {
         this.compactInto[c] = ref(m.compact.into);
         this.compactRatio[c] = Math.round(m.compact.ratio * 256);
         this.compactDepth[c] = m.compact.maxDepth;
+      }
+      for (const r of m.rim ?? []) {
+        for (const d of r.damage) {
+          const i = c * NUM_DAMAGE_TYPES + DAMAGE_TYPES.indexOf(d);
+          this.rimInto[i] = ref(r.into);
+          this.rimDepth[i] = r.depth;
+          this.rimChance[i] = Math.round(r.chance * 256);
+        }
+        if (r.depth > this.rimMaxDepth) this.rimMaxDepth = r.depth;
       }
       if (m.ignite) {
         this.igniteInto[c] = ref(m.ignite.into);
