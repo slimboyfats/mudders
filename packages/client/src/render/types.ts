@@ -55,6 +55,8 @@ export interface MaterialLook {
   char?: boolean;
   /** Pixel flames and smoke rise off exposed tops. */
   flames?: boolean;
+  /** Crystalline: scattered cells glint white for a moment (frost). */
+  glint?: boolean;
 }
 
 export interface RendererOptions {

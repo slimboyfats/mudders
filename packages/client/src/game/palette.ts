@@ -17,6 +17,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         topsoil: m.look.topsoil,
         flames: m.look.flames,
         char: m.look.char,
+        glint: m.look.glint,
       });
     }
   }
