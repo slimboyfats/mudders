@@ -1,4 +1,5 @@
 import type { DamageType, ZodType } from '@mudders/shared';
+import type { DebrisPool } from './debris';
 import type { Grid } from './grid';
 import type { MaterialTable } from './materials';
 import type { Prng } from './prng';
@@ -20,6 +21,9 @@ export interface EffectSink {
 export interface TankHandle {
   readonly player: number;
   readonly alive: boolean;
+  /** Hitbox half-width and height in cells (they differ per tank type). */
+  readonly half: number;
+  readonly h: number;
   x: number;
   y: number;
 }
@@ -42,6 +46,17 @@ export interface SimApi extends EffectSink {
    * leaves the cell alone) if the debris pool is full.
    */
   launch(cellIndex: number, vx: number, vy: number): boolean;
+  /**
+   * Sim debris in flight. A behaviour may steer particles (change `vx`/`vy`, fixed-point) but must
+   * not add, remove or reorder them; `launch` is the only way in.
+   */
+  readonly debris: DebrisPool;
+  /**
+   * Carry a tank through the air this tick: it is put at column `x`, bottom row `y`, and does not
+   * fall this tick. Once a behaviour stops holding it, it falls from there, and fall damage counts
+   * from the highest row it was carried to. Ignored for dead tanks.
+   */
+  hold(player: number, x: number, y: number): void;
 }
 
 interface BehaviourBase<P> {

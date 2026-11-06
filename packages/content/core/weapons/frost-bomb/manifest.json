@@ -1,0 +1,61 @@
+{
+  "id": "weapon.frost-bomb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Frost Bomb",
+    "description": "Bursts in a blinding flash of cold. A frost front races across the hillside and glazes it slippery, so tanks slide down frosted slopes until it thaws into mud two turns later. Water freezes over, and any tank caught in it is frosted: its next shot fires at no more than half power.",
+    "category": "terrain-dynamics",
+    "since": "core@0.13.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 30,
+        "damageType": "cold",
+        "effects": {
+          "flash": {
+            "strength": 0.8
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 80,
+        "damage": 18,
+        "damageType": "cold",
+        "chill": 1,
+        "terrainOp": {
+          "use": "terrainop.frost"
+        },
+        "effects": {
+          "frostBlast": {
+            "strength": 1
+          },
+          "ripple": {
+            "strength": 1.3
+          },
+          "shake": {
+            "strength": 3
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 6500,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0.5
+  }
+}

@@ -90,6 +90,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     looks: [...(pal.looks ?? [])],
     themes: { ...pal.themes },
     tanks: { ...pal.tanks },
+    shells: { ...pal.shells },
     quality: o.quality,
     theme,
     cssWidth: device?.cssWidth ?? w.grid.width * o.scale,

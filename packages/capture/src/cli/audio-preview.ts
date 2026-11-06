@@ -148,7 +148,12 @@ export async function main(): Promise<number> {
         log.push(
           `${at.toFixed(2).padStart(6)} s  ${a.id}  (${a.meta.name}), rms ${level.toFixed(3)}`,
         );
-        for (let c = 0; c < 2; c++) reel[c]!.push(...ch[c]!, ...gap);
+        // a loop, not push(...ch): a long patch overflows the call stack as spread arguments
+        for (let c = 0; c < 2; c++) {
+          const out = reel[c]!;
+          for (const v of ch[c]!) out.push(v);
+          for (const v of gap) out.push(v);
+        }
       } else if (a.module) {
         const bytes = Array.from(
           readFileSync(

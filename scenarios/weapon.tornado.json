@@ -1,0 +1,57 @@
+{
+  "id": "weapon.tornado",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Tornado short of player 1; the wind carries the funnel along the valley into them.",
+  "subject": "weapon.tornado",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.tornado": 1
+      }
+    },
+    {
+      "x": 560
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.004,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tornado"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 520
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1100,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

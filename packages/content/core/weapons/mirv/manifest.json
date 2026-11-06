@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "MIRV",
-    "description": "Splits into five warheads at the top of its arc. They fan out and come down in a line.",
+    "description": "Splits into five warheads at the top of its arc with a bright pop. They fan out and come down in a line, each one throwing up a geyser of dirt and shoving the ground aside.",
     "category": "explosive",
     "since": "core@0.7.0"
   },
@@ -13,10 +13,33 @@
   "triggers": ["onApex", "onSolid", "onTank"],
   "impact": [
     {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 0,
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 0
+          },
+          "mirvSplit": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
       "spawn": {
         "weapon": "weapon.mirv-warhead",
         "count": 5,
-        "spread": 1.2
+        "spread": 2.2,
+        "stagger": 0.35
       }
     }
   ],

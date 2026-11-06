@@ -20,7 +20,12 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 110,
-        "damage": 35
+        "damage": 35,
+        "effects": {
+          "pressureWave": {
+            "strength": 1.2
+          }
+        }
       }
     },
     {
@@ -37,6 +42,9 @@
           },
           "shake": {
             "strength": 5
+          },
+          "geyser": {
+            "strength": 1.3
           }
         }
       }

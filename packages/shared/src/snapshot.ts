@@ -42,6 +42,8 @@ export interface TankView {
   alive: boolean;
   /** Power 0–1000 (for aim previews). */
   power: number;
+  /** Own turns left frosted (0 = not): its shots fire at no more than half power. */
+  chill: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }
@@ -61,9 +63,15 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic';
   /** Turns left. */
   turns: number;
+  /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */
+  puffs?: number[];
+  /** Gas clouds: puff radius in cells. */
+  puffRadius?: number;
+  /** Gas clouds: ticks since the cloud burst out. */
+  age?: number;
 }
 
 export type EntityView = TankView | ProjectileView | ZoneView;
@@ -86,7 +94,7 @@ export interface RenderSnapshot {
    * Sim debris particles (cells in flight that become terrain where they land). Positions are
    * fixed-point (divide by FP); only the first `count` entries are valid. Read-only.
    */
-  debris: { count: number; x: Int32Array; y: Int32Array; material: Uint8Array };
+  debris: { count: number; x: Int32Array; y: Int32Array; vx: Int32Array; material: Uint8Array };
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   theme: string;

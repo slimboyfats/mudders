@@ -6,6 +6,7 @@ import type { Renderer } from '../render';
 import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Scoreboard, Shop } from './Shop';
+import { CHILL_POWER } from '@mudders/sim';
 
 interface Props {
   hud: HudState;
@@ -218,6 +219,11 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             disabled={!canAim}
             onChange={(v) => t && aim(t.angle, v)}
           />
+          {t && t.chill > 0 && (
+            <span className="frost-note" role="status">
+              ❄ Frosted: max power {CHILL_POWER}
+            </span>
+          )}
         </div>
         <div className="weapons" role="listbox" aria-label="Weapons">
           {t?.inventory.map((w) => (
