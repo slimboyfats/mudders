@@ -1,0 +1,57 @@
+{
+  "id": "audio.tsunami",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tsunami",
+    "description": "A deep rising rumble with a hissing surge on top: the ground rearing up into a Dirt Tsunami.",
+    "since": "core@0.15.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 38,
+        "to": 70,
+        "hold": 1.2,
+        "release": 0.8,
+        "volume": 0.5,
+        "vibrato": {
+          "rate": 6,
+          "depth": 0.3
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 200,
+        "to": 1400,
+        "hold": 1.4,
+        "release": 0.7,
+        "volume": 0.35
+      },
+      {
+        "wave": "square",
+        "freq": 55,
+        "to": 82,
+        "delay": 0.1,
+        "hold": 1.0,
+        "release": 0.6,
+        "volume": 0.16,
+        "arp": [0, 0, 7, 12],
+        "arpRate": 0.09
+      }
+    ],
+    "radiusRef": 24
+  },
+  "on": [
+    {
+      "event": "tsunamiRise"
+    }
+  ],
+  "gap": 0.5
+}
