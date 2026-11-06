@@ -1,0 +1,22 @@
+{
+  "id": "material.packed-mud",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Packed mud",
+    "description": "Mud a blast has squeezed down. Denser and darker, it takes about twice the blast to dig out again and does not pack any further.",
+    "since": "core@0.11.0",
+    "color": "#3a2f22"
+  },
+  "cell": 24,
+  "settle": "fall",
+  "density": 130,
+  "strength": {
+    "blast": 1.9,
+    "kinetic": 1.6,
+    "shock": 1.5,
+    "dig": 1.4,
+    "corrosive": 12
+  },
+  "cohesion": 0,
+  "coating": false
+}

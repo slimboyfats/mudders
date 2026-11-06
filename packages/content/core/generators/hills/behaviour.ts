@@ -17,6 +17,13 @@ const params = z.strictObject({
   rockPockets: z.number().int().min(0).max(64),
   /** Fraction of the width kept free of tanks at each edge. */
   spawnMargin: z.number().min(0).max(0.4),
+  /**
+   * Mud in the low ground (gen.marsh): columns whose surface lies more than `mudLevel` (fraction
+   * of map height) below the map's mean surface get a mud layer that thickens with depth, up to
+   * `mudDepth` cells.
+   */
+  mudDepth: z.number().int().min(0).max(64).default(0),
+  mudLevel: z.number().min(-0.2).max(0.3).default(0),
 });
 type Params = z.infer<typeof params>;
 
@@ -102,6 +109,20 @@ export default defineGenerator<Params>({
       const sandBottom = sandN[x]! > sandCut ? s + p.sandDepth : s;
       for (let y = s; y < H; y++) {
         mat[y * W + x] = y >= rockTop ? rock : y < sandBottom ? sand : dirt;
+      }
+    }
+
+    // Mud pools in the valleys: no rng, so maps without mud are unchanged.
+    if (p.mudDepth > 0) {
+      const mud = mats.cellOf('material.mud');
+      let sum = 0;
+      for (let x = 0; x < W; x++) sum += surface[x]!;
+      const line = Math.floor(sum / W) + Math.round(p.mudLevel * H);
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        if (s < line) continue;
+        const bottom = Math.min(H, s + Math.min(p.mudDepth, 8 + (s - line)));
+        for (let y = s; y < bottom; y++) if (mat[y * W + x] !== rock) mat[y * W + x] = mud;
       }
     }
 

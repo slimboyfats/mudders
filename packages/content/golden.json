@@ -1,5 +1,5 @@
 {
-  "contentHash": "3892fa50fb240f80",
+  "contentHash": "c4a6802d7e8e6e36",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -169,6 +169,10 @@
       "ticks": 11,
       "hash": "cdc70e97fa2ad8dc"
     },
+    "gen.marsh": {
+      "ticks": 162,
+      "hash": "7ea98a4b47e46d2b"
+    },
     "gen.village": {
       "ticks": 149,
       "hash": "d47754506358faeb"
@@ -217,6 +221,10 @@
       "ticks": 368,
       "hash": "1ea1612a5cea1662"
     },
+    "material.mud": {
+      "ticks": 162,
+      "hash": "7ea98a4b47e46d2b"
+    },
     "material.napalm": {
       "ticks": 341,
       "hash": "1acdaed02b651e67"
@@ -224,6 +232,10 @@
     "material.oil": {
       "ticks": 608,
       "hash": "7404264082ddfbde"
+    },
+    "material.packed-mud": {
+      "ticks": 309,
+      "hash": "33cbc2ea89c50b45"
     },
     "material.rock-lit": {
       "ticks": 687,

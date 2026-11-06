@@ -151,6 +151,20 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Compaction (mud): when a crater is carved out of this material, the blast packs the cells
+   * beneath each carved column instead of only blowing them away. Per column, `ratio` cells of
+   * this material below the crater floor become `into` for every carved cell (at least one), so
+   * the ground sinks in as a dent with a packed, tougher floor.
+   */
+  compact: z
+    .strictObject({
+      into: MaterialRefSchema,
+      ratio: z.number().min(0.1).max(4),
+      /** Thickest packed layer per column. */
+      maxDepth: z.number().int().min(1).max(64),
+    })
+    .optional(),
+  /**
    * Renderer look (cosmetic, never read by the sim): `cycle` steps the cell through these colours
    * every `cycleTicks` ticks in hard bands (lava, water); `hot` makes the air above shimmer.
    */

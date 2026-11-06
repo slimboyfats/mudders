@@ -1,0 +1,27 @@
+{
+  "id": "material.mud",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mud",
+    "description": "Soft, wet ground in the low places. Blasts from above squash it rather than throw it: the crater is shallow and the mud beneath packs down into a tougher floor.",
+    "since": "core@0.11.0",
+    "color": "#5e5640"
+  },
+  "cell": 23,
+  "settle": "fall",
+  "density": 110,
+  "strength": {
+    "blast": 1.35,
+    "kinetic": 0.8,
+    "shock": 0.8,
+    "dig": 0.7,
+    "corrosive": 12
+  },
+  "cohesion": 0,
+  "coating": false,
+  "compact": {
+    "into": "material.packed-mud",
+    "ratio": 1,
+    "maxDepth": 20
+  }
+}
