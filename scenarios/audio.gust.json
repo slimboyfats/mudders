@@ -1,0 +1,32 @@
+{
+  "id": "audio.gust",
+  "schemaVersion": 1,
+  "description": "Gusty wind over an idle field: the whoosh plays on each sharp gust.",
+  "subject": "audio.gust",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "windType": "gusty"
+  },
+  "inputs": [],
+  "capture": {
+    "maxTicks": 600,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}

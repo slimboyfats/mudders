@@ -12,6 +12,7 @@ import {
   type ModeManifest,
   type RenderSnapshot,
   type WallRule,
+  type WindType,
   DAMAGE_TYPES,
   TICK_RATE,
 } from '@mudders/shared';
@@ -76,7 +77,7 @@ export interface MatchRules {
   turnTimer?: number | undefined;
   shopTimer?: number | undefined;
   suddenDeath?: boolean | undefined;
-  windType?: 'none' | 'constant' | 'perTurn' | undefined;
+  windType?: WindType | undefined;
   startingCash?: number | undefined;
   turnCap?: number | undefined;
 }
@@ -376,12 +377,19 @@ export class World implements SimApi {
   readonly turnCap: number;
   readonly turnTimerTicks: number;
   readonly shopTimerTicks: number;
-  readonly windType: 'none' | 'constant' | 'perTurn';
+  readonly windType: WindType;
   readonly suddenDeath: { fromTurn: number; damageScale: number; edgeCells: number } | null;
 
   tick = 0;
   phase: Phase = 'aim';
+  /** Wind now: the turn's base plus the current gust (fixed-point cells/tick²). */
   wind = 0;
+  /** The turn's wind without the gust; what bots aim with. */
+  windBase = 0;
+  /** Current gust on top of `windBase` (gusty wind only). */
+  gust = 0;
+  /** The mode's own numbers between ticks (`ModeApi.memory`). */
+  readonly modeMem: number[] = [];
   /** Rounds finished so far (0 during the first round). */
   round = 0;
   /** Turns taken this round. */
@@ -443,7 +451,7 @@ export class World implements SimApi {
     this.walls = mode.walls;
     this.settleCap = mode.settle.maxCellsPerTick;
     this.windLocked = options.wind !== undefined;
-    if (options.wind !== undefined) this.wind = toFixed(options.wind);
+    if (options.wind !== undefined) this.wind = this.windBase = toFixed(options.wind);
 
     const rules = options.rules ?? {};
     this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
@@ -500,13 +508,21 @@ export class World implements SimApi {
 
     this.modeApi = {
       rng: this.rng,
+      now: () => this.tick,
+      emit: (type, x, y, radius, params) => this.emit(type, x, y, radius, params),
       players: options.players,
       alive: (p) => this.tanks[p]?.alive ?? false,
       team: (p) => options.teams?.[p] ?? p,
       turn: () => this.turn,
       setWind: (w) => {
-        if (!this.windLocked) this.wind = w;
+        if (!this.windLocked) this.windBase = w;
+        this.wind = this.windBase + this.gust;
       },
+      setGust: (g) => {
+        this.gust = g;
+        this.wind = this.windBase + g;
+      },
+      memory: this.modeMem,
       windMax: toFixed(mode.wind.max),
       windType: this.windType,
     };
@@ -921,6 +937,7 @@ export class World implements SimApi {
       return;
     }
     if (this.phase === 'aim') this.stepAim();
+    this.modeB.onTick?.(this.modeApi, this.modeParams);
 
     this.stepProjectiles();
     this.stepOps();
@@ -1247,7 +1264,7 @@ export class World implements SimApi {
       gear: this.gearView(t),
       width: this.grid.width,
       height: this.grid.height,
-      wind: this.wind,
+      wind: this.windBase,
       gravity: this.gravity,
       maxSpeed: this.muzzleSpeed(t, 1000),
       surfaceY: (x) => this.grid.surfaceY(x),
@@ -1314,7 +1331,24 @@ export class World implements SimApi {
    * shot itself would change. Uses the weapon's own flight behaviour and the same tracer as real
    * shells, so it is exact for the first impact.
    */
+  /** Where a shot would land in the turn's base wind (gusts are unforeseeable), touching nothing. */
   predict(t: Tank, weapon: number, angle: number, power: number, from?: AiSpot): ShotPrediction {
+    const now = this.wind;
+    this.wind = this.windBase;
+    try {
+      return this.predictNow(t, weapon, angle, power, from);
+    } finally {
+      this.wind = now;
+    }
+  }
+
+  private predictNow(
+    t: Tank,
+    weapon: number,
+    angle: number,
+    power: number,
+    from?: AiSpot,
+  ): ShotPrediction {
     const w = this.weapons[weapon] ?? this.weapons[0]!;
     const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
     const c = cosDeci(a);
@@ -2469,6 +2503,11 @@ export class World implements SimApi {
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
     h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);
     h.num(this.contactDone ? 1 : 0);
+    // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes
+    if (this.gust !== 0 || this.modeMem.length > 0) {
+      h.num(this.windBase).num(this.gust).num(this.modeMem.length);
+      for (const v of this.modeMem) h.num(v);
+    }
     for (const t of this.tanks) {
       h.num(t.player)
         .num(t.alive ? 1 : 0)

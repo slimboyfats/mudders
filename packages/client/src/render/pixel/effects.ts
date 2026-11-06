@@ -311,6 +311,47 @@ export class EffectSystem {
         }
         break;
       }
+      case 'gust': {
+        // a change of wind: dashes streak across the sky and dust lifts off the ridges
+        const rng = this.rngFor(e, 13);
+        const dir = e.params.dir ?? 1;
+        const k = Math.max(0.2, (e.params.strength ?? 500) / 1000);
+        const W = this.probe.width;
+        const H = this.probe.height;
+        const n = Math.round((10 + 26 * k) * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          const x = rng.range(0, W);
+          const ground = this.surfaceNear(Math.floor(x), H * 0.5, H * 0.5);
+          const top = ground > 0 ? ground - 4 : H * 0.7;
+          this.particles.add({
+            x,
+            y: rng.range(H * 0.04, Math.max(H * 0.06, top)),
+            vx: dir * rng.range(1.6, 3.2) * (0.6 + k),
+            vy: 0,
+            life: rng.range(30, 60),
+            size: Math.round(rng.range(6, 18)),
+            color: 0xeef4ff,
+            kind: PKind.Streak,
+          });
+        }
+        const dust = Math.round(8 * k * this.mult);
+        for (let i = 0; i < dust; i++) {
+          const x = Math.floor(rng.range(0, W));
+          const y = this.surfaceNear(x, H * 0.5, H * 0.5);
+          if (y < 0) continue;
+          this.particles.add({
+            x,
+            y: y - 1,
+            vx: dir * rng.range(0.5, 1.4),
+            vy: -rng.range(0.05, 0.3),
+            life: rng.range(25, 45),
+            size: rng.range(2, 4),
+            color: this.dustColor(x, y + 1),
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
       case 'creak':
       case 'collapse': {
         // dust off a cracking or collapsing prop: pixel dust puffs across its footprint
