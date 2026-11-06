@@ -204,6 +204,11 @@ export interface Tank extends TankHandle {
   sunk: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
+  /**
+   * Own turns left glued (Glue Bomb): the tank can't drive, and nothing shoves, slides or carries
+   * it sideways (blasts, slick ground, terrain ops). It still falls if the ground goes.
+   */
+  glue: number;
   /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
   driveLeft: number;
   driving: number;
@@ -248,6 +253,7 @@ interface RtExplosion {
   linear: boolean;
   push: number;
   chill: number;
+  glue: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -614,6 +620,7 @@ export class World implements SimApi {
       linear: e.falloff === 'linear',
       push: e.push,
       chill: e.chill,
+      glue: e.glue,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -702,6 +709,7 @@ export class World implements SimApi {
         fallVel: 0,
         sunk: 0,
         chill: 0,
+        glue: 0,
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
@@ -807,6 +815,7 @@ export class World implements SimApi {
       tank.fallVel = 0;
       tank.sunk = 0;
       tank.chill = 0;
+      tank.glue = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -871,7 +880,7 @@ export class World implements SimApi {
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
-      !this.tanks.some((t) => t.falling || (t.alive && this.slipDir(t) !== 0))
+      !this.tanks.some((t) => t.falling || (t.alive && t.glue === 0 && this.slipDir(t) !== 0))
     );
   }
 
@@ -920,7 +929,8 @@ export class World implements SimApi {
 
   hold(player: number, x: number, y: number): void {
     const t = this.tanks[player];
-    if (!t || !t.alive) return;
+    // a glued tank can't be picked up (tornado, wave): it stays stuck to the ground
+    if (!t || !t.alive || t.glue > 0) return;
     t.x = Math.max(t.half, Math.min(this.grid.width - 1 - t.half, x));
     t.y = Math.max(t.h, Math.min(this.grid.height - 1, y));
     if (!t.falling) {
@@ -1011,7 +1021,7 @@ export class World implements SimApi {
         this.fire(t);
         break;
       case 'drive':
-        t.driving = t.driveLeft > 0 && t.fuel > 0 ? input.dir : 0;
+        t.driving = t.driveLeft > 0 && t.fuel > 0 && t.glue === 0 ? input.dir : 0;
         break;
       case 'useGear': {
         const g = Object.hasOwn(this.gearIndex, input.gear)
@@ -1285,6 +1295,7 @@ export class World implements SimApi {
       driveLeft: t.driveLeft,
       reach: (dir) => this.reach(t, dir),
       chill: t.chill,
+      glue: t.glue,
       lastShot:
         t.lastShotX >= 0
           ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
@@ -1313,7 +1324,7 @@ export class World implements SimApi {
     const bot = this.bots[t.bot]!;
     t.driving = 0;
     t.botGoal = -1;
-    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0) return;
+    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0 || t.glue > 0) return;
     const goal = bot.b.move(this.aiApi(t), bot.params);
     if (!Number.isInteger(goal) || goal === t.x) return;
     const dir = goal > t.x ? 1 : -1;
@@ -1864,7 +1875,15 @@ export class World implements SimApi {
         if (turns > t.chill) t.chill = turns;
         this.emit('frosted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       }
-      if (e.push > 0 && dx !== 0) {
+      if (e.glue > 0) {
+        // glued for its next own turns; a tank that glues itself stays stuck past this turn too
+        const turns = e.glue + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        if (turns > t.glue) t.glue = turns;
+        t.driving = 0;
+        this.emit('glued', t.x, t.y, t.half, { player: t.player });
+      }
+      // a glued tank holds fast: blasts don't shove it
+      if (e.push > 0 && dx !== 0 && t.glue === 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
         t.x = Math.max(
           t.half,
@@ -1927,6 +1946,10 @@ export class World implements SimApi {
 
   private stepOps(): void {
     if (this.ops.length === 0) return;
+    // terrain ops may shove tanks sideways (quakes, waves, pulls); glued tanks stay put
+    if (this.glueX.length < this.tanks.length) this.glueX = new Int32Array(this.tanks.length);
+    const pin = this.glueX;
+    for (let i = 0; i < this.tanks.length; i++) pin[i] = this.tanks[i]!.x;
     const next: OpInstance[] = [];
     for (const inst of this.ops) {
       inst.t++;
@@ -1940,7 +1963,14 @@ export class World implements SimApi {
       if (more) next.push(inst);
     }
     this.ops = next;
+    for (let i = 0; i < this.tanks.length; i++) {
+      const t = this.tanks[i]!;
+      if (t.glue > 0) t.x = pin[i]!;
+    }
   }
+
+  /** Tank columns before the ops step, so glued tanks can be put back (one slot per player). */
+  private glueX = new Int32Array(8);
 
   /**
    * Hurt a tank. Its shield soaks the hit first (§3.2); `pierce` skips the shield (falling out of
@@ -2149,8 +2179,10 @@ export class World implements SimApi {
       } else if (!t.falling) {
         // once it has started to sink the tank is bogged down and no longer slides
         this.sink(t);
-        if (t.sunk === 0 && this.grid.settling) this.slide(t);
-        if (!t.falling) this.slip(t);
+        if (t.glue === 0) {
+          if (t.sunk === 0 && this.grid.settling) this.slide(t);
+          if (!t.falling) this.slip(t);
+        }
       } else {
         t.falling = false;
         const chute = t.chute;
@@ -2190,7 +2222,8 @@ export class World implements SimApi {
     this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
     this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
     if (t) {
-      t.driveLeft = this.driveCells(t);
+      // a glued tank can't drive this turn
+      t.driveLeft = t.glue > 0 ? 0 : this.driveCells(t);
       t.driving = 0;
     }
   }
@@ -2220,6 +2253,13 @@ export class World implements SimApi {
   private endTurn(): void {
     const active = this.tanks[this.activePlayer];
     if (active && active.chill > 0) active.chill--;
+    if (active && active.glue > 0) {
+      active.glue--;
+      // the glue gives: a little tear of goo as it lets go
+      if (active.glue === 0 && active.alive) {
+        this.emit('unglued', active.x, active.y, active.half, { player: active.player });
+      }
+    }
     this.turn++;
     turnDecay(this.grid, this.mats);
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
@@ -2449,6 +2489,7 @@ export class World implements SimApi {
         alive: t.alive,
         power: t.power,
         chill: t.chill,
+        glue: t.glue,
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -2544,6 +2585,7 @@ export class World implements SimApi {
         .num(t.fallVel)
         .num(t.sunk)
         .num(t.chill)
+        .num(t.glue)
         .num(t.driveLeft)
         .num(t.driving)
         .num(t.fuel)

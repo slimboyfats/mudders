@@ -251,6 +251,11 @@ const explosionBody = {
    * half power. 0 = none.
    */
   chill: z.number().int().min(0).max(3).default(0),
+  /**
+   * Glues tanks in range for this many of their own turns: a glued tank can't drive, and blasts,
+   * slick ground and terrain ops can't move it sideways. 0 = none.
+   */
+  glue: z.number().int().min(0).max(3).default(0),
   terrainOp: EmbeddedTerrainOpSchema.nullable(),
   effects: EffectProfileSchema,
 };
@@ -364,11 +369,11 @@ export const WeaponSchema = z.strictObject({
    * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
-   * smoke, `mud` a dripping glob of wet mud; `trail: false` leaves no trail line.
+   * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue; `trail: false` leaves no trail line.
    */
   look: z
     .strictObject({
-      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor', 'mud']).default('spark'),
+      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor', 'mud', 'glue']).default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */
       size: z.number().min(0.5).max(3).default(1),

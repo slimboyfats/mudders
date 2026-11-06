@@ -46,6 +46,8 @@ export interface TankView {
   power: number;
   /** Own turns left frosted (0 = not): its shots fire at no more than half power. */
   chill: number;
+  /** Own turns left glued (0 = not): it can't drive and nothing shoves it sideways. */
+  glue: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }

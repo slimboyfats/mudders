@@ -1,0 +1,97 @@
+{
+  "id": "weapon.glue-bomb",
+  "schemaVersion": 1,
+  "description": "weapon.glue-bomb fired at the far tank: it is gummed up in a stringy splat, tries to drive away and can't, and shoots back from where it is stuck.",
+  "subject": "weapon.glue-bomb",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.glue-bomb": 5
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.glue-bomb"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 130,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 130,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 900
+      }
+    },
+    {
+      "t": 140,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": -1
+      }
+    },
+    {
+      "t": 190,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": 0
+      }
+    },
+    {
+      "t": 220,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
