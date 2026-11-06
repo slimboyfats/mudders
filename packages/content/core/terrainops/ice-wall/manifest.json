@@ -1,0 +1,24 @@
+{
+  "id": "terrainop.ice-wall",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ice Wall",
+    "description": "Grows a wall of ice up out of the ground, bottom first, with a jagged crystal top. Next to a tank it builds a cage instead: a wall on each side of the hull and a roof that closes in over the turret. The ice never grows into a tank.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.ice-wall",
+  "material": "material.ice",
+  "wall": {
+    "width": 12,
+    "height": 46
+  },
+  "trap": {
+    "reach": 14,
+    "gap": 2,
+    "thick": 5,
+    "headroom": 5,
+    "roof": true
+  },
+  "speed": 1,
+  "maxDepth": 60
+}

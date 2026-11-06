@@ -440,6 +440,40 @@ export class EffectSystem {
         this.puff(e, 0xd8eefa, 10);
         break;
       }
+      case 'iceGrow': {
+        // an ice wall's growth front: ice chips crackle off the rising top, a little cold mist
+        const rng = this.rngFor(e, 71);
+        const n = Math.max(1, Math.round(3 * this.mult));
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-e.radius, e.radius)),
+            y: e.y - 1,
+            vx: rng.range(-0.6, 0.6),
+            vy: -rng.range(0.3, 1.2),
+            life: rng.range(10, 22),
+            size: 1,
+            color: ICE[Math.floor(rng.next() * 4)]!,
+            kind: PKind.Spark,
+          });
+        }
+        if (rng.next() < 0.35 * this.mult) {
+          this.particles.add({
+            x: e.x + rng.range(-e.radius, e.radius),
+            y: e.y,
+            vx: rng.range(-0.2, 0.2),
+            vy: -rng.range(0.02, 0.1),
+            life: rng.range(40, 80),
+            size: rng.range(3, 6),
+            color: rng.next() < 0.5 ? 0xe4f2fc : 0xc2def2,
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
+      case 'iceWall':
+        this.shakeAmp = Math.max(this.shakeAmp, 1.5);
+        this.shakeStart = e.tick;
+        break;
       case 'quake': {
         // ground shudder: shake plus dust kicked up along the surface around the epicentre
         const strength = e.params.strength ?? 1;
