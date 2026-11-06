@@ -41,6 +41,22 @@ interface Front {
   rng: FxRng;
 }
 
+/** A mud geyser's erupting column, fed with particles every tick while it lasts. */
+interface Jet {
+  x: number;
+  y: number;
+  /** Peak height of the column in cells. */
+  height: number;
+  start: number;
+  dur: number;
+  rng: FxRng;
+}
+
+/** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
+const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
+/** Steam puffs over a geyser. */
+const STEAM = [0xe8e4d8, 0xc8c2b2, 0xa8a090] as const;
+
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
   cells: Int32Array;
@@ -83,6 +99,7 @@ export class EffectSystem {
   private glows: Glow[] = [];
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
+  private jets: Jet[] = [];
   private mushrooms: Mushroom[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
@@ -357,6 +374,12 @@ export class EffectSystem {
         this.tintSky([0, 0.2, 0.1, 0.4], 0.2);
         break;
       }
+      case 'eruption':
+        this.eruption(e);
+        break;
+      case 'mudSplat':
+        this.mudSplat(e, e.params.count ?? 12);
+        break;
       case 'tankDeath':
         this.burst(e, 70);
         this.glows.push({
@@ -583,6 +606,146 @@ export class EffectSystem {
     this.tintSky(DT_LOOK[2]!, 0.25 * k);
   }
 
+  /**
+   * A mud geyser blowing: the ground heaves (distortion ring, dust front, brown sky), then a
+   * column of mud chunks and steam roars up out of the vent for `ticks` ticks (fed in `tick`).
+   */
+  private eruption(e: EffectEvent): void {
+    const h = e.params.height ?? 120;
+    const dur = Math.max(20, e.params.ticks ?? 90);
+    this.jets.push({ x: e.x, y: e.y, height: h, start: e.tick, dur, rng: this.rngFor(e, 71) });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 40,
+      maxR: h * 0.9,
+      width: 14,
+      strength: 0.9,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: h * 0.55,
+      start: e.tick,
+      dur: 30,
+      rng: this.rngFor(e, 73),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 5);
+    this.shakeStart = e.tick;
+    this.tintSky([0, 0.34, 0.27, 0.16], 0.45);
+    // the first slug of mud: a fat burst straight up out of the vent
+    const rng = this.rngFor(e, 79);
+    const v0 = Math.sqrt(2 * 0.12 * h);
+    const n = Math.round(140 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const up = rng.range(0.45, 1.08) * v0;
+      this.particles.add({
+        x: e.x + rng.range(-5, 5),
+        y: e.y - rng.range(0, 3),
+        vx: rng.range(-0.7, 0.7),
+        vy: -up,
+        life: rng.range(70, 120),
+        size: rng.next() < 0.5 ? 2 : 1,
+        color: MUD[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** One tick of every live geyser column. */
+  private feedJets(t: number): void {
+    this.jets = this.jets.filter((j) => {
+      const age = t - j.start;
+      if (age > j.dur) return false;
+      if (age < 0) return true;
+      const k = age / j.dur;
+      // full roar, then sputtering down over the last half
+      const power = k < 0.45 ? 1 : Math.max(0.15, 1 - (k - 0.45) / 0.55);
+      const sputter = k > 0.6 && j.rng.next() < 0.35 ? 0.3 : 1;
+      const v0 = Math.sqrt(2 * 0.12 * j.height) * Math.sqrt(power) * sputter;
+      const rng = j.rng;
+      const n = Math.round(26 * power * this.mult) + 1;
+      for (let i = 0; i < n; i++) {
+        // the core of the column is tight; the skin of it peels off wider
+        const skin = i % 4 === 0;
+        this.particles.add({
+          x: j.x + rng.range(-4.5, 4.5),
+          y: j.y - rng.range(0, 2),
+          vx: skin ? rng.range(-0.6, 0.6) : rng.range(-0.14, 0.14),
+          vy: -v0 * rng.range(skin ? 0.5 : 0.82, 1.02),
+          life: rng.range(60, 110),
+          size: skin ? 1 : rng.next() < 0.6 ? 2 : 3,
+          color: MUD[skin ? Math.floor(rng.next() * 2) : 1 + Math.floor(rng.next() * 3)]!,
+          kind: PKind.Chunk,
+        });
+      }
+      // steam boiling off the column all the way up, thickest near the top
+      const hNow = j.height * power * sputter;
+      const ns = Math.round(4 * power * this.mult) + (age % 2 === 0 ? 1 : 0);
+      for (let i = 0; i < ns; i++) {
+        const along = Math.sqrt(rng.next());
+        this.particles.add({
+          x: j.x + rng.range(-4, 4) * (0.5 + along),
+          y: j.y - along * hNow,
+          vx: rng.range(-0.3, 0.3),
+          vy: -rng.range(0.2, 0.9),
+          life: rng.range(50, 100),
+          size: rng.range(3, 6) + along * along * 9,
+          color: STEAM[Math.floor(rng.next() * 3)]!,
+          kind: PKind.Smoke,
+        });
+      }
+      // mud boiling over the lip of the vent
+      if (age % 3 === 0) {
+        for (const side of [-1, 1]) {
+          this.particles.add({
+            x: j.x + side * rng.range(2, 5),
+            y: j.y - 1,
+            vx: side * rng.range(0.4, 1.4),
+            vy: -rng.range(0.6, 1.6),
+            life: 40,
+            size: 1,
+            color: MUD[1 + Math.floor(rng.next() * 2)]!,
+            kind: PKind.Chunk,
+          });
+        }
+      }
+      return true;
+    });
+  }
+
+  /** A glob of mud landing: a wet crown of mud thrown sideways and a puff of steam. */
+  private mudSplat(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 59);
+    const n = Math.round(count * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + side * rng.range(0, 2),
+        y: e.y - 1,
+        vx: side * rng.range(0.3, 1.3),
+        vy: -rng.range(0.5, 1.8),
+        life: rng.range(25, 45),
+        size: 1,
+        color: MUD[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 2; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y - 2,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.2, 0.5),
+        life: rng.range(30, 50),
+        size: rng.range(2, 4),
+        color: STEAM[1]!,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
@@ -670,7 +833,7 @@ export class EffectSystem {
    * surface, flickering, with sparks spat off them.
    */
   private arcs(e: EffectEvent, k: number): void {
-    const rng = this.rngFor(e, 59);
+    const rng = this.rngFor(e, 83);
     const reach = Math.max(12, e.radius) * 2.5 * k;
     const n = 4 + Math.round(2 * k);
     for (let a = 0; a < n; a++) {
@@ -785,6 +948,7 @@ export class EffectSystem {
 
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
+    this.feedJets(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
       const k = (t - f.start) / f.dur;
@@ -921,6 +1085,7 @@ export class EffectSystem {
     this.glows = [];
     this.fronts = [];
     this.bolts = [];
+    this.jets = [];
     this.mushrooms = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;

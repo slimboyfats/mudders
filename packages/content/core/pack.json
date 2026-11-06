@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -22,9 +22,11 @@
     "audio.fire-water",
     "audio.fire-zap",
     "audio.freeze",
+    "audio.geyser",
     "audio.hiss",
     "audio.implode",
     "audio.land",
+    "audio.mud-splat",
     "audio.music-battle",
     "audio.music-title",
     "audio.resonate",
@@ -136,6 +138,8 @@
     "weapon.mirv",
     "weapon.mirv-warhead",
     "weapon.missile",
+    "weapon.mud-geyser",
+    "weapon.mud-geyser-glob",
     "weapon.mystery",
     "weapon.napalm",
     "weapon.napalm-glob",

@@ -1,0 +1,54 @@
+{
+  "id": "audio.geyser",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Geyser",
+    "description": "A deep gulp, then a long roaring hiss as a mud geyser erupts.",
+    "since": "core@0.14.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 180,
+        "to": 45,
+        "release": 0.35,
+        "volume": 0.32
+      },
+      {
+        "wave": "noise",
+        "freq": 300,
+        "to": 3200,
+        "delay": 0.12,
+        "attack": 0.15,
+        "hold": 0.6,
+        "release": 1.1,
+        "volume": 0.26
+      },
+      {
+        "wave": "triangle",
+        "freq": 90,
+        "to": 70,
+        "delay": 0.1,
+        "hold": 0.5,
+        "release": 0.9,
+        "volume": 0.22,
+        "vibrato": {
+          "rate": 14,
+          "depth": 3
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "eruption"
+    }
+  ]
+}
