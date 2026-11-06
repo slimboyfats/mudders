@@ -27,6 +27,7 @@
       "light": "#f6f8fc",
       "shadow": "#9aa6c0"
     },
-    "ranges": ["#c6d0e2", "#98a8c2", "#5f708c"]
+    "ranges": ["#c6d0e2", "#98a8c2", "#5f708c"],
+    "ground": "#d2d8e6"
   }
 }

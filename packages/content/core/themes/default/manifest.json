@@ -27,6 +27,8 @@
       "shadow": "#3b2a58"
     },
     "ranges": ["#4a3b6e", "#36294f", "#21192f"],
-    "grass": "#4d6b38"
+    "grass": "#4d6b38",
+    "ground": "#9a86ae",
+    "flowers": 0.3
   }
 }

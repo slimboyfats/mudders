@@ -28,6 +28,8 @@
       "shadow": "#3a1870"
     },
     "ranges": ["#2a1a66", "#1c1050", "#100834"],
-    "grass": "#2ee06a"
+    "grass": "#2ee06a",
+    "ground": "#7a6cc0",
+    "flowers": 0.5
   }
 }

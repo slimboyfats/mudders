@@ -532,6 +532,10 @@ export const ThemeSchema = z.strictObject({
       ranges: z.array(HexColorSchema).max(3).default([]),
       /** Grass on `topsoil` materials; without it they keep their own colour. */
       grass: HexColorSchema.optional(),
+      /** Tint multiplied into the ground's colours (night themes dim and cool it). */
+      ground: HexColorSchema.optional(),
+      /** Flower specks in the grass, 0–1. */
+      flowers: z.number().min(0).max(1).optional(),
     })
     .default({ ranges: [] }),
 });

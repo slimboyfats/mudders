@@ -140,6 +140,8 @@ export class PixelRenderer implements Renderer {
       | 'u_snow'
       | 'u_look'
       | 'u_grass'
+      | 'u_ground'
+      | 'u_flowers'
     >
   >;
   private uPost!: ReturnType<
@@ -231,6 +233,8 @@ export class PixelRenderer implements Renderer {
       'u_snow',
       'u_look',
       'u_grass',
+      'u_ground',
+      'u_flowers',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -478,13 +482,13 @@ export class PixelRenderer implements Renderer {
           s.coating,
         );
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 12 up for soil depth, 1 down/sideways): widen the box
+        // shading reads neighbours (up to 32 up for soil depth, 1 down/sideways): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - 1));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
         d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + 1));
-        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 12));
+        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 32));
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
@@ -772,6 +776,8 @@ export class PixelRenderer implements Renderer {
     gl.uniform1f(this.uTer.u_snow, this.theme.snow);
     const g = this.theme.grass;
     gl.uniform4f(this.uTer.u_grass, ...rgb(g < 0 ? 0 : g), g < 0 ? 0 : 1);
+    gl.uniform3fv(this.uTer.u_ground, rgb(this.theme.ground));
+    gl.uniform1f(this.uTer.u_flowers, this.theme.flowers);
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.uniform1i(this.uTer.u_look, 3);

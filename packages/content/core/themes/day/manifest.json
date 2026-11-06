@@ -7,8 +7,8 @@
     "since": "core@0.8.0"
   },
   "sky": {
-    "top": "#3d7fd0",
-    "bottom": "#b8dcf0"
+    "top": "#4b9be0",
+    "bottom": "#c4e8f2"
   },
   "letterbox": "#0a1420",
   "light": "#4a4436",
@@ -23,10 +23,12 @@
   "scenery": {
     "clouds": {
       "cover": 0.55,
-      "light": "#fbfcf4",
-      "shadow": "#93afd2"
+      "light": "#fbfdf6",
+      "shadow": "#93b8cc"
     },
-    "ranges": ["#7d98c2", "#6b9a9a", "#3f6e4c"],
-    "grass": "#5e9a34"
+    "ranges": ["#94b2c8", "#7fa39a", "#557f58"],
+    "grass": "#5e8e30",
+    "flowers": 0.7,
+    "ground": "#e2d6c4"
   }
 }

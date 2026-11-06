@@ -12,6 +12,8 @@ float hash(ivec2 c) {
 }
 const int BAYER[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
 float bayer(ivec2 c) { return (float(BAYER[(c.y & 3) * 4 + (c.x & 3)]) + 0.5) / 16.0; }
+// ordered dither squeezed into a narrow seam between two tones (wide dither reads as cloth)
+float narrow(ivec2 c) { return 0.5 + (bayer(c) - 0.5) * 0.3; }
 float vnoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = p - i;
@@ -199,13 +201,17 @@ vec4 cumulus(vec2 p, float slotW, float baseY, float size, int seed) {
     float cx = j * slotW + slotW * 0.5 + (hash(js + ivec2(0, 2)) - 0.5) * slotW * 0.4;
     float by = floor(baseY - hash(js + ivec2(0, 3)) * baseY * 0.25);
     if (p.y > by) continue;
-    for (int i = 0; i < 7; i++) {
-      float t = float(i) / 6.0 - 0.5;
+    // cauliflower: a row of small billows along the base and a stack of rounder ones on top
+    for (int i = 0; i < 12; i++) {
+      bool top = i >= 7;
+      float t = top ? float(i - 7) / 4.0 * 0.6 - 0.3 : float(i) / 6.0 - 0.5;
+      t += (hash(js + ivec2(i + 1, 6)) - 0.5) * 0.08;
       float hr = hash(js + ivec2(i + 1, 4));
-      float r = w * (0.2 + 0.14 * hr) * (1.0 - abs(t) * 1.1);
-      vec2 c = vec2(cx + t * w * 0.85, by - r * (0.35 + 0.35 * hash(js + ivec2(i + 1, 5))));
+      float r = top ? w * (0.13 + 0.09 * hr) * (1.0 - abs(t) * 1.2) : w * (0.11 + 0.07 * hr) * (1.0 - abs(t) * 0.8);
+      float lift = top ? w * (0.13 + 0.1 * hash(js + ivec2(i + 1, 7))) * (1.0 - abs(t) * 2.0) : 0.0;
+      vec2 c = vec2(cx + t * w, by - r * (0.45 + 0.35 * hash(js + ivec2(i + 1, 5))) - lift);
       vec2 l = (p - c) / r;
-      float rim = 1.0 + (vnoise(p / 5.0 + float(seed)) - 0.5) * 0.28;
+      float rim = 1.0 + (vnoise(p / 6.0 + float(seed)) - 0.5) * 0.3;
       float k = rim - length(l);
       // the later (front) puff wins where they overlap, so lobes read as separate billows
       if (k > 0.0) best = vec4(l, 1.0, by - p.y);
@@ -240,13 +246,17 @@ vec4 clouds(vec2 p, ivec2 tx, vec3 sky) {
   if (cl.z == 0.0) return vec4(sky, 1.0);
   // tones from the whole cloud's outline: a lit rim where the sun side (up-left) is open sky,
   // a mid body, the lower part of each billow shaded, and a dark rim along the flat base
-  vec3 mid = mix(u_cloudLight, u_cloudShadow, 0.4);
+  vec3 lo = mix(u_cloudLight, u_cloudShadow, 0.22);
+  vec3 mid = mix(u_cloudLight, u_cloudShadow, 0.5);
   bool checker = ((tx.x + tx.y) & 1) == 0;
   vec3 c = mid;
-  // rounded lobes: a lit cap toward the sun inside each billow, a shaded crescent below it
-  if (length(cl.xy + vec2(0.22, 0.3)) < 0.78) c = u_cloudLight;
-  else if (length(cl.xy - vec2(-0.1, -0.3)) > 0.95) c = mix(mid, u_cloudShadow, 0.55);
-  if (cumulus(o + vec2(-4.0, -6.0), slot, base, size, seed).z == 0.0) c = u_cloudLight;
+  // four tones per billow: a bright cap toward the sun, a light body, a mid flank and a cool
+  // shaded underside
+  float dh = length(cl.xy + vec2(0.3, 0.42));
+  if (dh < 0.5) c = u_cloudLight;
+  else if (length(cl.xy + vec2(0.16, 0.22)) < 0.86) c = lo;
+  else if (cl.y > 0.25) c = mix(mid, u_cloudShadow, 0.6);
+  if (cumulus(o + vec2(-2.0, -4.0), slot, base, size, seed).z == 0.0) c = u_cloudLight;
   if (cl.w < 2.0 || (cl.w < 4.0 && checker)) c = u_cloudShadow;
   return vec4(mix(c, sky, far * 0.42), 0.0);
 }
@@ -297,12 +307,18 @@ vec4 ranges(vec2 p, ivec2 tx, vec4 c) {
     float sl = rangeTop(lx + 1.0, style) - rangeTop(lx - 1.0, style);
     // faceted faces: slopes toward the sun lit, the others shaded; snowy light on the high peaks
     if (style == 0) {
-      rc *= sl < 0.0 ? 1.12 : 0.9;
+      rc *= sl < 0.0 ? 1.18 : 0.8;
+      // rock streaks running down the faces, and light caught on the high peaks
+      float st = mod(lx * (sl < 0.0 ? 0.5 : -0.5) + ly, 10.0);
+      if (st < 2.0 && hash(ivec2(int(lx) >> 2, 61)) > 0.4) rc *= 0.88;
+      float peak = u_horizon - rangeTop(lx, style);
+      float cap = 5.0 + floor(vnoise(vec2(lx / 6.0, 4.5)) * 7.0);
+      if (peak > u_map.y * 0.13 && ly - top < cap) rc = mix(u_cloudLight, rc, sl < 0.0 ? 0.08 : 0.45);
     } else if (style == 1 && ly - top < 4.0 && sl < 0.0) rc *= 1.07;
     // mist pooling in the valleys: hard dithered bands toward the sky colour going down
     float k = clamp((ly - top) / (u_map.y * 0.2), 0.0, 1.0);
     float q = floor(k * 4.0 + bayer(tx)) / 4.0;
-    c = vec4(mix(rc, c.rgb, q * (0.5 - 0.12 * float(style))), 0.0);
+    c = vec4(mix(rc, c.rgb, q * (0.38 - 0.1 * float(style))), 0.0);
   }
   return c;
 }
@@ -310,9 +326,18 @@ void main() {
   ivec2 tx = ivec2(floor(gl_FragCoord.xy));
   vec2 p = vec2(tx) * 2.0;   // map cells, y down (the target is drawn y-down via the texel row)
   float k = clamp(p.y / u_map.y, 0.0, 1.0);
-  // banded gradient: 16 hard steps with ordered dither between neighbours
-  float q = floor((k * k * (3.0 - 2.0 * k)) * 16.0 + bayer(tx)) / 16.0;
+  // banded gradient: 24 hard steps with a narrow ordered-dither seam between neighbours
+  float q = floor((k * k * (3.0 - 2.0 * k)) * 24.0 + narrow(tx)) / 24.0;
   vec3 sky = mix(u_top, u_bottom, q);
+  // pale haze over the horizon, in three soft steps
+  float hz = min(u_horizon, u_map.y * 0.85);
+  float hk = clamp((p.y - hz * 0.5) / (hz * 0.5), 0.0, 1.0);
+  sky = mix(sky, mix(u_bottom, vec3(1.0), 0.3), floor(hk * 3.0 + narrow(tx)) / 3.0 * 0.55);
+  // thin stratus streaks in the low sky
+  if (u_cloud.x > 0.0 && p.y > hz * 0.4 && p.y < hz * 0.95 && (tx.y % 4) == 0) {
+    float sx = p.x - floor((u_cam.x - u_map.x * 0.5) * 0.9 / 2.0) * 2.0 + floor(u_cloud.y * 0.25);
+    if (vnoise(vec2(sx / 70.0, float(tx.y) * 0.37)) > 0.66) sky = mix(sky, u_cloudLight, 0.28);
+  }
   vec4 c = clouds(p, tx, sky);
   o = ranges(p, tx, c);
 }`;
@@ -351,6 +376,8 @@ uniform float u_wet;
 uniform float u_snow;
 uniform sampler2D u_look;
 uniform vec4 u_grass;
+uniform vec3 u_ground;       // theme tint multiplied into still ground
+uniform float u_flowers;     // flower specks in the grass, 0–1
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -358,6 +385,14 @@ uint mat(ivec2 c) {
   return texelFetch(u_terrain, c, 0).r;
 }
 ${NOISE}
+vec3 turf(vec3 gr, ivec2 ap, float k) {
+  // strokes four art pixels long, staggered row to row, in three tones
+  int sx = (ap.x + (ap.y & 3) * 3) >> 2;
+  float h = hash(ivec2(sx, ap.y + 911));
+  float t = h > 0.7 ? 1.08 : h > 0.3 ? 1.0 : 0.9;
+  vec3 c = gr * vec3(0.78, 0.82, 0.86) * mix(0.82, 0.5, k) * t;
+  return mix(c, c * vec3(0.9, 1.0, 1.15), k);
+}
 void main() {
   if (v_map.x < 0.0 || v_map.y < 0.0 || v_map.x >= u_map.x || v_map.y >= u_map.y) discard;
   ivec2 c = ivec2(floor(v_map));
@@ -366,53 +401,91 @@ void main() {
   vec3 base = texelFetch(u_palette, ivec2(int(m), 0), 0).rgb;
   vec4 lk = texelFetch(u_look, ivec2(int(m), 0), 0);
   bool still = lk.r == 0.0;
-  float g = (hash(c) - 0.5) * u_grain;
-  // rows down to open air above (1 = surface), 0 = deeper than 12
+  // texture works on "art pixels" of 2×2 cells so it reads as chunky pixel art; edges stay per cell
+  ivec2 ap = c >> 1;
+  float g = (hash(ap) - 0.5) * u_grain;
+  // rows down to open air above (1 = surface), 0 = deeper than 32
   int sd = 0;
-  for (int k = 1; k <= 12; k++) if (mat(c + ivec2(0, -k)) == 0u) { sd = k; break; }
+  for (int k = 1; k <= 32; k++) if (mat(c + ivec2(0, -k)) == 0u) { sd = k; break; }
   // lit surface: cells with air above, a softer second row
   float lit = sd == 1 ? 0.22 : sd == 2 ? 0.09 : 0.0;
   // overhang underside
   float under = mat(c + ivec2(0, 1)) == 0u && c.y < int(u_map.y) - 1 ? -0.16 : 0.0;
   // side faces facing open air
   float side = (mat(c + ivec2(-1, 0)) == 0u || mat(c + ivec2(1, 0)) == 0u) ? 0.05 : 0.0;
-  // depth: a little by map row, more by distance under the surface, in dithered hard bands
-  float deep = sd == 0 ? 1.0 : float(sd - 1) / 11.0;
-  float band = floor(deep * 3.0 + bayer(c)) / 3.0;
-  float depth = -0.12 * clamp(v_map.y / u_map.y, 0.0, 1.0) - 0.14 * band;
+  // depth: by map row (cooler and darker going down) and by distance under the surface, in
+  // dithered hard bands
+  float deep = sd == 0 ? 1.0 : float(sd - 1) / 31.0;
+  float band = floor(deep * 3.0 + narrow(ap)) / 3.0;
+  float yk = clamp(v_map.y / u_map.y, 0.0, 1.0);
+  float yb = floor(yk * 5.0 + narrow(ap)) / 5.0;
+  float depth = -0.42 * yb - 0.14 * band;
   vec3 col = base * (1.0 + g + under + depth);
+  col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
+  bool soil = still && lk.a > 0.5;
   if (still) {
-    // mottled soil: two noise scales quantised to three tones with ordered dither between them
-    float mot = vnoise(vec2(c) / 13.0) * 0.6 + vnoise(vec2(c) / 4.5 + 7.0) * 0.4;
-    float tone = floor(mot * 3.0 + bayer(c) - 0.5) - 1.0;
-    col *= 1.0 + 0.07 * clamp(tone, -1.0, 1.0);
-    // soil strata: wavy darker seams, and pebbles in 2×2 clumps
-    float sy = float(c.y) + floor(vnoise(vec2(float(c.x) / 23.0, 3.5)) * 7.0);
-    if (mod(sy, 9.0) < 1.0 && hash(c + ivec2(11, 2)) > 0.25) col *= 0.9;
-    if (sd == 0 || sd > 4) {
-      ivec2 pb = c >> 1;
-      if (hash(pb + ivec2(91, 7)) > 0.955) {
-        ivec2 o2 = c & 1;
-        col *= o2.y == 0 ? (o2.x == 0 ? 1.16 : 1.06) : (o2.x == 0 ? 0.96 : 0.86);
+    // mottled ground: two noise scales quantised to four tones with ordered dither between them
+    vec2 fp = vec2(ap);
+    float mot = vnoise(fp / 7.0) * 0.6 + vnoise(fp / 2.5 + 7.0) * 0.4;
+    float tone = clamp(floor(mot * 4.0 + narrow(ap) - 0.5) - 1.5, -1.5, 1.5);
+    col *= 1.0 + 0.075 * tone;
+    // strata: wavy seams, lighter and darker in turn
+    float sy = float(ap.y) + floor(vnoise(vec2(float(ap.x) / 14.0, 3.5)) * 6.0);
+    float seam = mod(sy, 11.0);
+    // seams come and go along their length so they read as layers, not a weave
+    float run = hash(ivec2(ap.x / 9, int(floor(sy / 11.0)) + 300));
+    if (run > 0.45 && seam < 1.0 && hash(ap + ivec2(11, 2)) > 0.15) col *= 0.86;
+    else if (run > 0.45 && seam < 2.0 && hash(ap + ivec2(12, 2)) > 0.5) col *= 1.07;
+    // pebbles: a lit top-left art pixel over a shaded one
+    if (sd == 0 || sd > 10) {
+      ivec2 pb = ap >> 1;
+      if (hash(pb + ivec2(91, 7)) > 0.95) {
+        ivec2 o2 = ap & 1;
+        col *= o2.y == 0 ? (o2.x == 0 ? 1.22 : 1.08) : (o2.x == 0 ? 0.94 : 0.8);
       }
+    }
+    // topsoil: a dark rich band under the turf, fading through dither into the subsoil
+    if (soil && sd > 0 && sd <= 30) {
+      float k = sd <= 22 ? 1.0 : (bayer(ap) > float(sd - 22) / 9.0 ? 1.0 : 0.0);
+      col = mix(col, col * vec3(0.72, 0.66, 0.62), k);
     }
   }
   float rim = lit + side;
-  if (still && u_grass.a > 0.0 && lk.a > 0.5 && sd > 0 && sd <= 6) {
-    // grass on topsoil: a bright blade row, a body, a shaded base and roots dithered into the soil
-    float patchy = vnoise(vec2(float(c.x) / 11.0, 1.5));
-    vec3 gr = u_grass.rgb * (1.0 + g * 0.5);
-    if (patchy > 0.64) gr = mix(gr, gr * vec3(1.2, 1.12, 0.66), 0.55);
-    else if (patchy < 0.3) gr *= vec3(0.88, 0.97, 1.02);
-    float h = hash(c + ivec2(3, 8));
-    if (sd == 1) col = gr * (h > 0.7 ? 1.22 : 1.1);
-    else if (sd == 2) col = gr * (h > 0.85 ? 1.1 : 0.98);
-    else if (sd == 3) col = gr * (h > 0.2 ? 0.86 : 0.98);
-    else if (sd == 4) col = h > 0.3 ? gr * 0.72 : col * 0.8;
-    else if (sd == 5) col = h > 0.65 ? gr * 0.62 : col * 0.84;
-    else if (h > 0.88) col = gr * 0.58;
-    rim *= 0.4;
+  if (soil && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
+    // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
+    // with depth and dithering into the topsoil at its foot
+    float k = float(sd - 10) / 14.0;
+    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(u_grass.rgb, ap, k);
   }
+  if (soil && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
+    // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
+    // roots dithered into the topsoil
+    float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
+    vec3 gr = u_grass.rgb;
+    if (patchy > 0.66) gr = mix(gr, gr * vec3(1.22, 1.14, 0.62), 0.6);
+    else if (patchy < 0.3) gr *= vec3(0.86, 0.96, 1.04);
+    // blades: each column of cells carries its own length and shade
+    float bl = hash(ivec2(c.x, 401));
+    float stroke = bl > 0.66 ? 1.1 : bl > 0.33 ? 0.97 : 0.86;
+    float len = 3.0 + floor(hash(ivec2(c.x, 402)) * 4.0);
+    float h = hash(c + ivec2(3, 8));
+    if (sd == 1) col = gr * (h > 0.6 ? 1.3 : 1.16);
+    else if (float(sd) <= len) col = gr * stroke;
+    else if (float(sd) <= len + 2.0) col = gr * (stroke * 0.72);
+    else if (h > 0.55) col = gr * 0.6;
+    else col = turf(gr, ap, 0.0);
+    // flowers: a single bright art pixel with a darker cell under it
+    if (u_flowers > 0.0 && sd <= 3) {
+      float f = hash(ivec2(c.x >> 1, 503));
+      if (f > 1.0 - u_flowers * 0.08) {
+        float pick = hash(ivec2(c.x >> 1, 504));
+        vec3 fc = pick > 0.66 ? vec3(0.96, 0.93, 0.82) : pick > 0.33 ? vec3(0.95, 0.78, 0.25) : vec3(0.86, 0.3, 0.24);
+        if (sd <= 2) col = fc * (sd == 1 ? 1.0 : 0.8);
+      }
+    }
+    rim *= 0.35;
+  }
+  if (still) col *= u_ground;
   col += u_light * rim;
   // animated materials (water, lava) are left to the cycling pass: no snow or wet sheen on them
   if (still && u_wet > 0.0) {
