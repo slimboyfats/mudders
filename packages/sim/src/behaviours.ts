@@ -71,6 +71,11 @@ interface BehaviourBase<P> {
 export interface GenResult {
   /** Spawn column per player. */
   spawns: number[];
+  /**
+   * Per map column, the first row a tank may spawn at (default 0, the top). A map with a roof
+   * (caves) sets it below the roof, so tanks start on the floor beneath it, not on top.
+   */
+  spawnFrom?: Int32Array;
 }
 
 export interface GeneratorBehaviour<P = unknown> extends BehaviourBase<P> {

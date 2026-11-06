@@ -44,6 +44,7 @@ const SCENERY_GEN = {
   marsh: 'gen.marsh',
   city: 'gen.city',
   islands: 'gen.islands',
+  caves: 'gen.caves',
 } as const;
 
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
@@ -52,7 +53,7 @@ export interface MatchSetup {
   size: MapSize;
   /**
    * Props on the map (§4c): bare hills, a village with houses, trees and boulders, or badlands
-   * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts, a city of towers and blocks, or floating islands over a deep drop.
+   * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts, a city of towers and blocks, floating islands over a deep drop, or a cave under a stone roof.
    */
   scenery: keyof typeof SCENERY_GEN;
   rounds: number;

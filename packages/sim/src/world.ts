@@ -788,7 +788,7 @@ export class World implements SimApi {
       tank.lastShotX = -1;
       tank.lastShotY = -1;
       tank.ready = false;
-      tank.y = this.restingY(tank);
+      tank.y = this.restingY(tank, res.spawnFrom);
     }
 
     this.order = this.modeB.turnOrder(this.modeApi, this.modeParams);
@@ -806,13 +806,15 @@ export class World implements SimApi {
 
   /**
    * Highest ground under the tank's footprint at round start. Intact prop cells don't count, so a
-   * tank spawned under a rock arch stands on the ground beneath it, not on top.
+   * tank spawned under a rock arch stands on the ground beneath it, not on top. Rows above the
+   * generator's `spawnFrom` (a cave roof) don't count either.
    */
-  private restingY(t: Tank): number {
+  private restingY(t: Tank, from?: Int32Array): number {
     const g = this.grid;
     let y = g.height;
     for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
-      for (let r = 0, i = x; r < y; r++, i += g.width) {
+      const r0 = Math.max(0, Math.min(g.height, from?.[x] ?? 0));
+      for (let r = r0, i = r0 * g.width + x; r < y; r++, i += g.width) {
         if (g.material[i] !== 0 && g.group[i] === 0) {
           y = r;
           break;
