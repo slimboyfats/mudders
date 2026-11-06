@@ -1112,6 +1112,24 @@ a.button {
   min-width: 6em;
 }
 
+/* Tank types (§3.2) */
+.slot select.tank-pick,
+.seat select.tank-pick {
+  min-width: 7em;
+}
+
+.tank-badge {
+  margin-left: 4px;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.player .shield {
+  margin-left: 2px;
+  color: #7fe0ff;
+  font-size: 0.85em;
+}
+
 .teams-toggle {
   display: flex;
   align-items: center;

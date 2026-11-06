@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -172,6 +172,10 @@ export type ServerMessage = z.infer<typeof ServerMessageSchema>;
  * Match settings that reach every peer. Every peer derives the same `WorldOptions` from this and
  * the seed, so this is all of the setup that can influence the sim.
  */
+/** A seat's tank choice: a `tank.*` id, "random", or "auto". */
+export const TankPickSchema = z.union([z.literal('auto'), z.literal('random'), ContentIdSchema]);
+export type TankPick = z.infer<typeof TankPickSchema>;
+
 export const NetSetupSchema = z.object({
   slots: z
     .array(z.union([z.literal('human'), z.literal('off'), ContentIdSchema]))
@@ -186,6 +190,8 @@ export const NetSetupSchema = z.object({
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Team per seat (milestone 7), or null for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(3)).max(8).nullable(),
+  /** Tank type per seat (§3.2): a `tank.*` id, "random", or "auto" (a bot's favourite, else the default). */
+  tanks: z.array(TankPickSchema).max(8),
 });
 export type NetSetup = z.infer<typeof NetSetupSchema>;
 
@@ -257,6 +263,8 @@ export const PeerHashSchema = z.object({
   t: z.number().int().min(0),
   h: z.string().max(80),
 });
+/** Guest → host, in the lobby: the tank this guest wants (§3.2). */
+export const PeerPickTankSchema = z.object({ type: z.literal('pickTank'), tank: TankPickSchema });
 export const PeerPingSchema = z.object({ type: z.literal('ping'), n: z.number().int() });
 export const PeerPongSchema = z.object({ type: z.literal('pong'), n: z.number().int() });
 export const PeerByeSchema = z.object({ type: z.literal('bye'), reason: z.string().max(200) });
@@ -269,6 +277,7 @@ export const PeerMessageSchema = z.discriminatedUnion('type', [
   PeerInputSchema,
   PeerTickSchema,
   PeerHashSchema,
+  PeerPickTankSchema,
   PeerPingSchema,
   PeerPongSchema,
   PeerByeSchema,

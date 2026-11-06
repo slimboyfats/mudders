@@ -18,6 +18,8 @@ export interface HudTank {
   team: number;
   alive: boolean;
   health: number;
+  /** Shield points left (Bulwark, §3.2); 0 for most tanks. */
+  shield: number;
   angle: number;
   power: number;
   weapon: string;
@@ -152,6 +154,7 @@ export abstract class SimMatch implements SnapshotStream {
         team: t.team,
         alive: t.alive,
         health: t.health,
+        shield: t.shield,
         angle: t.angle,
         power: t.power,
         weapon: w.weaponId(t.weapon),
@@ -196,7 +199,7 @@ export function hudKey(h: HudState): string {
   let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
+    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
     for (const i of t.inventory) k += `,${i.count}`;
   }
   return k;

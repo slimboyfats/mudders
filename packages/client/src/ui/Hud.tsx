@@ -119,6 +119,11 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
                 </span>
               )}
               <span className="hp">{p.alive ? `${p.health}` : '✕'}</span>
+              {p.alive && p.shield > 0 && (
+                <span className="shield" aria-label="shield">
+                  +{p.shield}
+                </span>
+              )}
               <span className="pscore" aria-label="score">
                 {p.score}
               </span>

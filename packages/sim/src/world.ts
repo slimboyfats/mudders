@@ -1,4 +1,5 @@
 import {
+  AI_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   type DamageType,
@@ -46,7 +47,10 @@ import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
 import { SETTLE_FLOW } from './materials';
 
-/** Tank footprint (§2a: ~16×10). x is the centre column, y the row the tank stands on. */
+/**
+ * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
+ * loaded. x is the centre column, y the row the tank stands on. Tank types (`tank.*`) bring their own.
+ */
 export const TANK_W = 16;
 export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
@@ -113,7 +117,42 @@ export interface WorldOptions {
   bots?: readonly (string | null | undefined)[] | undefined;
   /** Extra props at fixed centre columns (showcases), placed after the generator's. */
   props?: readonly { prop: string; x: number }[] | undefined;
+  /**
+   * Tank type per player (`tank.*` id), `'random'` for one drawn from the seed (not the match
+   * RNG), `'auto'` for the player's bot's favourite (`ai.*` `tank`), or null/undefined for the
+   * mode's default tank.
+   */
+  tanks?: readonly (string | null | undefined)[] | undefined;
 }
+
+/** A tank type's numbers as the kernel uses them (§3.2). */
+export interface TankType {
+  /** `tank.*` id, or '' for the built-in standard tank. */
+  readonly id: string;
+  /** Percent of the mode's starting health. */
+  readonly health: number;
+  readonly shield: number;
+  readonly width: number;
+  readonly height: number;
+  /** Percent damage dealt by its shells. */
+  readonly damage: number;
+  /** Percent muzzle speed. */
+  readonly muzzle: number;
+  /** Percent drive distance (driving lands later). */
+  readonly drive: number;
+}
+
+/** The standard tank, used when a mode names no `tank` (or a match loads no tank types). */
+export const STANDARD_TANK: TankType = {
+  id: '',
+  health: 100,
+  shield: 0,
+  width: TANK_W,
+  height: TANK_H,
+  damage: 100,
+  muzzle: 100,
+  drive: 100,
+};
 
 /** `shop` sits between rounds; `over` is the end of the match. */
 export type Phase = 'aim' | 'resolve' | 'shop' | 'over';
@@ -122,10 +161,20 @@ export interface Tank extends TankHandle {
   readonly player: number;
   /** Team id (milestone 7); the player number in a free-for-all. */
   readonly team: number;
+  /** Tank type (§3.2); fixed for the match. */
+  readonly type: TankType;
+  /** Hitbox width (even) and half-width, and height, in cells. */
+  readonly w: number;
+  readonly half: number;
+  readonly h: number;
   alive: boolean;
   x: number;
   y: number;
   health: number;
+  /** Health at round start (for health bars). */
+  maxHealth: number;
+  /** Shield points left this round; they soak damage before health. */
+  shield: number;
   angle: number;
   power: number;
   weapon: number;
@@ -465,7 +514,7 @@ export class World implements SimApi {
   private bindBot(id: string): number {
     const item = this.content.get('ai', id);
     const b = this.content.behaviours.getKind(item.behaviour, 'ai');
-    this.bots.push({ b, params: b.params.parse(behaviourParams(item)) });
+    this.bots.push({ b, params: b.params.parse(behaviourParams(item, AI_CORE_KEYS)) });
     this.botIds.push(id);
     return this.bots.length - 1;
   }
@@ -511,13 +560,20 @@ export class World implements SimApi {
         }
       }
       const botId = this.options.bots?.[p];
+      const type = this.tankType(p);
       this.tanks.push({
         player: p,
         team: this.options.teams?.[p] ?? p,
+        type,
+        w: type.width,
+        half: type.width >> 1,
+        h: type.height,
         alive: true,
         x: 0,
         y: 0,
         health: 0,
+        maxHealth: 0,
+        shield: 0,
         angle: 90,
         power: 500,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
@@ -541,6 +597,35 @@ export class World implements SimApi {
         ready: false,
       });
     }
+  }
+
+  /**
+   * Player `p`'s tank type: the setup's pick, one drawn from the seed for `'random'` (a separate
+   * PRNG, so the match RNG and every golden stay put), else the mode's default tank.
+   */
+  private tankType(p: number): TankType {
+    const all = this.content.list('tank');
+    let id = this.options.tanks?.[p] ?? this.mode.tank;
+    if (id === 'auto') {
+      const bot = this.options.bots?.[p];
+      id = (bot ? this.content.get('ai', bot).tank : undefined) ?? this.mode.tank;
+    }
+    if (id === 'random' && all.length > 0) {
+      const r = new Prng((this.options.seed ^ Math.imul(p + 1, 0x9e3779b1)) >>> 0);
+      id = all[r.range(0, all.length - 1)]!.id;
+    }
+    if (!id || !id.startsWith('tank.') || !this.content.has(id)) return STANDARD_TANK;
+    const m = this.content.get('tank', id);
+    return {
+      id: m.id,
+      health: m.health,
+      shield: m.shield,
+      width: m.body.width,
+      height: m.body.height,
+      damage: m.damage,
+      muzzle: m.muzzle,
+      drive: m.drive,
+    };
   }
 
   private startRound(): void {
@@ -582,9 +667,12 @@ export class World implements SimApi {
     for (const tank of this.tanks) {
       const p = tank.player;
       const col = this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0;
-      tank.x = Math.max(TANK_HALF, Math.min(g.width - TANK_HALF - 1, col));
+      tank.x = Math.max(tank.half, Math.min(g.width - tank.half - 1, col));
       tank.alive = true;
-      tank.health = this.options.tankSetup?.[p]?.health ?? this.mode.startingHealth;
+      const full = Math.trunc((this.mode.startingHealth * tank.type.health) / 100);
+      tank.health = this.options.tankSetup?.[p]?.health ?? full;
+      tank.maxHealth = Math.max(full, tank.health);
+      tank.shield = tank.type.shield;
       tank.angle = tank.x < g.width / 2 ? 45 : 135;
       if (tank.inventory[tank.weapon] === 0) tank.weapon = this.firstWeapon(tank);
       tank.falling = false;
@@ -621,7 +709,7 @@ export class World implements SimApi {
   private restingY(t: Tank): number {
     const g = this.grid;
     let y = g.height;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       for (let r = 0, i = x; r < y; r++, i += g.width) {
         if (g.material[i] !== 0 && g.group[i] === 0) {
           y = r;
@@ -799,9 +887,9 @@ export class World implements SimApi {
     const a = t.angle * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = Math.trunc((this.maxSpeed * t.power) / 1000);
+    const speed = this.muzzleSpeed(t, t.power);
     const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
-    const y = (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP);
+    const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
     this.projectiles.push({
       id: this.nextProjectileId++,
       weapon: t.weapon,
@@ -823,6 +911,12 @@ export class World implements SimApi {
       angle: t.angle,
       weapon: t.weapon,
     });
+  }
+
+  /** Launch speed (fixed-point) for `power` 0–1000 from this tank's muzzle. */
+  private muzzleSpeed(t: Tank, power: number): number {
+    const v = Math.trunc((this.maxSpeed * Math.max(0, Math.min(1000, power))) / 1000);
+    return t.type.muzzle === 100 ? v : Math.trunc((v * t.type.muzzle) / 100);
   }
 
   // ── turn timer and bots ─────────────────────────────────────────────────────────────────
@@ -871,7 +965,7 @@ export class World implements SimApi {
       height: this.grid.height,
       wind: this.wind,
       gravity: this.gravity,
-      maxSpeed: this.maxSpeed,
+      maxSpeed: this.muzzleSpeed(t, 1000),
       surfaceY: (x) => this.grid.surfaceY(x),
       predict: (w, angle, power) => this.predict(t, w, angle, power),
       lastShot:
@@ -900,13 +994,13 @@ export class World implements SimApi {
     const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = Math.trunc((this.maxSpeed * Math.max(0, Math.min(1000, power))) / 1000);
+    const speed = this.muzzleSpeed(t, power);
     const p: Projectile = {
       id: 0,
       weapon,
       owner: t.player,
       x: t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP),
-      y: (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP),
+      y: (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP),
       vx: Math.trunc((speed * c) / FP),
       vy: -Math.trunc((speed * s) / FP),
       age: 0,
@@ -961,7 +1055,7 @@ export class World implements SimApi {
   private tankAt(cx: number, cy: number, p: Projectile): number {
     for (const t of this.tanks) {
       if (!t.alive || (t.player === p.owner && p.age < 4)) continue;
-      if (cx >= t.x - TANK_HALF && cx < t.x + TANK_HALF && cy >= t.y - TANK_H && cy < t.y) {
+      if (cx >= t.x - t.half && cx < t.x + t.half && cy >= t.y - t.h && cy < t.y) {
         return t.player;
       }
     }
@@ -1174,14 +1268,15 @@ export class World implements SimApi {
         for (const t of this.tanks) {
           if (!t.alive) continue;
           const dx = t.x - z.x;
-          const dy = t.y - TANK_H / 2 - z.y;
-          const reach = z.radius + TANK_HALF;
+          const dy = t.y - (t.h >> 1) - z.y;
+          const reach = z.radius + t.half;
           if (dx * dx + dy * dy >= reach * reach) continue;
-          this.emit('zoneHurt', t.x, t.y - TANK_H / 2, TANK_HALF, {
-            damage: z.damage,
+          const dmg = this.ownerScaled(z.damage, z.owner);
+          this.emit('zoneHurt', t.x, t.y - (t.h >> 1), t.half, {
+            damage: dmg,
             look: z.look,
           });
-          this.damageTank(t, z.damage, z.owner);
+          this.damageTank(t, dmg, z.owner);
         }
       }
       if (z.op >= 0) {
@@ -1194,28 +1289,40 @@ export class World implements SimApi {
 
   // ── explosions, ops, damage ─────────────────────────────────────────────────────────────
 
-  private explode(e0: RtExplosion, x: number, y: number, owner: number): void {
+  /**
+   * Damage from a shell `owner` fired, scaled by the owner's tank type (Howitzer hits harder).
+   * Integer percent, and exact for the standard 100%.
+   */
+  private ownerScaled(dmg: number, owner: number): number {
+    const k = owner >= 0 ? (this.tanks[owner]?.type.damage ?? 100) : 100;
+    return k === 100 ? dmg : Math.trunc((dmg * k) / 100);
+  }
+
+  /** `byWeapon` false for a tank's death blast, which the killer's tank type doesn't scale. */
+  private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
       if (!t.alive) continue;
       const dx = t.x - x;
-      const dy = t.y - TANK_H / 2 - y;
+      const cy = t.y - (t.h >> 1);
+      const dy = cy - y;
       const d = isqrt(dx * dx + dy * dy);
-      const reach = e.radius + TANK_HALF;
+      const reach = e.radius + t.half;
       if (d >= reach) continue;
       // sheltered behind (or under) thick rock: the blast doesn't reach it
-      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, t.y - TANK_H / 2)) continue;
+      if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, cy)) continue;
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
-        this.damageTank(t, Math.trunc(base * scale), owner);
+        const dmg = Math.trunc(base * scale);
+        this.damageTank(t, byWeapon ? this.ownerScaled(dmg, owner) : dmg, owner);
       }
       if (e.push > 0 && dx !== 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
         t.x = Math.max(
-          TANK_HALF,
-          Math.min(this.grid.width - TANK_HALF - 1, t.x + (dx > 0 ? shove : -shove)),
+          t.half,
+          Math.min(this.grid.width - t.half - 1, t.x + (dx > 0 ? shove : -shove)),
         );
         t.lastHitBy = owner;
       }
@@ -1289,8 +1396,27 @@ export class World implements SimApi {
     this.ops = next;
   }
 
-  private damageTank(t: Tank, dmg: number, by: number): void {
-    if (dmg <= 0 || !t.alive) return;
+  /**
+   * Hurt a tank. Its shield soaks the hit first (§3.2); `pierce` skips the shield (falling out of
+   * the map is always fatal).
+   */
+  private damageTank(t: Tank, dmg0: number, by: number, pierce = false): void {
+    if (dmg0 <= 0 || !t.alive) return;
+    let dmg = dmg0;
+    if (t.shield > 0 && !pierce) {
+      const soak = Math.min(dmg, t.shield);
+      t.shield -= soak;
+      dmg -= soak;
+      this.emit('shieldHit', t.x, t.y - (t.h >> 1), t.half + 2, {
+        soaked: soak,
+        left: t.shield,
+        player: t.player,
+      });
+      if (dmg <= 0) {
+        if (by >= 0) t.lastHitBy = by;
+        return;
+      }
+    }
     const applied = Math.min(dmg, t.health);
     t.health -= applied;
     const src = by >= 0 ? this.tanks[by] : undefined;
@@ -1318,15 +1444,15 @@ export class World implements SimApi {
     for (const t of this.tanks) {
       if (!t.alive) continue;
       let worst = 0;
-      for (let y = Math.max(0, t.y - TANK_H); y <= Math.min(g.height - 1, t.y); y++) {
+      for (let y = Math.max(0, t.y - t.h); y <= Math.min(g.height - 1, t.y); y++) {
         const row = y * g.width;
-        for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+        for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
           const d = cd[g.material[row + x]!]!;
           if (d > worst) worst = d;
         }
       }
       if (worst > 0) {
-        this.emit('burn', t.x, t.y - TANK_H / 2, TANK_HALF, { damage: worst });
+        this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: worst });
         this.damageTank(t, worst, t.lastHitBy);
       }
     }
@@ -1339,18 +1465,18 @@ export class World implements SimApi {
     const row = t.y * g.width;
     let flow = 0;
     let solid = 0;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       const m = g.material[row + x]!;
       if (m === 0) continue;
       solid++;
       if (this.mats.settle[m] === SETTLE_FLOW) flow++;
     }
     if (flow * 2 < solid || solid === 0) return;
-    const l = g.surfaceY(t.x - TANK_HALF - 1);
-    const r = g.surfaceY(t.x + TANK_HALF);
+    const l = g.surfaceY(t.x - t.half - 1);
+    const r = g.surfaceY(t.x + t.half);
     if (l === r) return;
     const nx = t.x + (l > r ? -1 : 1);
-    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return;
+    if (nx < t.half || nx >= g.width - t.half) return;
     t.x = nx;
   }
 
@@ -1367,7 +1493,7 @@ export class World implements SimApi {
     let n = 0;
     let solid = 0;
     let best = 0;
-    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
       const m = g.material[row + x]!;
       if (m === 0) continue;
       solid++;
@@ -1376,7 +1502,7 @@ export class World implements SimApi {
         best = m;
       }
     }
-    if (n * 2 < solid || n * 2 < TANK_W) return;
+    if (n * 2 < solid || n * 2 < t.w) return;
     if (t.sunk >= this.mats.sinkDepth[best]! || this.tick % st[best]! !== 0) return;
     t.y++;
     t.sunk++;
@@ -1386,11 +1512,7 @@ export class World implements SimApi {
     if (t.y >= this.grid.height) return true;
     const m = this.grid.material;
     const row = t.y * this.grid.width;
-    for (
-      let x = Math.max(0, t.x - TANK_HALF);
-      x < Math.min(this.grid.width, t.x + TANK_HALF);
-      x++
-    ) {
+    for (let x = Math.max(0, t.x - t.half); x < Math.min(this.grid.width, t.x + t.half); x++) {
       if (m[row + x] !== 0) return true;
     }
     return false;
@@ -1419,12 +1541,12 @@ export class World implements SimApi {
         const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
         if (t.y >= this.grid.height) {
           // Fell out of the map (sudden-death void, or dug to the bottom): lost.
-          this.emit('land', t.x, this.grid.height - 1, TANK_HALF, { distance: dist });
-          this.damageTank(t, t.health, by);
+          this.emit('land', t.x, this.grid.height - 1, t.half, { distance: dist });
+          this.damageTank(t, t.health, by, true);
           continue;
         }
         const dmg = Math.trunc(Math.max(0, dist - fd.safeCells) * fd.perCell);
-        this.emit('land', t.x, t.y, TANK_HALF, { distance: dist });
+        this.emit('land', t.x, t.y, t.half, { distance: dist });
         this.damageTank(t, dmg, by);
       }
     }
@@ -1432,8 +1554,8 @@ export class World implements SimApi {
     for (let i = 0; i < this.pendingDeaths.length; i++) {
       const d = this.pendingDeaths[i]!;
       const t = this.tanks[d.player]!;
-      this.emit('tankDeath', t.x, t.y - TANK_H / 2, TANK_W, { player: d.player });
-      this.explode(this.deathExplosion, t.x, t.y - TANK_H / 2, d.killer);
+      this.emit('tankDeath', t.x, t.y - (t.h >> 1), t.w, { player: d.player });
+      this.explode(this.deathExplosion, t.x, t.y - (t.h >> 1), d.killer, false);
     }
     this.pendingDeaths = [];
   }
@@ -1666,6 +1788,10 @@ export class World implements SimApi {
         y: t.y,
         angle: t.angle,
         health: t.health,
+        maxHealth: t.maxHealth,
+        shield: t.shield,
+        maxShield: t.type.shield,
+        tank: t.type.id,
         alive: t.alive,
         power: t.power,
         active: this.phase === 'aim' && t.player === this.activePlayer,
@@ -1738,6 +1864,7 @@ export class World implements SimApi {
         .num(t.health)
         .num(t.angle)
         .num(t.power);
+      h.str(t.type.id).num(t.w).num(t.h).num(t.maxHealth).num(t.shield);
       h.num(t.weapon)
         .num(t.falling ? 1 : 0)
         .num(t.fallFrom)

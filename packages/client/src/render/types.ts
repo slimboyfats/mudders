@@ -28,6 +28,16 @@ export interface RenderPalette {
   looks?: readonly MaterialLook[];
   /** Theme looks by `theme.*` id; unknown ids fall back to the default. */
   themes?: Readonly<Record<string, PixelTheme>>;
+  /** Tank sprites by `tank.*` id (from the manifest `look`); unknown ids use the standard tank. */
+  tanks?: Readonly<Record<string, TankLook>>;
+}
+
+/** A tank type's pixel look (manifest `look`); plain data so it can cross the wire. */
+export interface TankLook {
+  /** Rows top to bottom, bottom-aligned and centred on the tank's column (codes in the manifest). */
+  sprite: readonly string[];
+  /** Barrel pivot in cells from the bottom-centre (y up), length and thickness in cells. */
+  barrel: { x: number; y: number; length: number; width: number };
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */

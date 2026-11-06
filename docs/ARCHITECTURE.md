@@ -88,6 +88,13 @@ auto-fires, the shop timer auto-readies, and sudden death (`mode.suddenDeath`) s
 damage and removes `edgeCells` columns at each edge at the start of every turn once it applies.
 Setup-screen choices reach the sim only as `WorldOptions.rules` and `WorldOptions.bots`.
 
+Tank types are `tank.*` content (data only): `WorldOptions.tanks` gives each player a type id,
+`'random'` (drawn from a PRNG seeded off the match seed, never the match RNG) or `'auto'` (the
+bot's `ai.*` `tank` favourite); unset falls back to the mode's `tank`, else the built-in
+`STANDARD_TANK`. Each `Tank` carries its own hitbox (`w`/`half`/`h`), `maxHealth` and `shield`
+(hashed). `damageTank` drains the shield first unless `pierce` (falling out of the map), shells
+scale by the owner's `damage` percent (death blasts don't), and launch speed by `muzzle` percent.
+
 AI players are `ai.*` content (behaviour kind `ai`). When a bot is up the kernel waits
 `BOT_THINK_TICKS`, calls `aim(AiApi)` halfway through and fires at the end; in the shop it calls
 `shop(AiShopApi)` and validates each purchase like a human's. `AiApi.predict` runs the weapon's

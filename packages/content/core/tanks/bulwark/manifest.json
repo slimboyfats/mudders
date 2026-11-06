@@ -1,0 +1,31 @@
+{
+  "id": "tank.bulwark",
+  "schemaVersion": 1,
+  "extends": "tank.classic",
+  "meta": {
+    "name": "Bulwark",
+    "description": "Shielded: a 50-point shield soaks hits before its health and comes back every round, but its shells hit 15% softer.",
+    "since": "core@0.13.0"
+  },
+  "shield": 50,
+  "damage": 85,
+  "look": {
+    "sprite": [
+      "......HHHH......",
+      "....HHhhhhHH....",
+      "...hhhhhhhhhh...",
+      "..shhhhhhhhhhs..",
+      ".HHHHHHHHHHHHHH.",
+      ".hhhhhhhhhhhhhh.",
+      "tttttttttttttttt",
+      "twwttwwttwwttwwt",
+      "tttttttttttttttt"
+    ],
+    "barrel": {
+      "x": 0,
+      "y": 8,
+      "length": 7,
+      "width": 1
+    }
+  }
+}

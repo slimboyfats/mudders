@@ -1,6 +1,6 @@
 import type { EffectEvent, EntityView } from '@mudders/shared';
 import type { PixelTheme } from '../render/pixel/theme';
-import type { MaterialLook, Quality } from '../render/types';
+import type { MaterialLook, Quality, TankLook } from '../render/types';
 
 /**
  * Messages between the capture CLI (Node, runs the sim) and the capture page (Chromium, runs the
@@ -13,6 +13,7 @@ export interface WireInit {
   palette: number[];
   looks: MaterialLook[];
   themes: Record<string, PixelTheme>;
+  tanks: Record<string, TankLook>;
   quality: Quality;
   theme: string;
   /** Canvas size in CSS px and device pixel ratio. */

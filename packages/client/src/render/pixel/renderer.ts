@@ -5,6 +5,7 @@ import type {
   Renderer,
   RendererOptions,
   SnapshotStream,
+  TankLook,
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
@@ -51,11 +52,48 @@ const SCENERY_UNIFORMS = [
   'u_horizon',
   'u_cam',
 ] as const;
-const TANK_W = 16;
 /** How long fresh char smoulders after a blast (ticks; keep in step with the shader). */
 const EMBER_TICKS = 600;
-const TANK_H = 10;
 const GRAVITY = 0.12;
+const SHIELD_RGB = 0x7fe0ff;
+
+/** The standard tank's look, for tanks whose type has no sprite in the palette. */
+const STANDARD_LOOK: TankLook = {
+  sprite: [
+    '......HHHH......',
+    '.....hhhhhh.....',
+    '....hhhhhhhh....',
+    '.HHHHHHHHHHHHHH.',
+    '.hhhhhhhhhhhhhh.',
+    '.dhhhhhhhhhhhhd.',
+    'tttttttttttttttt',
+    'twwttwwttwwttwwt',
+    'tttttttttttttttt',
+  ],
+  barrel: { x: 0, y: 7, length: 8, width: 1 },
+};
+
+/** Sprite cell code (manifest `look.sprite`) → colour in this player's colour. */
+function spriteColor(code: number, col: number, shieldOn: boolean): number {
+  switch (code) {
+    case 72: // H
+      return shade(col, 1.3);
+    case 100: // d
+      return shade(col, 0.72);
+    case 116: // t
+      return 0x2b2622;
+    case 119: // w
+      return 0x55504a;
+    case 109: // m
+      return 0xd8d2c8;
+    case 115: // s
+      return shieldOn ? SHIELD_RGB : 0x4a5a60;
+    case 103: // g
+      return 0x9fd0e0;
+    default:
+      return col;
+  }
+}
 
 interface Trail {
   id: number;
@@ -219,6 +257,8 @@ export class PixelRenderer implements Renderer {
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
+  /** Tick each player's shield last soaked a hit (for the flash). */
+  private shieldHitAt: number[] = [];
 
   constructor(
     readonly mapWidth: number,
@@ -602,6 +642,7 @@ export class PixelRenderer implements Renderer {
     for (const e of s.effectEvents) {
       this.fx.handle(e);
       if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
+      if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
     }
     this.updateTrails(s);
   }
@@ -1004,40 +1045,89 @@ export class PixelRenderer implements Renderer {
 
   private drawTanks(t: number): void {
     const b = this.normal;
+    const looks = this.palette.tanks;
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
       const y = this.tankY(e);
       const col = playerColor(e.player);
+      const look = (e.tank && looks?.[e.tank]) || STANDARD_LOOK;
+      const rows = look.sprite;
+      const sw = rows[0]?.length ?? 0;
+      const sh = rows.length;
+      const x0 = x - (sw >> 1);
+      const y0 = y - sh;
       if (!e.alive) {
-        b.rect(x - 7, y - 3, 14, 3, 0x2a2426);
+        // a flattened wreck as wide as the tank
+        b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
         b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
         continue;
       }
-      // treads + wheels
-      b.rect(x - TANK_W / 2, y - 3, TANK_W, 3, 0x2b2622);
-      for (let w = -6; w <= 6; w += 4) b.push(x + w, y - 1.5, 2.2, 2.2, 0x55504a, 1, Shape.Disc);
-      // hull
-      b.rect(x - 7, y - 6, 14, 3, col);
-      b.rect(x - 7, y - 6, 14, 1, shade(col, 1.3));
-      // barrel
+      // barrel first, so the turret covers its base; whole cells along the aim
+      const br = look.barrel;
       const a = (e.angle * Math.PI) / 180;
-      const bx = x + 0.5;
-      const by = y - 7.5;
-      b.line(bx, by, bx + Math.cos(a) * 8, by - Math.sin(a) * 8, 1.4, 0xd8d2c8);
-      // turret dome
-      b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
-      this.coverTank(x, y);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const px = x + br.x;
+      const py = y - br.y;
+      const off = br.width >> 1;
+      for (let i = 1; i <= br.length; i++) {
+        const cx = Math.round(px + ca * i);
+        const cy = Math.round(py - sa * i);
+        b.rect(cx - off, cy - off, br.width, br.width, i === br.length ? 0xa8a298 : 0xd8d2c8);
+      }
+      const shieldOn = e.shield > 0;
+      for (let r = 0; r < sh; r++) {
+        const row = rows[r]!;
+        for (let c = 0; c < sw; c++) {
+          const code = row.charCodeAt(c);
+          if (code === 46) continue; // '.'
+          b.rect(x0 + c, y0 + r, 1, 1, spriteColor(code, col, shieldOn));
+        }
+      }
+      if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
+      this.coverTank(x, y, sw, sh);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
-      this.drawDigit(x - 13, y - 16, e.player + 1);
-      // health bar
-      const hp = Math.max(0, Math.min(1, e.health / 100));
-      b.rect(x - 8, y - 14, 16, 1.6, 0x000000, 0.55);
-      b.rect(x - 8, y - 14, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
+      const top = y0;
+      this.drawDigit(x - 13, top - 7, e.player + 1);
+      // health bar (and the shield left, above it)
+      const hp = Math.max(0, Math.min(1, e.health / Math.max(1, e.maxHealth)));
+      b.rect(x - 8, top - 5, 16, 1.6, 0x000000, 0.55);
+      b.rect(x - 8, top - 5, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
+      if (e.maxShield > 0) {
+        const sp = Math.max(0, Math.min(1, e.shield / e.maxShield));
+        b.rect(x - 8, top - 7, 16, 1, 0x000000, 0.55);
+        if (sp > 0) b.rect(x - 8, top - 7, Math.max(1, Math.round(16 * sp)), 1, SHIELD_RGB);
+      }
       if (e.active) {
         const bob = Math.sin(t * 0.12) * 1.2;
-        b.push(x + 0.5, y - 19 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
-        b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
+        b.push(x + 0.5, top - 10 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
+        b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
+      }
+    }
+  }
+
+  /**
+   * A shield is a dithered band of whole cells hugging the tank: a checkerboard that crawls with
+   * time, fainter as the shield wears down and bright for a moment after it soaks a hit.
+   */
+  private drawShield(e: TankView, x: number, y: number, sw: number, sh: number, t: number): void {
+    const b = this.normal;
+    const rx = (sw >> 1) + 2;
+    const ry = sh + 2;
+    const hit = this.shieldHitAt[e.player] ?? -1e9;
+    const flash = t - hit < 18 ? 1 - (t - hit) / 18 : 0;
+    const left = e.shield / Math.max(1, e.maxShield);
+    const alpha = Math.min(1, 0.3 + 0.4 * left + 0.6 * flash);
+    const phase = Math.floor(t / 8);
+    for (let cy = y - ry - 1; cy < y; cy++) {
+      const dy = (cy + 0.5 - y) / ry;
+      for (let cx = x - rx - 1; cx <= x + rx; cx++) {
+        const dx = (cx + 0.5 - x) / rx;
+        const d = dx * dx + dy * dy;
+        if (d < 0.78 || d > 1.06) continue;
+        if (((cx + cy + phase) & 1) !== 0 && flash === 0) continue;
+        b.rect(cx, cy, 1, 1, flash > 0 ? 0xe8fbff : SHIELD_RGB, alpha);
       }
     }
   }
@@ -1058,11 +1148,12 @@ export class PixelRenderer implements Renderer {
    * Terrain overlapping the tank body (sunk into quicksand, or buried) is drawn over the sprite,
    * cell by cell with a two-tone dither, so the tank reads as sitting in the ground.
    */
-  private coverTank(x: number, y: number): void {
+  private coverTank(x: number, y: number, sw: number, sh: number): void {
     const b = this.normal;
     const w = this.mapWidth;
-    for (let cy = Math.max(0, y - TANK_H); cy < Math.min(this.mapHeight, y); cy++) {
-      for (let cx = Math.max(0, x - TANK_W / 2); cx < Math.min(w, x + TANK_W / 2); cx++) {
+    const x0 = x - (sw >> 1);
+    for (let cy = Math.max(0, y - sh); cy < Math.min(this.mapHeight, y); cy++) {
+      for (let cx = Math.max(0, x0); cx < Math.min(w, x0 + sw); cx++) {
         const m = this.terrain[cy * w + cx]!;
         if (m === 0) continue;
         const c = this.palette.materials[m] ?? 0x7a5a3a;

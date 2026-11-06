@@ -1,0 +1,37 @@
+{
+  "id": "tank.bruiser",
+  "schemaVersion": 1,
+  "extends": "tank.classic",
+  "meta": {
+    "name": "Bruiser",
+    "description": "Heavy armour: 150% health, but a big 20×12 body that is easier to hit, and it drives half as far.",
+    "since": "core@0.13.0"
+  },
+  "health": 150,
+  "body": {
+    "width": 20,
+    "height": 12
+  },
+  "drive": 50,
+  "look": {
+    "sprite": [
+      ".......HHHHHH.......",
+      "......hhhhhhhh......",
+      "......hhhgghhh......",
+      "......dhhhhhhd......",
+      "HHHHHHHHHHHHHHHHHHHH",
+      "hhmhhhhhhhhhhhhhhmhh",
+      "hhhhhhhhhhhhhhhhhhhh",
+      "dddddddddddddddddddd",
+      "tttttttttttttttttttt",
+      "twwttwwttwwttwwttwwt",
+      "tttttttttttttttttttt"
+    ],
+    "barrel": {
+      "x": 0,
+      "y": 9,
+      "length": 7,
+      "width": 2
+    }
+  }
+}

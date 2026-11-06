@@ -190,3 +190,29 @@ export function slopeWorld(top: number, run: number, opts: Partial<WorldOptions>
   for (const t of w.tanks) t.y = g.surfaceY(t.x);
   return w;
 }
+
+/**
+ * Health plus shield that player 1's tank (type `target`) loses when player 0's tank (type
+ * `attacker`) has `weapon` dropped `offset` columns from it, on a flat calm map. null = default tank.
+ */
+export function blastLoss(
+  attacker: string | null,
+  target: string | null,
+  offset: number,
+  weapon = 'weapon.missile',
+): number {
+  const w = makeWorld({
+    seed: 3,
+    map: { width: 800, height: 400 },
+    tankColumns: [150, 500],
+    tanks: [attacker, target],
+    turnOrder: [0, 1],
+    wind: 0,
+    rules: { suddenDeath: false },
+  });
+  flatten(w, 300);
+  const t = w.tanks[1]!;
+  const before = t.health + t.shield;
+  dropAt(w, weapon, t.x + offset);
+  return before - Math.max(0, t.health) - t.shield;
+}

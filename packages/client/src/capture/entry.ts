@@ -48,6 +48,7 @@ const api: CaptureApi = {
         materials: Uint32Array.from(init.palette),
         looks: init.looks,
         themes: init.themes,
+        tanks: init.tanks,
       },
       shake: init.shake,
       preserveDrawingBuffer: true,

@@ -10,6 +10,7 @@
   "rounds": 3,
   "turnCap": 12,
   "startingHealth": 100,
+  "tank": "tank.classic",
   "physics": {
     "gravity": 0.12,
     "maxSpeed": 12

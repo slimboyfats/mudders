@@ -1,0 +1,31 @@
+{
+  "id": "tank.howitzer",
+  "schemaVersion": 1,
+  "extends": "tank.classic",
+  "meta": {
+    "name": "Howitzer",
+    "description": "Big gun: its shells hit 30% harder, but it has only 80% health.",
+    "since": "core@0.13.0"
+  },
+  "health": 80,
+  "damage": 130,
+  "look": {
+    "sprite": [
+      ".....HHHHHH.....",
+      "....hhhhhhhh....",
+      "....hmhhhhmh....",
+      "....dhhhhhhd....",
+      ".HHHHHHHHHHHHHH.",
+      ".hhhhhhhhhhhhhh.",
+      "tttttttttttttttt",
+      "twwttwwttwwttwwt",
+      "tttttttttttttttt"
+    ],
+    "barrel": {
+      "x": 0,
+      "y": 7,
+      "length": 9,
+      "width": 3
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -81,6 +81,12 @@
     "prop.rock-ledge",
     "prop.rock-outcrop",
     "prop.tree",
+    "tank.bruiser",
+    "tank.bulwark",
+    "tank.classic",
+    "tank.howitzer",
+    "tank.longshot",
+    "tank.scout",
     "terrainop.add",
     "terrainop.attract",
     "terrainop.carve",
