@@ -23,7 +23,7 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm smoke`: Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}`
 - `pnpm check:ffmpeg`: Verifies ffmpeg is installed, with install instructions if not
 - `pnpm determinism:browsers`: golden hashes in headless Chromium, Firefox and WebKit must equal `golden.json` (~10 s)
-- `pnpm deploy:pages`: Build the client for GitHub Pages (`/mudders/`) and push it to `gh-pages` (`--no-push` to try; `VITE_SIGNAL_URL=` for the lobby)
+- `pnpm deploy:pages`: Build the client for GitHub Pages (`/mudders/`) and push it to `gh-pages` (`--no-push` to try; lobby defaults to `https://mudders-signal.onrender.com`, override with `VITE_SIGNAL_URL=`)
 - `pnpm setup:browsers`: installs headless Firefox + WebKitGTK from the Ubuntu archive (idempotent; run by the above)
 - `pnpm bench`: §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)
 - `pnpm content:validate`: Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date

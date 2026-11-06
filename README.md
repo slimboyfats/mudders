@@ -45,10 +45,15 @@ files to the `gh-pages` branch. Nothing builds on GitHub: Pages only copies the 
 public, so this is free). One-time setup: repo **Settings → Pages → Build and deployment → Deploy
 from a branch → `gh-pages` / `(root)`**.
 
-Without a lobby server the site still plays local hot-seat games, bots, the sandbox and **Direct
-game (no server)**, and works offline once loaded. For lobbies, public games and room codes, connect
-the Render blueprint (`render.yaml`) and deploy with
-`VITE_SIGNAL_URL=https://<service>.onrender.com pnpm deploy:pages`.
+Lobbies, public games and room codes use the signal server on Render's free plan
+(`render.yaml`, service `mudders-signal`). The Pages build points at
+`https://mudders-signal.onrender.com` by default; if Render gave the service another URL, deploy with
+`VITE_SIGNAL_URL=https://<service>.onrender.com pnpm deploy:pages`. One-time setup: Render dashboard
+→ **New → Blueprint** → pick this repo → **Apply**. Render rebuilds the server on every push to
+`main`. A free service sleeps after 15 idle minutes and takes about a minute to wake (the game shows
+"Waking up the lobby server…"); rooms live in memory and are lost when it sleeps or redeploys.
+Without the server the site still plays local hot-seat games, bots, the sandbox and **Direct game
+(no server)**, and works offline once loaded.
 
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)

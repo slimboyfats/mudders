@@ -8,8 +8,9 @@
 #
 # Env:
 #   MUDDERS_BASE     URL path the site lives under (default /mudders/, the project-site path)
-#   VITE_SIGNAL_URL  lobby server, e.g. https://mudders-signal.onrender.com. Without it the online
-#                    lobby shows "unreachable" and points players to Direct (no server) play.
+#   VITE_SIGNAL_URL  lobby server (default https://mudders-signal.onrender.com, the render.yaml
+#                    service). Set it empty (`VITE_SIGNAL_URL= pnpm deploy:pages`) for a build with
+#                    no lobby: online play then points players to Direct (no server) games.
 #   PAGES_REMOTE     git remote to push to (default origin)
 set -euo pipefail
 
@@ -23,6 +24,8 @@ remote="${PAGES_REMOTE:-origin}"
 src_rev="$(git rev-parse --short HEAD)"
 dirty=""
 git diff --quiet HEAD || dirty=" (+ uncommitted changes)"
+
+export VITE_SIGNAL_URL="${VITE_SIGNAL_URL-https://mudders-signal.onrender.com}"
 
 echo "› building client for base ${base}${VITE_SIGNAL_URL:+, lobby ${VITE_SIGNAL_URL}}"
 MUDDERS_BASE="$base" pnpm --filter @mudders/client build
