@@ -57,6 +57,7 @@ export function weaponsMarkdown(c: ResolvedContent): string {
         ? `resonance zone r${z.radius} ×${z.amplify}`
         : `${z.look} zone r${z.radius} ${z.damage}/turn × ${z.turns}`;
     }
+    if ('mine' in i) return `mine r${i.mine.radius} → ${i.mine.weapon}`;
     const pool =
       typeof i.spawn.weapon === 'string' ? i.spawn.weapon : `random of ${i.spawn.weapon.length}`;
     return `${i.spawn.count} × ${pool}`;

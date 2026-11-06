@@ -20,10 +20,14 @@ export interface EffectSink {
 /** Mutable tank view handed to behaviours that may shove tanks. */
 export interface TankHandle {
   readonly player: number;
+  /** Team (milestone 7); the player number in a free-for-all. */
+  readonly team: number;
   readonly alive: boolean;
   /** Hitbox half-width and height in cells (they differ per tank type). */
   readonly half: number;
   readonly h: number;
+  /** A parachute is open for the current fall (it drifts down and lands unhurt). */
+  readonly chute: boolean;
   x: number;
   y: number;
 }
@@ -56,9 +60,10 @@ export interface SimApi extends EffectSink {
   /**
    * Carry a tank through the air this tick: it is put at column `x`, bottom row `y`, and does not
    * fall this tick. Once a behaviour stops holding it, it falls from there, and fall damage counts
-   * from the highest row it was carried to. Ignored for dead tanks.
+   * from the highest row it was carried to. Ignored for dead tanks. `fallFrom`, if given, is the
+   * row fall damage counts from instead (a behaviour that caps how hard its tanks land).
    */
-  hold(player: number, x: number, y: number): void;
+  hold(player: number, x: number, y: number, fallFrom?: number): void;
 }
 
 interface BehaviourBase<P> {

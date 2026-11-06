@@ -1,0 +1,55 @@
+{
+  "id": "audio.mine-trip",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mine trip",
+    "description": "A falling warble and a deep hum as a Black Hole Mine wakes.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 1400,
+        "to": 180,
+        "release": 0.35,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 14,
+          "depth": 1.5
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 55,
+        "to": 40,
+        "hold": 1.6,
+        "release": 0.8,
+        "volume": 0.4,
+        "vibrato": {
+          "rate": 6,
+          "depth": 0.6
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 300,
+        "hold": 1.2,
+        "release": 0.6,
+        "volume": 0.12
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "mineTrip"
+    }
+  ]
+}

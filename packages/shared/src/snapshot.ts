@@ -76,7 +76,21 @@ export interface ZoneView {
   age?: number;
 }
 
-export type EntityView = TankView | ProjectileView | ZoneView;
+/** A mine waiting on the ground (§4a). */
+export interface MineView {
+  kind: 'mine';
+  /** Stable while the mine lives (renderers key animations on it). */
+  id: number;
+  x: number;
+  y: number;
+  /** Trip radius in cells. */
+  radius: number;
+  look: 'black-hole';
+  armed: boolean;
+  owner: number;
+}
+
+export type EntityView = TankView | ProjectileView | ZoneView | MineView;
 
 export interface RenderSnapshot {
   tick: number;

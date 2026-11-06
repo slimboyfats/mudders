@@ -311,6 +311,9 @@ export function resolveContent(source: ContentSource): ResolvedContent {
             if (imp.zone.terrainOp) {
               checkBehaviour(imp.zone.terrainOp, `${at}.zone.terrainOp`, 'terrainop');
             }
+          } else if ('mine' in imp) {
+            const wid = imp.mine.weapon;
+            if (!items[wid]) problems.push(`${at}.mine: weapon "${wid}" is not loaded`);
           } else {
             const pool =
               typeof imp.spawn.weapon === 'string' ? [imp.spawn.weapon] : imp.spawn.weapon;
@@ -361,6 +364,8 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       }
     }
     if (type === 'material') {
+      const det = (item as ManifestByType['material']).detonate;
+      if (det) checkExplosion(det.explosion, `${id}.detonate.explosion`);
       const cell = (item as ManifestByType['material']).cell;
       for (const other of ids) {
         if (other >= id) break;
