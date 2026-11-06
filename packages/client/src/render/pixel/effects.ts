@@ -75,6 +75,23 @@ interface Crystal {
   dur: number;
 }
 
+/** A firework burst in the sky: its two star colours, and a crackle due a moment after. */
+interface Firework {
+  x: number;
+  y: number;
+  start: number;
+  /** Main star colour and the inner ring's colour. */
+  main: number;
+  inner: number;
+  rng: FxRng;
+}
+
+/** Firework star colours: hard chip primaries, no blends. */
+const FIREWORK = [0xff4040, 0x40ff70, 0x5a8cff, 0xffd040, 0xff5ae6, 0x40f0ff, 0xffa030] as const;
+/** Ticks after a burst until its stars crackle, and how long a burst's colour stays claimable. */
+const FIREWORK_CRACKLE = 26;
+const FIREWORK_KEEP = 400;
+
 /** Ice colours, light to deep, for shards, glints and the frost front. */
 const ICE = [0xffffff, 0xe6f6ff, 0xbfe4fa, 0x8ccbef, 0x5ea8dc] as const;
 
@@ -142,6 +159,7 @@ export class EffectSystem {
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private funnels: Funnel[] = [];
+  private fireworks: Firework[] = [];
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
@@ -223,6 +241,15 @@ export class EffectSystem {
         break;
       case 'meteorCall':
         this.meteorCall(e);
+        break;
+      case 'fireworkLaunch':
+        this.fireworkLaunch(e);
+        break;
+      case 'fireworkBurst':
+        this.fireworkBurst(e);
+        break;
+      case 'fireworkStar':
+        this.fireworkStar(e);
         break;
       case 'geyser':
         this.geyser(e, e.params.strength ?? 1);
@@ -884,6 +911,167 @@ export class EffectSystem {
     this.tintSky(DT_LOOK[4]!, 0.15);
     this.shakeAmp = Math.max(this.shakeAmp, 2);
     this.shakeStart = e.tick;
+  }
+
+  /**
+   * Cluster Fireworks popping at the top of its arc: a small white pop, a ring of gold sparks and
+   * a puff of grey smoke where the rockets broke away.
+   */
+  private fireworkLaunch(e: EffectEvent): void {
+    const rng = this.rngFor(e, 61);
+    this.glows.push({ x: e.x, y: e.y, r: 5, start: e.tick, dur: 6, color: 0xfff0c0, strength: 1 });
+    const n = Math.round(20 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.1, 0.1);
+      const v = rng.range(0.8, 1.6);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(10, 18),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : 0xffd060,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y + rng.range(-2, 2),
+        vx: rng.range(-0.1, 0.1),
+        vy: -rng.range(0, 0.08),
+        life: rng.range(40, 70),
+        size: rng.range(2, 4),
+        color: 0x8a8490,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
+  /**
+   * One firework bursting: a white pop, then a sphere of strobing stars in one colour around an
+   * inner ring of another, flung out hard and braking into a drooping ball. A moment later the
+   * ball crackles with white flecks. The sky flickers in the burst's colour.
+   */
+  private fireworkBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 67);
+    const main = FIREWORK[Math.floor(rng.next() * FIREWORK.length)]!;
+    let inner: number = FIREWORK[Math.floor(rng.next() * FIREWORK.length)]!;
+    if (inner === main) inner = 0xffffff;
+    this.fireworks.push({ x: e.x, y: e.y, start: e.tick, main, inner, rng });
+    this.glows.push({ x: e.x, y: e.y, r: 6, start: e.tick, dur: 5, color: main, strength: 1.2 });
+    const n = Math.round(56 * this.mult) + 12;
+    const tilt = rng.range(0, Math.PI * 2);
+    for (let i = 0; i < n; i++) {
+      const a = tilt + (i / n) * Math.PI * 2;
+      // a ball, not a ring: speeds spread over the sphere's projection onto the screen
+      const v = 1.2 * Math.sqrt(1 - rng.next() * rng.next());
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(48, 70),
+        size: 1,
+        color: main,
+        kind: PKind.Glitter,
+      });
+    }
+    const m = Math.round(20 * this.mult) + 6;
+    for (let i = 0; i < m; i++) {
+      const a = tilt + (i / m) * Math.PI * 2 + 0.1;
+      const v = rng.range(0.42, 0.55);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(34, 46),
+        size: 1,
+        color: inner,
+        kind: PKind.Glitter,
+      });
+    }
+    const r = (main >> 16) & 255;
+    const g = (main >> 8) & 255;
+    const b = main & 255;
+    this.tintSky([main, r / 255, g / 255, b / 255], 0.03);
+  }
+
+  /** A burning star landing: a tiny pop of sparks in its colour kicked up off the ground. */
+  private fireworkStar(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    const found = this.fireworkColor(e.x, e.tick, false);
+    const c = found < 0 ? 0xffd040 : found;
+    const n = Math.round(8 * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 1,
+        vx: rng.range(-0.7, 0.7),
+        vy: -rng.range(0.4, 1.2),
+        life: rng.range(10, 20),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : c,
+        kind: PKind.Spark,
+      });
+    }
+    this.glows.push({ x: e.x, y: e.y - 1, r: 3, start: e.tick, dur: 4, color: c, strength: 0.8 });
+  }
+
+  /**
+   * Main colour of the firework burst a star at column `x` most likely came from, or -1 if there
+   * is none. A star just born (`born`) belongs to the newest burst, nearest sideways; a star
+   * landing to the nearest recent burst above it.
+   */
+  fireworkColor(x: number, t: number, born: boolean): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < this.fireworks.length; i++) {
+      const f = this.fireworks[i]!;
+      if (f.start > t) continue;
+      const d = (t - f.start) * (born ? 4 : 0.3) + Math.abs(f.x - x);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best < 0 ? -1 : this.fireworks[best]!.main;
+  }
+
+  /** Inner ring colour of the burst whose main colour is `main` (for a star's glitter trail). */
+  fireworkInner(main: number): number {
+    for (let i = this.fireworks.length - 1; i >= 0; i--) {
+      const f = this.fireworks[i]!;
+      if (f.main === main) return f.inner;
+    }
+    return 0xffffff;
+  }
+
+  /** Bursts crackle: white flecks winking on across the ball a moment after it opens. */
+  private fireworkTick(t: number): void {
+    this.fireworks = this.fireworks.filter((f) => t - f.start <= FIREWORK_KEEP);
+    for (const f of this.fireworks) {
+      const age = t - f.start;
+      if (age < FIREWORK_CRACKLE || age > FIREWORK_CRACKLE + 8) continue;
+      const n = Math.max(1, Math.round(3 * this.mult));
+      const reach = 17 + (age - FIREWORK_CRACKLE);
+      for (let i = 0; i < n; i++) {
+        const a = f.rng.range(0, Math.PI * 2);
+        const d = reach * Math.sqrt(f.rng.next());
+        this.particles.add({
+          x: f.x + Math.cos(a) * d,
+          y: f.y + Math.sin(a) * d + (age - FIREWORK_CRACKLE) * 0.4,
+          vx: 0,
+          vy: 0.05,
+          life: f.rng.range(4, 9),
+          size: 1,
+          color: 0xffffff,
+          kind: PKind.Spark,
+        });
+      }
+    }
   }
 
   /**
@@ -2259,6 +2447,7 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.feedJets(t);
+    this.fireworkTick(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
       const k = (t - f.start) / f.dur;

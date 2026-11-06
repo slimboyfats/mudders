@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.28.0",
+  "version": "0.29.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -26,6 +26,8 @@
     "audio.fire-heavy",
     "audio.fire-water",
     "audio.fire-zap",
+    "audio.firework-burst",
+    "audio.firework-crackle",
     "audio.freeze",
     "audio.frost-blast",
     "audio.geyser",
@@ -189,6 +191,7 @@
     "weapon.black-hole-mine-heart",
     "weapon.bumper",
     "weapon.burrower",
+    "weapon.cluster-fireworks",
     "weapon.cryo-shell",
     "weapon.digger",
     "weapon.dirt-ball",
@@ -199,6 +202,8 @@
     "weapon.drill-torpedo",
     "weapon.earthquake",
     "weapon.fault-line",
+    "weapon.firework-rocket",
+    "weapon.firework-star",
     "weapon.flood",
     "weapon.frost-bomb",
     "weapon.grim-crown",
