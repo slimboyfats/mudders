@@ -438,6 +438,9 @@ export class EffectSystem {
         }
         break;
       }
+      case 'rift':
+        this.rift(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -1016,6 +1019,89 @@ export class EffectSystem {
         kind: PKind.Snow,
       });
     }
+  }
+
+  /**
+   * A fissure ripping open (Fault Line): a jolt, a lens kick through the ground, and a geyser of
+   * dust and clods out of the crack mouth; a magma crack also throws up a spray of embers.
+   */
+  private rift(e: EffectEvent): void {
+    const rng = this.rngFor(e, 43);
+    const depth = Math.max(8, e.radius);
+    const w = Math.max(1, e.params.width ?? 3);
+    const hot = (e.params.hot ?? 0) > 0;
+    this.shakeAmp = Math.max(this.shakeAmp, hot ? 9 : 6);
+    this.shakeStart = e.tick;
+    this.ripples.push({
+      x: e.x,
+      y: e.y + depth * 0.4,
+      start: e.tick,
+      dur: 30,
+      maxR: depth * 1.6,
+      width: 10,
+      strength: hot ? 1.1 : 0.8,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: depth * 0.9,
+      start: e.tick,
+      dur: 18,
+      rng: this.rngFor(e, 47),
+    });
+    this.tintSky(DT_LOOK[5]!, hot ? 0.3 : 0.18);
+    const col = this.dustColor(e.x, e.y + 4);
+    // the geyser: a tall narrow column of dust, then clods thrown up and out
+    const nDust = Math.round((26 + depth / 2) * this.mult) + 4;
+    for (let i = 0; i < nDust; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-w, w),
+        y: e.y - rng.range(0, 4),
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(0.6, 2.6) * (0.6 + depth / 120),
+        life: rng.range(30, 70),
+        size: rng.range(2.5, 6),
+        color: shade(col, rng.range(0.85, 1.25)),
+        kind: PKind.Dust,
+      });
+    }
+    const nChunk = Math.round((30 + depth / 2) * this.mult) + 4;
+    for (let i = 0; i < nChunk; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: e.x + rng.range(-w, w) * 0.5,
+        y: e.y - 1,
+        vx: side * rng.range(0.1, 1.4),
+        vy: -rng.range(1.2, 3.8),
+        life: rng.range(40, 80),
+        size: rng.range(1, 2),
+        color: shade(col, rng.range(0.7, 1.1)),
+        kind: PKind.Chunk,
+      });
+    }
+    if (!hot) return;
+    const nSpark = Math.round(40 * this.mult) + 6;
+    for (let i = 0; i < nSpark; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-w, w) * 0.5,
+        y: e.y + rng.range(0, 3),
+        vx: rng.range(-0.8, 0.8),
+        vy: -rng.range(1.5, 4.2),
+        life: rng.range(24, 60),
+        size: 1,
+        color: rng.next() < 0.35 ? 0xffe070 : rng.next() < 0.6 ? 0xff7a1a : 0xe8401a,
+        kind: PKind.Spark,
+      });
+    }
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 6 + w,
+      start: e.tick,
+      dur: 12,
+      color: 0xff7a24,
+      strength: 1,
+    });
   }
 
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
