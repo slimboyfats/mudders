@@ -581,6 +581,6 @@ Suggested `CLAUDE.md` rules: browser target is Baseline 2026 — use any Baselin
 - Whether the AI should get any benefit/penalty from zoom (it shouldn't — AI aims in map coordinates; note for clarity).
 - Simultaneous-fire turn mode would roughly halve round length and suits mobile attention spans — consider making it the default after playtesting.
 - How retro-flavoured the React UI should be (monospace/boxy vs plain modern). Decide with a quick mockup of the shop screen.
-- Team play (2v2) — in scope for v1 or v2?
+- Team play (2v2) — in scope for v1 or v2? Resolved: added in milestone 7 (`mode.teams`, up to 4 teams, `WorldOptions.teams`).
 - Whether the host should also be able to run as a headless Node process (dedicated host) later, which the sim-package isolation makes possible.
 - Which free host actually supports long-lived WebSockets + UDP (for TURN) today — verify before milestone 4.

@@ -1,0 +1,24 @@
+{
+  "id": "mode.teams",
+  "schemaVersion": 1,
+  "description": "A 2v2 team round: players 1 and 3 against 2 and 4, bots on every tank, turns alternating between the teams.",
+  "subject": "mode.teams",
+  "mode": "mode.teams",
+  "seed": 7,
+  "players": 4,
+  "teams": [0, 1, 0, 1],
+  "bots": ["ai.cyborg", "ai.shooter", "ai.cyborg", "ai.shooter"],
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [{ "x": 110 }, { "x": 300 }, { "x": 500 }, { "x": 690 }],
+  "turnOrder": [0, 1, 2, 3],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

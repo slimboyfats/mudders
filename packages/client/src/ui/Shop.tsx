@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Input } from '@mudders/shared';
-import type { HudState } from '../game/match';
+import type { HudState, HudTank } from '../game/match';
+import { teamName } from '../game/setup';
 import { sfx } from '../audio/bridge';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 
@@ -16,8 +17,18 @@ interface ScoreProps {
 /** Round (or final) scoreboard: points this round, money earned, totals (§3.5). */
 export function Scoreboard({ hud, final }: ScoreProps) {
   const last = hud.results[hud.results.length - 1];
-  const wins = (p: number) => hud.results.filter((r) => r.winner === p).length;
-  const rows = [...hud.tanks].sort((a, b) => b.score - a.score || a.player - b.player);
+  // team play: wins and the crown go to the whole team, and team-mates are listed together
+  const won = (t: HudTank) => (hud.teams ? t.team === hud.winnerTeam : t.player === hud.winner);
+  const wins = (t: HudTank) =>
+    hud.results.filter((r) => (hud.teams ? r.winnerTeam === t.team : r.winner === t.player)).length;
+  const teamScore = (team: number) =>
+    hud.tanks.reduce((n, t) => n + (t.team === team ? t.score : 0), 0);
+  const rows = [...hud.tanks].sort(
+    (a, b) =>
+      (hud.teams ? teamScore(b.team) - teamScore(a.team) || a.team - b.team : 0) ||
+      b.score - a.score ||
+      a.player - b.player,
+  );
   return (
     <table className="scores">
       <thead>
@@ -31,15 +42,16 @@ export function Scoreboard({ hud, final }: ScoreProps) {
       </thead>
       <tbody>
         {rows.map((t) => (
-          <tr key={t.player} className={t.player === hud.winner ? 'win' : ''}>
+          <tr key={t.player} className={won(t) ? 'win' : ''}>
             <td>
               <span className="swatch" style={{ background: pcolor(t.player) }} />P{t.player + 1}
+              {hud.teams && <small> Team {teamName(t.team)}</small>}
               {t.bot && <small> {t.bot}</small>}
-              {t.player === hud.winner && <span className="crown"> ★</span>}
+              {won(t) && <span className="crown"> ★</span>}
             </td>
             {!final && <td>{last?.points[t.player] ?? 0}</td>}
             {!final && <td>+{money(last?.earned[t.player] ?? 0)}</td>}
-            <td>{wins(t.player)}</td>
+            <td>{wins(t)}</td>
             <td>{t.score}</td>
           </tr>
         ))}
@@ -71,7 +83,9 @@ export function Shop({ hud, controls, send }: ShopProps) {
       <header>
         <h2>
           Round {hud.round} of {hud.rounds}:{' '}
-          {last && last.winner >= 0 ? (
+          {hud.teams && last && last.winnerTeam >= 0 ? (
+            <>Team {teamName(last.winnerTeam)} wins</>
+          ) : last && last.winner >= 0 ? (
             <>
               <span className="swatch" style={{ background: pcolor(last.winner) }} />P
               {last.winner + 1} wins

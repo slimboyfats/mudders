@@ -136,6 +136,16 @@ export class HostSession {
     this.changed();
   }
 
+  /** Host: move a seat to another team (milestone 7); no-op unless teams are on. */
+  setTeam(i: number, team: number): void {
+    const teams = this.rules.teams;
+    if (this.match || !teams || i < 0 || i >= this.seats.length) return;
+    const next = Array.from({ length: this.seats.length }, (_, k) => teams[k] ?? k % 2);
+    next[i] = team;
+    this.rules = { ...this.rules, teams: next };
+    this.changed();
+  }
+
   /** Host: put an AI in an open seat, change its personality, or open it again. */
   setSeat(i: number, value: 'open' | string): void {
     const s = this.seats[i];
@@ -313,9 +323,10 @@ export class HostSession {
   }
 
   /** Start the match: every peer builds the same world from this seed and setup. */
-  start(seed: number, mode = 'mode.classic'): HostMatch {
+  start(seed: number, modeOverride?: string): HostMatch {
     if (this.match) return this.match;
     const setup = this.setup;
+    const mode = modeOverride ?? (setup.teams ? 'mode.teams' : 'mode.classic');
     let p = 0;
     this.playerOf = this.seats.map((s) => (s.kind === 'open' ? -1 : p++));
     this.match = new HostMatch(this.content, { seed, setup, mode }, this.playerOf[0]!);

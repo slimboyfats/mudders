@@ -26,6 +26,7 @@ export class ScenarioDriver {
       wind: scenario.wind,
       turnOrder: scenario.turnOrder,
       bots: scenario.bots,
+      teams: scenario.teams,
       rules: scenario.rules,
       props: scenario.props,
     });

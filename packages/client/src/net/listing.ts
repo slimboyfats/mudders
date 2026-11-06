@@ -42,5 +42,6 @@ export function roomSummary(r: LobbyRules): string {
     r.turnTimer ? `${r.turnTimer} s turns` : 'no turn timer',
   ];
   if (r.scenery !== 'none') parts.push(r.scenery);
+  if (r.teams) parts.push('teams');
   return parts.join(' · ');
 }

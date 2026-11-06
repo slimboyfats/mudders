@@ -1,0 +1,11 @@
+{
+  "id": "mode.teams",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Teams",
+    "description": "Classic rules for teams: turns alternate between the teams, the round ends when one team is left, and the whole team shares the round win. Hitting a teammate scores like hitting yourself.",
+    "since": "core@0.10.0"
+  },
+  "extends": "mode.classic",
+  "behaviour": "mode.teams"
+}

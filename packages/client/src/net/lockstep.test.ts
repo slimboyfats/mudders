@@ -19,6 +19,7 @@ const setup: NetSetup = {
   wind: 'perTurn',
   suddenDeath: true,
   startingCash: 3000,
+  teams: null,
 };
 const start: StartInfo = { seed: 1234, setup, mode: 'mode.classic' };
 

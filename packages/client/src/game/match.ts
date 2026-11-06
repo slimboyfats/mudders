@@ -14,6 +14,8 @@ export const MAX_STEPS = 8;
 
 export interface HudTank {
   player: number;
+  /** Team (milestone 7); the player number in a free-for-all. */
+  team: number;
   alive: boolean;
   health: number;
   angle: number;
@@ -51,6 +53,10 @@ export interface HudState {
   tanks: HudTank[];
   /** Winner of the last finished round (-1 = draw), or of the match once it is over. */
   winner: number;
+  /** Team play (milestone 7): show team letters and team winners. */
+  teams: boolean;
+  /** Winning team of the last round or the match (-1 = draw); equals `winner` in a free-for-all. */
+  winnerTeam: number;
   results: RoundResult[];
   shop: ShopItem[];
 }
@@ -132,6 +138,8 @@ export abstract class SimMatch implements SnapshotStream {
       wind: w.wind / 65536,
       windMax: w.mode.wind.max,
       winner: w.phase === 'over' ? w.matchWinner : (last?.winner ?? -1),
+      teams: w.options.teams !== undefined,
+      winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
       results: w.results,
       shop: this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
       tanks: w.tanks.map((t) => ({
@@ -141,6 +149,7 @@ export abstract class SimMatch implements SnapshotStream {
         score: t.score,
         ready: t.ready,
         player: t.player,
+        team: t.team,
         alive: t.alive,
         health: t.health,
         angle: t.angle,

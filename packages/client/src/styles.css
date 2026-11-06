@@ -1081,3 +1081,40 @@ a.button {
 .players.many .player .hp {
   margin-left: 4px;
 }
+
+/* Team play (milestone 7): letter badges, so a team never relies on colour alone */
+.team-badge {
+  display: inline-block;
+  min-width: 1.3em;
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 3px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85em;
+  color: #1a120d;
+  background: #f2e6d8;
+}
+
+.team-badge.team-1 {
+  background: #9fd3f2;
+}
+
+.team-badge.team-2 {
+  background: #b9e5a5;
+}
+
+.team-badge.team-3 {
+  background: #f2b8d5;
+}
+
+.slot select.team-pick {
+  min-width: 6em;
+}
+
+.teams-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+}
