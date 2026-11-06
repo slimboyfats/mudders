@@ -34,7 +34,7 @@ import {
   type TerrainOpBehaviour,
 } from './behaviours';
 import { behaviourParams, type ResolvedContent } from './content/resolve';
-import { FP, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
+import { FP, FP_SHIFT, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
 import { DebrisPool } from './debris';
 import { Grid } from './grid';
 import { Groups } from './groups';
@@ -202,6 +202,8 @@ interface RtZoneSpec {
   op: number;
   damageType: DamageType;
   look: number;
+  /** Gas cloud (null = fixed zone). Fixed-point speeds. */
+  cloud: { puffs: number; puffRadius: number; billow: number; drift: number; sink: number } | null;
 }
 
 type RtImpact =
@@ -222,13 +224,29 @@ export interface Zone {
   dt: number;
   look: number;
   owner: number;
+  /**
+   * Gas cloud puffs, flattened x, y, vx, vy per puff in fixed-point cells (empty for a fixed
+   * zone). `x`,`y` above follow the cloud's middle.
+   */
+  puffs: number[];
+  puffRadius: number;
+  /** Fixed-point: wind multiplier, and sink acceleration per tick. */
+  drift: number;
+  sink: number;
+  /** Ticks since the zone was laid. */
+  age: number;
 }
+
+/** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
+const PUFF_PUSH = FP >> 6;
+const PUFF_LIFT = FP >> 6;
+const PUFF_SLIDE = FP >> 6;
 
 /** Most zones alive at once; the oldest goes first. */
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic'] as const;
 
 interface RtWeapon {
   id: string;
@@ -438,6 +456,15 @@ export class World implements SimApi {
           op: z.terrainOp ? this.bindOp(z.terrainOp) : -1,
           damageType: z.damageType,
           look: ZONE_LOOKS.indexOf(z.look),
+          cloud: z.cloud
+            ? {
+                puffs: z.cloud.puffs,
+                puffRadius: z.cloud.puffRadius,
+                billow: toFixed(z.cloud.billow),
+                drift: toFixed(z.cloud.drift),
+                sink: toFixed(z.cloud.sink),
+              }
+            : null,
         },
       };
     }
@@ -728,6 +755,7 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     this.stepOps();
+    this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
@@ -1163,10 +1191,30 @@ export class World implements SimApi {
 
   private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
     if (this.zones.length >= MAX_ZONES) this.zones.shift();
+    const c = z.cloud;
+    const puffs: number[] = [];
+    if (c) {
+      // lift the burst point out of the ground, then fling the puffs out in a ring
+      const g = this.grid;
+      let sy = Math.min(y, g.height - 1);
+      for (let k = 0; k < 32 && sy > 0 && g.material[sy * g.width + x] !== 0; k++) sy--;
+      y = sy;
+      for (let i = 0; i < c.puffs; i++) {
+        const a = Math.trunc((i * 3600) / c.puffs) + this.rng.range(-150, 150);
+        const sp = c.billow - this.rng.int((c.billow >> 1) + 1);
+        // flattened: more sideways than up, as heavy gas spills out rather than rising
+        puffs.push(
+          x * FP + FP / 2,
+          y * FP + FP / 2,
+          Math.trunc((cosDeci(a) * sp) / FP),
+          Math.trunc((sinDeci(a) * sp) / FP / 2),
+        );
+      }
+    }
     this.zones.push({
       x,
       y,
-      radius: z.radius,
+      radius: c ? c.puffRadius : z.radius,
       turns: z.turns,
       damage: z.damage,
       amplify: z.amplify,
@@ -1174,8 +1222,154 @@ export class World implements SimApi {
       dt: damageTypeIndex(z.damageType),
       look: z.look,
       owner,
+      puffs,
+      puffRadius: c ? c.puffRadius : 0,
+      drift: c ? c.drift : 0,
+      sink: c ? c.sink : 0,
+      age: 0,
     });
-    this.emit('zone', x, y, z.radius, { look: z.look, turns: z.turns });
+    this.emit('zone', x, y, c ? c.puffRadius * 2 : z.radius, { look: z.look, turns: z.turns });
+  }
+
+  /**
+   * Gas clouds move every tick (aim and resolve alike): each puff eases toward the wind's drift,
+   * sinks, keeps clear of the other puffs, slides down slopes and climbs only gentle ones. A puff
+   * blown off the map or buried under new ground is gone; a cloud with no puffs left is gone.
+   */
+  private stepClouds(): void {
+    if (this.zones.length === 0) return;
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    let emptied = false;
+    for (const z of this.zones) {
+      const pf = z.puffs;
+      if (pf.length === 0) continue;
+      z.age++;
+      // puffs settle about half a radius apart: a thick blanket, not a row of balls
+      const r = Math.max(2, z.puffRadius >> 1);
+      const tvx = Math.trunc((this.wind * z.drift) / FP);
+      let n = pf.length >> 2;
+      let sx = 0;
+      let sy = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        let x = pf[o]!;
+        let y = pf[o + 1]!;
+        let vx = pf[o + 2]!;
+        let vy = pf[o + 3]!;
+        // wind and weight
+        vx += (tvx - vx) >> 5;
+        vy += z.sink >> 4;
+        vy -= vy >> 4;
+        // keep apart: puffs closer than a radius push each other away (spreads the cloud out)
+        const cx0 = x >> FP_SHIFT;
+        const cy0 = y >> FP_SHIFT;
+        for (let j = 0; j < n; j++) {
+          if (j === i) continue;
+          const dx = cx0 - (pf[j << 2]! >> FP_SHIFT);
+          const dy = cy0 - (pf[(j << 2) + 1]! >> FP_SHIFT);
+          if (dx >= r || dx <= -r || dy >= r || dy <= -r) continue;
+          vx += dx > 0 ? PUFF_PUSH : dx < 0 ? -PUFF_PUSH : i < j ? -PUFF_PUSH : PUFF_PUSH;
+          if (dy < 0 || (dy === 0 && i < j)) vy -= PUFF_LIFT;
+        }
+        // across: climb at most two cells, else stall
+        let nx = x + vx;
+        let cx = nx >> FP_SHIFT;
+        if (cx < 0 || cx >= W) {
+          pf[o] = -1;
+          continue;
+        }
+        let cy = y >> FP_SHIFT;
+        if (cy >= 0 && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 2 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up <= 2) {
+            y -= up * FP;
+            cy -= up;
+          } else {
+            nx = x;
+            cx = x >> FP_SHIFT;
+            vx = -(vx >> 1);
+          }
+        }
+        x = nx;
+        // down (or up): rest on the ground, then slide toward the lower side
+        const ny = y + vy;
+        const ncy = ny >> FP_SHIFT;
+        if (ncy >= H || (ncy >= 0 && mat[ncy * W + cx] !== 0)) {
+          vy = 0;
+          // which way is down: the deeper drop three cells to either side
+          const dl = cx >= 3 ? dropBelow(mat, W, H, cx - 3, cy) : 0;
+          const dr = cx + 3 < W ? dropBelow(mat, W, H, cx + 3, cy) : 0;
+          if (dl > dr) vx -= PUFF_SLIDE;
+          else if (dr > dl) vx += PUFF_SLIDE;
+        } else {
+          y = ny < 0 ? 0 : ny;
+          if (ny < 0) vy = 0;
+        }
+        // buried by new ground: rise out, or be smothered
+        cy = y >> FP_SHIFT;
+        if (cy < H && mat[cy * W + cx] !== 0) {
+          let up = 1;
+          while (up <= 12 && cy - up >= 0 && mat[(cy - up) * W + cx] !== 0) up++;
+          if (up > 12 || cy - up < 0) {
+            pf[o] = -1;
+            continue;
+          }
+          y -= up * FP;
+          vy = 0;
+        }
+        pf[o] = x;
+        pf[o + 1] = y;
+        pf[o + 2] = vx;
+        pf[o + 3] = vy;
+      }
+      // drop dead puffs (in order), re-centre the zone on the rest
+      let k = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i << 2;
+        if (pf[o]! < 0) continue;
+        if (k !== i) {
+          const q = k << 2;
+          pf[q] = pf[o]!;
+          pf[q + 1] = pf[o + 1]!;
+          pf[q + 2] = pf[o + 2]!;
+          pf[q + 3] = pf[o + 3]!;
+        }
+        sx += pf[k << 2]! >> FP_SHIFT;
+        sy += pf[(k << 2) + 1]! >> FP_SHIFT;
+        k++;
+      }
+      if (k < n) pf.length = k << 2;
+      n = k;
+      if (n === 0) {
+        emptied = true;
+        z.turns = 0;
+        continue;
+      }
+      z.x = Math.trunc(sx / n);
+      z.y = Math.trunc(sy / n);
+    }
+    if (emptied) this.zones = this.zones.filter((z) => z.turns > 0);
+  }
+
+  /** True if a tank-centred point is inside the zone (any puff, for a cloud). */
+  private inZone(z: Zone, x: number, y: number): boolean {
+    const reach = z.radius + TANK_HALF;
+    const pf = z.puffs;
+    if (pf.length === 0) {
+      const dx = x - z.x;
+      const dy = y - z.y;
+      return dx * dx + dy * dy < reach * reach;
+    }
+    for (let o = 0; o < pf.length; o += 4) {
+      const dx = x - (pf[o]! >> FP_SHIFT);
+      const dy = y - (pf[o + 1]! >> FP_SHIFT);
+      if (dx * dx + dy * dy < reach * reach) return true;
+    }
+    return false;
   }
 
   /** End of a turn: zones hurt the tanks inside them and re-run their op, then age (§4a). */
@@ -1185,10 +1379,7 @@ export class World implements SimApi {
       if (z.damage > 0) {
         for (const t of this.tanks) {
           if (!t.alive) continue;
-          const dx = t.x - z.x;
-          const dy = t.y - TANK_H / 2 - z.y;
-          const reach = z.radius + TANK_HALF;
-          if (dx * dx + dy * dy >= reach * reach) continue;
+          if (!this.inZone(z, t.x, t.y - TANK_H / 2)) continue;
           this.emit('zoneHurt', t.x, t.y - TANK_H / 2, TANK_HALF, {
             damage: z.damage,
             look: z.look,
@@ -1753,6 +1944,13 @@ export class World implements SimApi {
         radius: z.radius,
         look: ZONE_LOOKS[z.look] ?? 'gas',
         turns: z.turns,
+        ...(z.puffs.length > 0
+          ? {
+              puffs: puffCells(z.puffs),
+              puffRadius: z.puffRadius,
+              age: z.age,
+            }
+          : {}),
       });
     }
     const effectEvents = this.effects;
@@ -1840,6 +2038,8 @@ export class World implements SimApi {
     for (const z of this.zones) {
       h.num(z.x).num(z.y).num(z.radius).num(z.turns).num(z.damage).num(z.amplify);
       h.num(z.op).num(z.dt).num(z.look).num(z.owner);
+      h.num(z.puffRadius).num(z.drift).num(z.sink).num(z.age).num(z.puffs.length);
+      for (const v of z.puffs) h.num(v);
     }
     h.num(this.ops.length);
     for (const o of this.ops) {
@@ -1848,4 +2048,18 @@ export class World implements SimApi {
     }
     return h.hex();
   }
+}
+
+/** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
+function puffCells(pf: readonly number[]): number[] {
+  const out: number[] = [];
+  for (let o = 0; o < pf.length; o += 4) out.push(pf[o]! >> FP_SHIFT, pf[o + 1]! >> FP_SHIFT);
+  return out;
+}
+
+/** Air cells straight down from (x, y), at most 8 (how far the ground falls away there). */
+function dropBelow(mat: Uint8Array, W: number, H: number, x: number, y: number): number {
+  let d = 0;
+  for (let r = y; d < 8 && r < H && r >= 0 && mat[r * W + x] === 0; r++) d++;
+  return d;
 }

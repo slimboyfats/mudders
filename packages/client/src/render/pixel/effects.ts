@@ -413,6 +413,9 @@ export class EffectSystem {
       case 'zone':
         this.puff(e, ZONE_COLOR[e.params.look ?? 0] ?? 0x9ab83a, 30);
         break;
+      case 'gasBurst':
+        this.gasBurst(e);
+        break;
       case 'zoneHurt':
         this.puff(e, 0xb8f040, 8);
         break;
@@ -1553,6 +1556,53 @@ export class EffectSystem {
     return [Math.sin(age * 2.1) * a, Math.cos(age * 2.9) * a * 0.6];
   }
 
+  /**
+   * A gas canister cracking open: a jet of green spray and droplets up out of the crater, fat
+   * toxic puffs rolling out low to both sides, and a sickly tint on the sky.
+   */
+  private gasBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 23);
+    const n = Math.round((e.params.count ?? 18) * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y - rng.range(0, 3),
+        vx: side * rng.range(0.4, 1.6),
+        vy: -rng.range(0.05, 0.5),
+        life: rng.range(40, 80),
+        size: rng.range(4, 8),
+        color: rng.next() < 0.5 ? 0x7fb51e : 0xa8dc30,
+        kind: PKind.Dust,
+      });
+    }
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 1,
+        vx: rng.range(-0.7, 0.7),
+        vy: -rng.range(1.2, 2.8),
+        life: rng.range(20, 40),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xf0ff90 : 0xa8dc30,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - 2,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.4, 0.9),
+        life: rng.range(40, 70),
+        size: rng.range(4, 7),
+        color: 0x6a9a1a,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
+  }
+
   drawGlows(additive: QuadBatch, t: number): void {
     for (const g of this.glows) {
       const k = Math.max(0, (t - g.start) / g.dur);
@@ -1663,8 +1713,8 @@ export const RICOCHET_HEAT = [
   0x50e8ff, 0x70b0ff, 0x9a80ff, 0xd070ff, 0xff68c8, 0xffb0f0, 0xffffff,
 ] as const;
 
-/** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff] as const;
+/** Zone looks by index (gas, acid, resonance, toxic), matching the sim's zone `look` order. */
+export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {

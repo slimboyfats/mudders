@@ -188,7 +188,10 @@ void main() {
         float h = hash(cell + ivec2(5, 9));
         bool grown = cell.y + 1 < int(u_map.y) && texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r != 0u;
         if (topsoil(b1) && grown && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
-          c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
+          // withered by gas (mask 2): dry straw tufts, fewer of them
+          bool dry = texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r == 2u;
+          if (!dry) c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
+          else if (h > 0.62) c = vec3(0.6, 0.5, 0.24) * (h > 0.85 ? 1.1 : 0.9);
         } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && cell.y + 2 < int(u_map.y) &&
                    texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r != 0u && hash(cell + ivec2(5, 10)) > 0.86 &&
                    hash(cell + ivec2(2, 3)) > 0.45) {
@@ -473,7 +476,11 @@ void main() {
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
-  bool soil = still && lk.a > 0.75 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
+  bool soil = gmask != 0u;
+  // grass a gas cloud crept over (mask 2) is withered: dry, yellow-brown, no flowers
+  bool dry = gmask == 2u;
+  vec3 grassRgb = dry ? mix(u_grass.rgb, vec3(0.58, 0.47, 0.2), 0.8) : u_grass.rgb;
   // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
   // that dithers back into the plain soil a dozen cells down
   float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
@@ -540,13 +547,13 @@ void main() {
     // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
     // with depth and dithering into the topsoil at its foot
     float k = float(sd - 10) / 14.0;
-    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(u_grass.rgb, ap, k);
+    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(grassRgb, ap, k);
   }
   if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
-    vec3 gr = u_grass.rgb;
+    vec3 gr = grassRgb;
     if (patchy > 0.66) gr = mix(gr, gr * vec3(1.22, 1.14, 0.62), 0.6);
     else if (patchy < 0.3) gr *= vec3(0.86, 0.96, 1.04);
     // blades: each column of cells carries its own length and shade
@@ -560,7 +567,7 @@ void main() {
     else if (h > 0.55) col = gr * 0.6;
     else col = turf(gr, ap, 0.0);
     // flowers: a single bright art pixel with a darker cell under it
-    if (u_flowers > 0.0 && sd <= 3) {
+    if (u_flowers > 0.0 && sd <= 3 && !dry) {
       float f = hash(ivec2(c.x >> 1, 503));
       if (f > 1.0 - u_flowers * 0.08) {
         float pick = hash(ivec2(c.x >> 1, 504));

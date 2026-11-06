@@ -296,7 +296,21 @@ export type Spawn = z.infer<typeof SpawnSchema>;
  * it (`damage`) and re-runs `terrainOp` over itself, for `turns` turns. `amplify` > 1 makes it a
  * resonance field instead: the next explosion centred inside it is scaled by that factor (radius,
  * damage and push) and the zone is used up. `look` tells renderers how to draw it.
+ *
+ * `cloud` makes it a moving gas cloud instead of a fixed circle: `puffs` puffs of `puffRadius`
+ * burst out from the impact at `billow` cells/tick, then drift with the wind (`drift` × wind),
+ * sink at up to `sink` cells/tick, slide downhill and pool in low ground. A tank inside any puff
+ * takes the zone's damage at the end of each turn; `radius` is unused for clouds.
  */
+export const ZoneCloudSchema = z.strictObject({
+  puffs: z.number().int().min(1).max(32),
+  puffRadius: z.number().int().min(2).max(60),
+  billow: z.number().min(0).max(4).default(1),
+  drift: z.number().min(0).max(40).default(8),
+  sink: z.number().min(0).max(2).default(0.3),
+});
+export type ZoneCloud = z.infer<typeof ZoneCloudSchema>;
+
 export const ZoneSchema = z.strictObject({
   radius: z.number().int().min(1).max(400),
   turns: z.number().int().min(1).max(10),
@@ -304,7 +318,8 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance']).default('gas'),
+  look: z.enum(['gas', 'acid', 'resonance', 'toxic']).default('gas'),
+  cloud: ZoneCloudSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
 
