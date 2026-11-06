@@ -14,22 +14,7 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
-        "radius": 4,
-        "damage": 4,
-        "damageType": "heat",
-        "terrainOp": null,
-        "effects": {
-          "burst": {
-            "count": 6
-          },
-          "flash": {
-            "strength": 0.4
-          },
-          "shake": {
-            "strength": 0
-          }
-        }
+        "use": "explosion.glob-splash"
       }
     },
     {

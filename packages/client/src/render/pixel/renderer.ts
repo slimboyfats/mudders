@@ -606,7 +606,9 @@ export class PixelRenderer implements Renderer {
     while (this.fxTick < s.tick) this.stepFx();
     for (const e of s.effectEvents) {
       this.fx.handle(e);
-      if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
+      if (e.type === 'flash') {
+        if ((e.params.strength ?? 1) > 0) this.scorch(e.x, e.y, e.radius, e.tick);
+      }
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
     }
@@ -1006,6 +1008,7 @@ export class PixelRenderer implements Renderer {
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
     this.fx.drawMushrooms(this.normal, this.additive, t);
+    this.fx.drawVortices(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);

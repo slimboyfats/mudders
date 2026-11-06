@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Magma Bomb",
-    "description": "Melts the ground into lava that runs downhill and pools. Tanks sitting in it burn every turn until it cools to rock three turns later.",
+    "description": "Erupts on impact: melts the ground into lava and throws glowing lava bombs that land as small pools of their own. The lava runs downhill and pools; tanks sitting in it burn every turn until it cools to rock three turns later.",
     "category": "terrain-dynamics",
     "since": "core@0.3.0"
   },
@@ -30,8 +30,21 @@
           },
           "shake": {
             "strength": 2
+          },
+          "eruption": {
+            "strength": 1
           }
         }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.magma-glob",
+        "count": 10,
+        "inherit": 0,
+        "spread": 2.2,
+        "jitter": 0.8,
+        "up": 3.2
       }
     }
   ],
