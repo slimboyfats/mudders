@@ -680,6 +680,7 @@ export class PixelRenderer implements Renderer {
     this.drawDebris();
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
+    this.fx.drawMushrooms(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);

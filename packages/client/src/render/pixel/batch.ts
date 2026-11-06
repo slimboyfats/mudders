@@ -4,7 +4,7 @@ import { compile, uniforms } from './gl';
 /** Per-instance floats: pos.xy, size.xy, rot, color.rgba, shape. */
 const STRIDE = 10;
 
-export const Shape = { Rect: 0, Glow: 1, Disc: 2, Ring: 3, Pixel: 4 } as const;
+export const Shape = { Rect: 0, Glow: 1, Disc: 2, Ring: 3, Pixel: 4, Solid: 5 } as const;
 export type Shape = (typeof Shape)[keyof typeof Shape];
 
 /**

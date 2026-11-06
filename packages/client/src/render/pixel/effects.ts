@@ -2,6 +2,7 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
+import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
 
@@ -82,6 +83,7 @@ export class EffectSystem {
   private glows: Glow[] = [];
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
+  private mushrooms: Mushroom[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -135,6 +137,7 @@ export class EffectSystem {
           });
           this.split = Math.max(this.split, Math.min(4, e.radius / 30));
         }
+        if (isNukeFlash(e.radius, strength, e.params.dt ?? 0)) this.nuke(e);
         break;
       }
       case 'shake':
@@ -358,6 +361,49 @@ export class EffectSystem {
       default:
         break; // unknown effect: ignored by contract
     }
+  }
+
+  /**
+   * Nuke-class blast: a mushroom cloud, a map-wide distortion shockwave (the approved moving-pixel
+   * lens band, scaled up, no light ring) and a ground dust front racing out along the surface.
+   */
+  private nuke(e: EffectEvent): void {
+    const r = e.radius;
+    this.mushrooms.push(makeMushroom(e.x, e.y, r, e.tick, this.rngFor(e, 31).next() * 4294967296));
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 70,
+      maxR: r * 7,
+      width: 26,
+      strength: 1.5,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 6,
+      dur: 60,
+      maxR: r * 4.5,
+      width: 12,
+      strength: 0.9,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: r * 4,
+      start: e.tick,
+      dur: 46,
+      rng: this.rngFor(e, 37),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 4 + r / 12);
+    this.shakeStart = e.tick;
+  }
+
+  /** Mushroom clouds, drawn over particles; finished ones are dropped. */
+  drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    if (this.mushrooms.length === 0) return;
+    this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t));
   }
 
   /** Add a coloured sky tint (§2a sky reaction); `amount` ~0.5 is a big flash. */
@@ -633,11 +679,21 @@ export class EffectSystem {
     this.glows = [];
     this.fronts = [];
     this.bolts = [];
+    this.mushrooms = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
     this.split = 0;
   }
+}
+
+/**
+ * Nuke-class blasts get the mushroom cloud. Render-only, so it keys off the existing flash event
+ * (no manifest or sim change): a blast-type flash at least 40 cells wide and strength >= 1.5.
+ * In core that is exactly Baby Nuke, Nuke and Heavy Nuke.
+ */
+export function isNukeFlash(radius: number, strength: number, dt: number): boolean {
+  return dt === 0 && radius >= 40 && strength >= 1.5;
 }
 
 /** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */
