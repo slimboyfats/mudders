@@ -1,6 +1,7 @@
 import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
+import { drawPost, makePost, type Post } from './bumper';
 import { FxRng } from './gl';
 import { Lances } from './lance';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
@@ -136,6 +137,8 @@ export class EffectSystem {
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private funnels: Funnel[] = [];
+  /** Bumper posts (weapon.bumper). */
+  private posts: Post[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -643,6 +646,34 @@ export class EffectSystem {
         }
         break;
       }
+      case 'bumper':
+        this.posts.push(makePost(e.x, e.y + 1, e.tick, e.params.windup ?? 10));
+        this.dirtPop(e, 10);
+        break;
+      case 'bumpKick':
+        this.bumpKick(e);
+        break;
+      case 'bumpLaunch':
+        this.dirtPop(e, 14);
+        this.stars(e, 12, 1.6);
+        break;
+      case 'bumpFly':
+        this.stars(e, 2, 0.4);
+        break;
+      case 'bumpBounce':
+        this.stars(e, 14, 1.4);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 14,
+          maxR: 18,
+          width: 5,
+          strength: 0.5,
+        });
+        this.shakeAmp = Math.max(this.shakeAmp, 2);
+        this.shakeStart = e.tick;
+        break;
       case 'tornadoEnd': {
         // the funnel breaks up: a burst of storm dust where it stood
         const rng = this.rngFor(e, 53);
@@ -1475,6 +1506,69 @@ export class EffectSystem {
     }
   }
 
+  /** A bumper kicks: a distortion punch out of the post, a jolt and a spray of pinball stars. */
+  private bumpKick(e: EffectEvent): void {
+    this.ripples.push({
+      x: e.x,
+      y: e.y - 8,
+      start: e.tick,
+      dur: 22,
+      maxR: e.radius * 1.6,
+      width: 10,
+      strength: 0.9,
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 4);
+    this.shakeStart = e.tick;
+    this.stars({ ...e, y: e.y - 12 }, 30, 2.2);
+    this.tintSky([0, 0.45, 0.35, 0.1], 0.18);
+  }
+
+  /** Hard-coloured pixel stars thrown out of a point (bumper kicks, trails, bounces). */
+  private stars(e: EffectEvent, count: number, speed: number): void {
+    const rng = this.rngFor(e, 71);
+    const n = Math.round(count * this.mult) + 1;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const s = rng.range(0.3, 1) * speed;
+      const c = rng.next();
+      this.particles.add({
+        x: e.x + rng.range(-1.5, 1.5),
+        y: e.y + rng.range(-1.5, 1.5),
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 0.3,
+        life: rng.range(10, 26),
+        size: 1,
+        color: c < 0.4 ? 0xffe070 : c < 0.7 ? 0xffffff : c < 0.85 ? 0xff5a8c : 0x6ae0ff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** Clods of the local ground kicked up (a bumper post breaking the surface, a tank kicked). */
+  private dirtPop(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 73);
+    const n = Math.round(count * this.mult) + 1;
+    const col = this.dustColor(e.x, e.y + 2);
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-6, 6),
+        y: e.y - rng.range(0, 3),
+        vx: rng.range(-1.1, 1.1),
+        vy: -rng.range(0.5, 1.8),
+        life: rng.range(18, 34),
+        size: 1,
+        color: shade(col, rng.range(0.7, 1.2)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Bumper posts, drawn behind tanks and particles; sunk ones are dropped. */
+  drawPosts(normal: QuadBatch, t: number): void {
+    if (this.posts.length === 0) return;
+    this.posts = this.posts.filter((p) => drawPost(p, normal, t));
+  }
+
   /** Tornadoes, drawn behind particles and debris; stale ones are dropped. */
   drawFunnels(normal: QuadBatch, additive: QuadBatch, t: number): void {
     for (const f of this.funnels) drawFunnel(f, normal, additive, t);
@@ -2226,6 +2320,7 @@ export class EffectSystem {
     this.lances.clear();
     this.vortices = [];
     this.funnels = [];
+    this.posts = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

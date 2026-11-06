@@ -1,0 +1,39 @@
+{
+  "id": "audio.bonk",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bonk",
+    "description": "A short pinball ding when a flung tank bounces off a hillside or the map's edge.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 1568,
+        "to": 1318,
+        "release": 0.22,
+        "volume": 0.25
+      },
+      {
+        "wave": "triangle",
+        "freq": 392,
+        "to": 196,
+        "release": 0.12,
+        "volume": 0.4
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "bumpBounce"
+    }
+  ],
+  "gap": 0.08
+}

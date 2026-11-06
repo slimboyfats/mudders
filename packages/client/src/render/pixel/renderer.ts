@@ -1309,6 +1309,7 @@ export class PixelRenderer implements Renderer {
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
     this.fx.drawFunnels(this.normal, this.additive, t);
+    this.fx.drawPosts(this.normal, t);
     this.drawDebris();
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
