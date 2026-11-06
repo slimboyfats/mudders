@@ -11,4 +11,15 @@ describe('weapon.singularity', () => {
     expect(effectsOf(w, 'flash').length).toBeGreaterThan(0);
     expect(countCells(w)).toBeLessThan(b);
   });
+
+  it('hangs as a vortex, then blows out in a pressure wave', () => {
+    const w = flatWorld(150, { tankColumns: [20, 380] });
+    dropAt(w, 'weapon.singularity', 200);
+    const ev = w.snapshot().effectEvents;
+    const vortex = ev.find((e) => e.type === 'vortex');
+    const wave = ev.find((e) => e.type === 'pressureWave');
+    expect(vortex).toBeDefined();
+    expect(wave).toBeDefined();
+    expect(wave!.tick - vortex!.tick).toBeGreaterThanOrEqual(40);
+  });
 });

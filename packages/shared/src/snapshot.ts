@@ -35,6 +35,8 @@ export interface TankView {
   alive: boolean;
   /** Power 0–1000 (for aim previews). */
   power: number;
+  /** Own turns left frosted (0 = not): its shots fire at no more than half power. */
+  chill: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "MIRV warhead",
-    "description": "One warhead of a MIRV.",
+    "description": "One warhead of a MIRV: a crater, a geyser of dirt and a small shockwave that shoves the ground aside.",
     "category": "submunition",
     "since": "core@0.7.0"
   },
@@ -15,8 +15,45 @@
     {
       "explosion": {
         "use": "explosion.standard",
-        "radius": 20,
-        "damage": 45
+        "radius": 22,
+        "damage": 45,
+        "effects": {
+          "burst": {
+            "count": 50
+          },
+          "flash": {
+            "strength": 0.8
+          },
+          "shake": {
+            "strength": 3
+          },
+          "geyser": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 44,
+        "damage": 0,
+        "push": 10,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "ripple": {
+            "strength": 0.8
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 10,
+          "lift": 0.9,
+          "expandTicks": 8,
+          "blobPush": 12
+        }
       }
     }
   ],

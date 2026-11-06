@@ -85,7 +85,23 @@ uint mat(ivec2 c) {
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
 ${NOISE}
-bool topsoil(uint m) { return m != 0u && look(m).a > 0.5; }
+bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
+// chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
+bool charrable(uint m) { return m != 0u && look(m).a > 0.25; }
+bool glints(uint m) { float b = look(m).b; return b > 0.25 && b < 0.5; }
+// frost: icy rim on exposed faces, and a few cells glint white for a few ticks in whole steps
+vec3 glinted(ivec2 c, vec3 shaded) {
+  vec3 col = shaded;
+  bool rim = mat(c - ivec2(0, 1)) == 0u;
+  if (rim) col = mix(col, vec3(0.94, 0.98, 1.0), 0.55);
+  else if ((mat(c + ivec2(1, 0)) == 0u || mat(c - ivec2(1, 0)) == 0u)) col = mix(col, vec3(0.86, 0.94, 1.0), 0.3);
+  float h = hash(c + ivec2(41, 7));
+  int st = int(floor(u_time / (6.0 + h * 10.0) + h * 53.0));
+  float f = hash(c + ivec2(st * 11, st * 5 + 23));
+  if (f < (rim ? 0.06 : 0.02)) col = vec3(1.0);
+  else if (f < (rim ? 0.12 : 0.05)) col = mix(col, vec3(0.7, 0.88, 1.0), 0.6);
+  return col;
+}
 // one cycle step for a cell of animated material m: hard diagonal bands that crawl over time
 vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   vec4 l = look(m);
@@ -130,6 +146,7 @@ void main() {
         uint cm = texelFetch(u_coat, cell, 0).r;
         if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
         else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
+        else if (glints(mm)) c = glinted(cell, c);
       }
       // embers: for a while after a blast, cells of fresh char near the surface flicker red,
       // orange and yellow in whole-cell steps, thinning out and reddening as they cool
@@ -140,7 +157,7 @@ void main() {
           uint mm = mat(cell);
           int sd = 0;
           for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
-          if (sd > 0 && topsoil(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+          if (sd > 0 && charrable(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
             float cool = age / 600.0;
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
@@ -452,7 +469,12 @@ void main() {
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
-  bool soil = still && lk.a > 0.5 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  bool soil = still && lk.a > 0.75 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
+  // that dithers back into the plain soil a dozen cells down
+  float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
+  bool frozen = topB > 0.25 && topB < 0.5;
+  if (frozen) soil = false;
   if (still) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
@@ -479,6 +501,9 @@ void main() {
       float k = sd <= 22 ? 1.0 : (bayer(ap) > float(sd - 22) / 9.0 ? 1.0 : 0.0);
       col = mix(col, col * vec3(0.72, 0.66, 0.62), k);
     }
+  }
+  if (frozen && sd <= 14 && (sd <= 8 || bayer(ap) > float(sd - 8) / 7.0)) {
+    col = mix(col, vec3(0.7, 0.8, 0.9) * (0.85 + g) * (sd <= 4 ? 1.12 : 1.0), sd <= 4 ? 0.8 : 0.6);
   }
   float rim = lit + side;
   if (soil && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
@@ -515,7 +540,7 @@ void main() {
     }
     rim *= 0.35;
   }
-  if (still && lk.a > 0.5 && !soil && sd > 0 && sd <= 26) {
+  if (still && lk.a > 0.25 && !soil && sd > 0 && sd <= 26) {
     // freshly blasted dirt: scorched near-black at the surface where the blast hit, lightening
     // through charred and baked bands into warm dirt and then the plain subsoil. Hard tone steps
     // with ordered dither between them, in short horizontal strokes of three tones
