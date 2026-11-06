@@ -20,6 +20,7 @@ describe('toWire', () => {
         count: 1,
         x: Int32Array.of(7, 9),
         y: Int32Array.of(8, 9),
+        vx: Int32Array.of(1, 2),
         material: Uint8Array.of(3, 4),
       },
       wind: 0,
@@ -30,6 +31,6 @@ describe('toWire', () => {
     const [x, y, pw, ph, b64] = w.patches[0]!;
     expect([x, y, pw, ph]).toEqual([1, 1, 2, 2]);
     expect([...Buffer.from(b64, 'base64')]).toEqual([6, 7, 10, 11]);
-    expect(w.debris).toEqual({ x: [7], y: [8], m: [3] });
+    expect(w.debris).toEqual({ x: [7], y: [8], vx: [1], m: [3] });
   });
 });

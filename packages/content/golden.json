@@ -1,677 +1,801 @@
 {
-  "contentHash": "b38892a4db01fefa",
+  "contentHash": "d144f8c97a9a4442",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
-      "hash": "b411607e5f9e2c3b"
+      "hash": "25ead9779b3dc78d"
     },
     "ai.moron": {
       "ticks": 822,
-      "hash": "ee7f95fcf434de67"
+      "hash": "2ba9815d55f3d1f2"
     },
     "ai.poolshark": {
       "ticks": 650,
-      "hash": "4d3485586cd5a8e8"
+      "hash": "66012bbef8f260fe"
     },
     "ai.shooter": {
       "ticks": 716,
-      "hash": "afeda9a0a8e7276b"
+      "hash": "0ef51c362f99a21b"
     },
     "ai.tosser": {
       "ticks": 1051,
-      "hash": "87f770c28fd35d1d"
+      "hash": "7c607556b45a5caa"
     },
     "audio.boom-heat": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.boom": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.burn": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.collapse": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.creak": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.crunch": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "audio.dirt-burst": {
+      "ticks": 46,
+      "hash": "b8ac09025d8d991a"
     },
     "audio.fire-beam": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.fire-dig": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.fire-heavy": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.fire-water": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.fire-zap": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.fire": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.freeze": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "audio.frost-blast": {
+      "ticks": 271,
+      "hash": "d91ef5ea7cb44bcd"
+    },
+    "audio.geyser": {
+      "ticks": 158,
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.hiss": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "audio.howl": {
+      "ticks": 46,
+      "hash": "b8ac09025d8d991a"
     },
     "audio.implode": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.lance-charge": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "audio.lance": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "audio.land": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "audio.meteor-whistle": {
+      "ticks": 46,
+      "hash": "b8ac09025d8d991a"
+    },
+    "audio.mud-splat": {
+      "ticks": 158,
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.music-battle": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.music-title": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.resonate": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "audio.rift": {
+      "ticks": 368,
+      "hash": "9b709335ec8ecced"
     },
     "audio.round-end": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.splash": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.tank-death": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.turn": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.ui-buy": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.ui-click": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "audio.zap": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
+    },
+    "explosion.glob-splash": {
+      "ticks": 46,
+      "hash": "b8ac09025d8d991a"
     },
     "explosion.nuke-pull": {
       "ticks": 164,
-      "hash": "ab0b174e80691075"
+      "hash": "03025adbaa4b6f0e"
     },
     "explosion.shockwave": {
       "ticks": 314,
-      "hash": "b1a2dddc6b4bfcb8"
+      "hash": "791e891ecb2fb95f"
     },
     "explosion.standard": {
       "ticks": 163,
-      "hash": "a9c8528c56d2c260"
+      "hash": "81e0ae090780f36f"
     },
     "flight.ballistic": {
       "ticks": 163,
-      "hash": "a9c8528c56d2c260"
+      "hash": "81e0ae090780f36f"
     },
     "flight.beam": {
       "ticks": 155,
-      "hash": "64065e32d636e339"
+      "hash": "ae60af9c8ff71230"
     },
     "flight.digger": {
       "ticks": 158,
-      "hash": "1558c7dd2a69ac89"
+      "hash": "cf1240a1e38e0a1f"
     },
     "flight.homing": {
       "ticks": 149,
-      "hash": "33e49bb526d0d39d"
+      "hash": "c1214f3d8561a0ac"
     },
     "flight.lightning": {
-      "ticks": 72,
-      "hash": "5b6e396890e17cc8"
+      "ticks": 57,
+      "hash": "ff05ca7ee0f7f66a"
+    },
+    "flight.meteor": {
+      "ticks": 46,
+      "hash": "887a381e51eb5fab"
     },
     "flight.orbital-lance": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
+    },
+    "flight.ricochet": {
+      "ticks": 334,
+      "hash": "4808e569348aa8a3"
     },
     "flight.roller": {
       "ticks": 189,
-      "hash": "e589ec30190cf0f1"
+      "hash": "7d601a9356ee055e"
     },
     "flight.static": {
       "ticks": 249,
-      "hash": "75af67a3e5e68a24"
+      "hash": "e12df837266a8f02"
     },
     "gen.badlands": {
       "ticks": 66,
-      "hash": "0e71f6b439f1ee1c"
+      "hash": "655ddf4122d8d04c"
     },
     "gen.hills": {
       "ticks": 11,
-      "hash": "4599ae28987c61a8"
+      "hash": "d9f12df3d031f0bd"
     },
     "gen.marsh": {
       "ticks": 162,
-      "hash": "f237691677aad3ac"
+      "hash": "1d05dfb8085f43eb"
     },
     "gen.village": {
       "ticks": 149,
-      "hash": "3142abb047458d6a"
+      "hash": "bcf1e19457c56930"
     },
     "material.ash": {
-      "ticks": 341,
-      "hash": "5dbcde20623503fb"
+      "ticks": 387,
+      "hash": "e307e1a4dfc933c6"
     },
     "material.brick": {
       "ticks": 156,
-      "hash": "948ffe3352ca16cb"
+      "hash": "620beda03687c77d"
     },
     "material.burning-oil": {
       "ticks": 608,
-      "hash": "c8289f92e907de92"
+      "hash": "c855017248f7e53c"
     },
     "material.cracked-brick": {
       "ticks": 302,
-      "hash": "a42a7a58bdb0099a"
+      "hash": "12dc80e22f0f59b6"
     },
     "material.dirt": {
       "ticks": 163,
-      "hash": "a9c8528c56d2c260"
+      "hash": "81e0ae090780f36f"
     },
     "material.fire": {
       "ticks": 325,
-      "hash": "05dae907242e17cd"
+      "hash": "454655932c0f046b"
+    },
+    "material.frost": {
+      "ticks": 271,
+      "hash": "d91ef5ea7cb44bcd"
+    },
+    "material.fulgurite": {
+      "ticks": 57,
+      "hash": "ff05ca7ee0f7f66a"
     },
     "material.glass": {
       "ticks": 156,
-      "hash": "5f44b2d90b50c915"
+      "hash": "8e508d88466d83e3"
     },
     "material.ice": {
       "ticks": 165,
-      "hash": "11e8be488bf638ed"
+      "hash": "f0f8e221bc08f29b"
+    },
+    "material.lance-slag": {
+      "ticks": 324,
+      "hash": "ab87fbdcf760ee95"
     },
     "material.lava": {
-      "ticks": 337,
-      "hash": "d560f6bae357edda"
+      "ticks": 532,
+      "hash": "c501bddad4e02dd1"
     },
     "material.leaf": {
       "ticks": 210,
-      "hash": "e0a216e5481bca36"
+      "hash": "9e852a14ab45b872"
     },
     "material.liquid-dirt": {
       "ticks": 368,
-      "hash": "96e47915093d66bb"
+      "hash": "8a69512ccce44281"
+    },
+    "material.meteorite": {
+      "ticks": 89,
+      "hash": "f0e8ab6dd60d0125"
     },
     "material.mud": {
       "ticks": 162,
-      "hash": "f237691677aad3ac"
+      "hash": "1d05dfb8085f43eb"
     },
     "material.napalm": {
-      "ticks": 341,
-      "hash": "5dbcde20623503fb"
+      "ticks": 387,
+      "hash": "e307e1a4dfc933c6"
     },
     "material.obsidian": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "material.oil": {
       "ticks": 608,
-      "hash": "c8289f92e907de92"
+      "hash": "c855017248f7e53c"
     },
     "material.packed-mud": {
       "ticks": 309,
-      "hash": "c71e8778bd8b2a51"
+      "hash": "82c310c81447fb6c"
     },
     "material.rock-lit": {
       "ticks": 687,
-      "hash": "1fb1ceb29f418900"
+      "hash": "cb9f8e001d091cd2"
     },
     "material.rock-shade": {
       "ticks": 687,
-      "hash": "1fb1ceb29f418900"
+      "hash": "cb9f8e001d091cd2"
     },
     "material.rock": {
       "ticks": 143,
-      "hash": "efeba252d71f88ea"
+      "hash": "888fdee748e9ef9b"
     },
     "material.rubble": {
       "ticks": 274,
-      "hash": "fb2b8a00e496b75b"
+      "hash": "955d8913069e68c4"
     },
     "material.sand": {
       "ticks": 301,
-      "hash": "4aa6e857a46fa3fb"
+      "hash": "65ccc5acc9b44ec3"
     },
     "material.scorch": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "material.shard": {
       "ticks": 156,
-      "hash": "948ffe3352ca16cb"
+      "hash": "620beda03687c77d"
     },
     "material.slag": {
-      "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "ticks": 89,
+      "hash": "f0e8ab6dd60d0125"
     },
     "material.splinter": {
       "ticks": 210,
-      "hash": "e0a216e5481bca36"
+      "hash": "9e852a14ab45b872"
     },
     "material.water": {
       "ticks": 597,
-      "hash": "80428448fc16974a"
+      "hash": "abe8bd06236cda99"
     },
     "material.wood": {
       "ticks": 325,
-      "hash": "05dae907242e17cd"
+      "hash": "454655932c0f046b"
     },
     "mode.classic": {
       "ticks": 706,
-      "hash": "de49a9005c7caa08"
+      "hash": "ef384563f0d45e16"
     },
     "mode.teams": {
-      "ticks": 2367,
-      "hash": "7d3a315a167334ef"
+      "ticks": 2400,
+      "hash": "1e1ce5f2b8ba3a66"
     },
     "prop.boulder": {
       "ticks": 474,
-      "hash": "96778dfadbbd2ced"
+      "hash": "8fb6f8d6b2b06681"
     },
     "prop.house": {
       "ticks": 531,
-      "hash": "b1ff6efd84e82b1f"
+      "hash": "883679fde3cced8f"
     },
     "prop.rock-arch": {
       "ticks": 1004,
-      "hash": "07ebff529f40f646"
+      "hash": "12dae77d6cdec917"
     },
     "prop.rock-ledge": {
       "ticks": 1120,
-      "hash": "228b56032fe8e3fd"
+      "hash": "f2e2e52a414beee9"
     },
     "prop.rock-outcrop": {
       "ticks": 687,
-      "hash": "1fb1ceb29f418900"
+      "hash": "cb9f8e001d091cd2"
     },
     "prop.tree": {
       "ticks": 325,
-      "hash": "05dae907242e17cd"
+      "hash": "454655932c0f046b"
     },
     "terrainop.add": {
       "ticks": 11,
-      "hash": "c04b16284e0af418"
+      "hash": "34ff9f47397fa3ef"
     },
     "terrainop.attract": {
       "ticks": 214,
-      "hash": "be333b070d222357"
+      "hash": "93c3d8d839eda178"
     },
     "terrainop.carve": {
       "ticks": 163,
-      "hash": "a9c8528c56d2c260"
+      "hash": "81e0ae090780f36f"
     },
     "terrainop.coat": {
       "ticks": 161,
-      "hash": "a4f3e32abc20c0cf"
+      "hash": "6b47f45679da2577"
     },
     "terrainop.convert": {
       "ticks": 165,
-      "hash": "11e8be488bf638ed"
+      "hash": "f0f8e221bc08f29b"
+    },
+    "terrainop.dirt-burst": {
+      "ticks": 241,
+      "hash": "9db8f8b966ed41d9"
     },
     "terrainop.displace": {
       "ticks": 314,
-      "hash": "b1a2dddc6b4bfcb8"
+      "hash": "791e891ecb2fb95f"
+    },
+    "terrainop.frost": {
+      "ticks": 271,
+      "hash": "d91ef5ea7cb44bcd"
     },
     "terrainop.harden": {
       "ticks": 165,
-      "hash": "11e8be488bf638ed"
+      "hash": "f0f8e221bc08f29b"
     },
     "terrainop.ignite": {
       "ticks": 325,
-      "hash": "05dae907242e17cd"
+      "hash": "454655932c0f046b"
     },
     "terrainop.liquefy": {
       "ticks": 368,
-      "hash": "96e47915093d66bb"
+      "hash": "8a69512ccce44281"
     },
     "terrainop.melt": {
-      "ticks": 337,
-      "hash": "d560f6bae357edda"
+      "ticks": 532,
+      "hash": "c501bddad4e02dd1"
     },
     "terrainop.quake": {
       "ticks": 194,
-      "hash": "634d4b2a49bdeacb"
+      "hash": "fc6ed1aace354d5e"
+    },
+    "terrainop.rift": {
+      "ticks": 368,
+      "hash": "9b709335ec8ecced"
     },
     "terrainop.tectonic": {
       "ticks": 276,
-      "hash": "94bd65df18b0edc6"
+      "hash": "56ef5edd54110e86"
     },
     "terrainop.terraform": {
       "ticks": 173,
-      "hash": "15835c73fe8fd119"
+      "hash": "095f5ec0a6a49cae"
+    },
+    "terrainop.tornado": {
+      "ticks": 46,
+      "hash": "b8ac09025d8d991a"
     },
     "theme.arcade": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "theme.day": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "theme.default": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "theme.inferno": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "theme.snow": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "theme.storm": {
-      "ticks": 382,
-      "hash": "6eb8e58ee143f6ef"
+      "ticks": 577,
+      "hash": "352d7aca48937084"
     },
     "weapon.acid-drop": {
       "ticks": 159,
-      "hash": "bb6bb21da555a338"
+      "hash": "629146200883c16e"
     },
     "weapon.acid-rain": {
       "ticks": 169,
-      "hash": "f9f91f7b317e09a9"
+      "hash": "27304616e695531b"
     },
     "weapon.baby-digger": {
       "ticks": 158,
-      "hash": "7e906522157f54e4"
+      "hash": "0e8d60805ca9ac28"
     },
     "weapon.baby-missile": {
       "ticks": 158,
-      "hash": "9bf0d3f4e451a5bc"
+      "hash": "d561fda9b52b4fd0"
     },
     "weapon.baby-nuke-core": {
       "ticks": 176,
-      "hash": "995150757110a627"
+      "hash": "5b1ddd0d51bf120f"
     },
     "weapon.baby-nuke": {
       "ticks": 321,
-      "hash": "4acf8b0c5ff70c80"
+      "hash": "ccb78273f2d9c258"
     },
     "weapon.baby-roller": {
       "ticks": 158,
-      "hash": "c27047b1fae6b78f"
+      "hash": "fc94ae246c2481d8"
     },
     "weapon.baby-shockwave": {
       "ticks": 178,
-      "hash": "e87924a8921ed780"
+      "hash": "48fdbf20b3d84afd"
     },
     "weapon.burrower": {
       "ticks": 164,
-      "hash": "c6484a2291e7cb54"
+      "hash": "4d7be55a4df45e2c"
     },
     "weapon.cryo-shell": {
       "ticks": 165,
-      "hash": "11e8be488bf638ed"
+      "hash": "f0f8e221bc08f29b"
     },
     "weapon.digger": {
       "ticks": 158,
-      "hash": "1558c7dd2a69ac89"
+      "hash": "cf1240a1e38e0a1f"
     },
     "weapon.dirt-ball": {
       "ticks": 164,
-      "hash": "1fe5c1c9d71524a0"
+      "hash": "e0944e306b4e91d0"
+    },
+    "weapon.dirt-bomb": {
+      "ticks": 241,
+      "hash": "9db8f8b966ed41d9"
     },
     "weapon.dirt-charge": {
       "ticks": 168,
-      "hash": "76e2f4da3e433ef7"
+      "hash": "db3125026680366d"
     },
     "weapon.dirt-clod": {
       "ticks": 164,
-      "hash": "c46780e0251b00f0"
+      "hash": "10ec4c0636658ddd"
     },
     "weapon.earthquake": {
       "ticks": 194,
-      "hash": "634d4b2a49bdeacb"
+      "hash": "fc6ed1aace354d5e"
+    },
+    "weapon.fault-line": {
+      "ticks": 368,
+      "hash": "9b709335ec8ecced"
     },
     "weapon.flood": {
       "ticks": 597,
-      "hash": "80428448fc16974a"
+      "hash": "abe8bd06236cda99"
+    },
+    "weapon.frost-bomb": {
+      "ticks": 271,
+      "hash": "d91ef5ea7cb44bcd"
     },
     "weapon.grim-crown-warhead": {
       "ticks": 165,
-      "hash": "2da7235c451de45b"
+      "hash": "652be6f0b11f890d"
     },
     "weapon.grim-crown": {
       "ticks": 195,
-      "hash": "9fddd6551263728a"
+      "hash": "8c108e0d953f336a"
     },
     "weapon.heat-seeker": {
       "ticks": 149,
-      "hash": "33e49bb526d0d39d"
+      "hash": "c1214f3d8561a0ac"
     },
     "weapon.heavy-digger": {
       "ticks": 158,
-      "hash": "cf0a962f7e601113"
+      "hash": "f5a17051012e1e1b"
     },
     "weapon.heavy-laser": {
       "ticks": 215,
-      "hash": "e18dd8251cefd8f7"
+      "hash": "12cf7368449197ce"
     },
     "weapon.heavy-nuke-core": {
       "ticks": 212,
-      "hash": "d1fa9b2298099e4a"
+      "hash": "c5ea7fbb84fbe401"
     },
     "weapon.heavy-nuke": {
       "ticks": 325,
-      "hash": "0f803f50fdfb2197"
+      "hash": "070831b00830bb69"
     },
     "weapon.heavy-roller": {
       "ticks": 166,
-      "hash": "d8ca0e60440c878d"
+      "hash": "fe13758d52f4e698"
     },
     "weapon.heavy-shockwave": {
       "ticks": 201,
-      "hash": "091bb6d6086ff9c5"
+      "hash": "66dcfe91091635a8"
     },
     "weapon.hot-napalm": {
-      "ticks": 341,
-      "hash": "ce4b089ecd2b9f5f"
+      "ticks": 392,
+      "hash": "38c60d54286c4ac1"
     },
     "weapon.implosion": {
       "ticks": 214,
-      "hash": "be333b070d222357"
+      "hash": "93c3d8d839eda178"
     },
     "weapon.incendiary": {
       "ticks": 325,
-      "hash": "05dae907242e17cd"
+      "hash": "454655932c0f046b"
     },
     "weapon.laser": {
       "ticks": 155,
-      "hash": "64065e32d636e339"
+      "hash": "ae60af9c8ff71230"
     },
     "weapon.lightning": {
-      "ticks": 72,
-      "hash": "5b6e396890e17cc8"
+      "ticks": 57,
+      "hash": "ff05ca7ee0f7f66a"
     },
     "weapon.liquid-dirt": {
       "ticks": 359,
-      "hash": "fcac21617af20254"
+      "hash": "2d82ee474524d6d2"
     },
     "weapon.magma-bomb": {
-      "ticks": 337,
-      "hash": "d560f6bae357edda"
+      "ticks": 532,
+      "hash": "c501bddad4e02dd1"
+    },
+    "weapon.magma-glob": {
+      "ticks": 163,
+      "hash": "81e0ae090780f36f"
+    },
+    "weapon.meteor-boulder": {
+      "ticks": 104,
+      "hash": "b4f530af42fdf82a"
+    },
+    "weapon.meteor-shower": {
+      "ticks": 330,
+      "hash": "18719774a36224c5"
+    },
+    "weapon.meteor": {
+      "ticks": 89,
+      "hash": "f0e8ab6dd60d0125"
     },
     "weapon.mirv-warhead": {
-      "ticks": 162,
-      "hash": "d556580f956a95fa"
+      "ticks": 203,
+      "hash": "3a249eab01954b19"
     },
     "weapon.mirv": {
-      "ticks": 221,
-      "hash": "848a4b7d49e167bc"
+      "ticks": 264,
+      "hash": "978dd88148bb643f"
     },
     "weapon.missile": {
       "ticks": 163,
-      "hash": "a9c8528c56d2c260"
+      "hash": "81e0ae090780f36f"
+    },
+    "weapon.mud-geyser-glob": {
+      "ticks": 165,
+      "hash": "d69b2b73f805e669"
+    },
+    "weapon.mud-geyser": {
+      "ticks": 258,
+      "hash": "26cbe7209fdbd90b"
     },
     "weapon.mystery": {
       "ticks": 159,
-      "hash": "90a6f2dde6fe67f9"
+      "hash": "76452e50db08fa2d"
+    },
+    "weapon.napalm-glob": {
+      "ticks": 163,
+      "hash": "81e0ae090780f36f"
     },
     "weapon.napalm": {
-      "ticks": 341,
-      "hash": "5dbcde20623503fb"
+      "ticks": 387,
+      "hash": "e307e1a4dfc933c6"
     },
     "weapon.nuke-core": {
       "ticks": 211,
-      "hash": "c813577258ab5dfb"
+      "hash": "b3eb4fc2e56f00bb"
     },
     "weapon.nuke": {
       "ticks": 321,
-      "hash": "910ee8406a768793"
+      "hash": "c792a7a9fe54e515"
     },
     "weapon.oil-slick": {
       "ticks": 357,
-      "hash": "430d4dc8615bd810"
+      "hash": "d4082c090c6a3241"
     },
     "weapon.orbital-lance-beam": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "weapon.orbital-lance": {
       "ticks": 324,
-      "hash": "6c1ba9066fca77cc"
+      "hash": "ab87fbdcf760ee95"
     },
     "weapon.plague": {
       "ticks": 158,
-      "hash": "90d7267a0afc0e25"
+      "hash": "70593cb2ce0f61b8"
     },
     "weapon.plasma-blast": {
       "ticks": 318,
-      "hash": "a8e632504c3b15e5"
+      "hash": "d3c3f988539f917b"
     },
     "weapon.quicksand": {
       "ticks": 368,
-      "hash": "96e47915093d66bb"
+      "hash": "8a69512ccce44281"
     },
     "weapon.resonator": {
       "ticks": 158,
-      "hash": "fc505693ada98545"
+      "hash": "8cd3113f2eb84820"
+    },
+    "weapon.ricochet-ball": {
+      "ticks": 791,
+      "hash": "2716618e848ece58"
     },
     "weapon.riot-blast": {
       "ticks": 168,
-      "hash": "c8710a1267800653"
+      "hash": "644194d98fae57e0"
     },
     "weapon.riot-bomb": {
       "ticks": 172,
-      "hash": "6a398628db99b4e8"
+      "hash": "858ae9cbc63f5f91"
     },
     "weapon.riot-charge": {
       "ticks": 166,
-      "hash": "4d6ffe5386947bc8"
+      "hash": "6496a347855add13"
     },
     "weapon.roller": {
       "ticks": 189,
-      "hash": "e589ec30190cf0f1"
+      "hash": "7d601a9356ee055e"
     },
     "weapon.scatter-bomb": {
       "ticks": 217,
-      "hash": "6c51fd3c62857780"
+      "hash": "925a7ccc6354d0c8"
     },
     "weapon.scatter-bomblet": {
       "ticks": 158,
-      "hash": "84716dc0a9a7cea9"
+      "hash": "3e15d68c63a0658e"
     },
     "weapon.shockwave": {
       "ticks": 314,
-      "hash": "b1a2dddc6b4bfcb8"
+      "hash": "791e891ecb2fb95f"
     },
     "weapon.singularity-core": {
       "ticks": 127,
-      "hash": "42112d04b7b037f3"
+      "hash": "063db4ecd7c6bdd2"
     },
     "weapon.singularity": {
       "ticks": 249,
-      "hash": "75af67a3e5e68a24"
+      "hash": "e12df837266a8f02"
     },
     "weapon.skipper-hop": {
       "ticks": 201,
-      "hash": "72fbfd2a8425a45a"
+      "hash": "d96f3757d4d08b8f"
     },
     "weapon.skipper-last": {
       "ticks": 162,
-      "hash": "dbae49d8d0f1c0a0"
+      "hash": "b737bb88ea0c9717"
     },
     "weapon.skipper": {
       "ticks": 201,
-      "hash": "7e3b21727e8544d5"
+      "hash": "f5f4d44e09d2d1ea"
     },
     "weapon.smart-bomb": {
       "ticks": 160,
-      "hash": "4036e8cf2cb5f60b"
+      "hash": "db93f4cf6845e400"
     },
     "weapon.tectonic-charge": {
       "ticks": 276,
-      "hash": "94bd65df18b0edc6"
+      "hash": "56ef5edd54110e86"
     },
     "weapon.terraformer": {
       "ticks": 173,
-      "hash": "15835c73fe8fd119"
+      "hash": "095f5ec0a6a49cae"
     },
     "weapon.ton-of-dirt": {
       "ticks": 166,
-      "hash": "efaf00eaa6a33d99"
+      "hash": "3312a2b09e2ba4ea"
+    },
+    "weapon.tornado": {
+      "ticks": 528,
+      "hash": "e3a16227a47e31f9"
+    },
+    "weapon.toxic-gas": {
+      "ticks": 900,
+      "hash": "b64316abafb5c948"
     },
     "weapon.tracer": {
       "ticks": 158,
-      "hash": "9bb563547c76618f"
+      "hash": "4c1bd5f9316d3f2a"
     },
     "weapon.trencher": {
       "ticks": 171,
-      "hash": "36da90fc98d78493"
+      "hash": "b9e7c6fc925f584a"
     },
     "weapon.water-cannon-drop": {
       "ticks": 594,
-      "hash": "c6db767e3268fb3a"
+      "hash": "cc2e8f7c30f478fc"
     },
     "weapon.water-cannon": {
       "ticks": 686,
-      "hash": "babf82393fdd47c4"
+      "hash": "9deabeb9132de950"
     }
   }
 }

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Lightning",
-    "description": "Calls a bolt down from the sky onto the highest enemy tank, wherever it is. Aim does not matter; cover overhead does.",
+    "description": "Calls a bolt down from the sky onto the highest enemy tank, wherever it is. The strike fuses the crater walls into glass and sends arcs crawling along the ground. Aim does not matter; cover overhead does.",
     "category": "weird",
     "since": "core@0.7.0"
   },
@@ -20,16 +20,30 @@
         "damageType": "heat",
         "effects": {
           "flash": {
-            "strength": 2.0
+            "strength": 1.0
           },
           "burst": {
-            "count": 30
+            "count": 44
           },
           "shake": {
-            "strength": 2
+            "strength": 4
+          },
+          "arcs": {
+            "strength": 1
           }
         }
       }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.convert",
+        "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+        "into": "material.fulgurite",
+        "core": 0.8,
+        "expandTicks": 6
+      },
+      "radius": 22,
+      "damageType": "heat"
     }
   ],
   "shop": {

@@ -177,6 +177,11 @@ knowing any weapon. Three generic hooks carry it:
   are plain integers in `World.zones`, hashed, cleared each round, and appear in the snapshot as
   `ZoneView` entities. At most `MAX_ZONES`.
 
+Ops that move things through the air get two more generic handles on `SimApi`: `debris` (an op may
+steer particles in flight, as `terrainop.tornado` whirls the dirt it sucks up) and `hold(player, x,
+y)` (carry a tank this tick; once let go it falls, with fall damage from the highest row it was
+carried to).
+
 New terrain ops: `terrainop.tectonic` (a crest that heaves the top of the ground forward as debris,
 column by column, both ways) and `terrainop.quake` (a tremor that throws loose surface cells and
 drops overhangs). AI personalities: all five of §3.7 (`moron`, `shooter`, `poolshark`, `tosser`,

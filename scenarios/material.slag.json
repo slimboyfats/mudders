@@ -1,7 +1,7 @@
 {
   "id": "material.slag",
   "schemaVersion": 1,
-  "description": "An Orbital Lance glazing its shaft walls with material.slag.",
+  "description": "A meteor strike lines its crater with glowing slag.",
   "subject": "material.slag",
   "mode": "mode.classic",
   "seed": 7,
@@ -14,7 +14,7 @@
     {
       "x": 150,
       "inventory": {
-        "weapon.orbital-lance": 3
+        "weapon.meteor": -1
       }
     },
     {
@@ -29,7 +29,7 @@
       "player": 0,
       "action": {
         "type": "selectWeapon",
-        "weapon": "weapon.orbital-lance"
+        "weapon": "weapon.meteor"
       }
     },
     {

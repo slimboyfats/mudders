@@ -2,21 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { countCells, dropAt, flatWorld } from '../../../src/testing';
 
 describe('material.slag', () => {
-  it('holds a wall upright, burns a tank leaning on it and cools to obsidian after two turns', () => {
-    const w = flatWorld();
+  it('lines a meteor crater, glows through the next turn, then cools to meteorite', () => {
+    const w = flatWorld(150, { tankColumns: [20, 380] });
+    dropAt(w, 'weapon.meteor', 200);
+    const slag = countCells(w, 'material.slag');
+    expect(slag).toBeGreaterThan(20);
+    // the next player's turn: still glowing while they aim, cooled when it ends
+    dropAt(w, 'weapon.riot-charge', 60);
+    expect(countCells(w, 'material.slag')).toBe(0);
+    expect(countCells(w, 'material.meteorite')).toBe(slag);
+  });
+
+  it('burns a tank sitting in it', () => {
+    const w = flatWorld(150, { tankColumns: [20, 380] });
     const slag = w.mats.cellOf('material.slag');
     const t = w.tanks[1]!;
-    // a free-standing slag wall right next to the tank
-    for (let y = 120; y < 150; y++) for (let x = t.x + 4; x < t.x + 7; x++) w.grid.set(x, y, slag);
-    w.grid.markDirty(t.x + 4, 120, t.x + 7, 150);
-    w.run(60);
-    expect(w.grid.get(t.x + 5, 120)).toBe(slag);
+    for (let x = t.x - 10; x < t.x + 10; x++) w.grid.set(x, 150, slag);
     const hp = t.health;
     dropAt(w, 'weapon.riot-charge', 200);
-    expect(t.health).toBe(hp - 10);
-    expect(countCells(w, 'material.slag')).toBeGreaterThan(0);
-    dropAt(w, 'weapon.riot-charge', 200);
-    expect(countCells(w, 'material.slag')).toBe(0);
-    expect(countCells(w, 'material.obsidian')).toBe(90);
+    expect(t.health).toBe(hp - 6);
   });
 });

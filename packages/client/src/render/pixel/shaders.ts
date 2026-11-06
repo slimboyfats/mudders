@@ -85,7 +85,23 @@ uint mat(ivec2 c) {
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
 ${NOISE}
-bool topsoil(uint m) { return m != 0u && look(m).a > 0.5; }
+bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
+// chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
+bool charrable(uint m) { return m != 0u && look(m).a > 0.25; }
+bool glints(uint m) { float b = look(m).b; return b > 0.25 && b < 0.5; }
+// frost: icy rim on exposed faces, and a few cells glint white for a few ticks in whole steps
+vec3 glinted(ivec2 c, vec3 shaded) {
+  vec3 col = shaded;
+  bool rim = mat(c - ivec2(0, 1)) == 0u;
+  if (rim) col = mix(col, vec3(0.94, 0.98, 1.0), 0.55);
+  else if ((mat(c + ivec2(1, 0)) == 0u || mat(c - ivec2(1, 0)) == 0u)) col = mix(col, vec3(0.86, 0.94, 1.0), 0.3);
+  float h = hash(c + ivec2(41, 7));
+  int st = int(floor(u_time / (6.0 + h * 10.0) + h * 53.0));
+  float f = hash(c + ivec2(st * 11, st * 5 + 23));
+  if (f < (rim ? 0.06 : 0.02)) col = vec3(1.0);
+  else if (f < (rim ? 0.12 : 0.05)) col = mix(col, vec3(0.7, 0.88, 1.0), 0.6);
+  return col;
+}
 // one cycle step for a cell of animated material m: hard diagonal bands that crawl over time
 vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   vec4 l = look(m);
@@ -130,6 +146,7 @@ void main() {
         uint cm = texelFetch(u_coat, cell, 0).r;
         if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
         else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
+        else if (glints(mm)) c = glinted(cell, c);
       }
       // embers: for a while after a blast, cells of fresh char near the surface flicker red,
       // orange and yellow in whole-cell steps, thinning out and reddening as they cool
@@ -140,7 +157,7 @@ void main() {
           uint mm = mat(cell);
           int sd = 0;
           for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
-          if (sd > 0 && topsoil(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+          if (sd > 0 && charrable(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
             float cool = age / 600.0;
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
@@ -171,7 +188,10 @@ void main() {
         float h = hash(cell + ivec2(5, 9));
         bool grown = cell.y + 1 < int(u_map.y) && texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r != 0u;
         if (topsoil(b1) && grown && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
-          c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
+          // withered by gas (mask 2): dry straw tufts, fewer of them
+          bool dry = texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r == 2u;
+          if (!dry) c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
+          else if (h > 0.62) c = vec3(0.6, 0.5, 0.24) * (h > 0.85 ? 1.1 : 0.9);
         } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && cell.y + 2 < int(u_map.y) &&
                    texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r != 0u && hash(cell + ivec2(5, 10)) > 0.86 &&
                    hash(cell + ivec2(2, 3)) > 0.45) {
@@ -388,6 +408,10 @@ void main() {
  * Palette-lookup terrain shader (§2a): one cell = one grid pixel, nearest-neighbour. Shading only
  * lights and colours cells (per-cell grain, a lit top edge, darker overhangs, depth), never smooths.
  */
+/** Cells beside a crater wall (horizontally) that lose their turf; the renderer widens dirty
+ * rects by this much. */
+export const CUT_REACH = 16;
+
 export const TERRAIN_FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -452,7 +476,42 @@ void main() {
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
-  bool soil = still && lk.a > 0.5 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
+  bool soil = gmask != 0u;
+  // grass a gas cloud crept over (mask 2) is withered: dry, yellow-brown, no flowers
+  bool dry = gmask == 2u;
+  vec3 grassRgb = dry ? mix(u_grass.rgb, vec3(0.58, 0.47, 0.2), 0.8) : u_grass.rgb;
+  // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
+  // that dithers back into the plain soil a dozen cells down
+  float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
+  bool frozen = topB > 0.25 && topB < 0.5;
+  if (frozen) soil = false;
+  // a blast cut through the turf: cells near a crater (air dug out below the round-start surface,
+  // beside them or diagonally above) keep only a thin cap of grass; below it the cut face shows
+  // the topsoil and dirt instead of a deep band of green. Natural slopes have their air above the
+  // surface row, so the scan up that air column finds no grass mask there. Each direction tests
+  // only the first air cell it meets.
+  int cut = 0;
+  if (soil && sd > 2 && u_grass.a > 0.0) {
+    ivec2 dirs[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(-1, -1), ivec2(1, -1));
+    int open = 0; // bit per direction: already met air (or the map edge)
+    for (int d = 1; d <= ${CUT_REACH} && cut == 0; d++) {
+      for (int i = 0; i < 4; i++) {
+        if ((open & (1 << i)) != 0) continue;
+        ivec2 n = c + dirs[i] * d;
+        if (n.x < 0 || n.y < 0 || n.x >= int(u_map.x)) { open |= 1 << i; continue; }
+        if (mat(n) != 0u) continue;
+        open |= 1 << i;
+        for (int k = 2; k <= 34; k++) {
+          if (k > sd + 2 || n.y - k < 0) break;
+          if (texelFetch(u_grassMask, n - ivec2(0, k), 0).r != 0u) { cut = d; break; }
+        }
+        if (cut != 0) break;
+      }
+    }
+  }
+  // dither the last few cells so the turf ends in a ragged edge, not a ruled line
+  bool bare = cut > 0 && (cut <= 10 || bayer(ap) > float(cut - 10) / 7.0);
   if (still) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
@@ -480,18 +539,21 @@ void main() {
       col = mix(col, col * vec3(0.72, 0.66, 0.62), k);
     }
   }
+  if (frozen && sd <= 14 && (sd <= 8 || bayer(ap) > float(sd - 8) / 7.0)) {
+    col = mix(col, vec3(0.7, 0.8, 0.9) * (0.85 + g) * (sd <= 4 ? 1.12 : 1.0), sd <= 4 ? 0.8 : 0.6);
+  }
   float rim = lit + side;
-  if (soil && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
+  if (soil && !bare && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
     // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
     // with depth and dithering into the topsoil at its foot
     float k = float(sd - 10) / 14.0;
-    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(u_grass.rgb, ap, k);
+    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(grassRgb, ap, k);
   }
-  if (soil && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
+  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
-    vec3 gr = u_grass.rgb;
+    vec3 gr = grassRgb;
     if (patchy > 0.66) gr = mix(gr, gr * vec3(1.22, 1.14, 0.62), 0.6);
     else if (patchy < 0.3) gr *= vec3(0.86, 0.96, 1.04);
     // blades: each column of cells carries its own length and shade
@@ -505,7 +567,7 @@ void main() {
     else if (h > 0.55) col = gr * 0.6;
     else col = turf(gr, ap, 0.0);
     // flowers: a single bright art pixel with a darker cell under it
-    if (u_flowers > 0.0 && sd <= 3) {
+    if (u_flowers > 0.0 && sd <= 3 && !dry) {
       float f = hash(ivec2(c.x >> 1, 503));
       if (f > 1.0 - u_flowers * 0.08) {
         float pick = hash(ivec2(c.x >> 1, 504));
@@ -515,7 +577,7 @@ void main() {
     }
     rim *= 0.35;
   }
-  if (still && lk.a > 0.5 && !soil && sd > 0 && sd <= 26) {
+  if (still && lk.a > 0.25 && !soil && sd > 0 && sd <= 26) {
     // freshly blasted dirt: scorched near-black at the surface where the blast hit, lightening
     // through charred and baked bands into warm dirt and then the plain subsoil. Hard tone steps
     // with ordered dither between them, in short horizontal strokes of three tones

@@ -1,0 +1,87 @@
+{
+  "id": "weapon.toxic-gas",
+  "schemaVersion": 1,
+  "description": "Player 0 lobs Toxic Gas onto the slope above player 1. The cloud rolls downhill with the breeze, swallows the tank and pools in the valley; player 1 then fires a tracer so the turn ends and the gas bites.",
+  "subject": "weapon.toxic-gas",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.toxic-gas": 2
+      }
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.tracer": 1
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.004,
+  "rules": {
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.toxic-gas"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 545
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 560,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 560,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 120
+      }
+    },
+    {
+      "t": 560,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}

@@ -95,7 +95,7 @@
             "material.rubble",
             "material.scorch"
           ],
-          "into": "material.slag",
+          "into": "material.lance-slag",
           "core": 0.72,
           "expandTicks": 1
         },

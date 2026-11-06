@@ -1,0 +1,57 @@
+{
+  "id": "weapon.meteor-shower",
+  "schemaVersion": 1,
+  "description": "Meteor Shower: the mark lands near the far tank and a dozen meteors streak in from behind the shooter.",
+  "subject": "weapon.meteor-shower",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.meteor-shower": -1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.meteor-shower"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 90
+  }
+}

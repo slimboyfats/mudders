@@ -9,7 +9,7 @@ describe('weapon.orbital-lance', () => {
     // the shaft goes far deeper than any blast this size would
     expect(g.material[(150 + 40) * g.width + 200]).toBe(0);
     // its walls are glowing slag, ringed by scorched earth
-    expect(countCells(w, 'material.slag')).toBeGreaterThan(100);
+    expect(countCells(w, 'material.lance-slag')).toBeGreaterThan(100);
     expect(countCells(w, 'material.scorch')).toBeGreaterThan(100);
     // the ground beside the shaft mouth is untouched further out
     expect(g.surfaceY(200 + 40)).toBe(150);
