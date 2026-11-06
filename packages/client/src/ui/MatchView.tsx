@@ -183,6 +183,13 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           e.preventDefault();
           send({ type: 'fire' });
           return;
+        case 'a':
+        case 'A':
+        case 'd':
+        case 'D':
+          // hold A / D to drive (§3.2); the keyup handler stops
+          if (!e.repeat) send({ type: 'drive', dir: e.key.toLowerCase() === 'a' ? -1 : 1 });
+          return;
         case 'Tab':
         case ']':
         case '[': {
@@ -200,8 +207,16 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       e.preventDefault();
       send({ type: 'aim', ...clampAim({ angle, power }) });
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (!canAim || !active) return;
+      if ('aAdD'.includes(e.key) && e.key.length === 1) send({ type: 'drive', dir: 0 });
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+    };
   }, [canAim, active, send]);
 
   // pointer: one finger / left button = slingshot; two fingers = pinch + pan; right/middle = pan

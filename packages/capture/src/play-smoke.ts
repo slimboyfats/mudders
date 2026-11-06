@@ -157,6 +157,20 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       await page.locator('.game-canvas').waitFor();
       await page.waitForTimeout(800);
       await shot('7-tank-match');
+      // driving (§3.2): holding ▶ spends the turn's drive
+      const gauge = page.locator('.drive-left .drive-n');
+      const driveBefore = Number(await gauge.textContent());
+      const right = page.getByTestId('drive-right');
+      await right.dispatchEvent('pointerdown', { pointerId: 1, isPrimary: true });
+      await page.waitForTimeout(700);
+      await right.dispatchEvent('pointerup', { pointerId: 1, isPrimary: true });
+      await page.waitForTimeout(200);
+      const driveAfter = Number(await gauge.textContent());
+      if (!(driveAfter < driveBefore))
+        throw new Error(
+          `${t.name}: holding drive did not move the tank (${driveBefore} → ${driveAfter})`,
+        );
+      await shot('8-driving');
       if (errors.length > 0) throw new Error(`${t.name}: page errors: ${errors.join('; ')}`);
       await ctx.close();
     }

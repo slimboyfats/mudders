@@ -351,6 +351,43 @@ button.primary,
   font-variant-numeric: tabular-nums;
 }
 
+/* driving (§3.2): hold ◀ ▶; the number is cells left this turn */
+.drive {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drive-btn {
+  min-width: 48px;
+  min-height: 56px;
+  padding: 0;
+  font-size: 1.1rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.drive-btn.on {
+  border-color: var(--accent);
+  background: #3a2618;
+}
+
+.drive-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 3em;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.drive-left .fuel {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
 .weapons {
   display: flex;
   gap: 6px;
@@ -417,6 +454,10 @@ button.primary,
   .weapons button {
     min-height: 48px;
     min-width: 84px;
+  }
+  .drive-btn {
+    min-height: 48px;
+    min-width: 40px;
   }
   .fire {
     min-height: 60px;

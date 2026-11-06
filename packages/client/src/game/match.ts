@@ -20,6 +20,11 @@ export interface HudTank {
   health: number;
   /** Shield points left (Bulwark, §3.2); 0 for most tanks. */
   shield: number;
+  /** Cells left to drive this turn, out of `driveMax` (§3.2), and fuel left for the match. */
+  driveLeft: number;
+  driveMax: number;
+  driving: number;
+  fuel: number;
   angle: number;
   power: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
@@ -54,6 +59,8 @@ export interface HudState {
   suddenDeath: boolean;
   wind: number;
   windMax: number;
+  /** Fuel Tank in the shop (§3.2): units per pack, price per pack, most a tank can hold. */
+  fuel: { pack: number; price: number; max: number };
   tanks: HudTank[];
   /** Winner of the last finished round (-1 = draw), or of the match once it is over. */
   winner: number;
@@ -141,6 +148,11 @@ export abstract class SimMatch implements SnapshotStream {
       suddenDeath: w.phase !== 'shop' && w.suddenDeathActive,
       wind: w.wind / 65536,
       windMax: w.mode.wind.max,
+      fuel: {
+        pack: w.mode.drive.fuelPack,
+        price: w.mode.drive.fuelPrice,
+        max: w.mode.drive.fuelMax,
+      },
       winner: w.phase === 'over' ? w.matchWinner : (last?.winner ?? -1),
       teams: w.options.teams !== undefined,
       winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
@@ -157,6 +169,10 @@ export abstract class SimMatch implements SnapshotStream {
         alive: t.alive,
         health: t.health,
         shield: t.shield,
+        driveLeft: t.driveLeft,
+        driveMax: w.driveCells(t),
+        driving: t.driving,
+        fuel: t.fuel,
         angle: t.angle,
         power: t.power,
         chill: t.chill,
@@ -202,7 +218,7 @@ export function hudKey(h: HudState): string {
   let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
+    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
     for (const i of t.inventory) k += `,${i.count}`;
   }
   return k;

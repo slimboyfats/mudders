@@ -404,6 +404,31 @@ export const ModeSchema = z.looseObject({
     safeCells: z.number().int().min(0),
     perCell: z.number().min(0),
   }),
+  /**
+   * Driving (§3.2): cells a standard tank may drive per turn (scaled by its type's `drive`
+   * percent), the steepest step it can climb and ticks per cell. Every cell burns one unit of
+   * fuel: tanks start the match with `startFuel`, keep what's left between rounds, and buy
+   * `fuelPack` units for `fuelPrice` in the shop, up to `fuelMax`.
+   */
+  drive: z
+    .strictObject({
+      cells: z.number().int().min(0).max(1000),
+      climb: z.number().int().min(0).max(20),
+      ticksPerCell: z.number().int().min(1).max(60),
+      startFuel: z.number().int().min(0).max(10000),
+      fuelPack: z.number().int().min(1).max(10000),
+      fuelPrice: z.number().int().min(0).max(1_000_000),
+      fuelMax: z.number().int().min(1).max(10000),
+    })
+    .default({
+      cells: 40,
+      climb: 3,
+      ticksPerCell: 3,
+      startFuel: 80,
+      fuelPack: 40,
+      fuelPrice: 500,
+      fuelMax: 400,
+    }),
   map: z.strictObject({
     generator: ContentIdSchema,
     width: z.number().int().min(64).max(4096),

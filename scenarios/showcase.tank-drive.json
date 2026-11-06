@@ -1,0 +1,85 @@
+{
+  "id": "showcase.tank-drive",
+  "schemaVersion": 1,
+  "description": "Driving: the Scout rolls its full 80 cells over the hills and fires, then the Bruiser crawls its 20 and fires back.",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 700,
+    "height": 320,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 160,
+      "tank": "tank.scout"
+    },
+    {
+      "x": 540,
+      "tank": "tank.bruiser"
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "rounds": 1,
+    "suddenDeath": false,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "drive",
+        "dir": 1
+      }
+    },
+    {
+      "t": 300,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 560
+      }
+    },
+    {
+      "t": 300,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 455,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": -1
+      }
+    },
+    {
+      "t": 655,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 540
+      }
+    },
+    {
+      "t": 655,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 913,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}
