@@ -26,6 +26,7 @@ const rules: LobbyRules = {
   wind: 'none',
   suddenDeath: false,
   startingCash: 0,
+  teams: null,
 };
 
 function env() {
@@ -94,6 +95,22 @@ describe('host and guest sessions', () => {
     while (b.match!.stepOnce());
     expect(a.match!.world.hash()).toBe(match.world.hash());
     expect(b.match!.world.hash()).toBe(match.world.hash());
+  });
+
+  it('plays in teams: the host picks teams per seat and every peer gets the same teams', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', { ...rules, teams: [0, 0] }, e);
+    const g = new GuestSession(content, 'G', undefined, e);
+    connect(host, g);
+    host.setSeat(2, 'ai.shooter');
+    host.setSeat(3, 'ai.shooter');
+    host.setTeam(1, 1);
+    host.setTeam(3, 1);
+    expect(g.lobby?.setup.teams?.slice(0, 4)).toEqual([0, 1, 0, 1]);
+    const match = host.start(3);
+    expect(match.world.options.mode).toBe('mode.teams');
+    expect(match.world.tanks.map((t) => t.team)).toEqual([0, 1, 0, 1]);
+    expect(g.match!.world.tanks.map((t) => t.team)).toEqual([0, 1, 0, 1]);
   });
 
   it('refuses a guest with different content or protocol, a full game and a started match', () => {

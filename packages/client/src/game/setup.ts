@@ -34,6 +34,20 @@ export interface MatchSetup {
   wind: 'none' | 'constant' | 'perTurn';
   suddenDeath: boolean;
   startingCash: number;
+  /**
+   * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
+   * Indexed like `slots`; off slots keep their team for when they come back.
+   */
+  teams: number[] | null;
+}
+
+/** Team letters for the UI. */
+export const TEAM_NAMES = ['A', 'B', 'C', 'D'] as const;
+export const teamName = (t: number) => TEAM_NAMES[t] ?? String(t + 1);
+
+/** Default teams: alternate A, B, A, B… so every team has a player as seats fill up. */
+export function defaultTeams(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => i % 2);
 }
 
 const KEY = 'mudders.setup.v1';
@@ -49,6 +63,7 @@ export function defaultSetup(): MatchSetup {
     wind: 'perTurn',
     suddenDeath: true,
     startingCash: 3000,
+    teams: null,
   };
 }
 
@@ -59,6 +74,7 @@ export function loadSetup(): MatchSetup {
       const s = { ...defaultSetup(), ...(JSON.parse(raw) as Partial<MatchSetup>) };
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
       if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
+      if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
       return s;
     }
   } catch {
@@ -81,10 +97,32 @@ export function activeSlots<S extends string>(s: { slots: readonly S[] }): S[] {
 }
 
 /** Anything shaped like a setup: the local `MatchSetup` or the networked `NetSetup`. */
-export type SetupLike = Omit<MatchSetup, 'slots'> & { slots: readonly string[] };
+export type SetupLike = Omit<MatchSetup, 'slots' | 'teams'> & {
+  slots: readonly string[];
+  teams: readonly number[] | null;
+};
+
+/** Team of each active slot, in player order; null for a free-for-all. */
+export function activeTeams(s: Pick<SetupLike, 'slots' | 'teams'>): number[] | null {
+  const { teams } = s;
+  if (!teams) return null;
+  const out: number[] = [];
+  s.slots.forEach((x, i) => {
+    if (x !== 'off') out.push(teams[i] ?? i % 2);
+  });
+  return out;
+}
+
+/** Can this setup start? At least two players, and with teams on, at least two teams. */
+export function canStart(s: Pick<SetupLike, 'slots' | 'teams'>): boolean {
+  if (activeSlots(s).length < 2) return false;
+  const t = activeTeams(s);
+  return !t || new Set(t).size >= 2;
+}
 
 export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   const slots = activeSlots(s);
+  const teams = activeTeams(s);
   const rules: MatchRules = {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
@@ -94,10 +132,11 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   };
   return {
     seed,
-    mode: 'mode.classic',
+    mode: teams ? 'mode.teams' : 'mode.classic',
     players: slots.length,
     map: { ...MAP_SIZES[s.size], generator: SCENERY_GEN[s.scenery] },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     rules,
+    ...(teams ? { teams } : {}),
   };
 }

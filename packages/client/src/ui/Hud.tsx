@@ -3,6 +3,7 @@ import type { Input } from '@mudders/shared';
 import { clampAim } from '../game/aim';
 import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
+import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Scoreboard, Shop } from './Shop';
 
@@ -109,6 +110,14 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             >
               <span className="swatch" style={{ background: pcolor(p.player) }} />
               <span className="pname">P{p.player + 1}</span>
+              {hud.teams && (
+                <span
+                  className={`team-badge team-${p.team}`}
+                  aria-label={`Team ${teamName(p.team)}`}
+                >
+                  {teamName(p.team)}
+                </span>
+              )}
               <span className="hp">{p.alive ? `${p.health}` : '✕'}</span>
               <span className="pscore" aria-label="score">
                 {p.score}
@@ -146,7 +155,9 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
       {hud.phase === 'over' && (
         <div className="round-over" role="dialog">
           <h2>
-            {hud.winner >= 0 ? (
+            {hud.teams && hud.winnerTeam >= 0 ? (
+              <>Team {teamName(hud.winnerTeam)} wins the match</>
+            ) : hud.winner >= 0 ? (
               <>
                 <span className="swatch" style={{ background: pcolor(hud.winner) }} /> Player{' '}
                 {hud.winner + 1} wins the match

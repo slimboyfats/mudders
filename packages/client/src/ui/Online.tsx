@@ -4,7 +4,7 @@ import { MAX_PLAYERS, type LobbySeat, type RoomInfo } from '@mudders/shared';
 import { LAN_HOSTS, SIGNAL_URL, shareOrigin } from '../config';
 import type { SimMatch } from '../game/match';
 import type { Settings } from '../game/settings';
-import { loadSetup, saveSetup } from '../game/setup';
+import { canStart as canStartSetup, defaultTeams, loadSetup, saveSetup } from '../game/setup';
 import type { Link } from '../net/link';
 import { localRegion, roomSummary } from '../net/listing';
 import { directAnswer, directOffer, RoomNet } from '../net/rtc';
@@ -14,6 +14,7 @@ import { BACKGROUND_CATCHUP_MS, startTicker } from '../net/ticker';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { MatchView } from './MatchView';
 import { Rules } from './Rules';
+import { TeamPick, TeamsToggle } from './Teams';
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const NAME_KEY = 'mudders.name';
@@ -65,6 +66,7 @@ function rulesOf(): LobbyRules {
     wind: s.wind,
     suddenDeath: s.suddenDeath,
     startingCash: s.startingCash,
+    teams: s.teams,
   };
 }
 
@@ -100,12 +102,17 @@ function SeatRow({
   you,
   bots,
   onSet,
+  team,
+  onTeam,
 }: {
   seat: LobbySeat;
   i: number;
   you: number;
   bots: { id: string; name: string }[];
   onSet?: ((v: string) => void) | undefined;
+  /** Team play (milestone 7): this seat's team, and a picker for the host. */
+  team?: number | undefined;
+  onTeam?: ((team: number) => void) | undefined;
 }) {
   const label =
     seat.kind === 'bot'
@@ -124,6 +131,9 @@ function SeatRow({
         {i === you && <em> (you)</em>}
         {seat.kind === 'host' && <em> host</em>}
       </span>
+      {team !== undefined && seat.kind !== 'open' && (
+        <TeamPick team={team} seat={i} onChange={onTeam} />
+      )}
       {seat.standIn && (
         <span className="stand-in" data-testid="stand-in">
           AI playing for {i === you ? 'you' : 'them'}
@@ -325,7 +335,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
 
   const lobby = session.lobbyFor(0);
   const guestsAway = session.seats.some((s) => s.kind === 'guest' && !s.link?.open);
-  const canStart = session.playerCount >= 2 && !guestsAway;
+  const canStart = canStartSetup(session.setup) && !guestsAway;
   const hostDebug = useMemo(
     () => ({
       desyncs: () => session.match?.desyncs ?? 0,
@@ -408,6 +418,17 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
       )}
       {mode === 'direct' && <DirectInvite onLink={(l) => session.addLink(l)} />}
       <section className="slots" aria-label="Players">
+        <TeamsToggle
+          on={session.rules.teams !== null}
+          onChange={(on) => {
+            const rules = {
+              ...session.rules,
+              teams: on ? defaultTeams(session.seats.length) : null,
+            };
+            session.setRules(rules);
+            saveSetup({ ...loadSetup(), ...rules });
+          }}
+        />
         <ul className="seats">
           {lobby.seats.map((s, i) => (
             <SeatRow
@@ -417,6 +438,8 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
               you={0}
               bots={bots}
               onSet={(v) => session.setSeat(i, v)}
+              team={session.rules.teams ? (session.rules.teams[i] ?? i % 2) : undefined}
+              onTeam={(t) => session.setTeam(i, t)}
             />
           ))}
         </ul>
@@ -693,13 +716,21 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
         <section className="slots" aria-label="Players">
           <ul className="seats">
             {lobby.seats.map((s, i) => (
-              <SeatRow key={i} seat={s} i={i} you={lobby.you} bots={[]} />
+              <SeatRow
+                key={i}
+                seat={s}
+                i={i}
+                you={lobby.you}
+                bots={[]}
+                team={lobby.setup.teams ? (lobby.setup.teams[i] ?? i % 2) : undefined}
+              />
             ))}
           </ul>
           <p className="note">
             {lobby.setup.size} map · {lobby.setup.rounds} round{lobby.setup.rounds > 1 ? 's' : ''} ·{' '}
             {lobby.setup.turnTimer ? `${lobby.setup.turnTimer} s turns` : 'no turn timer'} ·{' '}
             {lobby.setup.scenery}
+            {lobby.setup.teams ? ' · teams' : ''}
           </p>
         </section>
       )}

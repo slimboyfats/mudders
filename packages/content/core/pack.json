@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -70,6 +70,7 @@
     "material.water",
     "material.wood",
     "mode.classic",
+    "mode.teams",
     "prop.boulder",
     "prop.house",
     "prop.rock-arch",

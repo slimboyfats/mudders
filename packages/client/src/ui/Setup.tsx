@@ -1,8 +1,17 @@
 import { useMemo, useState } from 'react';
 import { loadContent } from '@mudders/content';
-import { activeSlots, saveSetup, type MatchSetup, type Slot } from '../game/setup';
+import {
+  activeSlots,
+  activeTeams,
+  canStart,
+  defaultTeams,
+  saveSetup,
+  type MatchSetup,
+  type Slot,
+} from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Rules } from './Rules';
+import { TeamPick, TeamsToggle } from './Teams';
 
 interface Props {
   setup: MatchSetup;
@@ -33,6 +42,13 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
     update({ ...setup, slots });
   };
   const n = activeSlots(setup).length;
+  const teams = setup.teams;
+  const oneTeam = teams !== null && n >= 2 && !canStart(setup);
+  const setTeam = (i: number, t: number) => {
+    const next = [...(teams ?? defaultTeams(setup.slots.length))];
+    next[i] = t;
+    update({ ...setup, teams: next });
+  };
   // Up to 8 players (milestone 7): show the seats in use plus one free one, at least four.
   let last = -1;
   setup.slots.forEach((x, i) => {
@@ -44,6 +60,12 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
     <main className="setup">
       <h2>Local game</h2>
       <section className="slots" aria-label="Players">
+        <TeamsToggle
+          on={teams !== null}
+          onChange={(on) =>
+            update({ ...setup, teams: on ? defaultTeams(setup.slots.length) : null })
+          }
+        />
         {setup.slots.slice(0, shown).map((slot, i) => (
           <label key={i} className={`slot${slot === 'off' ? ' off' : ''}`}>
             <span className="swatch" style={{ background: css(PLAYER_COLORS[i] ?? 0xffffff) }} />
@@ -61,8 +83,16 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
               ))}
               {i >= 2 && <option value="off">—</option>}
             </select>
+            {teams && slot !== 'off' && (
+              <TeamPick team={teams[i] ?? i % 2} seat={i} onChange={(t) => setTeam(i, t)} />
+            )}
           </label>
         ))}
+        {oneTeam && (
+          <p className="hint" data-testid="one-team">
+            Everyone is on one team: put someone on another team to start.
+          </p>
+        )}
         {n > 4 && setup.size === 'small' && (
           <p className="hint" data-testid="crowded">
             {n} players is a crowd on a small map: try Medium or Large.
@@ -86,10 +116,20 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
 
       <div className="setup-actions">
         <button onClick={onBack}>Back</button>
-        <button className="primary" disabled={n < 2} onClick={onStart} data-testid="start">
-          Start ({n} players)
+        <button
+          className="primary"
+          disabled={!canStart(setup)}
+          onClick={onStart}
+          data-testid="start"
+        >
+          Start ({n} players{teamsLabel(activeTeams(setup))})
         </button>
       </div>
     </main>
   );
+}
+
+/** ", 2 teams" when teams are on. */
+function teamsLabel(t: number[] | null): string {
+  return t ? `, ${new Set(t).size} teams` : '';
 }

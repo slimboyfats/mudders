@@ -19,8 +19,12 @@ describe('public listing', () => {
       wind: 'perTurn',
       suddenDeath: true,
       startingCash: 0,
+      teams: null,
     } as const;
     expect(roomSummary(base)).toBe('Small map · 3 rounds · 30 s turns · village');
+    expect(roomSummary({ ...base, teams: [0, 1, 0, 1] })).toBe(
+      'Small map · 3 rounds · 30 s turns · village · teams',
+    );
     expect(roomSummary({ ...base, rounds: 1, turnTimer: 0, scenery: 'none' })).toBe(
       'Small map · 1 round · no turn timer',
     );

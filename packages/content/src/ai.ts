@@ -5,8 +5,10 @@ import type { AiApi, AiShopApi, AiTankView, AiWeaponView } from '@mudders/sim';
  * integer maths plus `Math.sqrt`, the match RNG only.
  */
 
+/** Living tanks on other teams (in a free-for-all: everyone else). */
 export function enemies(api: AiApi): AiTankView[] {
-  return api.tanks.filter((t) => t.alive && t.player !== api.me);
+  const team = api.tanks[api.me]!.team;
+  return api.tanks.filter((t) => t.alive && t.team !== team);
 }
 
 export function me(api: AiApi): AiTankView {
@@ -92,7 +94,8 @@ export function solvePower(
     const mid = (lo + hi) >> 1;
     const p = api.predict(weapon, angle, mid);
     const miss = p.landed ? (p.x - tx) * dir : Infinity;
-    const score = p.tank >= 0 && p.tank !== api.me ? -1 : Math.abs(miss);
+    const enemy = p.tank >= 0 && api.tanks[p.tank]?.team !== m.team;
+    const score = enemy ? -1 : Math.abs(miss);
     if (score < (best.hit >= 0 ? -1 : Math.abs(best.miss))) {
       best = { power: mid, miss: p.landed ? p.x - tx : Infinity, hit: p.tank };
     }

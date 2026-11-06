@@ -154,6 +154,8 @@ export interface ModeApi {
   readonly rng: Prng;
   readonly players: number;
   alive(player: number): boolean;
+  /** Team of a player (milestone 7); the player number in a free-for-all. */
+  team(player: number): number;
   /** Turns taken this round. */
   turn(): number;
   /** Set wind, fixed-point cells/tick². */
@@ -174,6 +176,8 @@ export interface ModeBehaviour<P = unknown> extends BehaviourBase<P> {
 
 export interface AiTankView {
   readonly player: number;
+  /** Team (milestone 7); the player number in a free-for-all. Bots never aim at their own team. */
+  readonly team: number;
   readonly alive: boolean;
   readonly x: number;
   readonly y: number;

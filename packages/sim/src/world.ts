@@ -69,8 +69,10 @@ export interface MatchRules {
 }
 
 export interface RoundResult {
-  /** -1 = draw. */
+  /** -1 = draw. In a team match: the winning team's best scorer this round. */
   winner: number;
+  /** Winning team (-1 = draw). Without teams every player is their own team, so it equals `winner`. */
+  winnerTeam: number;
   /** Points per player this round. */
   points: number[];
   /** Money earned per player (points + interest). */
@@ -101,6 +103,12 @@ export interface WorldOptions {
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
   turnOrder?: readonly number[] | undefined;
   rules?: MatchRules | undefined;
+  /**
+   * Team per player (milestone 7). Tanks on the same team don't end the round against each other,
+   * share the round win, and hitting a teammate scores like self-damage. Unset = every player is
+   * their own team (free-for-all), which gives exactly the old results.
+   */
+  teams?: readonly number[] | undefined;
   /** AI personality id per player (`ai.*`); null/undefined = human. */
   bots?: readonly (string | null | undefined)[] | undefined;
   /** Extra props at fixed centre columns (showcases), placed after the generator's. */
@@ -112,6 +120,8 @@ export type Phase = 'aim' | 'resolve' | 'shop' | 'over';
 
 export interface Tank extends TankHandle {
   readonly player: number;
+  /** Team id (milestone 7); the player number in a free-for-all. */
+  readonly team: number;
   alive: boolean;
   x: number;
   y: number;
@@ -371,6 +381,7 @@ export class World implements SimApi {
       rng: this.rng,
       players: options.players,
       alive: (p) => this.tanks[p]?.alive ?? false,
+      team: (p) => options.teams?.[p] ?? p,
       turn: () => this.turn,
       setWind: (w) => {
         if (!this.windLocked) this.wind = w;
@@ -502,6 +513,7 @@ export class World implements SimApi {
       const botId = this.options.bots?.[p];
       this.tanks.push({
         player: p,
+        team: this.options.teams?.[p] ?? p,
         alive: true,
         x: 0,
         y: 0,
@@ -1282,15 +1294,17 @@ export class World implements SimApi {
     const applied = Math.min(dmg, t.health);
     t.health -= applied;
     const src = by >= 0 ? this.tanks[by] : undefined;
+    // hitting a teammate scores like hitting yourself (free-for-all: only yourself)
+    const friendly = src !== undefined && src.team === t.team;
     if (src) {
-      if (by === t.player) src.selfDamage += applied;
+      if (friendly) src.selfDamage += applied;
       else src.damageDealt += applied;
     }
     if (by >= 0) t.lastHitBy = by;
     if (t.health <= 0) {
       t.alive = false;
       t.falling = false;
-      if (src && by !== t.player) src.kills++;
+      if (src && !friendly) src.kills++;
       this.pendingDeaths.push({ player: t.player, killer: by });
     }
   }
@@ -1462,8 +1476,7 @@ export class World implements SimApi {
   private endTurn(): void {
     this.turn++;
     turnDecay(this.grid, this.mats);
-    const alive = this.tanks.filter((t) => t.alive).length;
-    if (alive <= 1 || this.turn >= this.turnCap * this.tanks.length) {
+    if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
       this.endRound();
       return;
     }
@@ -1474,19 +1487,63 @@ export class World implements SimApi {
     this.beginTurn();
   }
 
+  /** Distinct teams with a living tank. */
+  private teamsAlive(): number {
+    let n = 0;
+    for (let i = 0; i < this.tanks.length; i++) {
+      const t = this.tanks[i]!;
+      if (!t.alive) continue;
+      let first = true;
+      for (let j = 0; j < i; j++) {
+        const u = this.tanks[j]!;
+        if (u.alive && u.team === t.team) first = false;
+      }
+      if (first) n++;
+    }
+    return n;
+  }
+
+  /**
+   * Teams in a stable order with their totals. In a free-for-all each player is a team of one, so
+   * these are the player's own numbers.
+   */
+  private teamTotals(): {
+    team: number;
+    first: number;
+    alive: boolean;
+    health: number;
+    damage: number;
+    score: number;
+  }[] {
+    const out: ReturnType<World['teamTotals']> = [];
+    for (const t of this.tanks) {
+      let e = out.find((x) => x.team === t.team);
+      if (!e) {
+        e = { team: t.team, first: t.player, alive: false, health: 0, damage: 0, score: 0 };
+        out.push(e);
+      }
+      if (t.alive) {
+        e.alive = true;
+        e.health += t.health;
+      }
+      e.damage += t.damageDealt;
+      e.score += t.score;
+    }
+    return out;
+  }
+
   /** Points, money and the round winner (§3.5, §3.6); then the shop or the end of the match. */
   private endRound(): void {
     const sc = this.mode.scoring;
     const eco = this.mode.economy;
-    const alive = this.tanks.filter((t) => t.alive);
-    let winner = -1;
-    if (alive.length === 1) winner = alive[0]!.player;
-    else if (alive.length > 1) {
-      // turn cap: rank survivors by health, then damage dealt, then player number
-      const best = [...alive].sort(
-        (a, b) => b.health - a.health || b.damageDealt - a.damageDealt || a.player - b.player,
-      )[0]!;
-      winner = best.player;
+    const standing = this.teamTotals().filter((e) => e.alive);
+    let winnerTeam = -1;
+    if (standing.length === 1) winnerTeam = standing[0]!.team;
+    else if (standing.length > 1) {
+      // turn cap: rank surviving teams by health, then damage dealt, then lowest player number
+      winnerTeam = standing.sort(
+        (a, b) => b.health - a.health || b.damage - a.damage || a.first - b.first,
+      )[0]!.team;
     }
     const points: number[] = [];
     const earned: number[] = [];
@@ -1496,14 +1553,20 @@ export class World implements SimApi {
         t.kills * sc.kill -
         Math.trunc(t.selfDamage * sc.selfDamage);
       if (t.alive) pts += sc.survival;
-      if (t.player === winner) pts += sc.roundWin;
+      if (t.team === winnerTeam) pts += sc.roundWin;
       points.push(pts);
       t.score += pts;
       const money = Math.trunc(t.money * eco.interest) + Math.max(0, pts) * eco.moneyPerPoint;
       earned.push(money);
       t.money += money;
     }
-    this.results.push({ winner, points, earned });
+    // the round's named winner: the winning team's best scorer (ties: lower player number)
+    let winner = -1;
+    for (const t of this.tanks) {
+      if (t.team !== winnerTeam) continue;
+      if (winner < 0 || points[t.player]! > points[winner]!) winner = t.player;
+    }
+    this.results.push({ winner, winnerTeam, points, earned });
     this.round++;
     this.projectiles = [];
     this.timer = 0;
@@ -1559,13 +1622,27 @@ export class World implements SimApi {
     if (this.timer === 0 || this.tanks.every((t) => t.ready)) this.startRound();
   }
 
-  /** Match winner by total score (ties: more round wins, then lower player number). */
-  get matchWinner(): number {
+  /**
+   * Match-winning team by total score (ties: more round wins, then lower player number). In a
+   * free-for-all that is the winning player.
+   */
+  get matchWinnerTeam(): number {
     if (this.phase !== 'over') return -1;
-    const wins = (p: number) => this.results.filter((r) => r.winner === p).length;
-    return [...this.tanks].sort(
-      (a, b) => b.score - a.score || wins(b.player) - wins(a.player) || a.player - b.player,
-    )[0]!.player;
+    const wins = (team: number) => this.results.filter((r) => r.winnerTeam === team).length;
+    return this.teamTotals().sort(
+      (a, b) => b.score - a.score || wins(b.team) - wins(a.team) || a.first - b.first,
+    )[0]!.team;
+  }
+
+  /** Match winner: the best scorer of the winning team (the winning player in a free-for-all). */
+  get matchWinner(): number {
+    const team = this.matchWinnerTeam;
+    if (team < 0) return -1;
+    let best = -1;
+    for (const t of this.tanks) {
+      if (t.team === team && (best < 0 || t.score > this.tanks[best]!.score)) best = t.player;
+    }
+    return best;
   }
 
   // ── observation ─────────────────────────────────────────────────────────────────────────
