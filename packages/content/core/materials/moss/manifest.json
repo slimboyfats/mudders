@@ -1,0 +1,47 @@
+{
+  "id": "material.moss",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sponge moss",
+    "description": "Springy green moss on the marsh banks. It soaks up any water that touches it and swells into the space the water held, so a flood grows a moss mound instead of a pond. Dry moss catches fire easily.",
+    "since": "core@0.21.0",
+    "color": "#4a8c2a"
+  },
+  "cell": 64,
+  "settle": "fall",
+  "density": 70,
+  "strength": {
+    "blast": 0.8,
+    "kinetic": 0.6,
+    "heat": 0.6,
+    "shock": 0.7,
+    "dig": 0.6,
+    "corrosive": 6
+  },
+  "cohesion": 0.5,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.water",
+      "into": "material.wet-moss",
+      "other": "air",
+      "spawn": "material.wet-moss",
+      "chance": 0.35
+    },
+    {
+      "with": "material.fire",
+      "into": "material.fire",
+      "chance": 0.1
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.fire",
+      "chance": 0.2
+    },
+    {
+      "with": "material.lava",
+      "into": "material.fire",
+      "chance": 0.2
+    }
+  ]
+}

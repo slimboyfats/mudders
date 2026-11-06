@@ -1089,6 +1089,35 @@ export class World implements SimApi {
   }
 
   /**
+   * Sticky ground (tar) under a tank at column x, bottom row y: the material's `sticky.drive`
+   * factor when at least half the treads rest on sticky cells, else 1.
+   */
+  stickyAt(x: number, y: number, half: number): number {
+    const g = this.grid;
+    if (y < 0 || y >= g.height) return 1;
+    const st = this.mats.sticky;
+    const row = y * g.width;
+    let n = 0;
+    let solid = 0;
+    let f = 1;
+    for (let c = Math.max(0, x - half); c < Math.min(g.width, x + half); c++) {
+      const m = g.material[row + c]!;
+      if (m === 0) continue;
+      solid++;
+      if (st[m] !== 0) {
+        n++;
+        if (st[m]! > f) f = st[m]!;
+      }
+    }
+    return solid === 0 || n * 2 < solid ? 1 : f;
+  }
+
+  /** Ticks per driven cell for this tank where it stands (slower in tar). */
+  private driveTicks(t: Tank): number {
+    return this.mode.drive.ticksPerCell * this.stickyAt(t.x, t.y, t.half);
+  }
+
+  /**
    * One cell of driving (§3.2). The tank climbs a step of up to `drive.climb` cells, rolls down
    * one of the same, and stops at anything steeper (a wall, a prop, ground it is bogged in), at the
    * map edge (or the sudden-death void) or when its drive runs out. A real drop it simply falls.
@@ -1115,10 +1144,12 @@ export class World implements SimApi {
       this.emit('driveBlocked', t.x, t.y, t.half, { dir });
       return;
     }
+    // bogged in tar: this cell costs several cells of the turn's allowance
+    const cost = this.stickyAt(t.x, t.y, t.half);
     t.x = nx;
     t.y = top;
     for (let d = 0; d < climb && !this.supported(t); d++) t.y++;
-    t.driveLeft--;
+    t.driveLeft = Math.max(0, t.driveLeft - cost);
     t.fuel--;
     if (t.driveLeft <= 0 || t.fuel <= 0) t.driving = 0;
     this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
@@ -1134,10 +1165,13 @@ export class World implements SimApi {
     const climb = this.mode.drive.climb;
     const safe = this.mode.fallDamage.safeCells;
     const out: AiSpot[] = [];
-    const n = Math.min(t.driveLeft, t.fuel);
+    let left = t.driveLeft;
+    let fuel = t.fuel;
     let x = t.x;
     let y = t.y;
-    for (let i = 0; i < n; i++) {
+    while (left > 0 && fuel > 0) {
+      left -= this.stickyAt(x, y, t.half);
+      fuel--;
       const nx = x + dir;
       if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) break;
       const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
@@ -1230,7 +1264,7 @@ export class World implements SimApi {
     }
     if (t.bot >= 0) {
       if (t.driving !== 0) {
-        if (!t.falling && this.tick % this.mode.drive.ticksPerCell === 0) {
+        if (!t.falling && this.tick % this.driveTicks(t) === 0) {
           this.driveStep(t);
           if (t.x === t.botGoal) t.driving = 0;
         }
@@ -1243,7 +1277,7 @@ export class World implements SimApi {
       if (this.botWait <= 0) this.fire(t);
       return;
     }
-    if (t.driving !== 0 && !t.falling && this.tick % this.mode.drive.ticksPerCell === 0) {
+    if (t.driving !== 0 && !t.falling && this.tick % this.driveTicks(t) === 0) {
       this.driveStep(t);
     }
     if (this.timer > 0 && --this.timer === 0) {

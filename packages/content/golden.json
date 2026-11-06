@@ -1,5 +1,5 @@
 {
-  "contentHash": "409cc44eedd7f33a",
+  "contentHash": "2af684b5fc8b53c4",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -278,8 +278,8 @@
       "hash": "3ee7973b699dd083"
     },
     "gen.marsh": {
-      "ticks": 162,
-      "hash": "d3f0d0a1c22a6e24"
+      "ticks": 188,
+      "hash": "dc2a61d3e7f5609c"
     },
     "gen.village": {
       "ticks": 149,
@@ -296,6 +296,10 @@
     "material.burning-oil": {
       "ticks": 608,
       "hash": "27f540dfb9932179"
+    },
+    "material.burning-tar": {
+      "ticks": 535,
+      "hash": "16dabca9cbe3bc39"
     },
     "material.concrete": {
       "ticks": 142,
@@ -361,9 +365,13 @@
       "ticks": 89,
       "hash": "183bdd0afdffb303"
     },
+    "material.moss": {
+      "ticks": 407,
+      "hash": "b69fb65e5da59685"
+    },
     "material.mud": {
-      "ticks": 162,
-      "hash": "d3f0d0a1c22a6e24"
+      "ticks": 188,
+      "hash": "dc2a61d3e7f5609c"
     },
     "material.napalm": {
       "ticks": 387,
@@ -378,8 +386,8 @@
       "hash": "27f540dfb9932179"
     },
     "material.packed-mud": {
-      "ticks": 309,
-      "hash": "565b17aaf4ee25fe"
+      "ticks": 399,
+      "hash": "864ff915ca0397b1"
     },
     "material.rock-lit": {
       "ticks": 687,
@@ -417,9 +425,17 @@
       "ticks": 210,
       "hash": "2c60663880619f82"
     },
+    "material.tar": {
+      "ticks": 916,
+      "hash": "8509c4a27c63f2f0"
+    },
     "material.water": {
       "ticks": 597,
       "hash": "3bf9cab2c98e9dc5"
+    },
+    "material.wet-moss": {
+      "ticks": 407,
+      "hash": "b69fb65e5da59685"
     },
     "material.wood": {
       "ticks": 325,

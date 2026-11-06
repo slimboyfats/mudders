@@ -24,6 +24,18 @@ const params = z.strictObject({
    */
   mudDepth: z.number().int().min(0).max(64).default(0),
   mudLevel: z.number().min(-0.2).max(0.3).default(0),
+  /**
+   * Tar seeps (gen.marsh): columns whose surface lies more than `tarLevel` below the mean surface
+   * get tar in the top of the ground, thickening with depth up to `tarDepth` cells.
+   */
+  tarDepth: z.number().int().min(0).max(32).default(0),
+  tarLevel: z.number().min(0).max(0.3).default(0),
+  /**
+   * Sponge moss on the marsh banks: patches `mossDepth` cells thick on columns within `mossBand`
+   * (fraction of map height) of the mud line, on about three blocks in four.
+   */
+  mossDepth: z.number().int().min(0).max(16).default(0),
+  mossBand: z.number().min(0).max(0.3).default(0),
 });
 type Params = z.infer<typeof params>;
 
@@ -58,7 +70,7 @@ export function noise1d(
 export default defineGenerator<Params>({
   kind: 'gen',
   id: 'gen.hills',
-  version: 1,
+  version: 2,
   params,
   generate(api, p, players) {
     const { grid, rng, mats } = api;
@@ -123,6 +135,33 @@ export default defineGenerator<Params>({
         if (s < line) continue;
         const bottom = Math.min(H, s + Math.min(p.mudDepth, 8 + (s - line)));
         for (let y = s; y < bottom; y++) if (mat[y * W + x] !== rock) mat[y * W + x] = mud;
+      }
+    }
+
+    // Tar in the deepest dips and moss on the banks: no rng either.
+    if (p.tarDepth > 0 || p.mossDepth > 0) {
+      let sum = 0;
+      for (let x = 0; x < W; x++) sum += surface[x]!;
+      const mean = Math.floor(sum / W);
+      const line = mean + Math.round(p.mudLevel * H);
+      const tarLine = mean + Math.round(p.tarLevel * H);
+      const band = Math.round(p.mossBand * H);
+      const tar = p.tarDepth > 0 ? mats.cellOf('material.tar') : 0;
+      const moss = p.mossDepth > 0 ? mats.cellOf('material.moss') : 0;
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        if (tar !== 0 && s >= tarLine) {
+          const bottom = Math.min(H, s + Math.min(p.tarDepth, 4 + 2 * (s - tarLine)));
+          for (let y = s; y < bottom; y++) if (mat[y * W + x] !== rock) mat[y * W + x] = tar;
+          continue;
+        }
+        if (moss === 0 || s < line - band || s >= line + (band >> 1)) continue;
+        // patches: a cheap integer hash per 24-column block, with a ragged lower edge
+        const h = Math.imul(Math.floor(x / 24) + 1, 0x9e3779b1) >>> 0;
+        if ((h >>> 28) % 4 === 0) continue;
+        const d = p.mossDepth - ((Math.imul(x + 7, 0x85ebca77) >>> 29) % 3);
+        for (let y = s; y < Math.min(H, s + d); y++)
+          if (mat[y * W + x] !== rock) mat[y * W + x] = moss;
       }
     }
 

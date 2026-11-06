@@ -55,6 +55,8 @@ export class MaterialTable {
   readonly sinkDepth = new Uint8Array(256);
   /** Ticks per cell a tank slides on slick ground (0 = not slick). */
   readonly slickTicks = new Uint8Array(256);
+  /** Sticky ground (tar): drive slowdown and allowance cost per cell (0 = not sticky). */
+  readonly sticky = new Uint8Array(256);
   /** Compaction (§4b): cell a carve packs this material into (KEEP = none), ratio ×256, max depth. */
   readonly compactInto = new Uint8Array(256).fill(KEEP);
   readonly compactRatio = new Uint16Array(256);
@@ -119,6 +121,7 @@ export class MaterialTable {
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;
       this.slickTicks[c] = m.slick?.ticks ?? 0;
+      this.sticky[c] = m.sticky?.drive ?? 0;
       if (m.compact) {
         this.compactInto[c] = ref(m.compact.into);
         this.compactRatio[c] = Math.round(m.compact.ratio * 256);

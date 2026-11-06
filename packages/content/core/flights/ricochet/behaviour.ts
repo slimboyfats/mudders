@@ -1,6 +1,6 @@
 import { z } from '@mudders/shared';
 import { FP, defineFlight, toFixed } from '@mudders/sim';
-import { ballisticStep, placeAt, solidAt } from '../../../src/flight';
+import { ballisticStep, placeAt, solidAt, stickyAt } from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -32,7 +32,7 @@ type Params = z.infer<typeof params>;
 export default defineFlight<Params>({
   kind: 'flight',
   id: 'flight.ricochet',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -41,6 +41,8 @@ export default defineFlight<Params>({
   },
   contact(api, proj, p, hit) {
     if (hit.tank >= 0) return 'impact';
+    // tar doesn't bounce: the ball sticks and goes off
+    if (stickyAt(api, hit.x, hit.y)) return 'impact';
     const done = proj.data[0] ?? 0;
     if (done >= p.bounces) return 'impact';
 

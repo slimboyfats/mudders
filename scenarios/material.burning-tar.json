@@ -1,0 +1,58 @@
+{
+  "id": "material.burning-tar",
+  "schemaVersion": 1,
+  "description": "Napalm lands in the marsh tar pit: the flames run through the whole pool and keep burning.",
+  "subject": "material.burning-tar",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.marsh"
+  },
+  "tanks": [
+    {
+      "x": 290,
+      "inventory": {
+        "weapon.napalm": 3
+      }
+    },
+    {
+      "x": 600
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.napalm"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1600,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

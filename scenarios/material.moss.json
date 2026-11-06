@@ -1,0 +1,58 @@
+{
+  "id": "material.moss",
+  "schemaVersion": 1,
+  "description": "A flood lands on the sponge moss bank: the moss drinks the water and swells into a soaked mound instead of a pond.",
+  "subject": "material.moss",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.marsh"
+  },
+  "tanks": [
+    {
+      "x": 110,
+      "inventory": {
+        "weapon.flood": 3
+      }
+    },
+    {
+      "x": 600
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.flood"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

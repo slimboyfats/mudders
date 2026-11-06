@@ -1,0 +1,58 @@
+{
+  "id": "material.wet-moss",
+  "schemaVersion": 1,
+  "description": "Water soaks into sponge moss and turns it dark and swollen.",
+  "subject": "material.wet-moss",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.marsh"
+  },
+  "tanks": [
+    {
+      "x": 110,
+      "inventory": {
+        "weapon.flood": 3
+      }
+    },
+    {
+      "x": 600
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.flood"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
