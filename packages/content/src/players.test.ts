@@ -7,7 +7,14 @@ describe('8 players (milestone 7)', () => {
     expect(MAX_PLAYERS).toBe(8);
   });
 
-  for (const generator of ['gen.hills', 'gen.village', 'gen.badlands', 'gen.city', 'gen.islands', 'gen.caves']) {
+  for (const generator of [
+    'gen.hills',
+    'gen.village',
+    'gen.badlands',
+    'gen.city',
+    'gen.islands',
+    'gen.caves',
+  ]) {
     it(`${generator} spaces 8 tanks apart on the small map`, () => {
       for (let seed = 1; seed <= 4; seed++) {
         const w = makeWorld({ seed, players: 8, map: { ...MAP_SIZES.small, generator } });

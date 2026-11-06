@@ -87,16 +87,12 @@
   "groups": [
     {
       "name": "walls",
-      "roles": [
-        "wall",
-        "floor",
-        "door"
-      ],
+      "roles": ["wall", "floor", "door"],
       "integrity": 520,
       "resistance": {
-        "blast": 2,
+        "blast": 2.2,
         "kinetic": 2,
-        "heat": 4
+        "heat": 4.5
       },
       "breakInto": {
         "material.brick": "material.rubble",
@@ -111,29 +107,19 @@
       }
     },
     {
-      "name": "windows",
-      "roles": [
-        "window"
-      ],
-      "integrity": 4,
-      "supports": [
-        "walls"
-      ],
+      "name": "panes",
+      "roles": ["window"],
+      "integrity": 6,
+      "supports": ["walls"],
       "breakInto": {
         "material.glass": "material.shard"
       }
     },
     {
       "name": "roof",
-      "roles": [
-        "roof",
-        "tank",
-        "legs"
-      ],
+      "roles": ["roof", "tank", "legs"],
       "integrity": 120,
-      "supports": [
-        "walls"
-      ],
+      "supports": ["walls"],
       "breakInto": {
         "material.wood": "material.splinter",
         "material.concrete": "material.rubble",

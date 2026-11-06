@@ -14,17 +14,15 @@
     {
       "x": 150,
       "inventory": {
-        "weapon.missile": 5
+        "weapon.missile": 5,
+        "weapon.heavy-shockwave": 5
       }
     },
     {
       "x": 740
     }
   ],
-  "turnOrder": [
-    0,
-    1
-  ],
+  "turnOrder": [0, 1],
   "wind": 0,
   "props": [
     {
@@ -56,10 +54,58 @@
       "action": {
         "type": "fire"
       }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 250
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
     }
   ],
   "capture": {
-    "maxTicks": 2500,
+    "maxTicks": 3000,
     "untilSettled": true,
     "extraTicks": 45
   }

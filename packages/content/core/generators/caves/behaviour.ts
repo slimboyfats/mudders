@@ -85,7 +85,10 @@ export default defineGenerator<Params>({
 
     // Stalactites hang from the roof: narrow triangles, never over a spawn pad.
     const scale = W / 1000;
-    const nSt = rng.range(Math.round(p.stalactites[0] * scale), Math.round(p.stalactites[1] * scale));
+    const nSt = rng.range(
+      Math.round(p.stalactites[0] * scale),
+      Math.round(p.stalactites[1] * scale),
+    );
     for (let i = 0; i < nSt; i++) {
       const cx = rng.range(4, W - 5);
       const half = rng.range(4, 12);

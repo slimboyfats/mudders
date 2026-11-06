@@ -129,9 +129,7 @@
   "groups": [
     {
       "name": "base",
-      "roles": [
-        "base"
-      ],
+      "roles": ["base"],
       "integrity": 420,
       "resistance": {
         "blast": 2,
@@ -148,13 +146,9 @@
     },
     {
       "name": "middle",
-      "roles": [
-        "middle"
-      ],
+      "roles": ["middle"],
       "integrity": 320,
-      "supports": [
-        "base"
-      ],
+      "supports": ["base"],
       "resistance": {
         "blast": 2,
         "kinetic": 2,
@@ -170,15 +164,9 @@
     },
     {
       "name": "top",
-      "roles": [
-        "top",
-        "roof",
-        "mast"
-      ],
+      "roles": ["top", "roof", "mast"],
       "integrity": 300,
-      "supports": [
-        "middle"
-      ],
+      "supports": ["middle"],
       "resistance": {
         "blast": 2,
         "kinetic": 2,
@@ -194,40 +182,27 @@
     },
     {
       "name": "base-windows",
-      "roles": [
-        "base-glass",
-        "lobby"
-      ],
+      "roles": ["base-glass", "lobby"],
       "integrity": 4,
-      "supports": [
-        "base"
-      ],
+      "supports": ["base"],
       "breakInto": {
         "material.glass": "material.shard"
       }
     },
     {
       "name": "middle-windows",
-      "roles": [
-        "middle-glass"
-      ],
+      "roles": ["middle-glass"],
       "integrity": 4,
-      "supports": [
-        "middle"
-      ],
+      "supports": ["middle"],
       "breakInto": {
         "material.glass": "material.shard"
       }
     },
     {
       "name": "top-windows",
-      "roles": [
-        "top-glass"
-      ],
+      "roles": ["top-glass"],
       "integrity": 4,
-      "supports": [
-        "top"
-      ],
+      "supports": ["top"],
       "breakInto": {
         "material.glass": "material.shard"
       }
