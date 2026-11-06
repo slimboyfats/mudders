@@ -603,6 +603,7 @@ export class PixelRenderer implements Renderer {
       this.fx.handle(e);
       if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
     }
+    this.fx.lances.track(s.entities, s.tick);
     this.updateTrails(s);
   }
 
@@ -727,7 +728,7 @@ export class PixelRenderer implements Renderer {
   private updateTrails(s: RenderSnapshot): void {
     for (const t of this.trails) t.live = false;
     for (const e of s.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       let tr = this.trails.find((t) => t.id === e.id);
       if (!tr) {
         // a new shot clears trails from earlier turns (they persist faintly until then, §3.3)
@@ -856,6 +857,7 @@ export class PixelRenderer implements Renderer {
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
+    this.fx.lances.draw(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
@@ -1074,7 +1076,7 @@ export class PixelRenderer implements Renderer {
   private drawProjectiles(): void {
     const g = this.additive;
     for (const e of this.entities) {
-      if (e.kind !== 'projectile') continue;
+      if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
     }

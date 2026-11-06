@@ -1,0 +1,56 @@
+{
+  "id": "audio.lance",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lance beam",
+    "description": "The Orbital Lance firing: a noise roar over a falling saw drone and a shrill high whine.",
+    "since": "core@0.13.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 300,
+        "attack": 0.02,
+        "hold": 0.9,
+        "release": 0.6,
+        "volume": 0.4
+      },
+      {
+        "wave": "saw",
+        "freq": 160,
+        "to": 70,
+        "attack": 0.01,
+        "hold": 1,
+        "release": 0.5,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 22,
+          "depth": 0.8
+        }
+      },
+      {
+        "wave": "pulse12",
+        "freq": 2400,
+        "to": 1400,
+        "attack": 0.005,
+        "hold": 0.7,
+        "release": 0.4,
+        "volume": 0.12,
+        "arp": [0, 12]
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "lance"
+    }
+  ]
+}

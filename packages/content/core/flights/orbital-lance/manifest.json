@@ -1,0 +1,14 @@
+{
+  "id": "flight.orbital-lance",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Orbital lance",
+    "description": "Waits where it landed while a satellite locks on, then comes straight down from the top of the sky and bores through whatever is below.",
+    "since": "core@0.13.0"
+  },
+  "behaviour": "flight.orbital-lance",
+  "chargeTicks": 60,
+  "speed": 14,
+  "depth": 70,
+  "maxTicks": 400
+}
