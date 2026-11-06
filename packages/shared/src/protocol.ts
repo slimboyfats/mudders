@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 11;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -182,10 +182,22 @@ export const NetSetupSchema = z.object({
     .min(2)
     .max(8),
   size: z.enum(Object.keys(MAP_SIZES) as [keyof typeof MAP_SIZES, ...(keyof typeof MAP_SIZES)[]]),
-  scenery: z.enum(['none', 'village', 'badlands', 'marsh', 'city', 'islands', 'caves']),
+  scenery: z.enum([
+    'none',
+    'village',
+    'badlands',
+    'marsh',
+    'city',
+    'islands',
+    'caves',
+    'glacier',
+    'claypits',
+  ]),
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),
   wind: WindTypeSchema,
+  /** Weather (§3.4); older hosts don't send it, which means clear. */
+  weather: z.enum(['clear', 'rain', 'snow', 'random']).optional(),
   suddenDeath: z.boolean(),
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Team per seat (milestone 7), or null for a free-for-all. */

@@ -2,6 +2,7 @@ import {
   AI_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
+  WEATHER_CORE_KEYS,
   type DamageType,
   type EffectEvent,
   type EmbeddedExplosion,
@@ -12,6 +13,7 @@ import {
   type ModeManifest,
   type RenderSnapshot,
   type WallRule,
+  type WeatherManifest,
   type WindType,
   DAMAGE_TYPES,
   TICK_RATE,
@@ -30,6 +32,7 @@ import {
   type FlightSignal,
   type ModeApi,
   type ModeBehaviour,
+  type WeatherBehaviour,
   type OpCall,
   type OpInstance,
   type Projectile,
@@ -49,7 +52,7 @@ import { Prng } from './prng';
 import { Scratch } from './scratch';
 import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
-import { SETTLE_FLOW } from './materials';
+import { KEEP, SETTLE_FLOW } from './materials';
 
 /**
  * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
@@ -116,6 +119,8 @@ export interface WorldOptions {
     | undefined;
   /** Force wind (cells/tick²) for the whole match. */
   wind?: number | undefined;
+  /** Weather (`weather.*` id); unset = clear skies. */
+  weather?: string | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
   turnOrder?: readonly number[] | undefined;
   rules?: MatchRules | undefined;
@@ -204,6 +209,11 @@ export interface Tank extends TankHandle {
   sunk: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
+  /**
+   * Own turns left glued (Glue Bomb): the tank can't drive, and nothing shoves, slides or carries
+   * it sideways (blasts, slick ground, terrain ops). It still falls if the ground goes.
+   */
+  glue: number;
   /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
   driveLeft: number;
   driving: number;
@@ -248,6 +258,7 @@ interface RtExplosion {
   linear: boolean;
   push: number;
   chill: number;
+  glue: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -282,7 +293,26 @@ type RtImpact =
   | { kind: 'explosion'; e: RtExplosion }
   | { kind: 'op'; op: number; radius: number; damageType: DamageType }
   | { kind: 'spawn'; s: RtSpawn }
-  | { kind: 'zone'; z: RtZoneSpec };
+  | { kind: 'zone'; z: RtZoneSpec }
+  | { kind: 'mine'; weapon: number; radius: number; look: number };
+
+/** A mine on the map (§4a, Black Hole Mine): plain integers, hashed. */
+export interface Mine {
+  id: number;
+  x: number;
+  y: number;
+  radius: number;
+  /** Weapon whose impacts run where the mine trips. */
+  weapon: number;
+  look: number;
+  owner: number;
+  /** Armed once the turn it was laid in has ended. */
+  armed: boolean;
+}
+
+/** Most mines on the map at once; the oldest goes first. */
+export const MAX_MINES = 16;
+const MINE_LOOKS = ['black-hole'] as const;
 
 /** A lingering zone on the map (§4a): plain integers, hashed. */
 export interface Zone {
@@ -318,7 +348,7 @@ const PUFF_SLIDE = FP >> 6;
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic', 'volcano'] as const;
 
 interface RtWeapon {
   id: string;
@@ -374,6 +404,10 @@ export class World implements SimApi {
   readonly gear: RtGear[] = [];
   readonly mode: ModeManifest;
   readonly gravity: number;
+  /** Weather drag, fixed-point share of velocity per tick. */
+  readonly drag: number;
+  /** The match weather, or null for clear skies. */
+  readonly weather: WeatherManifest | null;
   /** Effective match rules (mode values with setup-screen overrides applied). */
   readonly rounds: number;
   readonly turnCap: number;
@@ -411,6 +445,7 @@ export class World implements SimApi {
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
   zones: Zone[] = [];
+  mines: Mine[] = [];
   readonly debris = new DebrisPool();
 
   private readonly opSites: OpSite[] = [];
@@ -422,16 +457,23 @@ export class World implements SimApi {
   private readonly walls: WallRule;
   private readonly settleCap: number;
   private readonly deathExplosion: RtExplosion;
+  /** Per material cell: the explosion its bursts set off (lit gunpowder), else null. */
+  private readonly burstExplosion: (RtExplosion | null)[] = new Array<RtExplosion | null>(256).fill(
+    null,
+  );
   private readonly windLocked: boolean;
   private readonly weaponIndex: Record<string, number> = {};
   private readonly gearIndex: Record<string, number> = {};
   private nextProjectileId = 1;
+  private nextMineId = 1;
   private shooter = -1;
   private pendingInputs: { player: number; input: Input }[] = [];
   private contactDone = false;
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
+  private readonly weatherB: WeatherBehaviour | null;
+  private readonly weatherParams: unknown;
 
   constructor(
     readonly content: ResolvedContent,
@@ -449,6 +491,14 @@ export class World implements SimApi {
     this.groups = new Groups(content.list('prop'), this.mats);
     this.scratch = new Scratch(this.grid.size);
     this.gravity = toFixed(mode.physics.gravity);
+    const weather = options.weather ? content.get('weather', options.weather) : null;
+    this.weather = weather;
+    this.drag = weather ? Math.trunc((weather.drag * FP) / 1000) : 0;
+    this.weatherB = weather ? content.behaviours.getKind(weather.behaviour, 'weather') : null;
+    this.weatherParams =
+      weather && this.weatherB
+        ? this.weatherB.params.parse(behaviourParams(weather, WEATHER_CORE_KEYS))
+        : undefined;
     this.maxSpeed = toFixed(mode.physics.maxSpeed);
     this.walls = mode.walls;
     this.settleCap = mode.settle.maxCellsPerTick;
@@ -507,6 +557,9 @@ export class World implements SimApi {
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
+    for (const m of content.list('material')) {
+      if (m.detonate) this.burstExplosion[m.cell] = this.bindExplosion(m.detonate.explosion);
+    }
 
     this.modeApi = {
       rng: this.rng,
@@ -590,6 +643,16 @@ export class World implements SimApi {
         },
       };
     }
+    if ('mine' in imp) {
+      const mw = this.weaponByIndex(imp.mine.weapon);
+      if (mw < 0) throw new Error(`${weapon}: mine names unknown weapon ${imp.mine.weapon}`);
+      return {
+        kind: 'mine',
+        weapon: mw,
+        radius: imp.mine.radius,
+        look: MINE_LOOKS.indexOf(imp.mine.look),
+      };
+    }
     return {
       kind: 'op',
       op: this.bindOp(imp.terrainOp),
@@ -614,6 +677,7 @@ export class World implements SimApi {
       linear: e.falloff === 'linear',
       push: e.push,
       chill: e.chill,
+      glue: e.glue,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -702,6 +766,7 @@ export class World implements SimApi {
         fallVel: 0,
         sunk: 0,
         chill: 0,
+        glue: 0,
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
@@ -759,6 +824,7 @@ export class World implements SimApi {
     this.projectiles = [];
     this.ops = [];
     this.zones = [];
+    this.mines = [];
     this.pendingDeaths = [];
     this.edge = 0;
     this.shooter = -1;
@@ -807,6 +873,7 @@ export class World implements SimApi {
       tank.fallVel = 0;
       tank.sunk = 0;
       tank.chill = 0;
+      tank.glue = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -871,7 +938,7 @@ export class World implements SimApi {
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
-      !this.tanks.some((t) => t.falling || (t.alive && this.slipDir(t) !== 0))
+      !this.tanks.some((t) => t.falling || (t.alive && t.glue === 0 && this.slipDir(t) !== 0))
     );
   }
 
@@ -918,9 +985,10 @@ export class World implements SimApi {
     return true;
   }
 
-  hold(player: number, x: number, y: number): void {
+  hold(player: number, x: number, y: number, fallFrom?: number): void {
     const t = this.tanks[player];
-    if (!t || !t.alive) return;
+    // a glued tank can't be picked up (tornado, wave): it stays stuck to the ground
+    if (!t || !t.alive || t.glue > 0) return;
     t.x = Math.max(t.half, Math.min(this.grid.width - 1 - t.half, x));
     t.y = Math.max(t.h, Math.min(this.grid.height - 1, y));
     if (!t.falling) {
@@ -929,6 +997,7 @@ export class World implements SimApi {
     } else if (t.y < t.fallFrom) {
       t.fallFrom = t.y;
     }
+    if (fallFrom !== undefined) t.fallFrom = Math.min(t.y, fallFrom);
     // stepTanks adds 1 before moving it, so a held tank stays put this tick
     t.fallVel = -1;
     t.sunk = 0;
@@ -950,6 +1019,7 @@ export class World implements SimApi {
     }
     if (this.phase === 'aim') this.stepAim();
     this.modeB.onTick?.(this.modeApi, this.modeParams);
+    this.weatherB?.onTick?.(this, this.weatherParams);
 
     this.stepProjectiles();
     this.stepOps();
@@ -958,12 +1028,14 @@ export class World implements SimApi {
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
     reactStep(this.grid, this.mats, this.tick);
+    if (this.grid.burstCount > 0) this.bursts();
     if (this.groups.any) {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
       else this.groups.settled();
     }
     this.stepTanks();
+    if (this.mines.length > 0) this.stepMines();
 
     if (this.phase === 'resolve' && this.quiet) {
       // Contact damage (lava, napalm) once the shot has settled; deaths may need resolving first.
@@ -971,6 +1043,7 @@ export class World implements SimApi {
         this.contactDone = true;
         this.applyContact();
         this.applyZones();
+        this.armMines();
       }
       if (this.quiet) this.endTurn();
     }
@@ -1011,7 +1084,7 @@ export class World implements SimApi {
         this.fire(t);
         break;
       case 'drive':
-        t.driving = t.driveLeft > 0 && t.fuel > 0 ? input.dir : 0;
+        t.driving = t.driveLeft > 0 && t.fuel > 0 && t.glue === 0 ? input.dir : 0;
         break;
       case 'useGear': {
         const g = Object.hasOwn(this.gearIndex, input.gear)
@@ -1154,6 +1227,8 @@ export class World implements SimApi {
       // past the climb it falls; a drop it lands from unhurt is fine, a deeper one is not
       for (let d = 0; d < safe && !this.supportedAt(nx, ny, t.half); d++) ny++;
       if (!this.supportedAt(nx, ny, t.half)) break;
+      // never into an armed mine's reach
+      if (this.mines.length > 0 && this.mineAt(nx, ny - (t.h >> 1), t.half)) break;
       x = nx;
       y = ny;
       out.push({ x, y });
@@ -1285,6 +1360,7 @@ export class World implements SimApi {
       driveLeft: t.driveLeft,
       reach: (dir) => this.reach(t, dir),
       chill: t.chill,
+      glue: t.glue,
       lastShot:
         t.lastShotX >= 0
           ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
@@ -1313,7 +1389,7 @@ export class World implements SimApi {
     const bot = this.bots[t.bot]!;
     t.driving = 0;
     t.botGoal = -1;
-    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0) return;
+    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0 || t.glue > 0) return;
     const goal = bot.b.move(this.aiApi(t), bot.params);
     if (!Number.isInteger(goal) || goal === t.x) return;
     const dir = goal > t.x ? 1 : -1;
@@ -1577,6 +1653,7 @@ export class World implements SimApi {
       if (imp.kind === 'explosion') this.explode(imp.e, x, y, p.owner);
       else if (imp.kind === 'op') this.startOp(imp.op, x, y, imp.radius, imp.damageType, p.owner);
       else if (imp.kind === 'spawn') this.spawn(imp.s, p, x, y);
+      else if (imp.kind === 'mine') this.addMine(imp, x, y, p.owner);
       else this.addZone(imp.z, x, y, p.owner);
     }
   }
@@ -1615,6 +1692,145 @@ export class World implements SimApi {
         data: [],
       });
     }
+  }
+
+  // ── mines ───────────────────────────────────────────────────────────────────────────────
+
+  /** Plant a mine on the first air cell at or above the impact point (§4a). */
+  private addMine(
+    m: { weapon: number; radius: number; look: number },
+    x: number,
+    y: number,
+    owner: number,
+  ): void {
+    const g = this.grid;
+    let my = Math.min(y, g.height - 1);
+    for (let k = 0; k < 32 && my > 0 && g.material[my * g.width + x] !== 0; k++) my--;
+    if (this.mines.length >= MAX_MINES) this.mines.shift();
+    const id = this.nextMineId++;
+    this.mines.push({
+      id,
+      x,
+      y: my,
+      radius: m.radius,
+      weapon: m.weapon,
+      look: m.look,
+      owner,
+      armed: false,
+    });
+    this.emit('mineLaid', x, my, m.radius, { look: m.look, id });
+  }
+
+  /** An armed mine would trip on a tank centred at (cx, cy). */
+  private mineAt(cx: number, cy: number, half: number): boolean {
+    for (const m of this.mines) {
+      if (!m.armed) continue;
+      const dx = cx - m.x;
+      const dy = cy - m.y;
+      const r = m.radius + half;
+      if (dx * dx + dy * dy < r * r) return true;
+    }
+    return false;
+  }
+
+  /** A live tank's centre is within the mine's reach. */
+  private mineTouches(m: Mine, t: Tank): boolean {
+    const dx = t.x - m.x;
+    const dy = t.y - (t.h >> 1) - m.y;
+    const r = m.radius + t.half;
+    return dx * dx + dy * dy < r * r;
+  }
+
+  /**
+   * Every tick: mines drop through air one cell a tick (lost off the bottom of the map or into the
+   * sudden-death void), and an armed mine with a tank in reach trips.
+   */
+  private stepMines(): void {
+    const g = this.grid;
+    let lost = false;
+    for (const m of this.mines) {
+      if (m.y + 1 >= g.height || m.x < this.edge || m.x >= g.width - this.edge) {
+        m.armed = false;
+        m.weapon = -1;
+        lost = true;
+        continue;
+      }
+      if (g.material[(m.y + 1) * g.width + m.x] === 0) m.y++;
+    }
+    if (lost) this.mines = this.mines.filter((m) => m.weapon >= 0);
+    this.tripMines(-1, -1, 0);
+  }
+
+  /** End of the turn a mine was laid in: it arms, and trips at once on a tank already in reach. */
+  private armMines(): void {
+    if (this.mines.length === 0) return;
+    let armed = false;
+    for (const m of this.mines) {
+      if (m.armed) continue;
+      m.armed = true;
+      armed = true;
+      this.emit('mineArmed', m.x, m.y, m.radius, { look: m.look, id: m.id });
+    }
+    if (armed) this.tripMines(-1, -1, 0);
+  }
+
+  /**
+   * Trip every armed mine that a live tank is in reach of, or (radius > 0) that the blast at
+   * (x, y) reaches. Each trips once, in list order; the mines it then sets off chain the same way.
+   * A mine tripped while someone is aiming (they drove into it) ends that turn.
+   */
+  private tripMines(x: number, y: number, radius: number): void {
+    for (let i = 0; i < this.mines.length;) {
+      const m = this.mines[i]!;
+      let hit = false;
+      if (m.armed) {
+        if (radius > 0) {
+          const dx = m.x - x;
+          const dy = m.y - y;
+          hit = dx * dx + dy * dy < radius * radius;
+        } else {
+          for (const t of this.tanks) {
+            if (t.alive && this.mineTouches(m, t)) {
+              hit = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!hit) {
+        i++;
+        continue;
+      }
+      this.mines.splice(i, 1);
+      this.tripMine(m);
+      // the list may have changed under us (chains): start over, the tripped mine is gone
+      i = 0;
+    }
+  }
+
+  private tripMine(m: Mine): void {
+    if (this.phase === 'aim') {
+      const t = this.tanks[this.activePlayer];
+      if (t) t.driving = 0;
+      this.phase = 'resolve';
+      this.timer = 0;
+      this.shooter = m.owner;
+    }
+    this.emit('mineTrip', m.x, m.y, m.radius, { look: m.look, id: m.id });
+    const w = this.weapons[m.weapon]!;
+    const p: Projectile = {
+      id: 0,
+      weapon: m.weapon,
+      owner: m.owner,
+      x: m.x * FP + FP / 2,
+      y: m.y * FP + FP / 2,
+      vx: 0,
+      vy: 0,
+      age: 0,
+      alive: false,
+      data: [],
+    };
+    this.runImpacts(w.impacts, p, m.x, m.y);
   }
 
   private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
@@ -1841,6 +2057,7 @@ export class World implements SimApi {
   private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
+    if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     for (const t of this.tanks) {
       if (!t.alive) continue;
@@ -1864,7 +2081,15 @@ export class World implements SimApi {
         if (turns > t.chill) t.chill = turns;
         this.emit('frosted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       }
-      if (e.push > 0 && dx !== 0) {
+      if (e.glue > 0) {
+        // glued for its next own turns; a tank that glues itself stays stuck past this turn too
+        const turns = e.glue + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        if (turns > t.glue) t.glue = turns;
+        t.driving = 0;
+        this.emit('glued', t.x, t.y, t.half, { player: t.player });
+      }
+      // a glued tank holds fast: blasts don't shove it
+      if (e.push > 0 && dx !== 0 && t.glue === 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
         t.x = Math.max(
           t.half,
@@ -1876,6 +2101,56 @@ export class World implements SimApi {
     // renderers tint the flash and sky by damage type (cosmetic)
     for (const [type, params] of e.effects) {
       this.emit(type, x, y, e.radius, { ...params, dt: e.dt });
+    }
+    if (e.damage > 0 && this.mines.length > 0) this.tripMines(x, y, e.radius);
+  }
+
+  /**
+   * Lit gunpowder going off (§4b): explosions the reaction pass queued, in cell order, owned by
+   * the player whose shot lit the seam. Their blasts light the cells around them in turn.
+   */
+  private bursts(): void {
+    const g = this.grid;
+    const n = g.burstCount;
+    g.burstCount = 0;
+    const owner = this.phase === 'resolve' ? this.activePlayer : -1;
+    for (let k = 0; k < n; k += 2) {
+      const i = g.bursts[k]!;
+      const e = this.burstExplosion[g.bursts[k + 1]!];
+      if (!e) continue;
+      const x = i % g.width;
+      this.explode(e, x, (i - x) / g.width, owner, false);
+    }
+  }
+
+  /** A blast lights the `ignite` cells (gunpowder) it reached but didn't carve away. */
+  private ignite(x: number, y: number, radius: number, dt: number): void {
+    const g = this.grid;
+    const W = g.width;
+    const mat = g.material;
+    const into = this.mats.igniteInto;
+    const by = this.mats.igniteBy;
+    const bit = 1 << dt;
+    const keep = KEEP;
+    const r = radius + 2;
+    const x0 = Math.max(0, x - r);
+    const x1 = Math.min(W - 1, x + r);
+    const y0 = Math.max(0, y - r);
+    const y1 = Math.min(g.height - 1, y + r);
+    const rr = r * r;
+    for (let cy = y0; cy <= y1; cy++) {
+      const dy = cy - y;
+      for (let cx = x0, i = cy * W + x0; cx <= x1; cx++, i++) {
+        const m = mat[i]!;
+        const to = into[m]!;
+        if (to === keep || (by[m]! & bit) === 0) continue;
+        const dx = cx - x;
+        if (dx * dx + dy * dy > rr) continue;
+        g.leaveGroup(i);
+        mat[i] = to;
+        g.cellState[i] = 0;
+        g.markDirty(cx, cy, cx, cy);
+      }
     }
   }
 
@@ -1927,6 +2202,10 @@ export class World implements SimApi {
 
   private stepOps(): void {
     if (this.ops.length === 0) return;
+    // terrain ops may shove tanks sideways (quakes, waves, pulls); glued tanks stay put
+    if (this.glueX.length < this.tanks.length) this.glueX = new Int32Array(this.tanks.length);
+    const pin = this.glueX;
+    for (let i = 0; i < this.tanks.length; i++) pin[i] = this.tanks[i]!.x;
     const next: OpInstance[] = [];
     for (const inst of this.ops) {
       inst.t++;
@@ -1940,7 +2219,14 @@ export class World implements SimApi {
       if (more) next.push(inst);
     }
     this.ops = next;
+    for (let i = 0; i < this.tanks.length; i++) {
+      const t = this.tanks[i]!;
+      if (t.glue > 0) t.x = pin[i]!;
+    }
   }
+
+  /** Tank columns before the ops step, so glued tanks can be put back (one slot per player). */
+  private glueX = new Int32Array(8);
 
   /**
    * Hurt a tank. Its shield soaks the hit first (§3.2); `pierce` skips the shield (falling out of
@@ -2149,8 +2435,10 @@ export class World implements SimApi {
       } else if (!t.falling) {
         // once it has started to sink the tank is bogged down and no longer slides
         this.sink(t);
-        if (t.sunk === 0 && this.grid.settling) this.slide(t);
-        if (!t.falling) this.slip(t);
+        if (t.glue === 0) {
+          if (t.sunk === 0 && this.grid.settling) this.slide(t);
+          if (!t.falling) this.slip(t);
+        }
       } else {
         t.falling = false;
         const chute = t.chute;
@@ -2185,12 +2473,14 @@ export class World implements SimApi {
     this.shooter = -1;
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
+    this.weatherB?.onTurnStart?.(this, this.weatherParams);
     if (this.suddenDeathActive) this.collapseEdges();
     const t = this.tanks[this.activePlayer];
     this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
     this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
     if (t) {
-      t.driveLeft = this.driveCells(t);
+      // a glued tank can't drive this turn
+      t.driveLeft = t.glue > 0 ? 0 : this.driveCells(t);
       t.driving = 0;
     }
   }
@@ -2220,6 +2510,13 @@ export class World implements SimApi {
   private endTurn(): void {
     const active = this.tanks[this.activePlayer];
     if (active && active.chill > 0) active.chill--;
+    if (active && active.glue > 0) {
+      active.glue--;
+      // the glue gives: a little tear of goo as it lets go
+      if (active.glue === 0 && active.alive) {
+        this.emit('unglued', active.x, active.y, active.half, { player: active.player });
+      }
+    }
     this.turn++;
     turnDecay(this.grid, this.mats);
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
@@ -2449,6 +2746,7 @@ export class World implements SimApi {
         alive: t.alive,
         power: t.power,
         chill: t.chill,
+        glue: t.glue,
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -2478,6 +2776,18 @@ export class World implements SimApi {
           : {}),
       });
     }
+    for (const m of this.mines) {
+      entities.push({
+        kind: 'mine',
+        id: m.id,
+        x: m.x,
+        y: m.y,
+        radius: m.radius,
+        look: MINE_LOOKS[m.look] ?? 'black-hole',
+        armed: m.armed,
+        owner: m.owner,
+      });
+    }
     const effectEvents = this.effects;
     this.effects = [];
     return {
@@ -2499,6 +2809,15 @@ export class World implements SimApi {
       },
       wind: this.wind / FP,
       theme: 'theme.default',
+      weather: this.weather
+        ? {
+            id: this.weather.id,
+            kind: this.weather.ambient.kind,
+            density: this.weather.ambient.density,
+            color: this.weather.ambient.color,
+            wet: this.weather.wet,
+          }
+        : undefined,
     };
   }
 
@@ -2544,6 +2863,7 @@ export class World implements SimApi {
         .num(t.fallVel)
         .num(t.sunk)
         .num(t.chill)
+        .num(t.glue)
         .num(t.driveLeft)
         .num(t.driving)
         .num(t.fuel)
@@ -2580,6 +2900,14 @@ export class World implements SimApi {
       h.num(z.op).num(z.dt).num(z.look).num(z.owner);
       h.num(z.puffRadius).num(z.drift).num(z.sink).num(z.age).num(z.puffs.length);
       for (const v of z.puffs) h.num(v);
+    }
+    // mines: only hashed once one has been laid, so other matches keep their hashes
+    if (this.nextMineId > 1) {
+      h.num(this.nextMineId).num(this.mines.length);
+      for (const m of this.mines) {
+        h.num(m.id).num(m.x).num(m.y).num(m.radius).num(m.weapon).num(m.look).num(m.owner);
+        h.num(m.armed ? 1 : 0);
+      }
     }
     h.num(this.ops.length);
     for (const o of this.ops) {

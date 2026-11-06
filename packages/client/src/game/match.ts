@@ -29,6 +29,8 @@ export interface HudTank {
   power: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
+  /** Own turns left glued (Glue Bomb): no driving. */
+  glue: number;
   weapon: string;
   inventory: { id: string; name: string; count: number }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
@@ -77,6 +79,8 @@ export interface HudState {
   windMax: number;
   /** Gusty wind: the wind keeps changing during the turn. */
   gusty: boolean;
+  /** Weather label ("Rain", "Snow"), or '' in clear skies. */
+  weather: string;
   /** Fuel Tank in the shop (§3.2): units per pack, price per pack, most a tank can hold. */
   fuel: { pack: number; price: number; max: number };
   tanks: HudTank[];
@@ -184,6 +188,7 @@ export abstract class SimMatch implements SnapshotStream {
       windBase: hudWind(w.windBase, w.mode.wind.max),
       windMax: w.mode.wind.max,
       gusty: w.windType === 'gusty',
+      weather: w.weather?.label ?? '',
       fuel: {
         pack: w.mode.drive.fuelPack,
         price: w.mode.drive.fuelPrice,
@@ -215,6 +220,7 @@ export abstract class SimMatch implements SnapshotStream {
         angle: t.angle,
         power: t.power,
         chill: t.chill,
+        glue: t.glue,
         weapon: w.weaponId(t.weapon),
         inventory: t.inventory
           .map((count, i) => ({ id: w.weaponId(i), name: this.names[w.weaponId(i)] ?? '', count }))

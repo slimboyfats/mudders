@@ -1,0 +1,60 @@
+{
+  "id": "weapon.bumper",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Bumper between two enemy tanks: the post pops up and kicks one left and one right across the map, bouncing off the right edge.",
+  "subject": "weapon.bumper",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.bumper": 1
+      }
+    },
+    {
+      "x": 520
+    },
+    {
+      "x": 590
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.bumper"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 590
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

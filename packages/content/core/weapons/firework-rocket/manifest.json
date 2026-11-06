@@ -1,0 +1,63 @@
+{
+  "id": "weapon.firework-rocket",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Firework rocket",
+    "description": "One rocket of a Cluster Fireworks: climbs until it stalls, then bursts into a ball of coloured stars that drift down and pop where they land.",
+    "category": "submunition",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.ballistic",
+    "gravityScale": 0.15,
+    "windScale": 0.5
+  },
+  "triggers": ["onApex", "onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 12,
+        "damage": 12,
+        "damageType": "heat",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 1
+          },
+          "fireworkBurst": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.firework-star",
+        "count": 6,
+        "inherit": 0.2,
+        "spread": 0.7,
+        "jitter": 0.25,
+        "up": 0.2
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "firework"
+  }
+}

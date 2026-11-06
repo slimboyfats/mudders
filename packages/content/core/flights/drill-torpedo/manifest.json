@@ -1,0 +1,19 @@
+{
+  "id": "flight.drill-torpedo",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Drill Torpedo",
+    "description": "Flies an arc, then burrows on along the ground the way it was heading, a few rows under the surface, and drills straight up under the first enemy tank it passes beneath. Out of steam, it surfaces where it is.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "flight.drill-torpedo",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "speed": 1.5,
+  "depth": 10,
+  "climb": 1,
+  "length": 160,
+  "riseSpeed": 2.5,
+  "sense": 60
+}

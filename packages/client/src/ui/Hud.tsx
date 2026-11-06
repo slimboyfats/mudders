@@ -29,11 +29,13 @@ function Wind({
   base,
   max,
   gusty,
+  weather,
 }: {
   wind: number;
   base: number;
   max: number;
   gusty: boolean;
+  weather: string;
 }) {
   const clamp = (v: number) => (max > 0 ? Math.max(-1, Math.min(1, v / max)) : 0);
   const k = clamp(wind);
@@ -42,7 +44,11 @@ function Wind({
   const arrow = k === 0 ? '·' : k > 0 ? '→' : '←';
   const dir = k > 0 ? 'right' : k < 0 ? 'left' : 'calm';
   return (
-    <div className="wind" aria-label={`${gusty ? 'Gusty wind' : 'Wind'} ${n} ${dir}`}>
+    <div
+      className="wind"
+      aria-label={`${weather ? `${weather}, ` : ''}${gusty ? 'gusty wind' : 'wind'} ${n} ${dir}`}
+    >
+      {weather && <span className="weather">{weather}</span>}
       <span className="label">{gusty ? 'Gusts' : 'Wind'}</span>
       <span className="wind-bar">
         <span
@@ -75,7 +81,7 @@ function Drive({
   send: (input: Input) => void;
 }) {
   const left = Math.min(tank?.driveLeft ?? 0, tank?.fuel ?? 0);
-  const off = disabled || left <= 0;
+  const off = disabled || left <= 0 || (tank?.glue ?? 0) > 0;
   const button = (dir: -1 | 1, label: string, glyph: string) => (
     <button
       className={`drive-btn${tank?.driving === dir ? ' on' : ''}`}
@@ -203,7 +209,13 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           </span>
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
         </div>
-        <Wind wind={hud.wind} base={hud.windBase} max={hud.windMax} gusty={hud.gusty} />
+        <Wind
+          wind={hud.wind}
+          base={hud.windBase}
+          max={hud.windMax}
+          gusty={hud.gusty}
+          weather={hud.weather}
+        />
         <div className="cam">
           <button onClick={() => renderer.current?.camera.zoomBy(-1)} aria-label="Zoom out">
             −
@@ -288,6 +300,11 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           {t && t.chill > 0 && (
             <span className="frost-note" role="status">
               ❄ Frosted: max power {CHILL_POWER}
+            </span>
+          )}
+          {t && t.glue > 0 && (
+            <span className="glue-note" role="status">
+              ◍ Glued: can't drive
             </span>
           )}
         </div>
