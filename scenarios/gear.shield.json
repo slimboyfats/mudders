@@ -1,0 +1,77 @@
+{
+  "id": "gear.shield",
+  "schemaVersion": 1,
+  "description": "P1 switches on a Shield and fires; P2's missile answer splashes off the shield instead of its health.",
+  "subject": "gear.shield",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "gear.shield": 1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "useGear",
+        "gear": "gear.shield"
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 60,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 690
+      }
+    },
+    {
+      "t": 60,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

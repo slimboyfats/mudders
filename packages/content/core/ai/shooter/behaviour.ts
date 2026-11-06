@@ -10,6 +10,9 @@ import {
   nearest,
   strongest,
   topUpFuel,
+  buyGear,
+  gearToUse,
+  GearPlanSchema,
 } from '../../../src/ai';
 
 const params = z.strictObject({
@@ -20,6 +23,8 @@ const params = z.strictObject({
   /** Drives toward the nearest tank while it is farther than this many cells. */
   approach: z.number().int().min(0),
   fuel: z.number().int().min(0),
+  /** Gear it keeps in stock (§5.1). */
+  gear: GearPlanSchema,
 });
 
 /**
@@ -29,7 +34,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.shooter',
-  version: 2,
+  version: 3,
   params,
   move(api, p) {
     const m = me(api);
@@ -42,6 +47,9 @@ export default defineAi<z.infer<typeof params>>({
       return driveEnd(api, target.x > m.x ? 1 : -1);
     }
     return m.x;
+  },
+  gear(api) {
+    return gearToUse(api);
   },
   aim(api, p) {
     const m = me(api);
@@ -69,7 +77,8 @@ export default defineAi<z.infer<typeof params>>({
   },
   shop(api, p) {
     const fuel = topUpFuel(api, p.fuel, 0);
-    const spent = api.money - moneyAfter(api, fuel);
-    return [...fuel, ...buyByValue(api, (i) => i.expectedDamage, spent, 2)];
+    const gear = buyGear(api, p.gear, 0 + api.money - moneyAfter(api, fuel));
+    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
+    return [...fuel, ...gear, ...buyByValue(api, (i) => i.expectedDamage, spent, 2)];
   },
 });

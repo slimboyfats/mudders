@@ -1,6 +1,8 @@
+import { z } from '@mudders/shared';
 import {
   AI_FUEL,
   type AiApi,
+  type AiGearView,
   type AiPurchase,
   type AiShopApi,
   type AiSpot,
@@ -259,7 +261,12 @@ export function topUpFuel(api: AiShopApi, want: number, reserve: number): AiPurc
 export function moneyAfter(api: AiShopApi, buys: readonly AiPurchase[]): number {
   let money = api.money;
   for (const b of buys) {
-    const price = b.item === AI_FUEL ? api.fuelPrice : (api.items[b.item]?.price ?? 0);
+    const price =
+      b.item === AI_FUEL
+        ? api.fuelPrice
+        : b.gear === true
+          ? (api.gear[b.item]?.price ?? 0)
+          : (api.items[b.item]?.price ?? 0);
     money -= price * b.packs;
   }
   return money;
@@ -276,4 +283,68 @@ export function terrainWeapon(api: AiApi): AiWeaponView | undefined {
     if (!best || w.terrainValue > best.terrainValue) best = w;
   }
   return best;
+}
+
+/** How much gear a personality likes to carry (§5.1): parachutes, shields, batteries. */
+export const GearPlanSchema = z.strictObject({
+  chute: z.number().int().min(0).max(20),
+  shield: z.number().int().min(0).max(20),
+  battery: z.number().int().min(0).max(20),
+});
+export type GearPlan = z.infer<typeof GearPlanSchema>;
+
+/**
+ * Shop: top gear up to `plan`, spending at most half of what's above `reserve` (weapons get the
+ * rest). Parachutes first, then shields (the strongest one I can comfortably afford), then
+ * batteries.
+ */
+export function buyGear(api: AiShopApi, plan: GearPlan, reserve: number): AiPurchase[] {
+  const out: AiPurchase[] = [];
+  let budget = Math.floor(Math.max(0, api.money - reserve) / 2);
+  const have = (pick: (g: AiShopApi['gear'][number]) => boolean) =>
+    api.gear.reduce((n, g) => n + (pick(g) ? g.count : 0), 0);
+  const buy = (g: AiShopApi['gear'][number] | undefined, want: number) => {
+    if (!g) return;
+    let n = 0;
+    while (want > 0 && g.price <= budget && g.count + n * g.pack < g.max) {
+      out.push({ item: g.index, packs: 1, gear: true });
+      budget -= g.price;
+      want -= g.pack;
+      n++;
+    }
+  };
+  const chutes = api.gear.filter((g) => g.deploy === 'fall');
+  buy(chutes[0], plan.chute - have((g) => g.deploy === 'fall'));
+  // strongest shield that costs no more than a third of the budget, else the cheapest
+  const shields = api.gear
+    .filter((g) => g.deploy === 'manual' && g.shield > 0)
+    .sort((a, b) => b.shield - a.shield || a.index - b.index);
+  const shield = shields.find((g) => g.price * 3 <= budget) ?? shields[shields.length - 1];
+  buy(shield, plan.shield - have((g) => g.deploy === 'manual' && g.shield > 0));
+  const battery = api.gear.find((g) => g.deploy === 'manual' && g.heal > 0);
+  buy(battery, plan.battery - have((g) => g.deploy === 'manual' && g.heal > 0));
+  return out;
+}
+
+/**
+ * Gear to switch on before this shot: a shield when mine is down to less than half of what a
+ * shield gives (the heavy one when I'm badly hurt), a battery when it would heal in full or I'm
+ * below a third of my health.
+ */
+export function gearToUse(api: AiApi): number[] {
+  const m = me(api);
+  if (enemies(api).length === 0) return [];
+  const out: number[] = [];
+  const ready = api.gear.filter((g) => g.useful && g.count > 0);
+  const shields = ready
+    .filter((g) => g.shield > 0)
+    .sort((a, b) => a.shield - b.shield || a.index - b.index);
+  const hurt = m.health * 2 < m.maxHealth;
+  const shield: AiGearView | undefined = hurt ? shields[shields.length - 1] : shields[0];
+  if (shield && m.shield * 2 < shield.shield) out.push(shield.index);
+  const battery = ready.find((g) => g.heal > 0);
+  if (battery && (m.health + battery.heal <= m.maxHealth || m.health * 3 < m.maxHealth)) {
+    out.push(battery.index);
+  }
+  return out;
 }

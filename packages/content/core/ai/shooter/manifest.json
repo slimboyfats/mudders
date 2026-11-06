@@ -11,5 +11,10 @@
   "angle": 50,
   "jitter": 12,
   "approach": 300,
-  "fuel": 80
+  "fuel": 80,
+  "gear": {
+    "chute": 0,
+    "shield": 1,
+    "battery": 2
+  }
 }

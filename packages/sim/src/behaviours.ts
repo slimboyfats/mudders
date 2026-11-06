@@ -199,6 +199,8 @@ export interface AiTankView {
   readonly health: number;
   /** Shield points left (Bulwark), soaked before health. */
   readonly shield: number;
+  /** Health at round start (a battery heals up to it). */
+  readonly maxHealth: number;
   /** Half-width and height of the hitbox, in cells. */
   readonly half: number;
   readonly h: number;
@@ -237,11 +239,27 @@ export interface AiShot {
 }
 
 /** What a bot may look at when aiming. Read-only except `memory` (hashed, persists all match). */
+/** A piece of gear I carry (§5.1). */
+export interface AiGearView {
+  /** Index to return from `AiBehaviour.gear`. */
+  readonly index: number;
+  readonly id: string;
+  readonly deploy: 'manual' | 'fall';
+  /** Shield points it raises my shield to, and health it restores. */
+  readonly shield: number;
+  readonly heal: number;
+  readonly count: number;
+  /** Switching it on now would change something (and I have one). */
+  readonly useful: boolean;
+}
+
 export interface AiApi {
   readonly rng: Prng;
   readonly me: number;
   readonly tanks: readonly AiTankView[];
   readonly weapons: readonly AiWeaponView[];
+  /** Every gear item, in id order, with how many I carry. */
+  readonly gear: readonly AiGearView[];
   readonly width: number;
   readonly height: number;
   /** Fixed-point cells/tick². */
@@ -304,15 +322,35 @@ export interface AiShopApi {
   readonly fuelPrice: number;
   /** Cells my tank type may drive per turn. */
   readonly driveCells: number;
+  /** My full health (round start). */
+  readonly health: number;
+  /** Gear for sale (fixed prices), with how many I carry and the most I may. */
+  readonly gear: readonly AiShopGear[];
+}
+
+export interface AiShopGear {
+  readonly index: number;
+  readonly id: string;
+  readonly deploy: 'manual' | 'fall';
+  readonly shield: number;
+  readonly heal: number;
+  readonly price: number;
+  readonly pack: number;
+  readonly max: number;
+  readonly count: number;
 }
 
 /** `item` value of a purchase that buys fuel packs instead of a weapon. */
 export const AI_FUEL = -1;
 
-/** One shop purchase: `packs` of the item at index `item`, or of fuel when `item` is AI_FUEL. */
+/**
+ * One shop purchase: `packs` of the weapon at index `item`, of fuel when `item` is AI_FUEL, or of
+ * the gear at index `item` when `gear` is true.
+ */
 export interface AiPurchase {
   item: number;
   packs: number;
+  gear?: boolean;
 }
 
 export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
@@ -323,6 +361,11 @@ export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
    * cell like a human holding the drive button, then the bot aims from where it stopped.
    */
   move?(api: AiApi, params: P): number;
+  /**
+   * Optional, just before aiming: gear indexes to switch on this turn (shield, battery), in order.
+   * The kernel validates each use as it would a human's; using gear never ends the turn.
+   */
+  gear?(api: AiApi, params: P): number[];
   aim(api: AiApi, params: P): AiShot;
   /** Purchases in order; the kernel validates each as it would a human's. */
   shop(api: AiShopApi, params: P): AiPurchase[];

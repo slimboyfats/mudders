@@ -1,0 +1,17 @@
+{
+  "id": "gear.shield",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shield",
+    "description": "Switch it on while aiming (it doesn't use your turn): a 50-point energy skin that soaks hits before your health, until it wears out or the round ends.",
+    "since": "core@0.18.0"
+  },
+  "deploy": "manual",
+  "shield": 50,
+  "shop": {
+    "price": 2000,
+    "pack": 1,
+    "max": 9
+  },
+  "label": "Shield"
+}

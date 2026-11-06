@@ -12,5 +12,10 @@
   "weapons": 3,
   "reserve": 100,
   "step": 6,
-  "fuel": 120
+  "fuel": 120,
+  "gear": {
+    "chute": 2,
+    "shield": 2,
+    "battery": 1
+  }
 }

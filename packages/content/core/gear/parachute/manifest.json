@@ -1,0 +1,17 @@
+{
+  "id": "gear.parachute",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Parachute",
+    "description": "Opens by itself when the ground drops out from under you: you drift down and land without fall damage. One per fall; falling off the map is still fatal.",
+    "since": "core@0.18.0"
+  },
+  "deploy": "fall",
+  "fallSpeed": 1,
+  "shop": {
+    "price": 800,
+    "pack": 2,
+    "max": 8
+  },
+  "label": "Chute"
+}

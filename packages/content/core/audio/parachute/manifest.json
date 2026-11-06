@@ -1,0 +1,44 @@
+{
+  "id": "audio.parachute",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Parachute",
+    "description": "A cloth pop and a soft falling whistle as a parachute opens.",
+    "since": "core@0.18.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 1800,
+        "to": 600,
+        "release": 0.12,
+        "volume": 0.35
+      },
+      {
+        "wave": "triangle",
+        "freq": 1200,
+        "to": 500,
+        "delay": 0.06,
+        "hold": 0.2,
+        "release": 0.5,
+        "volume": 0.22,
+        "vibrato": {
+          "rate": 5,
+          "depth": 0.6
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "chute"
+    }
+  ]
+}

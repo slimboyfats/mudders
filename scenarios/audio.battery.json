@@ -1,0 +1,62 @@
+{
+  "id": "audio.battery",
+  "schemaVersion": 1,
+  "description": "Plays audio.battery in context (audio is client-only): P1 starts at 40 health, switches on a Battery (+30), then fires.",
+  "subject": "audio.battery",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "health": 40,
+      "inventory": {
+        "gear.battery": 1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "useGear",
+        "gear": "gear.battery"
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

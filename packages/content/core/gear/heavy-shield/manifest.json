@@ -1,0 +1,17 @@
+{
+  "id": "gear.heavy-shield",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heavy Shield",
+    "description": "Switch it on while aiming (it doesn't use your turn): a 100-point shield that shrugs off a direct missile hit, until it wears out or the round ends.",
+    "since": "core@0.18.0"
+  },
+  "deploy": "manual",
+  "shield": 100,
+  "shop": {
+    "price": 5000,
+    "pack": 1,
+    "max": 5
+  },
+  "label": "Heavy"
+}

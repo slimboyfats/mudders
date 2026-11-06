@@ -216,3 +216,18 @@ export function blastLoss(
   dropAt(w, weapon, t.x + offset);
   return before - Math.max(0, t.health) - t.shield;
 }
+
+/** Dig a pit `depth` cells deep under a tank and let it fall; returns ticks taken (gear tests). */
+export function dropTank(world: World, player: number, depth: number, max = 600): number {
+  const g = world.grid;
+  const t = world.tanks[player]!;
+  for (let y = t.y; y < Math.min(g.height, t.y + depth); y++)
+    for (let x = t.x - t.half - 2; x < t.x + t.half + 2; x++) g.material[y * g.width + x] = 0;
+  let n = 0;
+  world.step();
+  while (n < max && t.falling) {
+    world.step();
+    n++;
+  }
+  return n;
+}

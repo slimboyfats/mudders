@@ -8,6 +8,9 @@ import {
   moveForShot,
   solvePower,
   topUpFuel,
+  buyGear,
+  gearToUse,
+  GearPlanSchema,
 } from '../../../src/ai';
 
 const params = z.strictObject({
@@ -18,6 +21,8 @@ const params = z.strictObject({
   /** Drive: candidate spots every `step` cells; it tops its fuel up to `fuel` in the shop. */
   step: z.number().int().min(1).max(40),
   fuel: z.number().int().min(0),
+  /** Gear it keeps in stock (§5.1). */
+  gear: GearPlanSchema,
 });
 
 /** Its most damaging weapons, best first. */
@@ -54,11 +59,14 @@ function prey(api: AiApi): AiTankView | undefined {
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.cyborg',
-  version: 2,
+  version: 3,
   params,
   move(api, p) {
     const best = ranked(api, 1)[0] ?? api.weapons[0]!;
     return moveForShot(api, prey(api), [best.index], p.angles.slice(0, 4), p.step, 0, 3);
+  },
+  gear(api) {
+    return gearToUse(api);
   },
   aim(api, p) {
     const m = me(api);
@@ -81,7 +89,8 @@ export default defineAi<z.infer<typeof params>>({
   },
   shop(api, p) {
     const fuel = topUpFuel(api, p.fuel, p.reserve);
-    const spent = api.money - moneyAfter(api, fuel);
-    return [...fuel, ...buyByValue(api, (i) => i.expectedDamage, p.reserve + spent, 4)];
+    const gear = buyGear(api, p.gear, p.reserve + api.money - moneyAfter(api, fuel));
+    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
+    return [...fuel, ...gear, ...buyByValue(api, (i) => i.expectedDamage, p.reserve + spent, 4)];
   },
 });

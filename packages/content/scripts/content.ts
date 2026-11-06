@@ -109,6 +109,30 @@ export function weaponsMarkdown(c: ResolvedContent): string {
       );
     }
   }
+  const gear = c.list('gear');
+  if (gear.length > 0) {
+    lines.push(
+      '',
+      '## Gear',
+      '',
+      'Defensive items from the shop, kept apart from weapons. Using one never ends the turn.',
+      '',
+      '| Id | Name | Deploy | Effect | Price | Carry | Since |',
+      '| -- | ---- | ------ | ------ | ----- | ----- | ----- |',
+    );
+    for (const g of gear) {
+      const effect = [
+        g.shield > 0 ? `shield to ${g.shield}` : '',
+        g.heal > 0 ? `+${g.heal} health` : '',
+        g.deploy === 'fall' ? `no fall damage (${g.fallSpeed} cell/tick)` : '',
+      ]
+        .filter(Boolean)
+        .join(', ');
+      lines.push(
+        `| \`${g.id}\` | ${g.meta.name} | ${g.deploy} | ${effect} | ${g.shop.price} × ${g.shop.pack} | ${g.shop.max} | ${g.meta.since} |`,
+      );
+    }
+  }
   return `${lines.join('\n')}\n`;
 }
 
