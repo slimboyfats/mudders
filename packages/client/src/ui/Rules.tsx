@@ -83,6 +83,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="badlands">Badlands</option>
           <option value="marsh">Marsh</option>
           <option value="city">City</option>
+          <option value="islands">Floating islands</option>
         </select>
       </label>
       <label>

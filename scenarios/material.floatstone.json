@@ -1,0 +1,61 @@
+{
+  "id": "material.floatstone",
+  "schemaVersion": 1,
+  "description": "A missile into floatstone under a floating island.",
+  "subject": "material.floatstone",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.islands"
+  },
+  "tanks": [
+    {
+      "x": 118,
+      "inventory": {
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 728
+    }
+  ],
+  "turnOrder": [
+    0,
+    1
+  ],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 670
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2500,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

@@ -28,7 +28,7 @@ const params = z.strictObject({
 type Params = z.infer<typeof params>;
 
 /** Sum of value-noise octaves, in 1/256 cells. Integer smoothstep, no trig (§6.3). */
-function noise1d(
+export function noise1d(
   rng: Prng,
   width: number,
   amp: number,
