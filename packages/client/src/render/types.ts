@@ -28,6 +28,14 @@ export interface RenderPalette {
   looks?: readonly MaterialLook[];
   /** Theme looks by `theme.*` id; unknown ids fall back to the default. */
   themes?: Readonly<Record<string, PixelTheme>>;
+  /** Shell looks by `weapon.*` id; weapons not listed draw the default spark with a trail. */
+  shells?: Readonly<Record<string, ShellLook>>;
+}
+
+/** How a weapon's shell is drawn in flight (from its manifest `look`). */
+export interface ShellLook {
+  shell: 'spark' | 'fire';
+  trail: boolean;
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */
@@ -41,6 +49,10 @@ export interface MaterialLook {
   hot: boolean;
   /** Grows the theme's grass on exposed tops. */
   topsoil?: boolean;
+  /** Chars black and smoulders with embers after a blast, like topsoil, but grows no grass. */
+  char?: boolean;
+  /** Pixel flames and smoke rise off exposed tops. */
+  flames?: boolean;
   /** Crystalline: scattered cells glint white for a moment (frost). */
   glint?: boolean;
 }

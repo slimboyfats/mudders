@@ -1,0 +1,42 @@
+{
+  "id": "weapon.napalm-glob",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Napalm glob",
+    "description": "A gob of burning jelly splashed out of a Napalm hit. It lands as a small pool of fire.",
+    "category": "submunition",
+    "since": "core@0.13.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.glob-splash"
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.napalm"
+      },
+      "radius": 4,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "fire",
+    "trail": false
+  }
+}

@@ -85,7 +85,9 @@ uint mat(ivec2 c) {
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
 ${NOISE}
-bool topsoil(uint m) { return m != 0u && look(m).a > 0.5; }
+bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
+// chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
+bool charrable(uint m) { return m != 0u && look(m).a > 0.25; }
 bool glints(uint m) { float b = look(m).b; return b > 0.25 && b < 0.5; }
 // frost: icy rim on exposed faces, and a few cells glint white for a few ticks in whole steps
 vec3 glinted(ivec2 c, vec3 shaded) {
@@ -155,7 +157,7 @@ void main() {
           uint mm = mat(cell);
           int sd = 0;
           for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
-          if (sd > 0 && topsoil(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+          if (sd > 0 && charrable(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
             float cool = age / 600.0;
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
@@ -467,7 +469,7 @@ void main() {
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
-  bool soil = still && lk.a > 0.5 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
+  bool soil = still && lk.a > 0.75 && sd > 0 && texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r != 0u;
   // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
   // that dithers back into the plain soil a dozen cells down
   float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
@@ -538,7 +540,7 @@ void main() {
     }
     rim *= 0.35;
   }
-  if (still && lk.a > 0.5 && !soil && sd > 0 && sd <= 26) {
+  if (still && lk.a > 0.25 && !soil && sd > 0 && sd <= 26) {
     // freshly blasted dirt: scorched near-black at the surface where the blast hit, lightening
     // through charred and baked bands into warm dirt and then the plain subsoil. Hard tone steps
     // with ordered dither between them, in short horizontal strokes of three tones

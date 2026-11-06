@@ -43,6 +43,16 @@ interface Front {
   cold?: boolean;
 }
 
+/** A singularity's hang: grit and light spiralling into a growing black core. */
+interface Vortex {
+  x: number;
+  y: number;
+  r: number;
+  start: number;
+  dur: number;
+  rng: FxRng;
+}
+
 interface Crystal {
   /** Cells of the spikes, x0,y0,x1,y1,… */
   cells: Int32Array;
@@ -102,6 +112,7 @@ export class EffectSystem {
   /** Frost Bomb starbursts: jagged ice spikes out of the impact. */
   private crystals: Crystal[] = [];
   private mushrooms: Mushroom[] = [];
+  private vortices: Vortex[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -132,6 +143,7 @@ export class EffectSystem {
       case 'flash': {
         const look = DT_LOOK[e.params.dt ?? 0] ?? DT_LOOK[0]!;
         const strength = e.params.strength ?? 1;
+        if (strength <= 0) break; // a silent blast (e.g. a singularity's opening pull)
         this.glows.push({
           x: e.x,
           y: e.y,
@@ -159,6 +171,15 @@ export class EffectSystem {
       }
       case 'nukeBlast':
         this.nuke(e);
+        break;
+      case 'mirvSplit':
+        this.mirvSplit(e);
+        break;
+      case 'fireball':
+        this.fireball(e, e.params.strength ?? 1);
+        break;
+      case 'geyser':
+        this.geyser(e, e.params.strength ?? 1);
         break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
@@ -272,6 +293,25 @@ export class EffectSystem {
       }
       case 'bolt':
         this.bolt(e);
+        break;
+      case 'pressureWave':
+        this.pressureWave(e, e.params.strength ?? 1);
+        break;
+      case 'vortex':
+        this.vortices.push({
+          x: e.x,
+          y: e.y,
+          r: Math.max(10, e.radius),
+          start: e.tick,
+          dur: Math.max(8, e.params.ticks ?? 40),
+          rng: this.rngFor(e, 61),
+        });
+        break;
+      case 'eruption':
+        this.eruption(e, e.params.strength ?? 1);
+        break;
+      case 'arcs':
+        this.arcs(e, e.params.strength ?? 1);
         break;
       case 'frostBlast':
         this.frostBlast(e);
@@ -477,6 +517,281 @@ export class EffectSystem {
   }
 
   /**
+   * A MIRV splitting at its apex: a hard white pop, a ring of sparks flung out in every direction,
+   * a small lens ripple and a puff of grey smoke left hanging where the bus broke apart.
+   */
+  private mirvSplit(e: EffectEvent): void {
+    const rng = this.rngFor(e, 43);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 12,
+      start: e.tick,
+      dur: 8,
+      color: 0xd8f0ff,
+      strength: 1.4,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 22,
+      maxR: 46,
+      width: 8,
+      strength: 0.9,
+    });
+    const n = Math.round(48 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.06, 0.06);
+      const s = rng.range(1.6, 3.2);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rng.range(12, 22),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : rng.next() < 0.5 ? 0x9ad8ff : 0xffe070,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y + rng.range(-2, 2),
+        vx: rng.range(-0.15, 0.15),
+        vy: -rng.range(0, 0.1),
+        life: rng.range(50, 80),
+        size: rng.range(3, 5),
+        color: rng.next() < 0.5 ? 0x8a8090 : 0x6a6070,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky(DT_LOOK[4]!, 0.15);
+    this.shakeAmp = Math.max(this.shakeAmp, 2);
+    this.shakeStart = e.tick;
+  }
+
+  /**
+   * A dirt geyser: a column of the ground the blast went into, thrown straight up and raining back
+   * down, with dust boiling up the column. Scales with the blast radius.
+   */
+  private geyser(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 47);
+    const r = Math.max(6, e.radius);
+    const base = this.dustColor(e.x, e.y + r * 0.4);
+    const up = (2.2 + r / 10) * k;
+    const n = Math.round((30 + r * 1.5) * k * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      const spread = rng.range(-1, 1);
+      this.particles.add({
+        x: e.x + spread * r * 0.35,
+        y: e.y - rng.range(0, r * 0.3),
+        vx: spread * rng.range(0.1, 0.7),
+        vy: -rng.range(0.45, 1) * up,
+        life: rng.range(45, 80),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: shade(base, rng.range(0.65, 1.15)),
+        kind: PKind.Chunk,
+      });
+    }
+    const nd = Math.round((6 + r / 3) * k * Math.max(0.5, this.mult));
+    for (let i = 0; i < nd; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y - rng.range(0, r * 1.2),
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.2, 0.9) * k,
+        life: rng.range(40, 75),
+        size: rng.range(r * 0.2, r * 0.4),
+        color: shade(base, rng.range(0.9, 1.2)),
+        kind: PKind.Dust,
+      });
+    }
+  }
+
+  /**
+   * An incendiary fireball: a rolling ball of fire puffs boiling upward, burning out into a column
+   * of thick black smoke, with sparks and burning gobs thrown up through it.
+   */
+  private fireball(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 53);
+    const r = Math.max(6, e.radius) * k * 1.5;
+    const nf = Math.round((14 + r * 1.5) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nf; i++) {
+      const hot = rng.next();
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.6,
+        y: e.y - rng.range(0, r * 0.8),
+        vx: rng.range(-0.35, 0.35),
+        vy: -rng.range(0.4, 1.2) * (0.8 + k * 0.2),
+        life: rng.range(30, 56) * (hot < 0.5 ? 1 : 0.8),
+        size: rng.range(r * 0.35, r * 0.7),
+        color: 0,
+        kind: PKind.Flame,
+      });
+    }
+    const ns = Math.round((10 + r) * Math.max(0.5, this.mult));
+    for (let i = 0; i < ns; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.4,
+        y: e.y - rng.range(r * 0.4, r * 1.4),
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.3, 0.8),
+        life: rng.range(100, 160),
+        size: rng.range(r * 0.5, r * 0.9),
+        color: rng.next() < 0.5 ? 0x241e22 : 0x3a3034,
+        kind: PKind.Smoke,
+      });
+    }
+    const nk = Math.round((20 + r * 1.5) * this.mult);
+    for (let i = 0; i < nk; i++) {
+      const a = rng.range(0.15, 0.85) * Math.PI;
+      const sp = rng.range(0.8, 2.6) * (0.7 + k * 0.3);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 2,
+        vx: Math.cos(a) * sp,
+        vy: -Math.sin(a) * sp,
+        life: rng.range(20, 45),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffe070 : 0xff6a14,
+        kind: PKind.Spark,
+      });
+    }
+    this.tintSky(DT_LOOK[2]!, 0.25 * k);
+  }
+
+  /**
+   * A huge pressure wave without fire (Heavy Shockwave, a Singularity's blow-out): a wide lens
+   * band racing out over the map, a second tighter one behind it, a dust wall along the ground
+   * and a ring of dirt clods thrown flat and fast.
+   */
+  private pressureWave(e: EffectEvent, k: number): void {
+    const r = Math.max(20, e.radius);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 60,
+      maxR: r * 3.2 * k,
+      width: 22,
+      strength: 1.4 * k,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 5,
+      dur: 50,
+      maxR: r * 2,
+      width: 10,
+      strength: 0.8 * k,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: r * 1.3,
+      start: e.tick,
+      dur: 30,
+      rng: this.rngFor(e, 67),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 3 + (r / 25) * k);
+    this.shakeStart = e.tick;
+    this.tintSky([0, 0.55, 0.6, 0.75], 0.25 * k);
+    const rng = this.rngFor(e, 71);
+    const base = this.dustColor(e.x, e.y + 4);
+    const n = Math.round((60 + r) * k * this.mult);
+    for (let i = 0; i < n; i++) {
+      // flat and fast: mostly sideways, a little up
+      const side = i % 2 === 0 ? -1 : 1;
+      const a = rng.range(0.05, 0.45) * Math.PI;
+      const s = rng.range(1.5, 4.5) * (0.6 + r / 150);
+      this.particles.add({
+        x: e.x + side * rng.range(2, r * 0.2),
+        y: e.y - rng.range(0, 4),
+        vx: side * Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(40, 80),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: shade(base, rng.range(0.7, 1.2)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * A volcanic eruption (Magma Bomb): a fountain of glowing lava bombs and sparks thrown high,
+   * a short burst of fire at the vent and a plume of dark ash rolling up.
+   */
+  private eruption(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(10, e.radius);
+    const n = Math.round((40 + r) * k * this.mult);
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0.3, 0.7) * Math.PI;
+      const s = rng.range(2, 5.5) * k;
+      const lump = i % 3 === 0;
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.25,
+        y: e.y - 2,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(40, 75),
+        size: lump ? 2 : 1,
+        color: lump
+          ? rng.next() < 0.5
+            ? 0xff5a1f
+            : 0xd8400c
+          : rng.next() < 0.4
+            ? 0xffe070
+            : 0xff8a20,
+        kind: lump ? PKind.Chunk : PKind.Spark,
+      });
+    }
+    const nf = Math.round((10 + r / 2) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nf; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y - rng.range(0, r * 0.4),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.6, 1.6),
+        life: rng.range(24, 44),
+        size: rng.range(3, 7),
+        color: 0,
+        kind: PKind.Flame,
+      });
+    }
+    const ns = Math.round((10 + r / 2) * Math.max(0.5, this.mult));
+    for (let i = 0; i < ns; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y - rng.range(r * 0.3, r * 1.6),
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.3, 0.9),
+        life: rng.range(110, 170),
+        size: rng.range(r * 0.3, r * 0.6),
+        color: rng.next() < 0.5 ? 0x2a2224 : 0x40363a,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky(DT_LOOK[2]!, 0.35 * k);
+    this.shakeAmp = Math.max(this.shakeAmp, 4 * k);
+    this.shakeStart = e.tick;
+  }
+
+  /** Singularity cores: a black pixel disc with a violet rim, growing as the hang goes on. */
+  drawVortices(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const v of this.vortices) {
+      const k = (t - v.start) / v.dur;
+      if (k < 0 || k > 1) continue;
+      const core = 3 + Math.round(k * k * v.r * 0.18);
+      additive.push(v.x, v.y, core * 2 + 6, core * 2 + 6, 0x8040ff, 0.35 + 0.3 * k, Shape.Pixel);
+      normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
+      normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
+    }
+  }
+
+  /**
    * Frost Bomb burst: a hard-banded white-blue flash and a cold sky, a starburst of ice spikes,
    * shards of ice and glints thrown out, a second, tighter distortion band, and then cold mist
    * along the ground and snow drifting down over the whole frozen area.
@@ -650,24 +965,76 @@ export class EffectSystem {
       pts[i] = pts[i]! + Math.round(fixX * k);
     }
     const main = pts.length;
-    const branches = 1 + Math.floor(rng.next() * 2);
+    const branches = 4 + Math.floor(rng.next() * 3);
     for (let b = 0; b < branches; b++) {
-      const at = 2 * Math.floor(rng.range(0.2, 0.7) * (main / 2));
+      const at = 2 * Math.floor(rng.range(0.1, 0.85) * (main / 2));
       const bx = pts[at]!;
       const by = pts[at + 1]!;
-      walk(bx, by, by + Math.round(rng.range(12, 30)), rng.next() < 0.5 ? -1.5 : 1.5);
+      const end = walk(bx, by, by + Math.round(rng.range(14, 46)), rng.next() < 0.5 ? -1.6 : 1.6);
+      // a sub-branch off some branches
+      if (rng.next() < 0.5)
+        walk(end, pts[pts.length - 1]!, pts[pts.length - 1]! + 10, rng.range(-2, 2));
     }
-    this.bolts.push({ cells: Int32Array.from(pts), main, start: e.tick, dur: 12 });
+    this.bolts.push({ cells: Int32Array.from(pts), main, start: e.tick, dur: 20 });
     this.glows.push({
       x: e.x,
       y: e.y,
-      r: 18,
+      r: 26,
       start: e.tick,
-      dur: 10,
+      dur: 14,
       color: 0xc8d8ff,
-      strength: 1.2,
+      strength: 1.4,
     });
-    this.tintSky(DT_LOOK[4]!, 0.6);
+    // the whole sky blinks white-blue
+    this.tintSky([0, 0.75, 0.8, 1], 0.5);
+  }
+
+  /**
+   * Electric arcs crawling out along the ground from a strike: short jagged bolts that hug the
+   * surface, flickering, with sparks spat off them.
+   */
+  private arcs(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 59);
+    const reach = Math.max(12, e.radius) * 2.5 * k;
+    const n = 4 + Math.round(2 * k);
+    for (let a = 0; a < n; a++) {
+      const side = a % 2 === 0 ? -1 : 1;
+      const len = reach * rng.range(0.5, 1);
+      const pts: number[] = [];
+      let x = Math.round(e.x);
+      let y = this.surfaceNear(x, e.y, 30);
+      if (y < 0) y = Math.round(e.y);
+      for (let d = 0; d < len;) {
+        const step = Math.round(rng.range(2, 5));
+        const nx = x + side * step;
+        const sy = this.surfaceNear(nx, y, 12);
+        const ny = (sy < 0 ? y : sy) - Math.round(rng.range(0, 3));
+        line(x, y, nx, ny, pts);
+        x = nx;
+        y = ny + Math.round(rng.range(0, 2));
+        d += step;
+        if (rng.next() < 0.25) {
+          this.particles.add({
+            x,
+            y: y - 1,
+            vx: side * rng.range(0.2, 1),
+            vy: -rng.range(0.5, 1.6),
+            life: rng.range(10, 22),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xffffff : 0x9ad8ff,
+            kind: PKind.Spark,
+          });
+        }
+      }
+      if (pts.length === 0) continue;
+      const delay = Math.round(rng.range(0, 6));
+      this.bolts.push({
+        cells: Int32Array.from(pts),
+        main: pts.length,
+        start: e.tick + delay,
+        dur: Math.round(rng.range(10, 18)),
+      });
+    }
   }
 
   /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
@@ -784,6 +1151,31 @@ export class EffectSystem {
       }
       return true;
     });
+    this.vortices = this.vortices.filter((v) => {
+      const k = (t - v.start) / v.dur;
+      if (k > 1) return false;
+      if (k < 0) return true;
+      const n = Math.max(1, Math.round((3 + k * 6) * this.mult));
+      // spiral in: mostly tangential, pulled inward, faster as it tightens
+      for (let i = 0; i < n; i++) {
+        const a = v.rng.range(0, Math.PI * 2);
+        const rr = v.r * v.rng.range(0.5, 1.1);
+        const life = v.rng.range(14, 24);
+        const sp = rr / life;
+        this.particles.add({
+          x: v.x + Math.cos(a) * rr,
+          y: v.y + Math.sin(a) * rr * 0.8,
+          vx: -Math.cos(a) * sp * 0.9 - Math.sin(a) * sp * 0.8,
+          vy: (-Math.sin(a) * sp * 0.9 + Math.cos(a) * sp * 0.8) * 0.8,
+          life,
+          size: 1,
+          color: v.rng.next() < 0.35 ? 0xffffff : v.rng.next() < 0.5 ? 0xb070ff : 0x6040c0,
+          kind: PKind.Spark,
+        });
+      }
+      if (t === v.start) this.tintSky([0, 0.2, 0.08, 0.45], 0.3);
+      return true;
+    });
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -893,16 +1285,23 @@ export class EffectSystem {
       const age = t - b.start;
       if (age < 0 || age > b.dur) continue;
       // on, off, on, then fading: the classic double strike
-      const on = age < 3 || (age >= 4 && age < 6) || age >= 7;
+      const on = age < 3 || (age >= 4 && age < 6) || (age >= 8 && age < 10) || age >= 11;
       if (!on) continue;
-      const fade = age < 7 ? 1 : 1 - (age - 7) / (b.dur - 7);
+      const fade = age < 11 ? 1 : Math.max(0, 1 - (age - 11) / Math.max(1, b.dur - 11));
       const c = b.cells;
       for (let i = 0; i < c.length; i += 2) {
         const branch = i >= b.main;
         const x = c[i]! + 0.5;
         const y = c[i + 1]! + 0.5;
-        additive.push(x, y, 3, 1, 0x4060c0, 0.5 * fade * (branch ? 0.6 : 1));
-        additive.push(x, y, 1, 1, branch ? 0xb0c8ff : 0xffffff, fade * (branch ? 0.7 : 1));
+        if (branch) {
+          additive.push(x, y, 3, 1, 0x4060c0, 0.4 * fade);
+          additive.push(x, y, 1, 1, 0xb0c8ff, 0.75 * fade);
+        } else {
+          // the main channel: a 3-cell white core inside a 7-cell blue halo
+          additive.push(x, y, 7, 1, 0x3050c0, 0.45 * fade);
+          additive.push(x, y, 3, 1, 0xd0e0ff, 0.9 * fade);
+          additive.push(x, y, 1, 1, 0xffffff, fade);
+        }
       }
     }
   }
@@ -962,6 +1361,7 @@ export class EffectSystem {
     this.bolts = [];
     this.crystals = [];
     this.mushrooms = [];
+    this.vortices = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
