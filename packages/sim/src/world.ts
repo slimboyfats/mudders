@@ -318,7 +318,7 @@ const PUFF_SLIDE = FP >> 6;
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic', 'volcano'] as const;
 
 interface RtWeapon {
   id: string;

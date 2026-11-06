@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -49,6 +49,8 @@
     "audio.turn",
     "audio.ui-buy",
     "audio.ui-click",
+    "audio.volcano-erupt",
+    "audio.volcano-grow",
     "audio.zap",
     "explosion.glob-splash",
     "explosion.nuke-pull",
@@ -78,6 +80,7 @@
     "material.ash",
     "material.brick",
     "material.burning-oil",
+    "material.cinder",
     "material.concrete",
     "material.cracked-brick",
     "material.cracked-concrete",
@@ -145,6 +148,7 @@
     "terrainop.tectonic",
     "terrainop.terraform",
     "terrainop.tornado",
+    "terrainop.volcano",
     "theme.arcade",
     "theme.day",
     "theme.default",
@@ -229,6 +233,7 @@
     "weapon.toxic-gas",
     "weapon.tracer",
     "weapon.trencher",
+    "weapon.volcano-seed",
     "weapon.water-cannon",
     "weapon.water-cannon-drop"
   ]

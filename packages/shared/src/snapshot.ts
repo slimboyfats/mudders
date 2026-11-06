@@ -65,7 +65,7 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance' | 'toxic';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano';
   /** Turns left. */
   turns: number;
   /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */

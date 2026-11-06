@@ -322,7 +322,7 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance', 'toxic']).default('gas'),
+  look: z.enum(['gas', 'acid', 'resonance', 'toxic', 'volcano']).default('gas'),
   cloud: ZoneCloudSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;

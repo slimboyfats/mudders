@@ -404,6 +404,31 @@ export class EffectSystem {
       case 'eruption':
         this.eruption(e, e.params.strength ?? 1);
         break;
+      case 'volcanoGrow':
+        // the ground heaves as the cone pushes up: a slow ripple, a dust front, a long rumble
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 50,
+          maxR: e.radius * 1.6,
+          width: 10,
+          strength: 0.6,
+        });
+        this.fronts.push({
+          x: e.x,
+          y: e.y,
+          maxR: e.radius * 1.2,
+          start: e.tick,
+          dur: Math.max(10, e.params.ticks ?? 40),
+          rng: this.rngFor(e, 131),
+        });
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        break;
+      case 'volcanoErupt':
+        this.eruption(e, 0.9);
+        break;
       case 'arcs':
         this.arcs(e, e.params.strength ?? 1);
         break;
@@ -2241,8 +2266,11 @@ export const RICOCHET_HEAT = [
   0x50e8ff, 0x70b0ff, 0x9a80ff, 0xd070ff, 0xff68c8, 0xffb0f0, 0xffffff,
 ] as const;
 
-/** Zone looks by index (gas, acid, resonance, toxic), matching the sim's zone `look` order. */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425] as const;
+/**
+ * Zone looks by index (gas, acid, resonance, toxic, volcano), matching the sim's zone `look`
+ * order.
+ */
+export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425, 0x3a2f2c] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {
