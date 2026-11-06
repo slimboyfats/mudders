@@ -1,0 +1,57 @@
+{
+  "id": "audio.sinkhole",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sinkhole",
+    "description": "The ground giving way: a hollow crunch, a falling square-wave slide and a long gravel rush that drains into a deep thud.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 500,
+        "release": 0.1,
+        "volume": 0.6
+      },
+      {
+        "wave": "square",
+        "freq": 320,
+        "to": 45,
+        "hold": 0.15,
+        "release": 0.35,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 120,
+        "delay": 0.05,
+        "hold": 0.3,
+        "release": 0.6,
+        "volume": 0.45
+      },
+      {
+        "wave": "triangle",
+        "freq": 90,
+        "to": 32,
+        "delay": 0.32,
+        "release": 0.7,
+        "volume": 0.7
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "sinkhole"
+    }
+  ],
+  "gap": 0.3
+}

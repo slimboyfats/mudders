@@ -65,6 +65,15 @@ export class MaterialTable {
   readonly rimChance = new Uint16Array(256 * NUM_DAMAGE_TYPES);
   /** Deepest rim of any material, so a carve knows how far past its radius to look. */
   rimMaxDepth = 0;
+  /**
+   * Cell a blast lights this material into (KEEP = not blast-lit), whether any material is, and
+   * per cell a bit mask of the damage types that light it.
+   */
+  readonly igniteInto = new Uint8Array(256).fill(KEEP);
+  readonly igniteBy = new Uint8Array(256);
+  anyIgnite = false;
+  /** Chance ×65536 that a tick decay of this cell sets off its `detonate` explosion. */
+  readonly detonateChance = new Uint32Array(256);
   /** id → cell byte. */
   private readonly cells: Readonly<Record<string, number>>;
   readonly ids: readonly string[];
@@ -139,6 +148,13 @@ export class MaterialTable {
         }
         if (r.depth > this.rimMaxDepth) this.rimMaxDepth = r.depth;
       }
+      if (m.ignite) {
+        this.igniteInto[c] = ref(m.ignite.into);
+        for (const t of m.ignite.by)
+          this.igniteBy[c] = this.igniteBy[c]! | (1 << damageTypeIndex(t));
+        this.anyIgnite = true;
+      }
+      if (m.detonate) this.detonateChance[c] = Math.round(m.detonate.chance * 65536);
     }
   }
 

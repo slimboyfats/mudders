@@ -1,0 +1,48 @@
+{
+  "id": "audio.swallow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Swallow",
+    "description": "A black hole slamming shut: a rising chip sweep cut off by a low thump.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 120,
+        "to": 2400,
+        "hold": 0.25,
+        "release": 0.04,
+        "volume": 0.2
+      },
+      {
+        "wave": "triangle",
+        "freq": 90,
+        "to": 30,
+        "delay": 0.3,
+        "release": 0.6,
+        "volume": 0.55
+      },
+      {
+        "wave": "noise",
+        "freq": 600,
+        "to": 80,
+        "delay": 0.3,
+        "release": 0.4,
+        "volume": 0.3
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "swallow"
+    }
+  ]
+}

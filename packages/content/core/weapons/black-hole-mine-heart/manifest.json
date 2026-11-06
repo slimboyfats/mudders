@@ -1,0 +1,51 @@
+{
+  "id": "weapon.black-hole-mine-heart",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Black hole heart",
+    "description": "The end of a Black Hole Mine: the hole snaps shut and swallows everything near its middle, leaving a clean round pit and no debris.",
+    "since": "core@0.21.0",
+    "category": "submunition"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 56
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 40,
+        "damage": 95,
+        "damageType": "shock",
+        "effects": {
+          "swallow": {
+            "ticks": 22
+          },
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0.6
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}
