@@ -1,0 +1,48 @@
+{
+  "id": "weapon.sinkhole",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sinkhole",
+    "description": "Hollows out a cavern under the impact. The ground sags and rumbles for a moment, then drops out from under everything: tanks on it fall to the bottom of a deep pit with sheer walls and have to climb or drive their way out.",
+    "since": "core@0.21.0",
+    "category": "terrain-dynamics"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 5,
+        "damageType": "shock",
+        "effects": {
+          "burst": {
+            "count": 14
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.sinkhole"
+      },
+      "radius": 42,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 7500,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 18,
+    "terrainValue": 0.8
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

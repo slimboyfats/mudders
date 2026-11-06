@@ -1,0 +1,25 @@
+{
+  "id": "weather.rain",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rain",
+    "description": "Steady rain. Wet air drags on every shell, so shots fall a little short. At each turn the rain runs off the hills into the hollows and craters: puddles gather there and the ground under them soaks into mud, a cell deeper every few turns. Hills stay grassy.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "weather.rain",
+  "label": "Rain",
+  "drag": 1,
+  "ambient": {
+    "kind": "rain",
+    "density": 180,
+    "color": "#9ab4d8"
+  },
+  "wet": 0.7,
+  "reach": 60,
+  "soak": 500,
+  "seep": 250,
+  "mudDepth": 6,
+  "puddle": 350,
+  "maxWater": 120,
+  "patter": 120
+}

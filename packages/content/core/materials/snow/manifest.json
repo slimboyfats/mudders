@@ -1,0 +1,43 @@
+{
+  "id": "material.snow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Snow",
+    "description": "Fresh powder that piles up on the ground in a snowstorm. Light and loose: it slides off slopes, shells dig through it easily, blasts from above pack it down into ice, and fire or lava melts it into water.",
+    "since": "core@0.21.0",
+    "color": "#eef2f8"
+  },
+  "cell": 52,
+  "settle": "fall",
+  "density": 40,
+  "strength": {
+    "blast": 0.7,
+    "kinetic": 0.5,
+    "heat": 0.1,
+    "shock": 0.6,
+    "dig": 0.4,
+    "corrosive": 8
+  },
+  "cohesion": 0,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.water",
+      "chance": 0.4
+    },
+    {
+      "with": "material.lava",
+      "into": "material.water",
+      "chance": 0.7
+    }
+  ],
+  "compact": {
+    "into": "material.ice",
+    "ratio": 1,
+    "maxDepth": 10
+  },
+  "look": {
+    "glint": true
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "audio.magnet-clank",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magnet clank",
+    "description": "A heavy metal clank when a tank is pulled onto a Magnet Mine and clamps on.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 1400,
+        "to": 500,
+        "release": 0.25,
+        "volume": 0.35
+      },
+      {
+        "wave": "square",
+        "freq": 180,
+        "to": 70,
+        "release": 0.18,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 2000,
+        "to": 600,
+        "release": 0.08,
+        "volume": 0.2
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "magnetClank"
+    }
+  ],
+  "gap": 0.1
+}

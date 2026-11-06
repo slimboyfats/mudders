@@ -1,0 +1,67 @@
+{
+  "id": "weapon.black-hole-mine-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Black hole",
+    "description": "A tripped Black Hole Mine: hangs where the mine was, sucking the ground and nearby tanks in, then collapses.",
+    "since": "core@0.21.0",
+    "category": "submunition"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 1
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 70,
+        "damage": 0,
+        "terrainOp": null,
+        "effects": {
+          "vortex": {
+            "ticks": 56
+          },
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.attract",
+        "tankPull": 60,
+        "depth": 0.9
+      },
+      "radius": 70,
+      "damageType": "shock"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.black-hole-mine-heart",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

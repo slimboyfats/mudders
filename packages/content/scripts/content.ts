@@ -57,6 +57,7 @@ export function weaponsMarkdown(c: ResolvedContent): string {
         ? `resonance zone r${z.radius} ×${z.amplify}`
         : `${z.look} zone r${z.radius} ${z.damage}/turn × ${z.turns}`;
     }
+    if ('mine' in i) return `mine r${i.mine.radius} → ${i.mine.weapon}`;
     const pool =
       typeof i.spawn.weapon === 'string' ? i.spawn.weapon : `random of ${i.spawn.weapon.length}`;
     return `${i.spawn.count} × ${pool}`;
@@ -269,6 +270,14 @@ function template(type: ContentType, id: string, name: string): Record<string, u
       };
     case 'mode':
       return { ...base, extends: 'mode.classic' };
+    case 'weather':
+      return {
+        ...base,
+        behaviour: id,
+        label: name,
+        drag: 0,
+        ambient: { kind: 'none', density: 0, color: '#ffffff' },
+      };
     default:
       return { ...base, behaviour: id };
   }
@@ -278,6 +287,7 @@ const DEFINE: Partial<Record<ContentType, string>> = {
   gen: 'defineGenerator',
   flight: 'defineFlight',
   terrainop: 'defineTerrainOp',
+  weather: 'defineWeather',
 };
 
 function behaviourStub(type: ContentType, id: string): string | null {
@@ -288,7 +298,9 @@ function behaviourStub(type: ContentType, id: string): string | null {
       ? `  generate(api, _p, players) {\n    // TODO: fill api.grid; return a spawn column per player.\n    return { spawns: Array.from({ length: players }, (_, i) => Math.floor(((i + 1) * api.grid.width) / (players + 1))) };\n  },`
       : type === 'flight'
         ? `  maxTicks: () => 900,\n  step(api, proj) {\n    // TODO\n    proj.vy += api.gravity;\n    proj.x += proj.vx;\n    proj.y += proj.vy;\n  },`
-        : `  start(api, _p, c) {\n    // TODO: change cells around (c.x, c.y), then mark them dirty.\n    api.grid.markDirty(c.x - c.radius, c.y - c.radius, c.x + c.radius, c.y + c.radius);\n    return null;\n  },`;
+        : type === 'weather'
+          ? `  onTurnStart(api) {\n    // TODO: change the terrain for the new turn, then mark it dirty.\n    api.grid.markDirty(0, 0, api.grid.width - 1, api.grid.height - 1);\n  },`
+          : `  start(api, _p, c) {\n    // TODO: change cells around (c.x, c.y), then mark them dirty.\n    api.grid.markDirty(c.x - c.radius, c.y - c.radius, c.x + c.radius, c.y + c.radius);\n    return null;\n  },`;
   return `import { z } from '@mudders/shared';\nimport { ${fn} } from '@mudders/sim';\n\nconst params = z.strictObject({});\n\nexport default ${fn}<z.infer<typeof params>>({\n  kind: '${type}',\n  id: '${id}',\n  version: 1,\n  params,\n${body}\n});\n`;
 }
 

@@ -20,10 +20,14 @@ export interface EffectSink {
 /** Mutable tank view handed to behaviours that may shove tanks. */
 export interface TankHandle {
   readonly player: number;
+  /** Team (milestone 7); the player number in a free-for-all. */
+  readonly team: number;
   readonly alive: boolean;
   /** Hitbox half-width and height in cells (they differ per tank type). */
   readonly half: number;
   readonly h: number;
+  /** A parachute is open for the current fall (it drifts down and lands unhurt). */
+  readonly chute: boolean;
   x: number;
   y: number;
 }
@@ -40,6 +44,8 @@ export interface SimApi extends EffectSink {
   readonly wind: number;
   /** Gravity in fixed-point cells/tick². */
   readonly gravity: number;
+  /** Air drag from the weather: fixed-point share of a shell's velocity lost per tick (0 = none). */
+  readonly drag: number;
   /**
    * Knock a cell loose as a sim debris particle (fixed-point position and velocity). The cell is
    * cleared from the grid and becomes terrain again where the particle lands. Returns false (and
@@ -54,9 +60,10 @@ export interface SimApi extends EffectSink {
   /**
    * Carry a tank through the air this tick: it is put at column `x`, bottom row `y`, and does not
    * fall this tick. Once a behaviour stops holding it, it falls from there, and fall damage counts
-   * from the highest row it was carried to. Ignored for dead tanks.
+   * from the highest row it was carried to. Ignored for dead tanks. `fallFrom`, if given, is the
+   * row fall damage counts from instead (a behaviour that caps how hard its tanks land).
    */
-  hold(player: number, x: number, y: number): void;
+  hold(player: number, x: number, y: number, fallFrom?: number): void;
 }
 
 interface BehaviourBase<P> {
@@ -395,8 +402,26 @@ export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
   shop(api: AiShopApi, params: P): AiPurchase[];
 }
 
+// ── weather ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Match weather (`weather.*`): rain soaking the ground, snow piling up. Called at the start of every
+ * turn (after the mode) and every tick of aiming and resolving. It may change cells (marking them
+ * dirty so they settle), draw from the match RNG and emit effect events.
+ */
+export interface WeatherBehaviour<P = unknown> extends BehaviourBase<P> {
+  readonly kind: 'weather';
+  onTurnStart?(api: SimApi, params: P): void;
+  onTick?(api: SimApi, params: P): void;
+}
+
 export type AnyBehaviour =
-  GeneratorBehaviour | FlightBehaviour | TerrainOpBehaviour | ModeBehaviour | AiBehaviour;
+  | GeneratorBehaviour
+  | FlightBehaviour
+  | TerrainOpBehaviour
+  | ModeBehaviour
+  | AiBehaviour
+  | WeatherBehaviour;
 
 export type BehaviourKind = AnyBehaviour['kind'];
 
@@ -415,6 +440,9 @@ export function defineMode<P>(b: ModeBehaviour<P>): ModeBehaviour {
 }
 export function defineAi<P>(b: AiBehaviour<P>): AiBehaviour {
   return b as unknown as AiBehaviour;
+}
+export function defineWeather<P>(b: WeatherBehaviour<P>): WeatherBehaviour {
+  return b as unknown as WeatherBehaviour;
 }
 
 /** Behaviours by id. Lookup only; never iterated where order matters (ids are sorted on export). */

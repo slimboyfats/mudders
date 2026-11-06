@@ -1,4 +1,4 @@
-import type { EffectEvent, EntityView } from '@mudders/shared';
+import type { EffectEvent, EntityView, RenderSnapshot } from '@mudders/shared';
 import type { PixelTheme } from '../render/pixel/theme';
 import type { MaterialLook, Quality, ShellLook, TankLook } from '../render/types';
 
@@ -37,6 +37,7 @@ export interface WireSnapshot {
   debris: { x: number[]; y: number[]; vx: number[]; m: number[] };
   wind: number;
   theme: string;
+  weather?: RenderSnapshot['weather'];
 }
 
 export interface CaptureApi {

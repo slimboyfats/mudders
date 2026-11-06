@@ -1,5 +1,6 @@
 import { z } from '@mudders/shared';
-import { FP, defineFlight, toFixed } from '@mudders/sim';
+import { defineFlight } from '@mudders/sim';
+import { ballisticStep } from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -8,17 +9,14 @@ const params = z.strictObject({
 });
 type Params = z.infer<typeof params>;
 
-/** Semi-implicit Euler under gravity and wind, fixed-point (§3.4). */
+/** Semi-implicit Euler under gravity, wind and weather drag, fixed-point (§3.4). */
 export default defineFlight<Params>({
   kind: 'flight',
   id: 'flight.ballistic',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
-    proj.vx += Math.trunc((api.wind * toFixed(p.windScale)) / FP);
-    proj.vy += Math.trunc((api.gravity * toFixed(p.gravityScale)) / FP);
-    proj.x += proj.vx;
-    proj.y += proj.vy;
+    ballisticStep(api, proj, p.gravityScale, p.windScale);
   },
 });

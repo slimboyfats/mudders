@@ -1,0 +1,15 @@
+{
+  "id": "gen.claypits",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Clay pits",
+    "description": "Rolling hills over a thick bed of clay that lies bare in the valleys. Water softens it into slumping wet clay, and fire bakes crater walls into brick.",
+    "since": "core@0.21.0"
+  },
+  "extends": "gen.hills",
+  "amplitude": 0.2,
+  "sandChance": 0.1,
+  "clayDepth": 28,
+  "clayLevel": 0,
+  "claySoil": 8
+}

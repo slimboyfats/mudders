@@ -1,0 +1,53 @@
+{
+  "id": "audio.boing",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Boing",
+    "description": "A springy chip boing with a bell on top when a bumper post kicks.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 140,
+        "to": 520,
+        "hold": 0.12,
+        "release": 0.45,
+        "volume": 0.4,
+        "vibrato": {
+          "rate": 14,
+          "depth": 3
+        }
+      },
+      {
+        "wave": "pulse25",
+        "freq": 1046,
+        "hold": 0.06,
+        "release": 0.35,
+        "volume": 0.22,
+        "arp": [0, 4, 7, 12],
+        "arpRate": 0.03
+      },
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 300,
+        "release": 0.06,
+        "volume": 0.25
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "bumpKick"
+    }
+  ],
+  "gap": 0.2
+}

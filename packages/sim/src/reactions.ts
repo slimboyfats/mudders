@@ -132,6 +132,11 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
       if (fm & ACT_DECAY) {
         const s = state[i]! + 1;
         if (s >= mats.decayTicks[m]!) {
+          const burst = mats.detonateChance[m]!;
+          if (burst !== 0 && grid.burstCount < grid.bursts.length && roll(i, tick, 7) < burst) {
+            grid.bursts[grid.burstCount++] = i;
+            grid.bursts[grid.burstCount++] = m;
+          }
           setCell(grid, i, mats.decayInto[m]!);
           dirty(grid, i);
           continue;
