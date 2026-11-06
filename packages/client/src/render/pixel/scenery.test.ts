@@ -40,5 +40,12 @@ describe('scenery', () => {
     expect(t.clouds).toEqual({ cover: 0.5, light: 0xffffff, shadow: 0x808080 });
     expect(t.ranges).toEqual([0x112233, 0x445566]);
     expect(t.grass).toBe(0x00ff00);
+    expect(themeFrom(base).ground).toBe(0xffffff);
+    expect(
+      themeFrom({ ...base, scenery: { ranges: [], ground: '#808080', flowers: 0.5 } }),
+    ).toMatchObject({
+      ground: 0x808080,
+      flowers: 0.5,
+    });
   });
 });

@@ -31,6 +31,10 @@ export interface PixelTheme {
   ranges: number[];
   /** Grass colour on topsoil materials; -1 = none. */
   grass: number;
+  /** Tint multiplied into still ground (0xffffff = none). */
+  ground: number;
+  /** Flower specks in the grass, 0–1. */
+  flowers: number;
 }
 
 export const DEFAULT_THEME: PixelTheme = {
@@ -49,6 +53,8 @@ export const DEFAULT_THEME: PixelTheme = {
   clouds: { cover: 0, light: 0xffffff, shadow: 0x808080 },
   ranges: [],
   grass: -1,
+  ground: 0xffffff,
+  flowers: 0,
 };
 
 /** The subset of a `theme.*` manifest the renderer reads. */
@@ -68,6 +74,8 @@ export interface ThemeData {
     clouds?: { cover: number; light: string; shadow: string } | undefined;
     ranges: string[];
     grass?: string | undefined;
+    ground?: string | undefined;
+    flowers?: number | undefined;
   };
 }
 
@@ -96,6 +104,8 @@ export function themeFrom(m: ThemeData): PixelTheme {
       : DEFAULT_THEME.clouds,
     ranges: m.scenery.ranges.slice(0, 3).map(hex),
     grass: m.scenery.grass ? hex(m.scenery.grass) : -1,
+    ground: m.scenery.ground ? hex(m.scenery.ground) : 0xffffff,
+    flowers: m.scenery.flowers ?? 0,
   };
 }
 
