@@ -512,6 +512,51 @@ export class Groups {
     grid.markDirty(x0, Math.max(0, top), x0 + p.width - 1, grid.height - 1);
   }
 
+  /**
+   * Glue every loose cell of material `cell` on the map into one group with the rules of prop
+   * `id`'s first group (a generator's `glue`, e.g. a cave roof with `local` glue: pieces cut off
+   * from what holds them come down). The cells stay where the generator drew them.
+   */
+  glue(grid: Grid, id: string, cell: number): void {
+    const k = this.propIndex[id];
+    if (k === undefined) throw new Error(`unknown prop ${id}`);
+    const p = this.props[k]!;
+    const def = p.groups[0];
+    if (def === undefined || this.count + 1 > MAX_GROUPS) return;
+    const slot = ++this.count;
+    const W = grid.width;
+    this.def[slot] = def;
+    this.integrity[slot] = def.integrity;
+    this.maxIntegrity[slot] = def.integrity;
+    this.cells[slot] = 0;
+    this.minX[slot] = W;
+    this.maxX[slot] = -1;
+    this.minY[slot] = grid.height;
+    this.maxY[slot] = -1;
+    this.stage[slot] = 0;
+    this.broken[slot] = 0;
+    this.pending[slot] = 0;
+    this.fallen[slot] = 0;
+    this.recheck[slot] = 0;
+    for (let s = 0; s < 4; s++) this.support[slot * 4 + s] = 0;
+    const mat = grid.material;
+    let n = 0;
+    for (let y = 0, i = 0; y < grid.height; y++) {
+      for (let x = 0; x < W; x++, i++) {
+        if (mat[i] !== cell || grid.group[i] !== 0) continue;
+        grid.group[i] = slot;
+        grid.groupMat[i] = cell;
+        n++;
+        if (x < this.minX[slot]!) this.minX[slot] = x;
+        if (x > this.maxX[slot]!) this.maxX[slot] = x;
+        if (y < this.minY[slot]!) this.minY[slot] = y;
+        if (y > this.maxY[slot]!) this.maxY[slot] = y;
+      }
+    }
+    this.cells[slot] = n;
+    this.origCells[slot] = n;
+  }
+
   // ── damage ────────────────────────────────────────────────────────────────────────────────
 
   /** `launch` refused a group cell: charge it at the next guard. */

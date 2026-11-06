@@ -1,5 +1,5 @@
 {
-  "contentHash": "0cd392a089c97e58",
+  "contentHash": "55fd3e7d33c37413",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -258,8 +258,8 @@
       "hash": "c5fd2aa483fd8a7e"
     },
     "gen.caves": {
-      "ticks": 70,
-      "hash": "8cc2b6dee4dc97d0"
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
     },
     "gen.city": {
       "ticks": 150,
@@ -346,8 +346,8 @@
       "hash": "2c60663880619f82"
     },
     "material.limestone": {
-      "ticks": 70,
-      "hash": "8cc2b6dee4dc97d0"
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
     },
     "material.liquid-dirt": {
       "ticks": 368,
@@ -436,6 +436,10 @@
     "prop.boulder": {
       "ticks": 474,
       "hash": "a840c4578d582866"
+    },
+    "prop.cave-roof": {
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
     },
     "prop.house": {
       "ticks": 531,

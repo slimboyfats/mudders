@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAP_SIZES } from '@mudders/shared';
-import { makeWorld } from '../../../src/testing';
+import { launchAt, makeWorld } from '../../../src/testing';
 
 describe('gen.caves', () => {
   it('starts every tank on the cave floor under the roof, deterministically', () => {
@@ -36,25 +36,51 @@ describe('gen.caves', () => {
     }
   });
 
-  it('keeps its roof up after a blast, with no dirt left hanging to fall', () => {
+  it('keeps its roof up after a blast but drops a stalactite cut through as dirt', () => {
     const w = makeWorld({
       seed: 4,
       players: 2,
-      map: { ...MAP_SIZES.small, generator: 'gen.caves' },
+      map: { ...MAP_SIZES.medium, generator: 'gen.caves' },
       rules: { turnTimer: 0, suddenDeath: false },
     });
     const g = w.grid;
-    const x = 400;
-    let y = 0;
-    while (y < g.height && g.material[y * g.width + x] !== 0) y++;
+    const W = g.width;
     const lime = w.mats.cellOf('material.limestone');
-    const before = g.material.filter((c) => c === lime).length;
-    for (let dx = -8; dx <= 8; dx++) for (let dy = -10; dy <= 0; dy++) g.set(x + dx, y + dy, 0);
-    g.markDirty(x - 9, y - 11, x + 9, y + 1);
-    for (let i = 0; i < 600 && !w.quiet; i++) w.step();
+    const dirt = w.mats.cellOf('material.dirt');
+    // the limestone is one glued group; nothing hangs loose at the start
+    expect(w.groups.count).toBe(1);
+    expect(w.groups.isLocal(1)).toBe(true);
     expect(w.quiet).toBe(true);
-    const after = g.material.filter((c) => c === lime).length;
-    expect(after).toBeGreaterThan(before - 17 * 11 - 1);
-    expect(after).toBeLessThan(before);
+    // the longest stalactite: the column whose roof reaches lowest (not a pillar)
+    const under = (x: number) => {
+      let y = 0;
+      while (y < g.height && g.material[y * W + x] !== 0) y++;
+      return y;
+    };
+    let best = -1;
+    let tip = 0;
+    for (let x = 20; x < W - 20; x++) {
+      const y = under(x);
+      if (y < g.height * 0.5 && y > tip && g.material[(y - 1) * W + x] === lime) {
+        tip = y;
+        best = x;
+      }
+    }
+    expect(best).toBeGreaterThan(0);
+    let root = tip;
+    while (under(best - 14) < root && under(best + 14) < root && root > 0) root--;
+    const count = (m: number) => g.material.filter((c) => c === m).length;
+    const lime0 = count(lime);
+    const dirt0 = count(dirt);
+    // a baby missile flying sideways through the stalactite just under the roof
+    const cut = Math.min(tip - 6, root + 10);
+    launchAt(w, 'weapon.baby-missile', best - 40, cut, 6, 0);
+    for (let i = 0; i < 3000 && !w.quiet; i++) w.step();
+    expect(w.quiet).toBe(true);
+    // nothing of the stalactite is left hanging below the cut, and the roof is still up
+    for (let y = cut + 8; y < tip; y++) expect(g.material[y * W + best]).not.toBe(lime);
+    expect(count(lime)).toBeGreaterThan(lime0 * 0.9);
+    expect(count(lime)).toBeLessThan(lime0);
+    expect(count(dirt)).toBeGreaterThan(dirt0);
   });
 });

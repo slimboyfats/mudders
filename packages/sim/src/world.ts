@@ -752,6 +752,7 @@ export class World implements SimApi {
       { length: this.options.players },
       (_, p) => this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0,
     );
+    for (const gl of res.glue ?? []) this.groups.glue(g, gl.prop, this.mats.cellOf(gl.material));
     if (genItem.props) this.groups.place(g, this.rng, genItem.props, spawns);
     for (const sp of this.options.props ?? []) this.groups.placeAt(g, sp.prop, sp.x, this.rng);
     // Pre-settle anything loose the generator left, so a round starts still.

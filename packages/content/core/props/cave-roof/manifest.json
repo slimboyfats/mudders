@@ -1,0 +1,40 @@
+{
+  "id": "prop.cave-roof",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cave Roof",
+    "description": "The glue for a cave's limestone roof, stalactites and pillars (gen.caves glues them on). The stone holds only where it hangs on to bedrock, the floor or the rest of the roof: a hit knocks the stone around it loose as dirt, and any piece cut off, such as a stalactite shot through, comes down as dirt on whatever is beneath. Also placeable as a lone stalactite.",
+    "since": "core@0.19.0"
+  },
+  "shape": [
+    "LLLLLLLLLLLL",
+    " LLLLLLLLLL ",
+    " LLLLLLLLLL ",
+    "  LLLLLLLL  ",
+    "  LLLLLLLL  ",
+    "   LLLLLL   ",
+    "    LLLL    ",
+    "     LL     "
+  ],
+  "legend": {
+    "L": "stone"
+  },
+  "materials": {
+    "stone": "material.limestone"
+  },
+  "groups": [
+    {
+      "name": "stone",
+      "roles": ["stone"],
+      "glue": "local",
+      "loosen": 2,
+      "breakInto": {
+        "material.limestone": "material.dirt"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 10,
+    "clearance": 10
+  }
+}

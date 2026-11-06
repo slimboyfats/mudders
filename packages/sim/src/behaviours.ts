@@ -76,6 +76,11 @@ export interface GenResult {
    * (caves) sets it below the roof, so tanks start on the floor beneath it, not on top.
    */
   spawnFrom?: Int32Array;
+  /**
+   * Glue every cell of a material into one group with the rules of a prop's first group (see
+   * `Groups.glue`), e.g. a cave roof that drops whatever is cut off from it.
+   */
+  glue?: { prop: string; material: string }[];
 }
 
 export interface GeneratorBehaviour<P = unknown> extends BehaviourBase<P> {

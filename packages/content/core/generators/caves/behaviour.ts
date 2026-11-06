@@ -26,7 +26,7 @@ type Params = z.infer<typeof params>;
 
 /**
  * An underground cavern (§4b): rolling dirt floor over bedrock, a static limestone roof hanging
- * with stalactites, a few stone pillars between the tanks and a skylight or two to the open air.
+ * with stalactites (glued by prop.cave-roof, so cut-off stone falls as dirt), a few stone pillars between the tanks and a skylight or two to the open air.
  * Shots have to fit under the roof, or be dug or blasted through it. Tanks spawn on the floor
  * (`spawnFrom` sits under the roof). Integer maths only.
  */
@@ -165,6 +165,11 @@ export default defineGenerator<Params>({
 
     const spawnFrom = new Int32Array(W);
     for (let x = 0; x < W; x++) spawnFrom[x] = sky[x] !== 0 ? 0 : roof[x]!;
-    return { spawns, spawnFrom };
+    // the limestone holds only while joined to bedrock, the floor or the rest of the roof
+    return {
+      spawns,
+      spawnFrom,
+      glue: [{ prop: 'prop.cave-roof', material: 'material.limestone' }],
+    };
   },
 });
