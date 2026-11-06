@@ -19,6 +19,8 @@ export const PKind = {
   Flame: 4,
   /** One opaque cell drifting slowly down, swaying on the wind (snowflakes). */
   Snow: 5,
+  /** A gust of wind: a thin horizontal dash of `size` cells sailing across the sky, no gravity. */
+  Streak: 6,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 
@@ -110,6 +112,9 @@ export class Particles {
       } else if (k === PKind.Snow) {
         vy = Math.min(vy + gravity * 0.04, 0.32);
         vx = vx * 0.95 + wind * 3 + Math.sin(a * 0.11 + i * 1.7) * 0.012;
+      } else if (k === PKind.Streak) {
+        vx += wind * 2;
+        vy *= 0.9;
       } else if (k === PKind.Smoke) {
         vy = vy * 0.94 - 0.012;
         vx = vx * 0.94 + wind * 4;
@@ -154,6 +159,11 @@ export class Particles {
           c,
           t < 0.8 ? 0.95 : (1 - t) / 0.2,
         );
+      } else if (k === PKind.Streak) {
+        // a hard-edged dash on the cell grid, fading in and out in bands
+        const a = t < 0.2 ? 0.3 : t < 0.75 ? 0.62 : 0.3;
+        const len = Math.max(2, Math.round(s));
+        normal.push(Math.floor(this.x[i]!) + len / 2, Math.floor(this.y[i]!) + 0.5, len, 1, c, a);
       } else if (k === PKind.Chunk) {
         normal.push(
           Math.floor(this.x[i]!) + 0.5,

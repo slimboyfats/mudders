@@ -1,5 +1,5 @@
 {
-  "contentHash": "137c7c4992e082ad",
+  "contentHash": "30f686268b259b29",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -88,6 +88,10 @@
     "audio.geyser": {
       "ticks": 158,
       "hash": "1f2460e7b2f6d224"
+    },
+    "audio.gust": {
+      "ticks": 600,
+      "hash": "1e2777e91f4d580d"
     },
     "audio.hiss": {
       "ticks": 158,
@@ -428,6 +432,10 @@
     "showcase.bot-drive": {
       "ticks": 883,
       "hash": "2f0cf52cf4eb65ed"
+    },
+    "showcase.gusty-wind": {
+      "ticks": 721,
+      "hash": "c67a5001b4cb00d7"
     },
     "showcase.tank-drive": {
       "ticks": 838,

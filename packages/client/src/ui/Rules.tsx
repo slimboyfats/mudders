@@ -93,6 +93,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="none">None</option>
           <option value="constant">Per round</option>
           <option value="perTurn">Every turn</option>
+          <option value="gusty">Gusty</option>
         </select>
       </label>
       <label>

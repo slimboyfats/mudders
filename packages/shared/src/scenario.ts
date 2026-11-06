@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ContentIdSchema } from './content/manifests';
+import { ContentIdSchema, WindTypeSchema } from './content/manifests';
 import { TimedInputSchema } from './input';
 
 /**
@@ -56,7 +56,7 @@ export const ScenarioSchema = z.strictObject({
       shopTimer: z.number().min(1).optional(),
       openingShop: z.boolean().optional(),
       suddenDeath: z.boolean().optional(),
-      windType: z.enum(['none', 'constant', 'perTurn']).optional(),
+      windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),
       turnCap: z.number().int().min(1).optional(),
     })

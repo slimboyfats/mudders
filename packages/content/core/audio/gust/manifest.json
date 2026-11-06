@@ -1,0 +1,46 @@
+{
+  "id": "audio.gust",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gust",
+    "description": "A short airy whoosh of chip noise, swelling and falling, when gusty wind changes sharply.",
+    "since": "core@0.19.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 300,
+        "to": 900,
+        "attack": 0.25,
+        "hold": 0.2,
+        "release": 0.6,
+        "volume": 0.16,
+        "vibrato": {
+          "rate": 4,
+          "depth": 0.6
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 90,
+        "to": 60,
+        "attack": 0.3,
+        "release": 0.5,
+        "volume": 0.08
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "gust"
+    }
+  ],
+  "gap": 1.2
+}

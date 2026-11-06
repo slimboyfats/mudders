@@ -1,4 +1,4 @@
-import { MAP_SIZES, MAX_PLAYERS } from '@mudders/shared';
+import { MAP_SIZES, MAX_PLAYERS, type WindType } from '@mudders/shared';
 import type { MatchRules, WorldOptions } from '@mudders/sim';
 
 export type MapSize = keyof typeof MAP_SIZES;
@@ -57,7 +57,7 @@ export interface MatchSetup {
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
-  wind: 'none' | 'constant' | 'perTurn';
+  wind: WindType;
   suddenDeath: boolean;
   startingCash: number;
   /**

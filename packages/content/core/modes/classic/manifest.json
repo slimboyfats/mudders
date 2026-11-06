@@ -19,6 +19,11 @@
     "type": "perTurn",
     "max": 0.012
   },
+  "gusts": {
+    "every": 45,
+    "share": 650,
+    "ease": 3
+  },
   "walls": "absorb",
   "fallDamage": {
     "safeCells": 4,

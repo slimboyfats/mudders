@@ -1,11 +1,17 @@
 import { z } from '@mudders/shared';
-import { defineMode, type ModeApi } from '@mudders/sim';
+import { defineMode } from '@mudders/sim';
+import {
+  DEFAULT_GUSTS,
+  GustParams,
+  windOnRoundStart,
+  windOnTick,
+  windOnTurnStart,
+} from '../../../src/wind';
 
-const params = z.strictObject({});
-
-function rollWind(api: ModeApi): void {
-  api.setWind(api.windMax > 0 ? api.rng.range(-api.windMax, api.windMax) : 0);
-}
+const params = z.strictObject({
+  /** Gusts for the `gusty` wind setting. */
+  gusts: GustParams.optional(),
+});
 
 /**
  * Team turn order (milestone 7): each team's players are shuffled, the teams are shuffled, then the
@@ -16,7 +22,7 @@ function rollWind(api: ModeApi): void {
 export default defineMode<z.infer<typeof params>>({
   kind: 'mode',
   id: 'mode.teams',
-  version: 1,
+  version: 2,
   params,
   turnOrder(api) {
     // teams in order of their first player (stable, no key iteration)
@@ -44,10 +50,12 @@ export default defineMode<z.infer<typeof params>>({
     return order;
   },
   onRoundStart(api) {
-    if (api.windType === 'none') api.setWind(0);
-    if (api.windType === 'constant') rollWind(api);
+    windOnRoundStart(api);
   },
   onTurnStart(api) {
-    if (api.windType === 'perTurn') rollWind(api);
+    windOnTurnStart(api);
+  },
+  onTick(api, p) {
+    windOnTick(api, p.gusts ?? DEFAULT_GUSTS);
   },
 });

@@ -70,8 +70,13 @@ export interface HudState {
   /** Whole seconds left on the turn or shop timer; -1 = no timer. */
   seconds: number;
   suddenDeath: boolean;
+  /** Wind now (base + gust), in steps of `windMax`/40 so gusts don't re-render the HUD every tick. */
   wind: number;
+  /** The turn's wind without the gust (what bots aim with). */
+  windBase: number;
   windMax: number;
+  /** Gusty wind: the wind keeps changing during the turn. */
+  gusty: boolean;
   /** Fuel Tank in the shop (§3.2): units per pack, price per pack, most a tank can hold. */
   fuel: { pack: number; price: number; max: number };
   tanks: HudTank[];
@@ -175,8 +180,10 @@ export abstract class SimMatch implements SnapshotStream {
       rounds: w.rounds,
       seconds: w.timer > 0 ? Math.ceil(w.timer / TICK_RATE) : -1,
       suddenDeath: w.phase !== 'shop' && w.suddenDeathActive,
-      wind: w.wind / 65536,
+      wind: hudWind(w.wind, w.mode.wind.max),
+      windBase: hudWind(w.windBase, w.mode.wind.max),
       windMax: w.mode.wind.max,
+      gusty: w.windType === 'gusty',
       fuel: {
         pack: w.mode.drive.fuelPack,
         price: w.mode.drive.fuelPrice,
@@ -253,9 +260,15 @@ export class LocalMatch extends SimMatch {
   }
 }
 
+/** Fixed-point wind in HUD units, rounded to 1/40 of the maximum. */
+function hudWind(fixed: number, max: number): number {
+  const v = fixed / 65536;
+  return max > 0 ? (Math.round((v / max) * 40) / 40) * max : v;
+}
+
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.winner}|${h.results.length}`;
+  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
