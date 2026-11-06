@@ -41,6 +41,7 @@ const SCENERY_GEN = {
   none: 'gen.hills',
   village: 'gen.village',
   badlands: 'gen.badlands',
+  marsh: 'gen.marsh',
 } as const;
 
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
@@ -49,9 +50,9 @@ export interface MatchSetup {
   size: MapSize;
   /**
    * Props on the map (§4c): bare hills, a village with houses, trees and boulders, or badlands
-   * with stone arches and ledges to shelter under.
+   * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts.
    */
-  scenery: 'none' | 'village' | 'badlands';
+  scenery: 'none' | 'village' | 'badlands' | 'marsh';
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
