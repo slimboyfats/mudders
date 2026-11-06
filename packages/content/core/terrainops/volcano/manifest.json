@@ -1,0 +1,22 @@
+{
+  "id": "terrainop.volcano",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Volcano",
+    "description": "Raises a cinder cone with a lava-filled crater (grow), or makes its crater spit real lava cells high into the air and slop them over the rim (erupt). The lava lands, runs downhill and cools like any lava.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.volcano",
+  "mode": "grow",
+  "cone": "material.cinder",
+  "lava": "material.lava",
+  "height": 56,
+  "craterRadius": 5,
+  "craterDepth": 5,
+  "ticks": 50,
+  "rate": 10,
+  "pour": 1,
+  "minSpeed": 2.6,
+  "maxSpeed": 4.6,
+  "spread": 1.3
+}

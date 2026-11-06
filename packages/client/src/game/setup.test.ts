@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { PRESETS, activeTeams, canStart, estimateMinutes, toWorldOptions } from './setup';
+import {
+  PRESETS,
+  activeTeams,
+  canStart,
+  estimateMinutes,
+  toWorldOptions,
+  weatherFor,
+} from './setup';
 
 describe('match setup', () => {
   it('estimates a standard 4-player match inside the playtested 5–10 minutes', () => {
@@ -38,5 +45,16 @@ describe('match setup', () => {
     // off seats drop out of the tank list too
     expect(o.tanks).toEqual(['tank.scout', 'auto', 'random']);
     expect(toWorldOptions({ ...base, teams: null }, 1).mode).toBe('mode.classic');
+  });
+});
+
+describe('weather pick', () => {
+  it('maps to a weather id, random agreeing across peers by seed', () => {
+    expect(weatherFor('clear', 5)).toBeUndefined();
+    expect(weatherFor('rain', 5)).toBe('weather.rain');
+    expect(weatherFor('snow', 5)).toBe('weather.snow');
+    const picks = new Set([0, 1, 2, 3, 4, 5].map((s) => weatherFor('random', s) ?? 'clear'));
+    expect(picks).toEqual(new Set(['clear', 'weather.rain', 'weather.snow']));
+    expect(weatherFor('random', 1234)).toBe(weatherFor('random', 1234));
   });
 });

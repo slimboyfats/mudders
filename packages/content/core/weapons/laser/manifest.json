@@ -3,12 +3,13 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Laser",
-    "description": "A straight beam along your aim: no arc, no wind. Cuts a thin channel through the hill and hurts the first tank it reaches.",
+    "description": "A straight beam along your aim: no arc, no wind. Cuts a thin channel through the hill and hurts the first tank it reaches. Crystal mirrors it: the beam bounces off and carries on.",
     "category": "beam",
     "since": "core@0.7.0"
   },
   "flight": {
-    "use": "flight.beam"
+    "use": "flight.beam",
+    "mirror": ["material.crystal", "material.crystal-shard"]
   },
   "triggers": ["onSolid", "onTank"],
   "impact": [

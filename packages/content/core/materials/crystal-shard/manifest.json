@@ -1,0 +1,26 @@
+{
+  "id": "material.crystal-shard",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal shards",
+    "description": "Broken crystal thrown out by a blast. Slides off whatever it lands on and still mirrors lasers.",
+    "since": "core@0.21.0",
+    "color": "#c3a2f4"
+  },
+  "cell": 51,
+  "settle": "slide",
+  "density": 150,
+  "strength": {
+    "blast": 0.4,
+    "kinetic": 0.4,
+    "heat": 6,
+    "shock": 0.4,
+    "dig": 0.5,
+    "corrosive": 3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "look": {
+    "glint": true
+  }
+}

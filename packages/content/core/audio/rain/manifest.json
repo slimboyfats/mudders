@@ -1,0 +1,46 @@
+{
+  "id": "audio.rain",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rain",
+    "description": "Rain ambience: a soft, high chip-noise patter that swells and fades every two seconds while it rains.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 2000,
+        "attack": 0.4,
+        "hold": 1.2,
+        "release": 0.8,
+        "volume": 0.05,
+        "vibrato": {
+          "rate": 7,
+          "depth": 1.5
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 700,
+        "attack": 0.5,
+        "hold": 1,
+        "release": 0.9,
+        "volume": 0.03
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "rainPatter"
+    }
+  ],
+  "gap": 1.5
+}

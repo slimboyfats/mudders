@@ -260,6 +260,10 @@ button.primary,
   border-radius: 3px;
 }
 
+.weather {
+  color: #cfe2ff;
+}
+
 .wind-base {
   position: absolute;
   top: -3px;
@@ -351,6 +355,12 @@ button.primary,
 .frost-note {
   font-size: 0.75rem;
   color: #bfe4fa;
+  white-space: nowrap;
+}
+
+.glue-note {
+  font-size: 0.75rem;
+  color: #f3e7b0;
   white-space: nowrap;
 }
 

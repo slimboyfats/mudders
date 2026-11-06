@@ -1,0 +1,63 @@
+{
+  "id": "weapon.drill-torpedo",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Drill Torpedo",
+    "description": "Lands, then burrows on along the ground the way it was flying, heaving the soil above it like a mole run, and drills straight up to go off right under the first enemy tank it passes beneath. Land it short of a tank hiding behind a hill. It surfaces on its own after a long run.",
+    "category": "digger",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.drill-torpedo"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 3,
+      "damageType": "kinetic"
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.heave"
+      },
+      "radius": 3,
+      "damageType": "dig"
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 20,
+        "damage": 60,
+        "damageType": "blast",
+        "effects": {
+          "burst": {
+            "count": 64
+          },
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 3
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 45,
+    "terrainValue": 0.4
+  },
+  "audio": {
+    "fire": "audio.fire-dig"
+  }
+}

@@ -195,8 +195,8 @@ knowing any weapon. Three generic hooks carry it:
 
 Ops that move things through the air get two more generic handles on `SimApi`: `debris` (an op may
 steer particles in flight, as `terrainop.tornado` whirls the dirt it sucks up) and `hold(player, x,
-y)` (carry a tank this tick; once let go it falls, with fall damage from the highest row it was
-carried to).
+y, fallFrom?)` (carry a tank this tick; once let go it falls, with fall damage from the highest row it
+was carried to, or from `fallFrom` when given, as `terrainop.bumper` caps how hard its throws land).
 
 New terrain ops: `terrainop.tectonic` (a crest that heaves the top of the ground forward as debris,
 column by column, both ways) and `terrainop.quake` (a tremor that throws loose surface cells and

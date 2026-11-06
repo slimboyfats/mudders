@@ -1,24 +1,25 @@
 {
   "id": "material.ice",
   "schemaVersion": 1,
-  "description": "weapon.cryo-shell fired at the far tank on a small map, showing material.ice.",
+  "description": "A missile hits a frozen lake on the glacier map; the crater rim shatters into material.ice-shards.",
   "subject": "material.ice",
   "mode": "mode.classic",
   "seed": 7,
   "players": 2,
   "map": {
     "width": 800,
-    "height": 400
+    "height": 400,
+    "generator": "gen.glacier"
   },
   "tanks": [
     {
       "x": 150,
       "inventory": {
-        "weapon.cryo-shell": 5
+        "weapon.missile": 5
       }
     },
     {
-      "x": 620
+      "x": 740
     }
   ],
   "turnOrder": [0, 1],
@@ -29,7 +30,7 @@
       "player": 0,
       "action": {
         "type": "selectWeapon",
-        "weapon": "weapon.cryo-shell"
+        "weapon": "weapon.missile"
       }
     },
     {
@@ -38,7 +39,7 @@
       "action": {
         "type": "aim",
         "angle": 55,
-        "power": 605
+        "power": 620
       }
     },
     {
@@ -50,7 +51,7 @@
     }
   ],
   "capture": {
-    "maxTicks": 1500,
+    "maxTicks": 2400,
     "untilSettled": true,
     "extraTicks": 45
   }

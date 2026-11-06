@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Caves",
-    "description": "A cavern under a limestone roof hung with stalactites, with stone pillars between the tanks and a skylight or two. Shots must fit under the roof, or be blasted or dug through it.",
+    "description": "A cavern under a limestone roof hung with stalactites, with stone pillars between the tanks and a skylight or two. Shots must fit under the roof, or be blasted or dug through it. Violet crystal grows from the floor and roof and bounces lasers; gas pockets lie hidden in the floor. Old gunpowder seams run through the floor, with magma pockets in the bedrock below.",
     "since": "core@0.20.0"
   },
   "behaviour": "gen.caves",
@@ -16,5 +16,9 @@
   "pillars": [1, 2],
   "skylights": [1, 2],
   "rockDepth": 0.14,
-  "spawnMargin": 0.08
+  "spawnMargin": 0.08,
+  "crystals": [8, 12],
+  "gasPockets": [5, 8],
+  "seams": [3, 4],
+  "magmaPockets": [2, 3]
 }

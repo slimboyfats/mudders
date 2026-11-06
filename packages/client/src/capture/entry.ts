@@ -99,6 +99,7 @@ const api: CaptureApi = {
         },
         wind: w.wind,
         theme: w.theme,
+        weather: w.weather,
       };
       for (const l of listeners) l(snap);
     }

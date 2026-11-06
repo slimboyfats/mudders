@@ -1,0 +1,55 @@
+{
+  "id": "material.wet-clay",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Wet clay",
+    "description": "Clay that has soaked up water. Soft and slumping: it slides into gullies, blasts and diggers cut it like butter, and tanks parked on it bog down a little. It dries back into clay after three turns, or at once near fire.",
+    "since": "core@0.21.0",
+    "color": "#6e4f3a"
+  },
+  "cell": 39,
+  "settle": "slide",
+  "density": 125,
+  "strength": {
+    "blast": 0.55,
+    "kinetic": 0.5,
+    "heat": 1.2,
+    "shock": 0.5,
+    "dig": 0.3,
+    "corrosive": 8
+  },
+  "cohesion": 0.3,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.clay",
+      "chance": 0.2
+    },
+    {
+      "with": "material.lava",
+      "into": "material.brick",
+      "chance": 0.2
+    },
+    {
+      "with": "material.water",
+      "other": "air",
+      "chance": 0.05
+    }
+  ],
+  "decay": {
+    "into": "material.clay",
+    "turns": 3
+  },
+  "sink": {
+    "ticks": 40,
+    "depth": 3
+  },
+  "rim": [
+    {
+      "damage": ["heat"],
+      "into": "material.clay",
+      "depth": 3
+    }
+  ]
+}

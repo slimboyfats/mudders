@@ -1,0 +1,30 @@
+{
+  "id": "audio.rain",
+  "schemaVersion": 1,
+  "description": "Rain ambience over an idle field.",
+  "subject": "audio.rain",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "weather": "weather.rain",
+  "inputs": [],
+  "capture": {
+    "maxTicks": 480,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}

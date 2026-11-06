@@ -1,0 +1,58 @@
+{
+  "id": "material.crystal",
+  "schemaVersion": 1,
+  "description": "A laser fired across a crystal cave glances off the violet crystal and bounces on.",
+  "subject": "material.crystal",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.caves"
+  },
+  "tanks": [
+    {
+      "x": 72,
+      "inventory": {
+        "weapon.laser": 5
+      }
+    },
+    {
+      "x": 725
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.laser"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 30,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

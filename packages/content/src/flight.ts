@@ -5,7 +5,7 @@ import { FP, toFixed, type Projectile, type SimApi } from '@mudders/sim';
  * `Math.sqrt` (§6.3). Flights never draw from the match RNG: the AI's predictor runs them too.
  */
 
-/** One semi-implicit Euler step under gravity and wind (the ballistic arc, §3.4). */
+/** One semi-implicit Euler step under gravity, wind and weather drag (the ballistic arc, §3.4). */
 export function ballisticStep(
   api: SimApi,
   p: Projectile,
@@ -14,6 +14,12 @@ export function ballisticStep(
 ): void {
   p.vx += Math.trunc((api.wind * toFixed(windScale)) / FP);
   p.vy += Math.trunc((api.gravity * toFixed(gravityScale)) / FP);
+  // weather drag (rain, snow): a share of the speed lost every tick; none in clear skies, and
+  // none for what the air doesn't touch (beams ignore wind)
+  if (api.drag !== 0 && windScale !== 0) {
+    p.vx -= Math.trunc((p.vx * api.drag) / FP);
+    p.vy -= Math.trunc((p.vy * api.drag) / FP);
+  }
   p.x += p.vx;
   p.y += p.vy;
 }

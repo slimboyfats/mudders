@@ -1,0 +1,29 @@
+{
+  "id": "audio.magnet-clank",
+  "schemaVersion": 1,
+  "description": "Stub: show audio.magnet-clank.",
+  "subject": "audio.magnet-clank",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}
