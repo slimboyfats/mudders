@@ -357,6 +357,8 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       }
     }
     if (type === 'material') {
+      const det = (item as ManifestByType['material']).detonate;
+      if (det) checkExplosion(det.explosion, `${id}.detonate.explosion`);
       const cell = (item as ManifestByType['material']).cell;
       for (const other of ids) {
         if (other >= id) break;
