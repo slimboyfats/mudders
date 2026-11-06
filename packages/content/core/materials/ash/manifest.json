@@ -18,5 +18,8 @@
     "corrosive": 8
   },
   "cohesion": 0,
-  "coating": false
+  "coating": false,
+  "look": {
+    "char": true
+  }
 }

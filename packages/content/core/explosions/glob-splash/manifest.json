@@ -1,0 +1,23 @@
+{
+  "id": "explosion.glob-splash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Glob splash",
+    "description": "A burning gob landing: a tiny hot splash with a few sparks that singes what it hits. No crater; the gob's own terrain op lays the fire.",
+    "since": "core@0.13.0"
+  },
+  "radius": 4,
+  "damage": 4,
+  "damageType": "heat",
+  "falloff": "linear",
+  "push": 0,
+  "terrainOp": null,
+  "effects": {
+    "burst": {
+      "count": 6
+    },
+    "flash": {
+      "strength": 0.4
+    }
+  }
+}

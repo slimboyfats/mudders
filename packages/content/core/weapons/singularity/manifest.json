@@ -13,6 +13,28 @@
   "triggers": ["onSolid", "onTank"],
   "impact": [
     {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 90,
+        "damage": 0,
+        "terrainOp": null,
+        "effects": {
+          "vortex": {
+            "ticks": 48
+          },
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 0
+          }
+        }
+      }
+    },
+    {
       "terrainOp": {
         "use": "terrainop.attract",
         "tankPull": 24

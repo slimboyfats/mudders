@@ -1,6 +1,6 @@
 import type { EffectEvent, EntityView } from '@mudders/shared';
 import type { PixelTheme } from '../render/pixel/theme';
-import type { MaterialLook, Quality } from '../render/types';
+import type { MaterialLook, Quality, ShellLook } from '../render/types';
 
 /**
  * Messages between the capture CLI (Node, runs the sim) and the capture page (Chromium, runs the
@@ -13,6 +13,7 @@ export interface WireInit {
   palette: number[];
   looks: MaterialLook[];
   themes: Record<string, PixelTheme>;
+  shells: Record<string, ShellLook>;
   quality: Quality;
   theme: string;
   /** Canvas size in CSS px and device pixel ratio. */
@@ -32,7 +33,7 @@ export interface WireSnapshot {
   patches: [number, number, number, number, string, string][];
   entities: EntityView[];
   effectEvents: EffectEvent[];
-  debris: { x: number[]; y: number[]; m: number[] };
+  debris: { x: number[]; y: number[]; vx: number[]; m: number[] };
   wind: number;
   theme: string;
 }
