@@ -4,6 +4,13 @@ import { themeChoices } from '../game/palette';
 import { saveSettings, type Settings as S } from '../game/settings';
 import { QUALITIES, type Quality } from '../render/types';
 
+const UI_SCALES: [number, string][] = [
+  [0.85, 'Small'],
+  [1, 'Normal'],
+  [1.2, 'Large'],
+  [1.4, 'Extra large'],
+];
+
 interface Props {
   settings: S;
   setSettings: (s: S) => void;
@@ -48,6 +55,19 @@ export function Settings({ settings, setSettings, onBack }: Props) {
           </select>
         </label>
         <label>
+          Text and controls size
+          <select
+            value={settings.uiScale}
+            onChange={(e) => update({ ...settings, uiScale: Number(e.target.value) })}
+          >
+            {UI_SCALES.map(([v, name]) => (
+              <option key={v} value={v}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           Music
           <input
             type="range"
@@ -86,6 +106,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             onChange={(e) => update({ ...settings, shake: e.target.checked })}
           />
           Screen shake
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.perfHud}
+            onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
+          />
+          Show performance (frame times)
         </label>
       </section>
       <div className="setup-actions">

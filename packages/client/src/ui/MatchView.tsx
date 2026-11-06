@@ -7,6 +7,7 @@ import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { PerfMeter, PerfOverlay, type PerfStats } from './Perf';
 import { Hud } from './Hud';
 
 interface Props {
@@ -40,6 +41,11 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [anchor, setAnchor] = useState<Vec2 | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [perf, setPerf] = useState<PerfStats | null>(null);
+  const perfOn = useRef(settings.perfHud);
+  useEffect(() => {
+    perfOn.current = settings.perfHud;
+  }, [settings.perfHud]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; mid: Vec2 } | null>(null);
   const panDrag = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -83,13 +89,25 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     let last = -1;
     let ro: ResizeObserver | undefined;
     const w = match.world;
+    const meter = new PerfMeter();
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
       const dt = last < 0 ? 0 : now - last;
       last = now;
-      r.render(match.advance(dt));
+      if (perfOn.current) {
+        const tick0 = match.world.tick;
+        const t0 = performance.now();
+        const at = match.advance(dt);
+        const t1 = performance.now();
+        r.render(at);
+        const t2 = performance.now();
+        const stats = meter.frame(now, dt, match.world.tick - tick0, t1 - t0, t2 - t1);
+        if (stats) setPerf(stats);
+      } else {
+        r.render(match.advance(dt));
+      }
       refreshHud();
       const tank = match.world.tanks[match.world.activePlayer];
       if (tank) {
@@ -293,6 +311,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           data-testid="playfield"
         >
           <canvas ref={canvasRef} className="game-canvas" />
+          {settings.perfHud && perf && <PerfOverlay stats={perf} />}
           <svg className="overlay" aria-hidden="true">
             {aimLine && anchor && (
               <line
