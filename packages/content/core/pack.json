@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -26,6 +26,7 @@
     "audio.freeze",
     "audio.frost-blast",
     "audio.geyser",
+    "audio.gust",
     "audio.hiss",
     "audio.howl",
     "audio.implode",

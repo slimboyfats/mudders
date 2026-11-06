@@ -24,13 +24,26 @@ const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const pcolor = (p: number) => css(PLAYER_COLORS[p % PLAYER_COLORS.length] ?? 0xffffff);
 
 /** Wind as text plus an arrow, so it never relies on colour alone (§8). */
-function Wind({ wind, max }: { wind: number; max: number }) {
-  const k = max > 0 ? Math.max(-1, Math.min(1, wind / max)) : 0;
+function Wind({
+  wind,
+  base,
+  max,
+  gusty,
+}: {
+  wind: number;
+  base: number;
+  max: number;
+  gusty: boolean;
+}) {
+  const clamp = (v: number) => (max > 0 ? Math.max(-1, Math.min(1, v / max)) : 0);
+  const k = clamp(wind);
+  const b = clamp(base);
   const n = Math.round(Math.abs(k) * 10);
   const arrow = k === 0 ? '·' : k > 0 ? '→' : '←';
+  const dir = k > 0 ? 'right' : k < 0 ? 'left' : 'calm';
   return (
-    <div className="wind" aria-label={`Wind ${n} ${k > 0 ? 'right' : k < 0 ? 'left' : 'calm'}`}>
-      <span className="label">Wind</span>
+    <div className="wind" aria-label={`${gusty ? 'Gusty wind' : 'Wind'} ${n} ${dir}`}>
+      <span className="label">{gusty ? 'Gusts' : 'Wind'}</span>
       <span className="wind-bar">
         <span
           className="wind-fill"
@@ -39,6 +52,7 @@ function Wind({ wind, max }: { wind: number; max: number }) {
             width: `${Math.abs(k) * 50}%`,
           }}
         />
+        {gusty && <span className="wind-base" style={{ left: `${50 + b * 50}%` }} />}
       </span>
       <span className="wind-value">
         {arrow} {n}
@@ -189,7 +203,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           </span>
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
         </div>
-        <Wind wind={hud.wind} max={hud.windMax} />
+        <Wind wind={hud.wind} base={hud.windBase} max={hud.windMax} gusty={hud.gusty} />
         <div className="cam">
           <button onClick={() => renderer.current?.camera.zoomBy(-1)} aria-label="Zoom out">
             −
