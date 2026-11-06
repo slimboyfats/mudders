@@ -692,7 +692,30 @@ export class PixelRenderer implements Renderer {
       else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
     }
     this.fx.lances.track(s.entities, s.tick);
+    this.tagStars();
     this.updateTrails(s);
+  }
+
+  /**
+   * Firework stars take the colour of the burst they came out of. Tagged once, after this
+   * snapshot's bursts are handled, and kept by projectile id while the star flies.
+   */
+  private tagStars(): void {
+    const shells = this.palette.shells;
+    if (!shells) return;
+    const prev = this.starColor;
+    let next: Map<number, number> | null = null;
+    for (const e of this.entities) {
+      if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'star') continue;
+      next ??= new Map();
+      let c = prev.get(e.id);
+      if (c === undefined) {
+        const found = this.fx.fireworkColor(e.x, this.fxTick, true);
+        c = found < 0 ? 0xffd040 : found;
+      }
+      next.set(e.id, c);
+    }
+    this.starColor = next ?? (prev.size > 0 ? new Map() : prev);
   }
 
   /**
@@ -1096,6 +1119,8 @@ export class PixelRenderer implements Renderer {
   }
 
   private readonly meteorLive = new Set<number>();
+  /** Firework star colours by projectile id (see `tagStars`). */
+  private starColor = new Map<number, number>();
 
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
@@ -1123,6 +1148,49 @@ export class PixelRenderer implements Renderer {
               size: 1,
               color: (r >>> 8) & 1 ? 0x5a4c34 : 0x7a6a48,
               kind: PKind.Chunk,
+            });
+          }
+          continue;
+        }
+        if (look === 'firework') {
+          // a fizzing rocket: gold sparks spat out behind it, now and then a wisp of smoke
+          this.particles.add({
+            x: e.x + ((r >>> 4) & 1) - 0.5,
+            y: e.y + 1.5,
+            vx: (((r >>> 8) & 7) - 3.5) * 0.06,
+            vy: 0.25 + ((r >>> 12) & 3) * 0.08,
+            life: 8 + ((r >>> 16) & 7),
+            size: 1,
+            color: (r >>> 20) & 1 ? 0xffd060 : 0xfff6d0,
+            kind: PKind.Spark,
+          });
+          if ((r >>> 24) % 5 === 0) {
+            this.particles.add({
+              x: e.x,
+              y: e.y + 2,
+              vx: 0,
+              vy: 0,
+              life: 30,
+              size: 2,
+              color: 0x8a8490,
+              kind: PKind.Smoke,
+            });
+          }
+          continue;
+        }
+        if (look === 'star') {
+          // a burning star sheds a strobing glitter tail in its colour
+          if ((r >>> 20) & 1) {
+            const c = this.starColor.get(e.id) ?? 0xffd040;
+            this.particles.add({
+              x: e.x,
+              y: e.y,
+              vx: 0,
+              vy: 0.02,
+              life: 14 + ((r >>> 12) & 7),
+              size: 1,
+              color: (r >>> 8) % 3 === 0 ? 0xffffff : c,
+              kind: PKind.Glitter,
             });
           }
           continue;
@@ -1731,6 +1799,26 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
         this.normal.push(x, y, 3, 3, 0xff8a20, 1);
         g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
+      if (look?.shell === 'firework') {
+        // a rocket: white-hot head over a gold body
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        g.push(x, y + 1, 1, 2, 0xffa030, 1);
+        g.push(x, y, 1, 1, 0xffffff, 1);
+        continue;
+      }
+      if (look?.shell === 'star') {
+        // a burning star: one hot cell in its colour, flaring into a plus every few ticks
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const c = this.starColor.get(e.id) ?? 0xffd040;
+        if (((this.fxTick + e.id) & 3) === 0) {
+          g.push(x, y, 3, 1, c, 0.8);
+          g.push(x, y, 1, 3, c, 0.8);
+        }
+        g.push(x, y, 1, 1, ((this.fxTick + e.id) & 7) === 0 ? 0xffffff : c, 1);
         continue;
       }
       if (shells?.[e.weapon]?.shell === 'mud') {
