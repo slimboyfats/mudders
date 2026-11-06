@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -35,6 +35,7 @@
     "audio.gust",
     "audio.hiss",
     "audio.howl",
+    "audio.ice-wall",
     "audio.implode",
     "audio.lance",
     "audio.lance-charge",
@@ -166,6 +167,7 @@
     "terrainop.frost",
     "terrainop.harden",
     "terrainop.heave",
+    "terrainop.ice-wall",
     "terrainop.ignite",
     "terrainop.liquefy",
     "terrainop.magnet",
@@ -222,6 +224,7 @@
     "weapon.heavy-roller",
     "weapon.heavy-shockwave",
     "weapon.hot-napalm",
+    "weapon.ice-wall",
     "weapon.implosion",
     "weapon.incendiary",
     "weapon.laser",
