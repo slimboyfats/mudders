@@ -374,8 +374,8 @@ export class EffectSystem {
         this.tintSky([0, 0.2, 0.1, 0.4], 0.2);
         break;
       }
-      case 'eruption':
-        this.eruption(e);
+      case 'mudGeyser':
+        this.mudGeyser(e);
         break;
       case 'mudSplat':
         this.mudSplat(e, e.params.count ?? 12);
@@ -610,7 +610,7 @@ export class EffectSystem {
    * A mud geyser blowing: the ground heaves (distortion ring, dust front, brown sky), then a
    * column of mud chunks and steam roars up out of the vent for `ticks` ticks (fed in `tick`).
    */
-  private eruption(e: EffectEvent): void {
+  private mudGeyser(e: EffectEvent): void {
     const h = e.params.height ?? 120;
     const dur = Math.max(20, e.params.ticks ?? 90);
     this.jets.push({ x: e.x, y: e.y, height: h, start: e.tick, dur, rng: this.rngFor(e, 71) });

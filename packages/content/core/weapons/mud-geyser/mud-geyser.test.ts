@@ -8,7 +8,7 @@ describe('weapon.mud-geyser', () => {
     const n = dropAt(w, 'weapon.mud-geyser', 200, 3000);
     expect(n).toBeLessThan(3000);
     const fx = w.snapshot().effectEvents;
-    const erupt = fx.filter((e) => e.type === 'eruption');
+    const erupt = fx.filter((e) => e.type === 'mudGeyser');
     expect(erupt).toHaveLength(1);
     // every glob came back down near the vent
     const splats = fx.filter((e) => e.type === 'mudSplat');

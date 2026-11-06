@@ -19,7 +19,7 @@
         "damage": 40,
         "damageType": "kinetic",
         "effects": {
-          "eruption": {
+          "mudGeyser": {
             "height": 150,
             "ticks": 110
           },
