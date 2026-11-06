@@ -1118,3 +1118,9 @@ a.button {
   gap: 8px;
   min-height: 40px;
 }
+
+.rules .estimate {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}

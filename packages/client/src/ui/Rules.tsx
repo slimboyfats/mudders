@@ -1,14 +1,23 @@
-import { PRESETS, type MapSize, type MatchSetup, type Preset } from '../game/setup';
+import {
+  PRESETS,
+  PRESET_NAMES,
+  estimateMinutes,
+  type MapSize,
+  type MatchSetup,
+  type Preset,
+} from '../game/setup';
 
 export type RulesValue = Omit<MatchSetup, 'slots'>;
 
 interface Props {
   value: RulesValue;
   onChange: (patch: Partial<RulesValue>) => void;
+  /** Players in the match, for the length estimate. */
+  players?: number;
 }
 
 /** Match rules (§8): length, timers, map, scenery, wind, cash. Shared by local setup and the online lobby. */
-export function Rules({ value, onChange }: Props) {
+export function Rules({ value, onChange, players = 2 }: Props) {
   const preset = (Object.keys(PRESETS) as Preset[]).find(
     (k) => PRESETS[k].rounds === value.rounds && PRESETS[k].turnTimer === value.turnTimer,
   );
@@ -23,17 +32,20 @@ export function Rules({ value, onChange }: Props) {
             className={preset === k ? 'on' : ''}
             onClick={() => onChange({ ...PRESETS[k] })}
           >
-            {k === 'quick' ? 'Quick' : k === 'standard' ? 'Standard' : 'Long'}
+            {PRESET_NAMES[k]}
             <small>
               {PRESETS[k].rounds} round{PRESETS[k].rounds > 1 ? 's' : ''}
             </small>
           </button>
         ))}
       </div>
+      <p className="estimate" data-testid="estimate">
+        About {estimateMinutes(value.rounds, value.turnTimer, players)} min with {players} players
+      </p>
       <label>
         Rounds
         <select value={value.rounds} onChange={(e) => onChange({ rounds: Number(e.target.value) })}>
-          {[1, 2, 3, 4, 5, 7, 10].map((r) => (
+          {[1, 2, 3, 4, 5, 7, 10, 15, 20].map((r) => (
             <option key={r}>{r}</option>
           ))}
         </select>
