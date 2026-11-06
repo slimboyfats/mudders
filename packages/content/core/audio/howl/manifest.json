@@ -1,0 +1,60 @@
+{
+  "id": "audio.howl",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Howl",
+    "description": "A rising, wavering wind howl when a tornado touches down.",
+    "since": "core@0.13.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 400,
+        "to": 1400,
+        "hold": 1.2,
+        "release": 1.5,
+        "volume": 0.4,
+        "vibrato": {
+          "rate": 3,
+          "depth": 0.5
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 180,
+        "to": 260,
+        "hold": 1.0,
+        "release": 1.4,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 5,
+          "depth": 0.8
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 120,
+        "to": 70,
+        "hold": 1.2,
+        "release": 1.2,
+        "volume": 0.3
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "touchdown"
+    },
+    {
+      "event": "tornadoEnd"
+    }
+  ],
+  "gap": 0.6
+}

@@ -5,6 +5,7 @@ import { FxRng } from './gl';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
+import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
 
 /**
  * Pixel-renderer implementations of renderer-agnostic effect events (§2b, §2c.3 `effect.*`).
@@ -84,6 +85,7 @@ export class EffectSystem {
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
   private mushrooms: Mushroom[] = [];
+  private funnels: Funnel[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -345,6 +347,84 @@ export class EffectSystem {
         this.tintSky([0, 0.2, 0.1, 0.4], 0.2);
         break;
       }
+      case 'tornado':
+        this.tornado(e);
+        break;
+      case 'touchdown': {
+        // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        this.fronts.push({
+          x: e.x,
+          y: e.y,
+          maxR: 46,
+          start: e.tick,
+          dur: 24,
+          rng: this.rngFor(e, 43),
+        });
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: 60,
+          width: 10,
+          strength: 0.7,
+        });
+        break;
+      }
+      case 'tornadoGrab':
+      case 'tornadoThrow': {
+        const rng = this.rngFor(e, 47);
+        const n = Math.round(14 * this.mult) + 2;
+        const col = this.dustColor(e.x, e.y + 2);
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-8, 8),
+            y: e.y - rng.range(0, 6),
+            vx: rng.range(-1.2, 1.2),
+            vy: -rng.range(0.2, 1.4),
+            life: rng.range(20, 40),
+            size: 1,
+            color: shade(col, rng.range(0.7, 1.2)),
+            kind: PKind.Chunk,
+          });
+        }
+        if (e.type === 'tornadoGrab') {
+          this.shakeAmp = Math.max(this.shakeAmp, 2);
+          this.shakeStart = e.tick;
+        }
+        break;
+      }
+      case 'tornadoEnd': {
+        // the funnel breaks up: a burst of storm dust where it stood
+        const rng = this.rngFor(e, 53);
+        const n = Math.round(40 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          const a = rng.range(0, Math.PI * 2);
+          const s = rng.range(0.3, 1.4);
+          this.particles.add({
+            x: e.x + Math.cos(a) * e.radius * 0.5,
+            y: e.y + Math.sin(a) * e.radius * 1.2,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s * 0.6,
+            life: rng.range(40, 80),
+            size: rng.range(3, 7),
+            color: rng.next() < 0.5 ? 0x5e5a68 : 0x7a7684,
+            kind: PKind.Smoke,
+          });
+        }
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 36,
+          maxR: e.radius * 3,
+          width: 12,
+          strength: 0.8,
+        });
+        break;
+      }
       case 'tankDeath':
         this.burst(e, 70);
         this.glows.push({
@@ -423,6 +503,75 @@ export class EffectSystem {
         kind: spark ? PKind.Spark : PKind.Chunk,
       });
     }
+  }
+
+  /** Update (or start) the tornado an event belongs to: one event per tornado per tick. */
+  private tornado(e: EffectEvent): void {
+    const pr = e.params;
+    let f: Funnel | undefined;
+    for (const g of this.funnels) {
+      if (e.tick - g.last <= 3 && Math.abs(g.x - e.x) <= 12) {
+        f = g;
+        break;
+      }
+    }
+    if (!f) {
+      f = makeFunnel(this.rngFor(e, 59).next() * 4294967296, e.tick);
+      this.funnels.push(f);
+    }
+    f.x = e.x;
+    f.y = e.y;
+    f.h = e.radius;
+    f.base = pr.base ?? 4;
+    f.top = pr.top ?? 30;
+    f.lean = pr.lean ?? 0;
+    f.wobble = pr.wobble ?? 0;
+    f.age = pr.age ?? 0;
+    f.strength = (pr.strength ?? 0) / 100;
+    f.down = (pr.down ?? 100) / 100;
+    f.last = e.tick;
+    if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
+  }
+
+  /** Dust skirt churned up round each tornado's base, once per tick. */
+  private funnelDust(f: Funnel, t: number): void {
+    if (f.down < 1 || f.strength <= 0.05 || t - f.last > 2) return;
+    const n = Math.max(1, Math.round(4 * this.mult * f.strength));
+    const rng = new FxRng((Math.imul(t + 1, 2654435761) ^ Math.imul(f.x + 11, 40503)) >>> 0);
+    const w = funnelWidth(f, 0) + 3;
+    for (let i = 0; i < n; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: f.x + side * rng.range(0, w),
+        y: f.y - rng.range(0, 3),
+        vx: side * rng.range(0.4, 1.6),
+        vy: -rng.range(0.1, 0.9),
+        life: rng.range(24, 50),
+        size: rng.range(2.5, 5.5),
+        color: shade(f.dust, rng.range(0.95, 1.2)),
+        kind: PKind.Dust,
+      });
+    }
+    // grit flicked out of the funnel wall
+    if (rng.next() < 0.7 * this.mult) {
+      const hh = rng.range(0, f.h * 0.8);
+      const side = rng.next() < 0.5 ? -1 : 1;
+      this.particles.add({
+        x: f.x + side * (funnelWidth(f, hh) + 1),
+        y: f.y - hh,
+        vx: side * rng.range(0.8, 2.2),
+        vy: -rng.range(0, 1),
+        life: rng.range(30, 60),
+        size: 1,
+        color: shade(f.dust, rng.range(0.6, 1.1)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Tornadoes, drawn behind particles and debris; stale ones are dropped. */
+  drawFunnels(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const f of this.funnels) drawFunnel(f, normal, additive, t);
   }
 
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
@@ -613,6 +762,8 @@ export class EffectSystem {
       }
       return true;
     });
+    for (const f of this.funnels) this.funnelDust(f, t);
+    this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -626,6 +777,14 @@ export class EffectSystem {
       s[0] = s[1] = s[2] = 0;
     }
     this.split = this.split > 0.3 ? this.split * 0.9 : 0;
+    // a tornado's storm darkens the sky while the funnel is up (held, after the flash decay)
+    for (const f of this.funnels) {
+      if (t - f.last > 2) continue;
+      const dim = 0.16 * Math.min(1, (t - f.born) / 30);
+      s[0] = Math.min(s[0], -dim);
+      s[1] = Math.min(s[1], -dim * 0.95);
+      s[2] = Math.min(s[2], -dim * 0.8);
+    }
   }
 
   /** Top surface row near (x, y): first solid cell with air above, scanning ±range. */
@@ -705,6 +864,7 @@ export class EffectSystem {
     this.fronts = [];
     this.bolts = [];
     this.mushrooms = [];
+    this.funnels = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

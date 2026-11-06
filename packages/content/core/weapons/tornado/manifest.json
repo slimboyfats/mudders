@@ -1,0 +1,48 @@
+{
+  "id": "weapon.tornado",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tornado",
+    "description": "A funnel drops out of the sky where it lands and runs along the ground with the wind. It sucks up the dirt it crosses, picks up any tank in its path and hurls it, then flings everything it carried back down across the map.",
+    "since": "core@0.13.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 0,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 10
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.tornado"
+      },
+      "radius": 14,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 9500,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0.7
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

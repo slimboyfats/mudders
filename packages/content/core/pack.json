@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -23,6 +23,7 @@
     "audio.fire-zap",
     "audio.freeze",
     "audio.hiss",
+    "audio.howl",
     "audio.implode",
     "audio.land",
     "audio.music-battle",
@@ -94,6 +95,7 @@
     "terrainop.quake",
     "terrainop.tectonic",
     "terrainop.terraform",
+    "terrainop.tornado",
     "theme.arcade",
     "theme.day",
     "theme.default",
@@ -160,6 +162,7 @@
     "weapon.tectonic-charge",
     "weapon.terraformer",
     "weapon.ton-of-dirt",
+    "weapon.tornado",
     "weapon.tracer",
     "weapon.trencher",
     "weapon.water-cannon",
