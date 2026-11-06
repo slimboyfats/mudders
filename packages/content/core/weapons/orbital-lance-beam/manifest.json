@@ -8,7 +8,8 @@
     "since": "core@0.13.0"
   },
   "flight": {
-    "use": "flight.orbital-lance"
+    "use": "flight.orbital-lance",
+    "mirror": ["material.crystal", "material.crystal-shard"]
   },
   "triggers": ["onSolid", "onTank"],
   "impact": [

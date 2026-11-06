@@ -17,6 +17,8 @@ export const KEEP = 255;
 export const ACT_DECAY = 1;
 export const ACT_SPREAD = 2;
 export const ACT_REACT = 4;
+/** Bursts when it touches air (gas pockets): `reactStep` queues it for the world. */
+export const ACT_BURST = 8;
 /** cellState layout for `spread` materials: low 6 bits age, high 2 bits turns survived. */
 export const AGE_MASK = 0x3f;
 
@@ -59,6 +61,14 @@ export class MaterialTable {
   readonly compactInto = new Uint8Array(256).fill(KEEP);
   readonly compactRatio = new Uint16Array(256);
   readonly compactDepth = new Uint8Array(256);
+  /** Shattering (§4b crystal): shard cell (KEEP = none), share kept ×256, launch speed ×256. */
+  readonly shatterInto = new Uint8Array(256).fill(KEEP);
+  readonly shatterKeep = new Uint16Array(256);
+  readonly shatterSpeed = new Uint16Array(256);
+  /** Bursting (gas pockets): biggest pocket per burst, 0 = never bursts. */
+  readonly burstMax = new Uint16Array(256);
+  /** Weapon id whose impacts a burst runs, per cell ('' = none). */
+  readonly burstWeapon: readonly string[];
   /** Crater rim (§4b): rim[cell * NUM_DAMAGE_TYPES + damageType]: into (KEEP = none), depth, chance ×256. */
   readonly rimInto = new Uint8Array(256 * NUM_DAMAGE_TYPES).fill(KEEP);
   readonly rimDepth = new Uint8Array(256 * NUM_DAMAGE_TYPES);
@@ -81,6 +91,7 @@ export class MaterialTable {
   constructor(materials: readonly MaterialManifest[]) {
     const cells: Record<string, number> = {};
     const ids: string[] = new Array<string>(256).fill('');
+    const burstWeapon: string[] = new Array<string>(256).fill('');
     ids[0] = 'air';
     this.strength.fill(0, 0, NUM_DAMAGE_TYPES); // air offers no resistance
     for (const m of materials) {
@@ -139,6 +150,16 @@ export class MaterialTable {
         this.compactRatio[c] = Math.round(m.compact.ratio * 256);
         this.compactDepth[c] = m.compact.maxDepth;
       }
+      if (m.shatter) {
+        this.shatterInto[c] = ref(m.shatter.into);
+        this.shatterKeep[c] = Math.round(m.shatter.keep * 256);
+        this.shatterSpeed[c] = Math.round(m.shatter.speed * 256);
+      }
+      if (m.burst) {
+        this.burstMax[c] = m.burst.max;
+        burstWeapon[c] = m.burst.weapon;
+        this.active[c] = this.active[c]! | ACT_BURST;
+      }
       for (const r of m.rim ?? []) {
         for (const d of r.damage) {
           const i = c * NUM_DAMAGE_TYPES + DAMAGE_TYPES.indexOf(d);
@@ -156,6 +177,7 @@ export class MaterialTable {
       }
       if (m.detonate) this.detonateChance[c] = Math.round(m.detonate.chance * 65536);
     }
+    this.burstWeapon = burstWeapon;
   }
 
   /** Cell byte for a material id; throws on unknown ids (content is validated at load). */

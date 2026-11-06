@@ -1,0 +1,55 @@
+{
+  "id": "weapon.gas-burst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gas pocket burst",
+    "description": "The blast of an uncovered gas pocket: a fiery burst that blows the hollow open and chars the walls around it.",
+    "category": "submunition",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 16,
+        "damage": 40,
+        "damageType": "heat",
+        "effects": {
+          "flash": {
+            "strength": 1.4
+          },
+          "burst": {
+            "count": 40
+          },
+          "shake": {
+            "strength": 3
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.convert",
+        "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+        "into": "material.scorch",
+        "core": 0.7,
+        "expandTicks": 6
+      },
+      "radius": 22,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

@@ -1,5 +1,6 @@
 import type { Grid } from './grid';
 import {
+  ACT_BURST,
   ACT_DECAY,
   ACT_REACT,
   ACT_SPREAD,
@@ -156,6 +157,19 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
           coat[i] = mats.decayInto[c]!;
           dirty(grid, i);
         } else alive = true;
+      }
+      if (
+        fm & ACT_BURST &&
+        m !== 0 &&
+        ((x > 0 && mat[i - 1] === 0) ||
+          (x < W - 1 && mat[i + 1] === 0) ||
+          (y > 0 && mat[i - W] === 0) ||
+          (y < grid.height - 1 && mat[i + W] === 0))
+      ) {
+        // a buried pocket that has just been uncovered: the world sets it off after this pass
+        // (queue full: stay in the region and try again next tick)
+        if (grid.pocketCount < grid.pockets.length) grid.pockets[grid.pocketCount++] = i;
+        else alive = true;
       }
       if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, false, tick);
       if (fc & ACT_REACT && c !== 0 && mat[i] !== 0) react(grid, mats, i, c, true, tick);

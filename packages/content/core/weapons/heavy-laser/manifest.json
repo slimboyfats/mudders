@@ -3,14 +3,15 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Heavy Laser",
-    "description": "A thicker, longer beam that slices clean through the map and hits hard.",
+    "description": "A thicker, longer beam that slices clean through the map and hits hard. Crystal mirrors it.",
     "category": "beam",
     "since": "core@0.7.0"
   },
   "flight": {
     "use": "flight.beam",
     "speed": 5,
-    "maxTicks": 170
+    "maxTicks": 170,
+    "mirror": ["material.crystal", "material.crystal-shard"]
   },
   "triggers": ["onSolid", "onTank"],
   "impact": [

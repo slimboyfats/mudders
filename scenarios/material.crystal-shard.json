@@ -1,0 +1,58 @@
+{
+  "id": "material.crystal-shard",
+  "schemaVersion": 1,
+  "description": "A missile shatters a crystal cluster on the cave floor and throws shards across the ground.",
+  "subject": "material.crystal-shard",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.caves"
+  },
+  "tanks": [
+    {
+      "x": 72,
+      "inventory": {
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 725
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 26,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

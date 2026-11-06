@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Orbital Lance",
-    "description": "Lob a beacon like a shell. Where it lands a satellite locks on, then a white-hot beam comes straight down from the sky and bores a deep shaft, melting its walls to glowing slag and charring the ground around it. Cover overhead does not help.",
+    "description": "Lob a beacon like a shell. Where it lands a satellite locks on, then a white-hot beam comes straight down from the sky and bores a deep shaft, melting its walls to glowing slag and charring the ground around it. Cover overhead does not help. Crystal does: the beam is thrown back to the sky.",
     "category": "beam",
     "since": "core@0.13.0"
   },

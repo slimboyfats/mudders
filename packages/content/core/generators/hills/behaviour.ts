@@ -1,5 +1,6 @@
 import { z } from '@mudders/shared';
 import { defineGenerator, type Grid, type MaterialTable, type Prng } from '@mudders/sim';
+import { buryGasPockets } from '../../../src/minerals';
 
 const params = z.strictObject({
   /** Mean surface level as a fraction of map height from the top. */
@@ -47,6 +48,10 @@ const params = z.strictObject({
   /** Buried magma pockets per 1000 columns: [min, max]. */
   magmaPockets: z
     .tuple([z.number().int().min(0).max(6), z.number().int().min(0).max(6)])
+    .default([0, 0]),
+  /** Gas pockets buried in the soft ground per 1000 columns: [min, max] (gen.marsh: swamp gas). */
+  gasPockets: z
+    .tuple([z.number().int().min(0).max(40), z.number().int().min(0).max(40)])
     .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
@@ -305,6 +310,14 @@ export default defineGenerator<Params>({
           if (mat[y * W + x] !== rock) mat[y * W + x] = ice;
         }
       }
+    }
+    // Gas pockets last, and only when asked for, so maps without them are unchanged.
+    if (p.gasPockets[1] > 0) {
+      const scale = W / 1000;
+      const n = rng.range(Math.round(p.gasPockets[0] * scale), Math.round(p.gasPockets[1] * scale));
+      const soft = [dirt, sand];
+      if (p.mudDepth > 0) soft.push(mats.cellOf('material.mud'));
+      buryGasPockets(api, surface, n, soft);
     }
     return { spawns };
   },

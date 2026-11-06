@@ -52,6 +52,13 @@ export class Grid {
   turnMinY = 0;
   turnMaxY = -1;
 
+  /**
+   * Bursting cells (gas pockets) `reactStep` found touching air this tick, for the world to set
+   * off. Transient: emptied every tick, never part of the state.
+   */
+  readonly pockets = new Int32Array(32);
+  pocketCount = 0;
+
   private renderRects: Rect[] = [];
 
   constructor(
@@ -78,6 +85,7 @@ export class Grid {
     this.groupLost.fill(0);
     this.groupLostAny = false;
     this.burstCount = 0;
+    this.pocketCount = 0;
     this.clearWatch();
     this.clearSettle();
     this.clearReact();
