@@ -1,0 +1,69 @@
+{
+  "id": "weapon.meteor",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Meteor",
+    "description": "One burning meteor of a Meteor Shower: a fiery crater lined with glowing slag.",
+    "category": "submunition",
+    "since": "core@0.14.0"
+  },
+  "flight": {
+    "use": "flight.meteor"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 20,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 30
+          },
+          "flash": {
+            "strength": 1
+          },
+          "shake": {
+            "strength": 3
+          },
+          "fireball": {
+            "strength": 0.6
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.convert",
+        "from": [
+          "material.dirt",
+          "material.sand",
+          "material.ash",
+          "material.mud",
+          "material.packed-mud",
+          "material.liquid-dirt"
+        ],
+        "into": "material.slag",
+        "core": 0.85,
+        "expandTicks": 4
+      },
+      "radius": 19,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "meteor",
+    "trail": false
+  }
+}

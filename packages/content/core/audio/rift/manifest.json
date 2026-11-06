@@ -1,0 +1,58 @@
+{
+  "id": "audio.rift",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rift",
+    "description": "The ground splitting: a sharp crack, a gravel hiss and a deep wobbling groan that sinks away.",
+    "since": "core@0.13.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 4000,
+        "to": 900,
+        "release": 0.08,
+        "volume": 0.7
+      },
+      {
+        "wave": "square",
+        "freq": 180,
+        "to": 70,
+        "release": 0.12,
+        "volume": 0.35
+      },
+      {
+        "wave": "noise",
+        "freq": 600,
+        "to": 90,
+        "delay": 0.04,
+        "hold": 0.25,
+        "release": 0.7,
+        "volume": 0.5
+      },
+      {
+        "wave": "triangle",
+        "freq": 70,
+        "to": 28,
+        "delay": 0.03,
+        "hold": 0.2,
+        "release": 0.9,
+        "volume": 0.6,
+        "vibrato": { "rate": 9, "depth": 2 }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "rift"
+    }
+  ],
+  "gap": 0.12
+}

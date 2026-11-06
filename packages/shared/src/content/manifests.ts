@@ -151,6 +151,11 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Slick ground (frost): a tank resting with at least half its treads on it slides one cell
+   * every `ticks` ticks toward a side that drops away below it, until it reaches level ground.
+   */
+  slick: z.strictObject({ ticks: z.number().int().min(1).max(255) }).optional(),
+  /**
    * Compaction (mud): when a crater is carved out of this material, the blast packs the cells
    * beneath each carved column instead of only blowing them away. Per column, `ratio` cells of
    * this material below the crater floor become `into` for every carved cell (at least one), so
@@ -175,6 +180,12 @@ export const MaterialSchema = z.strictObject({
       hot: z.boolean().default(false),
       /** Soil that grows the theme's grass on exposed tops (and tufts in the air above). */
       topsoil: z.boolean().default(false),
+      /** Chars black and smoulders with embers after a blast, like topsoil, without the grass. */
+      char: z.boolean().default(false),
+      /** Licks pixel flames and black smoke up from exposed tops (napalm, burning oil). */
+      flames: z.boolean().default(false),
+      /** Crystalline: scattered cells glint white for a moment, in whole-cell steps (frost). */
+      glint: z.boolean().default(false),
     })
     .optional(),
 });
@@ -231,6 +242,11 @@ const explosionBody = {
   falloff: z.enum(['linear', 'flat']),
   /** Horizontal shove applied to tanks in range at the centre, in cells. */
   push: z.number().int().min(0).max(200),
+  /**
+   * Frosts tanks in range for this many of their own turns: a frosted tank fires at no more than
+   * half power. 0 = none.
+   */
+  chill: z.number().int().min(0).max(3).default(0),
   terrainOp: EmbeddedTerrainOpSchema.nullable(),
   effects: EffectProfileSchema,
 };
@@ -259,6 +275,8 @@ const WeaponIdSchema = ContentIdSchema.refine(
  * Velocities are in cells/tick: `inherit` × the parent's velocity, children fanned evenly across
  * ±`spread` horizontally, ±`jitter` at random (match PRNG) on both axes, and `up` added upward.
  * `bounce` > 0 replaces the vertical part with a rebound: −|parent vy| × `bounce`.
+ * `stagger` lifts each child a little more than the last, counted in the parent's direction of
+ * travel, so the far children fly higher and land one after another (MIRV's rolling carpet).
  */
 export const SpawnSchema = z.strictObject({
   /** One weapon, or a pool picked from at random per child (Mystery). */
@@ -269,6 +287,7 @@ export const SpawnSchema = z.strictObject({
   spread: z.number().min(0).max(20).default(0),
   jitter: z.number().min(0).max(20).default(0),
   up: z.number().min(-20).max(20).default(0),
+  stagger: z.number().min(0).max(4).default(0),
 });
 export type Spawn = z.infer<typeof SpawnSchema>;
 
@@ -337,6 +356,20 @@ export const WeaponSchema = z.strictObject({
   }),
   /** Sounds (cosmetic, client only): `fire` replaces the default shot sound. */
   audio: z.strictObject({ fire: ref('audio') }).optional(),
+  /**
+   * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
+   * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
+   * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
+   * smoke; `trail: false` leaves no trail line.
+   */
+  look: z
+    .strictObject({
+      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor']).default('spark'),
+      trail: z.boolean().default(true),
+      /** Scale of a `meteor` head and its streak. */
+      size: z.number().min(0.5).max(3).default(1),
+    })
+    .optional(),
 });
 export type WeaponManifest = z.infer<typeof WeaponSchema>;
 

@@ -52,6 +52,8 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** Highest power (of 1000) a frosted tank can fire with. */
+export const CHILL_POWER = 500;
 /** Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. */
 export const BOT_THINK_TICKS = 50;
 /** Longest flight the AI's predictor simulates. */
@@ -135,6 +137,8 @@ export interface Tank extends TankHandle {
   fallVel: number;
   /** Cells sunk into quicksand-like ground since the tank last fell or the round started. */
   sunk: number;
+  /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
+  chill: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -171,6 +175,7 @@ interface RtExplosion {
   dt: number;
   linear: boolean;
   push: number;
+  chill: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -185,6 +190,7 @@ interface RtSpawn {
   spread: number;
   jitter: number;
   up: number;
+  stagger: number;
 }
 
 interface RtZoneSpec {
@@ -434,6 +440,7 @@ export class World implements SimApi {
           spread: toFixed(sp.spread),
           jitter: toFixed(sp.jitter),
           up: toFixed(sp.up),
+          stagger: toFixed(sp.stagger),
         },
       };
     }
@@ -484,6 +491,7 @@ export class World implements SimApi {
       dt: damageTypeIndex(e.damageType),
       linear: e.falloff === 'linear',
       push: e.push,
+      chill: e.chill,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -553,6 +561,7 @@ export class World implements SimApi {
         fallFrom: 0,
         fallVel: 0,
         sunk: 0,
+        chill: 0,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -618,6 +627,7 @@ export class World implements SimApi {
       tank.fallFrom = 0;
       tank.fallVel = 0;
       tank.sunk = 0;
+      tank.chill = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -680,7 +690,7 @@ export class World implements SimApi {
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
-      !this.tanks.some((t) => t.falling)
+      !this.tanks.some((t) => t.falling || (t.alive && this.slipDir(t) !== 0))
     );
   }
 
@@ -827,7 +837,8 @@ export class World implements SimApi {
     const a = t.angle * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = Math.trunc((this.maxSpeed * t.power) / 1000);
+    const power = t.chill > 0 ? Math.min(t.power, CHILL_POWER) : t.power;
+    const speed = Math.trunc((this.maxSpeed * power) / 1000);
     const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
     const y = (t.y - TANK_H) * FP - Math.trunc((BARREL * s) / FP);
     this.projectiles.push({
@@ -1162,6 +1173,7 @@ export class World implements SimApi {
         vy += this.rng.range(-j, j) << 8;
       }
       vy -= s.up;
+      if (s.stagger > 0) vy -= s.stagger * (p.vx >= 0 ? i : s.count - 1 - i);
       this.projectiles.push({
         id: this.nextProjectileId++,
         weapon,
@@ -1402,6 +1414,13 @@ export class World implements SimApi {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
         this.damageTank(t, Math.trunc(base * scale), owner);
       }
+      if (e.chill > 0) {
+        // frosted for its next own turns; a tank that frosts itself keeps it past this turn too
+        const turns =
+          e.chill + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        if (turns > t.chill) t.chill = turns;
+        this.emit('frosted', t.x, t.y - TANK_H / 2, TANK_HALF, { player: t.player });
+      }
       if (e.push > 0 && dx !== 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
         t.x = Math.max(
@@ -1546,6 +1565,48 @@ export class World implements SimApi {
   }
 
   /**
+   * Which way a tank on slick ground (frost) slides: toward a side whose surface drops below the
+   * row it stands on, lower side first; 0 when it is not mostly on slick cells or the ground is
+   * level. Also returns the slick material's ticks per cell through `slipTicks`.
+   */
+  private slipDir(t: Tank): number {
+    const g = this.grid;
+    if (t.y >= g.height || t.sunk !== 0) return 0;
+    const st = this.mats.slickTicks;
+    const row = t.y * g.width;
+    let n = 0;
+    let solid = 0;
+    let ticks = 0;
+    for (let x = Math.max(0, t.x - TANK_HALF); x < Math.min(g.width, t.x + TANK_HALF); x++) {
+      const m = g.material[row + x]!;
+      if (m === 0) continue;
+      solid++;
+      if (st[m] !== 0) {
+        n++;
+        ticks = st[m]!;
+      }
+    }
+    if (solid === 0 || n * 2 < solid) return 0;
+    const l = t.x - TANK_HALF - 1 >= 0 ? g.surfaceY(t.x - TANK_HALF - 1) : -1;
+    const r = t.x + TANK_HALF < g.width ? g.surfaceY(t.x + TANK_HALF) : -1;
+    if (l <= t.y && r <= t.y) return 0;
+    const dir = l > r ? -1 : 1;
+    const nx = t.x + dir;
+    if (nx < TANK_HALF || nx >= g.width - TANK_HALF) return 0;
+    this.slipTicks = ticks;
+    return dir;
+  }
+
+  private slipTicks = 1;
+
+  /** On slick ground (frost) the tank slides downhill one cell every few ticks. */
+  private slip(t: Tank): void {
+    const dir = this.slipDir(t);
+    if (dir === 0 || this.tick % this.slipTicks !== 0) return;
+    t.x += dir;
+  }
+
+  /**
    * On `sink` ground (quicksand) the tank settles into it: one cell every `sink.ticks` ticks, up to
    * `sink.depth` cells. Its lower body then sits inside the terrain, which the renderer draws over
    * it. It needs sink material under at least half the treads.
@@ -1604,6 +1665,7 @@ export class World implements SimApi {
         // once it has started to sink the tank is bogged down and no longer slides
         this.sink(t);
         if (t.sunk === 0 && this.grid.settling) this.slide(t);
+        if (!t.falling) this.slip(t);
       } else {
         t.falling = false;
         const dist = t.y - t.fallFrom;
@@ -1665,6 +1727,8 @@ export class World implements SimApi {
   }
 
   private endTurn(): void {
+    const active = this.tanks[this.activePlayer];
+    if (active && active.chill > 0) active.chill--;
     this.turn++;
     turnDecay(this.grid, this.mats);
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
@@ -1859,6 +1923,7 @@ export class World implements SimApi {
         health: t.health,
         alive: t.alive,
         power: t.power,
+        chill: t.chill,
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -1941,6 +2006,7 @@ export class World implements SimApi {
         .num(t.fallFrom)
         .num(t.fallVel)
         .num(t.sunk)
+        .num(t.chill)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)

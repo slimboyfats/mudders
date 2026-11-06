@@ -1,0 +1,45 @@
+{
+  "id": "material.frost",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Frost",
+    "description": "Flash-frozen ground: a glittering, slippery skin. Tanks slide down frosted slopes, it holds overhangs while frozen, shatters easily, and thaws into mud at the end of the third turn.",
+    "since": "core@0.13.0",
+    "color": "#cfe8f6"
+  },
+  "cell": 41,
+  "settle": "static",
+  "density": 120,
+  "strength": {
+    "blast": 0.8,
+    "kinetic": 0.9,
+    "heat": 0.15,
+    "shock": 0.7,
+    "dig": 1.2,
+    "corrosive": 6
+  },
+  "cohesion": 0,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.water",
+      "chance": 0.25
+    },
+    {
+      "with": "material.lava",
+      "into": "material.water",
+      "chance": 0.5
+    }
+  ],
+  "decay": {
+    "into": "material.mud",
+    "turns": 3
+  },
+  "slick": {
+    "ticks": 2
+  },
+  "look": {
+    "glint": true
+  }
+}
