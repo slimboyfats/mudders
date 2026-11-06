@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -46,6 +46,7 @@
     "flight.static",
     "gen.badlands",
     "gen.hills",
+    "gen.marsh",
     "gen.village",
     "material.ash",
     "material.brick",
@@ -58,8 +59,10 @@
     "material.lava",
     "material.leaf",
     "material.liquid-dirt",
+    "material.mud",
     "material.napalm",
     "material.oil",
+    "material.packed-mud",
     "material.rock",
     "material.rock-lit",
     "material.rock-shade",

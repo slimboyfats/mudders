@@ -53,6 +53,10 @@ export class MaterialTable {
   /** Ticks per sunk cell (0 = tanks do not sink) and the deepest a tank sinks. */
   readonly sinkTicks = new Uint8Array(256);
   readonly sinkDepth = new Uint8Array(256);
+  /** Compaction (§4b): cell a carve packs this material into (KEEP = none), ratio ×256, max depth. */
+  readonly compactInto = new Uint8Array(256).fill(KEEP);
+  readonly compactRatio = new Uint16Array(256);
+  readonly compactDepth = new Uint8Array(256);
   /** id → cell byte. */
   private readonly cells: Readonly<Record<string, number>>;
   readonly ids: readonly string[];
@@ -112,6 +116,11 @@ export class MaterialTable {
       this.contactDamage[c] = m.contact?.damage ?? 0;
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;
+      if (m.compact) {
+        this.compactInto[c] = ref(m.compact.into);
+        this.compactRatio[c] = Math.round(m.compact.ratio * 256);
+        this.compactDepth[c] = m.compact.maxDepth;
+      }
     }
   }
 

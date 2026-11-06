@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -178,7 +178,7 @@ export const NetSetupSchema = z.object({
     .min(2)
     .max(8),
   size: z.enum(Object.keys(MAP_SIZES) as [keyof typeof MAP_SIZES, ...(keyof typeof MAP_SIZES)[]]),
-  scenery: z.enum(['none', 'village', 'badlands']),
+  scenery: z.enum(['none', 'village', 'badlands', 'marsh']),
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),
   wind: z.enum(['none', 'constant', 'perTurn']),

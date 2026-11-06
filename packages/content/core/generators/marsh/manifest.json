@@ -1,0 +1,14 @@
+{
+  "id": "gen.marsh",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Marsh",
+    "description": "Deep rolling hills whose valleys are filled with mud. Shots into the low ground squash it down instead of blasting it out, leaving shallow dents with packed floors.",
+    "since": "core@0.11.0"
+  },
+  "extends": "gen.hills",
+  "amplitude": 0.2,
+  "sandChance": 0.2,
+  "mudDepth": 36,
+  "mudLevel": 0.01
+}
