@@ -386,6 +386,58 @@ export class EffectSystem {
         }
         break;
       }
+      case 'tsunamiRise':
+        this.shakeAmp = Math.max(this.shakeAmp, 5);
+        this.shakeStart = e.tick;
+        break;
+      case 'tsunami': {
+        // the breaking lip of a Dirt Tsunami: dust blown forward off the crest, plus a rumble
+        const dir = e.params.dir ?? 1;
+        const rng = this.rngFor(e, 17);
+        this.shakeAmp = Math.max(this.shakeAmp, Math.min(3, e.radius / 12));
+        this.shakeStart = e.tick;
+        const n = Math.round(Math.min(14, 3 + e.radius / 4) * this.mult) + 1;
+        for (let i = 0; i < n; i++) {
+          const x = Math.round(e.x - dir * rng.range(0, 6));
+          const y = this.surfaceNear(x, e.y, 30);
+          if (y < 0) continue;
+          this.particles.add({
+            x,
+            y: y - 1,
+            vx: dir * rng.range(0.6, 1.8),
+            vy: -rng.range(0.2, 0.9),
+            life: rng.range(16, 34),
+            size: rng.range(1, 3),
+            color: this.dustColor(x, y + 1),
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
+      case 'tsunamiCrash': {
+        // the wave comes down: a heavy thud and a wall of dust rolling on past the heap
+        const dir = e.params.dir ?? 1;
+        const rng = this.rngFor(e, 19);
+        this.shakeAmp = Math.max(this.shakeAmp, 9);
+        this.shakeStart = e.tick;
+        const n = Math.round(Math.min(60, 12 + e.radius) * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          const x = Math.round(e.x + dir * rng.range(-e.radius, e.radius * 1.5));
+          const y = this.surfaceNear(x, e.y, 60);
+          if (y < 0) continue;
+          this.particles.add({
+            x,
+            y: y - Math.round(rng.range(1, 6)),
+            vx: dir * rng.range(0.2, 1.4),
+            vy: -rng.range(0.1, 0.7),
+            life: rng.range(30, 60),
+            size: rng.range(2, 4),
+            color: this.dustColor(x, y + 1),
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
       case 'resonate':
         this.ripples.push({
           x: e.x,

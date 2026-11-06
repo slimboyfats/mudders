@@ -1,0 +1,47 @@
+{
+  "id": "weapon.dirt-tsunami",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dirt Tsunami",
+    "description": "The ground at the impact rears up into a rolling wave of real dirt that runs away from you, growing as it scoops the surface, lifting tanks onto its crest and dumping them under the heap where it crashes.",
+    "since": "core@0.15.0",
+    "category": "earthmover"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 12,
+        "effects": {
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.dirt-tsunami"
+      },
+      "radius": 320,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 25,
+    "terrainValue": 0.9
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

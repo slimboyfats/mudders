@@ -1,0 +1,19 @@
+{
+  "id": "terrainop.dirt-tsunami",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dirt Tsunami",
+    "description": "The ground heaves up into a wave of its own dirt that rolls away from the shooter (with a smaller backwash), scooping up the surface as it goes, carrying tanks on its crest and crashing down as a heap at the end of its run. Rock and props hold; a wall taller than the crest breaks it early.",
+    "since": "core@0.15.0"
+  },
+  "behaviour": "terrainop.dirt-tsunami",
+  "speed": 2,
+  "scoop": 3,
+  "rise": 30,
+  "riseCols": 40,
+  "maxLoad": 1600,
+  "length": 56,
+  "spray": 2,
+  "crash": 3,
+  "back": 0.35
+}
