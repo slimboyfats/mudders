@@ -38,6 +38,18 @@ at `/signal`, so only port 5173 has to be reachable. `pnpm build` then
 
 ```
 
+## Publish to GitHub Pages
+
+`pnpm deploy:pages` builds the client for `https://slimboyfats.github.io/mudders/` and pushes the
+files to the `gh-pages` branch. Nothing builds on GitHub: Pages only copies the files (the repo is
+public, so this is free). One-time setup: repo **Settings → Pages → Build and deployment → Deploy
+from a branch → `gh-pages` / `(root)`**.
+
+Without a lobby server the site still plays local hot-seat games, bots, the sandbox and **Direct
+game (no server)**, and works offline once loaded. For lobbies, public games and room codes, connect
+the Render blueprint (`render.yaml`) and deploy with
+`VITE_SIGNAL_URL=https://<service>.onrender.com pnpm deploy:pages`.
+
 - [Requirements](docs/REQUIREMENTS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Conventions for coding agents](CLAUDE.md)
