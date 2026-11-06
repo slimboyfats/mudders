@@ -590,6 +590,13 @@ void main() {
     else if (k < 0.75) a = 0.6;
     else a = bayer < 0.5 ? 0.35 : 0.0;
     if (a <= 0.0) discard;
+  } else if (v_shape == 5) { // solid pixel blob: opaque cells, one dithered edge band
+    vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
+    vec2 cell = floor((dev - u_origin) / u_scale);
+    float k = length(cell + 0.5 - v_blob.xy) / max(v_blob.z, 0.5);
+    if (k > 1.0) discard;
+    ivec2 ic = ivec2(cell) & 1;
+    if (k > 0.86 && (ic.x ^ ic.y) == 1) discard;
   }
   o = vec4(v_color.rgb * v_color.a * a, v_color.a * a); // premultiplied
 }`;

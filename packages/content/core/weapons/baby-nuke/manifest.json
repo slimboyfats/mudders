@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Baby Nuke",
-    "description": "A very big bang. Carves a deep crater and hurts everything in it.",
+    "description": "A very big bang. Carves a deep crater and hurts everything in it. It pulls in with a small pop, then the main blast throws up a mushroom cloud and a shockwave.",
     "category": "explosive",
     "since": "core@0.3.0"
   },
@@ -14,20 +14,15 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
-        "radius": 45,
-        "damage": 80,
-        "effects": {
-          "burst": {
-            "count": 70
-          },
-          "flash": {
-            "strength": 1.5
-          },
-          "shake": {
-            "strength": 4
-          }
-        }
+        "use": "explosion.nuke-pull",
+        "radius": 16
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.baby-nuke-core",
+        "inherit": 0,
+        "count": 1
       }
     }
   ],

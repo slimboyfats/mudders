@@ -2,6 +2,7 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
+import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
 
@@ -82,6 +83,7 @@ export class EffectSystem {
   private glows: Glow[] = [];
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
+  private mushrooms: Mushroom[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -137,6 +139,9 @@ export class EffectSystem {
         }
         break;
       }
+      case 'nukeBlast':
+        this.nuke(e);
+        break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
         this.shakeStart = e.tick;
@@ -358,6 +363,72 @@ export class EffectSystem {
       default:
         break; // unknown effect: ignored by contract
     }
+  }
+
+  /**
+   * A nuke's main blast: the mushroom cloud, a map-wide distortion shockwave (the approved moving-pixel lens band,
+   * scaled up, no light ring), a ground dust front, and debris and sparks thrown out from the
+   * centre in every direction.
+   */
+  private nuke(e: EffectEvent): void {
+    const r = e.radius;
+    const k = e.params.strength ?? 1;
+    // the mushroom cloud starts with the bang, together with the shockwave
+    this.mushrooms.push(makeMushroom(e.x, e.y, r, e.tick, this.rngFor(e, 31).next() * 4294967296));
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 70,
+      maxR: r * 7,
+      width: 26,
+      strength: 1.5 * k,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 6,
+      dur: 60,
+      maxR: r * 4.5,
+      width: 12,
+      strength: 0.9 * k,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: r * 4,
+      start: e.tick,
+      dur: 46,
+      rng: this.rngFor(e, 37),
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 4 + r / 12);
+    this.shakeStart = e.tick;
+    const rng = this.rngFor(e, 41);
+    const base = this.dustColor(e.x, e.y + r * 0.5);
+    const n = Math.round((120 + r * 2) * this.mult);
+    const fast = 3 + r / 20;
+    for (let i = 0; i < n; i++) {
+      // a full circle, biased upward: whatever is below is ground and stops it anyway
+      const a = rng.range(-0.15, 1.15) * Math.PI;
+      const s = rng.range(0.35, 1) * fast;
+      const spark = i % 2 === 0;
+      this.particles.add({
+        x: e.x + Math.cos(a) * r * 0.3,
+        y: e.y - Math.sin(a) * r * 0.3,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(50, 100),
+        size: spark ? 1 : rng.range(1.5, 2.5),
+        color: spark ? (rng.next() < 0.4 ? 0xfff0a0 : 0xff7a1a) : shade(base, rng.range(0.7, 1.2)),
+        kind: spark ? PKind.Spark : PKind.Chunk,
+      });
+    }
+  }
+
+  /** Mushroom clouds, drawn over particles; finished ones are dropped. */
+  drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    if (this.mushrooms.length === 0) return;
+    this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t));
   }
 
   /** Add a coloured sky tint (§2a sky reaction); `amount` ~0.5 is a big flash. */
@@ -633,6 +704,7 @@ export class EffectSystem {
     this.glows = [];
     this.fronts = [];
     this.bolts = [];
+    this.mushrooms = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

@@ -11,7 +11,7 @@ describe('terrainop.carve', () => {
     // big-radius impacts straight down onto each half
     w.projectiles.push({
       id: 1,
-      weapon: w.weaponByIndex('weapon.baby-nuke'),
+      weapon: w.weaponByIndex('weapon.baby-nuke-core'),
       owner: 0,
       x: 100 * 65536,
       y: 40 * 65536,
@@ -23,7 +23,7 @@ describe('terrainop.carve', () => {
     });
     w.projectiles.push({
       id: 2,
-      weapon: w.weaponByIndex('weapon.baby-nuke'),
+      weapon: w.weaponByIndex('weapon.baby-nuke-core'),
       owner: 0,
       x: 300 * 65536,
       y: 40 * 65536,
@@ -34,7 +34,7 @@ describe('terrainop.carve', () => {
       data: [],
     });
     w.phase = 'resolve';
-    for (let i = 0; i < 20 && w.projectiles.length; i++) w.step();
+    for (let i = 0; i < 200 && w.projectiles.length; i++) w.step();
     let dirtDepth = 0;
     let rockDepth = 0;
     for (let y = 50; y < 200 && w.grid.get(100, y) === 0; y++) dirtDepth++;

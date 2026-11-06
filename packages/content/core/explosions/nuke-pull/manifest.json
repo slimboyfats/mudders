@@ -1,0 +1,29 @@
+{
+  "id": "explosion.nuke-pull",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Nuke pull-in",
+    "description": "A nuke's opening beat: a small implosion with a pop that heaps the ground onto the impact point before the main blast. No damage.",
+    "since": "core@0.12.0"
+  },
+  "radius": 24,
+  "damage": 0,
+  "damageType": "shock",
+  "falloff": "linear",
+  "push": 0,
+  "terrainOp": {
+    "use": "terrainop.attract",
+    "tankPull": 4
+  },
+  "effects": {
+    "burst": {
+      "count": 24
+    },
+    "flash": {
+      "strength": 0.9
+    },
+    "shake": {
+      "strength": 1.5
+    }
+  }
+}
