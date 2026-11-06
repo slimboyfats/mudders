@@ -160,6 +160,9 @@ export class EffectSystem {
       case 'fireball':
         this.fireball(e, e.params.strength ?? 1);
         break;
+      case 'meteorCall':
+        this.meteorCall(e);
+        break;
       case 'geyser':
         this.geyser(e, e.params.strength ?? 1);
         break;
@@ -738,6 +741,49 @@ export class EffectSystem {
       normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
       normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
     }
+  }
+
+  /**
+   * A Meteor Shower's mark: a red flare shoots straight up out of the ground and the sky turns
+   * an ominous red before the meteors come in.
+   */
+  private meteorCall(e: EffectEvent): void {
+    const rng = this.rngFor(e, 59);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 30,
+      maxR: 40,
+      width: 8,
+      strength: 0.6,
+    });
+    const n = Math.round(40 * this.mult) + 10;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 2,
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(2.5, 6),
+        life: rng.range(25, 50),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: rng.next() < 0.3 ? 0xffe070 : 0xff3a20,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - rng.range(2, 14),
+        vx: rng.range(-0.1, 0.1),
+        vy: -rng.range(0.1, 0.4),
+        life: rng.range(60, 100),
+        size: rng.range(3, 6),
+        color: 0x8a2a24,
+        kind: PKind.Smoke,
+      });
+    }
+    this.tintSky(DT_LOOK[2]!, 0.45);
   }
 
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */

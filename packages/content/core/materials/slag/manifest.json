@@ -1,0 +1,42 @@
+{
+  "id": "material.slag",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Slag",
+    "description": "Ground melted to glowing slag by a meteor strike. It lines the crater, burns a tank sitting in it at the end of the turn, then cools to dark meteorite rock.",
+    "since": "core@0.14.0",
+    "color": "#d8401a"
+  },
+  "cell": 41,
+  "settle": "static",
+  "density": 210,
+  "strength": {
+    "blast": 1.2,
+    "kinetic": 1.2,
+    "heat": 6,
+    "shock": 1.5,
+    "dig": 1.2,
+    "corrosive": 1
+  },
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "material.meteorite",
+    "turns": 2
+  },
+  "contact": {
+    "damage": 6
+  },
+  "reactions": [
+    {
+      "with": "material.ice",
+      "other": "material.water",
+      "chance": 0.2
+    }
+  ],
+  "look": {
+    "cycle": ["#c8301a", "#e8501c", "#ff7a24", "#ffa838", "#ff7a24", "#e8501c"],
+    "cycleTicks": 6,
+    "hot": true
+  }
+}

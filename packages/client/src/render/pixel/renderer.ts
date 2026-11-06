@@ -4,6 +4,7 @@ import type {
   RenderPalette,
   Renderer,
   RendererOptions,
+  ShellLook,
   SnapshotStream,
   Vec2,
 } from '../types';
@@ -205,6 +206,8 @@ export class PixelRenderer implements Renderer {
   /** Latest snapshot state the renderer mirrors (read-only views). */
   private terrain: Uint8Array;
   private entities: EntityView[] = [];
+  /** Meteor shells: last position and per-tick motion by projectile id (for streaks and trails). */
+  private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
   private debris: RenderSnapshot['debris'] = {
@@ -834,6 +837,87 @@ export class PixelRenderer implements Renderer {
     }
   }
 
+  /**
+   * Meteors: a dense tail of fire filled in along each tick's move, burning out into a long
+   * column of black smoke, with sparks shed backwards. Waiting (hidden) meteors and the jump to
+   * their entry point are skipped.
+   */
+  private stepMeteors(shells: Readonly<Record<string, ShellLook>>): void {
+    const live = this.meteorLive;
+    live.clear();
+    for (const e of this.entities) {
+      if (e.kind !== 'projectile') continue;
+      const look = shells[e.weapon];
+      if (look?.shell !== 'meteor') continue;
+      live.add(e.id);
+      const m = this.meteors.get(e.id);
+      if (!m) {
+        this.meteors.set(e.id, { x: e.x, y: e.y, dx: 0, dy: 0 });
+        continue;
+      }
+      const dx = e.x - m.x;
+      const dy = e.y - m.y;
+      const x0 = m.x;
+      const y0 = m.y;
+      m.x = e.x;
+      m.y = e.y;
+      if (dy <= 0 || dy > 24 || Math.abs(dx) > 24) {
+        m.dx = 0;
+        m.dy = 0;
+        continue;
+      }
+      m.dx = dx;
+      m.dy = dy;
+      if (e.y < -8) continue;
+      const sz = look.size ?? 1;
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), dy) / 1.5));
+      const mult = QUALITY_PARTICLES[this.quality].mult;
+      let r = (Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503)) >>> 0;
+      for (let i = 0; i < steps; i++) {
+        r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+        const t = i / steps;
+        this.particles.add({
+          x: x0 + dx * t + ((r & 3) - 1.5) * 0.6 * sz,
+          y: y0 + dy * t + (((r >>> 2) & 3) - 1.5) * 0.6 * sz,
+          vx: -dx * 0.03,
+          vy: -dy * 0.03 - 0.15,
+          life: (12 + ((r >>> 4) & 15)) * (0.7 + sz * 0.3),
+          size: Math.round((2 + ((r >>> 8) & 1)) * sz),
+          color: 0,
+          kind: PKind.Flame,
+        });
+        if (((r >>> 9) & 3) === 0 && mult > 0.4) {
+          this.particles.add({
+            x: x0 + dx * t,
+            y: y0 + dy * t,
+            vx: -dx * 0.12 + (((r >>> 12) & 15) - 7.5) * 0.06,
+            vy: -dy * 0.12 - 0.2,
+            life: 14 + ((r >>> 16) & 15),
+            size: 1,
+            color: (r >>> 20) & 1 ? 0xffe070 : 0xff8a20,
+            kind: PKind.Spark,
+          });
+        }
+      }
+      // the smoke column it leaves hanging in the sky
+      if (((r >>> 24) & 1) === 0 || sz > 1) {
+        this.particles.add({
+          x: x0 - dx * 0.5,
+          y: y0 - dy * 0.5,
+          vx: this.wind * 0.06,
+          vy: -0.05,
+          life: 110 + ((r >>> 25) & 63),
+          size: Math.round((3 + ((r >>> 26) & 3)) * sz),
+          color: (r >>> 28) & 1 ? 0x2a2428 : 0x4a4044,
+          kind: PKind.Smoke,
+        });
+      }
+    }
+    for (const id of [...this.meteors.keys()]) if (!live.has(id)) this.meteors.delete(id);
+  }
+
+  private readonly meteorLive = new Set<number>();
+
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
     this.stepWrecks();
@@ -843,6 +927,7 @@ export class PixelRenderer implements Renderer {
     // burning shells shed flames as they fly
     const shells = this.palette.shells;
     if (shells) {
+      this.stepMeteors(shells);
       for (const e of this.entities) {
         if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'fire') continue;
         const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
@@ -1232,7 +1317,12 @@ export class PixelRenderer implements Renderer {
     const shells = this.palette.shells;
     for (const e of this.entities) {
       if (e.kind !== 'projectile') continue;
-      if (shells?.[e.weapon]?.shell === 'fire') {
+      const look = shells?.[e.weapon];
+      if (look?.shell === 'meteor') {
+        this.drawMeteor(e.id, e.x, e.y, look.size ?? 1);
+        continue;
+      }
+      if (look?.shell === 'fire') {
         // a burning gob: orange body, yellow-white heart
         const x = Math.floor(e.x) + 0.5;
         const y = Math.floor(e.y) + 0.5;
@@ -1244,6 +1334,32 @@ export class PixelRenderer implements Renderer {
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
     }
+  }
+
+  /** A meteor: a white-hot head on a tapering streak that bands yellow → orange → red. */
+  private drawMeteor(id: number, ex: number, ey: number, sz: number): void {
+    const m = this.meteors.get(id);
+    if (!m || m.dy <= 0) return; // waiting above the map
+    const g = this.additive;
+    const len = Math.hypot(m.dx, m.dy) || 1;
+    const ux = m.dx / len;
+    const uy = m.dy / len;
+    const n = Math.round(14 * sz);
+    const BANDS = [0xfff6d0, 0xffd060, 0xff8a20, 0xe04a10, 0xa02810] as const;
+    for (let k = n; k >= 1; k--) {
+      const f = k / n;
+      const x = Math.floor(ex - ux * k * 1.4) + 0.5;
+      const y = Math.floor(ey - uy * k * 1.4) + 0.5;
+      const w = Math.max(1, Math.round(3 * sz * (1 - f * 0.75)));
+      g.push(x, y, w, w, BANDS[Math.min(4, Math.floor(f * 5))]!, 1 - f * 0.55, Shape.Pixel);
+    }
+    const x = Math.floor(ex) + 0.5;
+    const y = Math.floor(ey) + 0.5;
+    const hs = Math.round(4 + 3 * sz);
+    g.push(x, y, hs * 2, hs * 2, 0xff6a14, 0.35, Shape.Pixel);
+    g.push(x, y, hs, hs, 0xff9a30, 0.7, Shape.Pixel);
+    this.normal.push(x, y, Math.round(2 + 2 * sz), Math.round(2 + 2 * sz), 0xffd890, 1);
+    g.push(x, y, Math.round(1 + sz), Math.round(1 + sz), 0xffffff, 1);
   }
 
   unmount(): void {
