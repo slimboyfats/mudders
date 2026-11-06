@@ -46,6 +46,8 @@ const SCENERY_GEN = {
   city: 'gen.city',
   islands: 'gen.islands',
   caves: 'gen.caves',
+  glacier: 'gen.glacier',
+  claypits: 'gen.claypits',
 } as const;
 
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
@@ -54,13 +56,15 @@ export interface MatchSetup {
   size: MapSize;
   /**
    * Props on the map (§4c): bare hills, a village with houses, trees and boulders, or badlands
-   * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts, a city of towers and blocks, floating islands over a deep drop, or a cave under a stone roof.
+   * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts, a city of towers and blocks, floating islands over a deep drop, or a cave under a stone roof, a glacier with frozen lakes, or clay pits.
    */
   scenery: keyof typeof SCENERY_GEN;
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
   wind: WindType;
+  /** Weather (§3.4): rain or snow change shots and terrain; random picks one from the match seed. */
+  weather?: WeatherPick | undefined;
   suddenDeath: boolean;
   startingCash: number;
   /**
@@ -84,6 +88,16 @@ export function defaultTeams(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i % 2);
 }
 
+export const WEATHER_PICKS = ['clear', 'rain', 'snow', 'random'] as const;
+export type WeatherPick = (typeof WEATHER_PICKS)[number];
+
+/** The `weather.*` id a pick plays with (random: drawn from the seed, so every peer agrees). */
+export function weatherFor(pick: WeatherPick, seed: number): string | undefined {
+  const p = pick === 'random' ? (['clear', 'rain', 'snow'] as const)[(seed >>> 0) % 3] : pick;
+  if (!p) return undefined;
+  return p === 'clear' ? undefined : `weather.${p}`;
+}
+
 const KEY = 'mudders.setup.v1';
 
 export function defaultSetup(): MatchSetup {
@@ -95,6 +109,7 @@ export function defaultSetup(): MatchSetup {
     rounds: 3,
     turnTimer: 15,
     wind: 'perTurn',
+    weather: 'clear',
     suddenDeath: true,
     startingCash: 3000,
     teams: null,
@@ -109,6 +124,7 @@ export function loadSetup(): MatchSetup {
       const s = { ...defaultSetup(), ...(JSON.parse(raw) as Partial<MatchSetup>) };
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
       if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
+      if (!s.weather || !WEATHER_PICKS.includes(s.weather)) s.weather = 'clear';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
       const tanks: unknown = s.tanks;
       s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
@@ -190,6 +206,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     tanks: activeTanks(s),
     rules,
+    weather: weatherFor(s.weather ?? 'clear', seed),
     ...(teams ? { teams } : {}),
   };
 }

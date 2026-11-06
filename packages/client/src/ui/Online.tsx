@@ -72,6 +72,7 @@ function rulesOf(): LobbyRules {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
     wind: s.wind,
+    weather: s.weather,
     suddenDeath: s.suddenDeath,
     startingCash: s.startingCash,
     teams: s.teams,

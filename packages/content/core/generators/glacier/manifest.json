@@ -1,0 +1,15 @@
+{
+  "id": "gen.glacier",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Glacier",
+    "description": "Steep hills with ice caps on the peaks and flat frozen lakes in the valleys. Tanks slide on the ice, blasts shatter it into sliding shards, and fire melts it into water.",
+    "since": "core@0.21.0"
+  },
+  "extends": "gen.hills",
+  "amplitude": 0.26,
+  "sandChance": 0,
+  "iceDepth": 10,
+  "iceLevel": 0.03,
+  "iceCap": 0.1
+}

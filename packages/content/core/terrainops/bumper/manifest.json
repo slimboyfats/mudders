@@ -1,0 +1,20 @@
+{
+  "id": "terrainop.bumper",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bumper",
+    "description": "A pinball bumper post pops out of the ground and kicks every tank in reach (but the shooter) high across the map; the closer, the farther. Thrown tanks bounce off hillsides and the map edges and land as a normal fall, counted over at most landFall cells.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.bumper",
+  "windup": 10,
+  "minRange": 140,
+  "maxRange": 300,
+  "spread": 30,
+  "apex": 90,
+  "bounces": 4,
+  "restitution": 75,
+  "landFall": 28,
+  "chuteFall": 0.8,
+  "chuteDrag": 97
+}

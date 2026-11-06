@@ -1,0 +1,48 @@
+{
+  "id": "audio.drill",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Drill",
+    "description": "A drill torpedo grinding through the ground: a buzzing metallic whirr over a low gravel crunch, one bite per heave.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 220,
+        "to": 180,
+        "hold": 0.03,
+        "release": 0.06,
+        "volume": 0.22,
+        "vibrato": { "rate": 28, "depth": 3 }
+      },
+      {
+        "wave": "metal",
+        "freq": 1400,
+        "to": 900,
+        "release": 0.05,
+        "volume": 0.18
+      },
+      {
+        "wave": "noise",
+        "freq": 500,
+        "to": 250,
+        "release": 0.07,
+        "volume": 0.3
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "drill"
+    }
+  ],
+  "gap": 0.04
+}

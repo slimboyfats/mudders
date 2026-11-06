@@ -1,0 +1,58 @@
+{
+  "id": "audio.magnet-hum",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magnet hum",
+    "description": "A buzzing, throbbing electric hum that winds up while a Magnet Mine's field is on.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 55,
+        "to": 110,
+        "attack": 0.3,
+        "hold": 2.0,
+        "release": 0.3,
+        "volume": 0.3,
+        "arp": [0, 0, 12, 0],
+        "arpRate": 0.05
+      },
+      {
+        "wave": "square",
+        "freq": 110,
+        "to": 220,
+        "attack": 0.4,
+        "hold": 1.9,
+        "release": 0.3,
+        "volume": 0.14,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.6
+        }
+      },
+      {
+        "wave": "metal",
+        "freq": 900,
+        "to": 1800,
+        "attack": 0.6,
+        "hold": 1.6,
+        "release": 0.3,
+        "volume": 0.08
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "magnetOn"
+    }
+  ],
+  "gap": 1.5
+}

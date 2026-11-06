@@ -132,3 +132,22 @@ export function shade(rgb: number, k: number): number {
   const b = Math.min(255, Math.round((rgb & 255) * k));
   return (r << 16) | (g << 8) | b;
 }
+
+const AMBIENT_KINDS: readonly AmbientKind[] = ['none', 'rain', 'snow', 'embers', 'stars', 'dust'];
+
+/**
+ * The theme as the match weather shows it: the weather's precipitation replaces the theme's own
+ * ambient particles, and rain wets the ground at least as much as the weather says. Clear = as is.
+ */
+export function withWeather(
+  th: PixelTheme,
+  w: { kind: string; density: number; color: string; wet: number } | undefined,
+): PixelTheme {
+  if (!w) return th;
+  const kind = AMBIENT_KINDS.find((k) => k === w.kind) ?? 'none';
+  return {
+    ...th,
+    ambient: { kind, density: w.density, color: hex(w.color) },
+    wet: Math.max(th.wet, w.wet),
+  };
+}

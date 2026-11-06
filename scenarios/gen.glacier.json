@@ -1,0 +1,58 @@
+{
+  "id": "gen.glacier",
+  "schemaVersion": 1,
+  "description": "A missile fired across the glacier map into a frozen lake: the ice rim shatters into sliding shards.",
+  "subject": "gen.glacier",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.glacier"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 740
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 620
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

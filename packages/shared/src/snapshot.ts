@@ -67,7 +67,7 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance' | 'toxic';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano';
   /** Turns left. */
   turns: number;
   /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */
@@ -78,7 +78,21 @@ export interface ZoneView {
   age?: number;
 }
 
-export type EntityView = TankView | ProjectileView | ZoneView;
+/** A mine waiting on the ground (§4a). */
+export interface MineView {
+  kind: 'mine';
+  /** Stable while the mine lives (renderers key animations on it). */
+  id: number;
+  x: number;
+  y: number;
+  /** Trip radius in cells. */
+  radius: number;
+  look: 'black-hole';
+  armed: boolean;
+  owner: number;
+}
+
+export type EntityView = TankView | ProjectileView | ZoneView | MineView;
 
 export interface RenderSnapshot {
   tick: number;
@@ -102,4 +116,6 @@ export interface RenderSnapshot {
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   theme: string;
+  /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
+  weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;
 }

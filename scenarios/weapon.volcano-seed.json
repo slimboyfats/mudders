@@ -1,0 +1,81 @@
+{
+  "id": "weapon.volcano-seed",
+  "schemaVersion": 1,
+  "description": "Player 0 plants a Volcano Seed next to player 1: the cone grows and erupts; player 1 answers and it erupts again.",
+  "subject": "weapon.volcano-seed",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.volcano-seed": 2
+      }
+    },
+    {
+      "x": 530
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.volcano-seed"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 545
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 900
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

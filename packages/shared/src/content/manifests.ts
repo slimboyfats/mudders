@@ -31,6 +31,7 @@ export const CONTENT_TYPES = [
   'audio',
   'tank',
   'gear',
+  'weather',
 ] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -49,6 +50,7 @@ export const CONTENT_TYPE_FOLDERS: Readonly<Record<ContentType, string>> = {
   audio: 'audio',
   tank: 'tanks',
   gear: 'gear',
+  weather: 'weather',
 };
 
 export function contentTypeOf(id: string): ContentType | undefined {
@@ -171,6 +173,45 @@ export const MaterialSchema = z.strictObject({
       ratio: z.number().min(0.1).max(4),
       /** Thickest packed layer per column. */
       maxDepth: z.number().int().min(1).max(64),
+    })
+    .optional(),
+  /**
+   * Crater rim (ice, clay): when a carve of one of these `damage` types digs a crater, cells of
+   * this material up to `depth` cells beyond where it was carved away become `into`. Ice shatters
+   * into loose shards under blasts and melts into water under heat; clay bakes into brick. With
+   * `chance` below 1, a fixed per-cell hash picks which rim cells turn, for a ragged edge.
+   */
+  rim: z
+    .array(
+      z.strictObject({
+        damage: z.array(DamageTypeSchema).min(1),
+        into: MaterialRefSchema,
+        depth: z.number().int().min(1).max(8),
+        chance: z.number().min(0).max(1).default(1),
+      }),
+    )
+    .max(4)
+    .optional(),
+  /**
+   * Blast-lit (gunpowder): an explosion of one of the `by` damage types that reaches this cell,
+   * without carving it away, turns it into `into` (a burning fuse). Reactions light it from fire
+   * and lava as usual.
+   */
+  ignite: z
+    .strictObject({
+      into: MaterialRefSchema,
+      by: z.array(DamageTypeSchema).min(1).default(['blast', 'heat', 'shock']),
+    })
+    .optional(),
+  /**
+   * Bursts (lit gunpowder): when a cell's tick `decay` runs out, with probability `chance` it
+   * sets off `explosion` there, owned by the player whose turn it is. Its blast lights more
+   * `ignite` cells, so a seam goes off in a chain.
+   */
+  detonate: z
+    .strictObject({
+      explosion: z.lazy(() => EmbeddedExplosionSchema),
+      chance: z.number().min(0).max(1),
     })
     .optional(),
   /**
@@ -327,10 +368,25 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance', 'toxic']).default('gas'),
+  look: z.enum(['gas', 'acid', 'resonance', 'toxic', 'volcano']).default('gas'),
   cloud: ZoneCloudSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
+
+/**
+ * Mine (§4a): plants a mine where the shell lands instead of going off. It sits on the ground
+ * (falling when the ground under it goes) and stays until the round ends. It arms when the turn it
+ * was laid in ends; from then on it trips as soon as any live tank (its owner's too) comes within
+ * `radius` cells of it, or a damaging blast reaches it. A tank already in range when it arms trips
+ * it there and then, and driving into one ends the driver's turn. Tripping runs `weapon`'s impacts
+ * at the mine, owned by whoever laid it. `look` tells renderers how to draw it.
+ */
+export const MineSchema = z.strictObject({
+  weapon: WeaponIdSchema,
+  radius: z.number().int().min(2).max(120),
+  look: z.enum(['black-hole']).default('black-hole'),
+});
+export type MineSpec = z.infer<typeof MineSchema>;
 
 export const ImpactSchema = z.union([
   z.strictObject({ explosion: EmbeddedExplosionSchema }),
@@ -341,6 +397,7 @@ export const ImpactSchema = z.union([
   }),
   z.strictObject({ spawn: SpawnSchema }),
   z.strictObject({ zone: ZoneSchema }),
+  z.strictObject({ mine: MineSchema }),
 ]);
 export type Impact = z.infer<typeof ImpactSchema>;
 
@@ -369,11 +426,15 @@ export const WeaponSchema = z.strictObject({
    * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
-   * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue; `trail: false` leaves no trail line.
+   * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue, `firework` a fizzing
+   * rocket shedding sparks, `star` a twinkling coloured firework star; `trail: false` leaves no
+   * trail line.
    */
   look: z
     .strictObject({
-      shell: z.enum(['spark', 'fire', 'ricochet', 'meteor', 'mud', 'glue']).default('spark'),
+      shell: z
+        .enum(['spark', 'fire', 'ricochet', 'meteor', 'mud', 'glue', 'firework', 'star'])
+        .default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */
       size: z.number().min(0.5).max(3).default(1),
@@ -834,6 +895,33 @@ export const PackSchema = z.strictObject({
 });
 export type PackManifest = z.infer<typeof PackSchema>;
 
+// ── weather ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Weather (§3.4), chosen in setup and the same for every peer. The kernel reads `drag` (shells lose
+ * that many thousandths of their speed every tick) and calls the behaviour at every turn start (to
+ * soak, pile or melt the terrain) and every tick. `ambient` is what the renderer draws falling, in
+ * place of the theme's own; `wet` darkens exposed ground like a rain theme. Everything else on the
+ * manifest is the behaviour's params.
+ */
+export const WeatherSchema = z.looseObject({
+  ...behaviourBacked,
+  drag: z.number().int().min(0).max(50).default(0),
+  ambient: z.strictObject({
+    kind: z.enum(AmbientKinds),
+    /** Particles per 1000 map cells of width at high quality. */
+    density: z.number().min(0).max(400),
+    color: HexColorSchema,
+  }),
+  wet: z.number().min(0).max(1).default(0),
+  /** Short label for the HUD and setup screen. */
+  label: z.string().min(1).max(12),
+});
+export type WeatherManifest = z.infer<typeof WeatherSchema>;
+
+/** Keys the weather schema defines itself; everything else goes to its behaviour. */
+export const WEATHER_CORE_KEYS: readonly string[] = Object.keys(WeatherSchema.shape);
+
 export const MANIFEST_SCHEMAS = {
   material: MaterialSchema,
   gen: GeneratorSchema,
@@ -848,6 +936,7 @@ export const MANIFEST_SCHEMAS = {
   audio: AudioSchema,
   tank: TankSchema,
   gear: GearSchema,
+  weather: WeatherSchema,
 } as const satisfies Record<ContentType, z.ZodType>;
 
 export interface ManifestByType {
@@ -864,6 +953,7 @@ export interface ManifestByType {
   audio: AudioManifest;
   tank: TankManifest;
   gear: GearManifest;
+  weather: WeatherManifest;
 }
 
 /** Keys the mode schema defines itself; everything else on a mode goes to its behaviour. */

@@ -1,6 +1,6 @@
 import { z } from '@mudders/shared';
 import { defineGenerator } from '@mudders/sim';
-import { noise1d } from '../hills/behaviour';
+import { gunpowderSeams, magmaPockets, noise1d } from '../hills/behaviour';
 
 const params = z.strictObject({
   /** Mean floor surface, fraction of map height from the top. */
@@ -21,6 +21,14 @@ const params = z.strictObject({
   rockDepth: z.number().min(0.02).max(1),
   /** Fraction of the width kept free of tanks at each edge. */
   spawnMargin: z.number().min(0).max(0.4),
+  /** Buried gunpowder seams (old mine workings) per 1000 columns: [min, max]. */
+  seams: z
+    .tuple([z.number().int().min(0).max(12), z.number().int().min(0).max(12)])
+    .default([0, 0]),
+  /** Magma pockets deep under the floor per 1000 columns: [min, max]. */
+  magmaPockets: z
+    .tuple([z.number().int().min(0).max(6), z.number().int().min(0).max(6)])
+    .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
 
@@ -162,6 +170,10 @@ export default defineGenerator<Params>({
         break;
       }
     }
+
+    // Gunpowder seams in the floor and magma pockets in the bedrock under it.
+    gunpowderSeams(grid, mats, rng, floor, p.seams, 6, 36);
+    magmaPockets(grid, mats, rng, floor, p.magmaPockets, 18);
 
     const spawnFrom = new Int32Array(W);
     for (let x = 0; x < W; x++) spawnFrom[x] = sky[x] !== 0 ? 0 : roof[x]!;

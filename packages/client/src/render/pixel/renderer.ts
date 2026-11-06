@@ -25,7 +25,14 @@ import {
   TERRAIN_FS,
   TERRAIN_VS,
 } from './shaders';
-import { DEFAULT_THEME, pixelTheme, playerColor, shade, type PixelTheme } from './theme';
+import {
+  DEFAULT_THEME,
+  pixelTheme,
+  playerColor,
+  shade,
+  withWeather,
+  type PixelTheme,
+} from './theme';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -140,6 +147,9 @@ export class PixelRenderer implements Renderer {
   private canvas!: HTMLCanvasElement;
   private unsubscribe: (() => void) | undefined;
   private theme: PixelTheme = DEFAULT_THEME;
+  /** The chosen theme before the match weather is laid over it. */
+  private baseTheme: PixelTheme = DEFAULT_THEME;
+  private weather: RenderSnapshot['weather'] = undefined;
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
@@ -325,7 +335,8 @@ export class PixelRenderer implements Renderer {
     if (!gl) throw new Error('WebGL2 is not available');
     this.gl = gl;
     this.palette = options.palette;
-    this.theme = pixelTheme(options.theme, options.palette.themes);
+    this.baseTheme = pixelTheme(options.theme, options.palette.themes);
+    this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
@@ -552,7 +563,8 @@ export class PixelRenderer implements Renderer {
   }
 
   setTheme(id: string): void {
-    this.theme = pixelTheme(id, this.palette.themes);
+    this.baseTheme = pixelTheme(id, this.palette.themes);
+    this.theme = withWeather(this.baseTheme, this.weather);
     this.dirty = [0, 0, this.mapWidth, this.mapHeight];
   }
 
@@ -675,6 +687,11 @@ export class PixelRenderer implements Renderer {
     this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
+    if ((s.weather?.id ?? '') !== (this.weather?.id ?? '')) {
+      this.weather = s.weather;
+      this.theme = withWeather(this.baseTheme, s.weather);
+      this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+    }
     this.lastTick = s.tick;
     if (this.fxTick < 0) this.fxTick = s.tick;
     // catch cosmetic time up to this snapshot before spawning its events
@@ -692,7 +709,30 @@ export class PixelRenderer implements Renderer {
       else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
     }
     this.fx.lances.track(s.entities, s.tick);
+    this.tagStars();
     this.updateTrails(s);
+  }
+
+  /**
+   * Firework stars take the colour of the burst they came out of. Tagged once, after this
+   * snapshot's bursts are handled, and kept by projectile id while the star flies.
+   */
+  private tagStars(): void {
+    const shells = this.palette.shells;
+    if (!shells) return;
+    const prev = this.starColor;
+    let next: Map<number, number> | null = null;
+    for (const e of this.entities) {
+      if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'star') continue;
+      next ??= new Map();
+      let c = prev.get(e.id);
+      if (c === undefined) {
+        const found = this.fx.fireworkColor(e.x, this.fxTick, true);
+        c = found < 0 ? 0xffd040 : found;
+      }
+      next.set(e.id, c);
+    }
+    this.starColor = next ?? (prev.size > 0 ? new Map() : prev);
   }
 
   /**
@@ -1096,6 +1136,8 @@ export class PixelRenderer implements Renderer {
   }
 
   private readonly meteorLive = new Set<number>();
+  /** Firework star colours by projectile id (see `tagStars`). */
+  private starColor = new Map<number, number>();
 
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
@@ -1123,6 +1165,49 @@ export class PixelRenderer implements Renderer {
               size: 1,
               color: (r >>> 8) & 1 ? 0x5a4c34 : 0x7a6a48,
               kind: PKind.Chunk,
+            });
+          }
+          continue;
+        }
+        if (look === 'firework') {
+          // a fizzing rocket: gold sparks spat out behind it, now and then a wisp of smoke
+          this.particles.add({
+            x: e.x + ((r >>> 4) & 1) - 0.5,
+            y: e.y + 1.5,
+            vx: (((r >>> 8) & 7) - 3.5) * 0.06,
+            vy: 0.25 + ((r >>> 12) & 3) * 0.08,
+            life: 8 + ((r >>> 16) & 7),
+            size: 1,
+            color: (r >>> 20) & 1 ? 0xffd060 : 0xfff6d0,
+            kind: PKind.Spark,
+          });
+          if ((r >>> 24) % 5 === 0) {
+            this.particles.add({
+              x: e.x,
+              y: e.y + 2,
+              vx: 0,
+              vy: 0,
+              life: 30,
+              size: 2,
+              color: 0x8a8490,
+              kind: PKind.Smoke,
+            });
+          }
+          continue;
+        }
+        if (look === 'star') {
+          // a burning star sheds a strobing glitter tail in its colour
+          if ((r >>> 20) & 1) {
+            const c = this.starColor.get(e.id) ?? 0xffd040;
+            this.particles.add({
+              x: e.x,
+              y: e.y,
+              vx: 0,
+              vy: 0.02,
+              life: 14 + ((r >>> 12) & 7),
+              size: 1,
+              color: (r >>> 8) % 3 === 0 ? 0xffffff : c,
+              kind: PKind.Glitter,
             });
           }
           continue;
@@ -1309,12 +1394,15 @@ export class PixelRenderer implements Renderer {
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
     this.fx.drawFunnels(this.normal, this.additive, t);
+    this.fx.drawPosts(this.normal, t);
     this.drawDebris();
+    this.drawMines(t);
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
     this.particles.draw(this.normal, this.additive);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
+    this.fx.drawMagnets(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
@@ -1469,6 +1557,54 @@ export class PixelRenderer implements Renderer {
       const col = shade(pal[d.material[i]!] ?? 0x7a5a3a, DEBRIS_SHADES[h & 3]!);
       if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
       else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
+    }
+  }
+
+  /**
+   * Black Hole Mines: a squat dark dome on the ground with a black eye, two violet cells orbiting
+   * it, and once armed a slow blinking light and a dotted ring marking how close is too close.
+   */
+  private drawMines(t: number): void {
+    const n = this.normal;
+    const a = this.additive;
+    for (const e of this.entities) {
+      if (e.kind !== 'mine') continue;
+      const x = e.x + 0.5;
+      const y = e.y + 0.5;
+      // dome: 7 wide at the ground, 5 above, 3 on top; lit cells top-left
+      n.push(x, y, 7, 1, 0x1a1226, 1);
+      n.push(x, y - 1, 5, 1, 0x2a1d40, 1);
+      n.push(x, y - 2, 3, 1, 0x3a2a58, 1);
+      n.push(x - 2, y - 1, 1, 1, 0x6a54a0, 1);
+      n.push(x - 1, y - 2, 1, 1, 0x8a74c8, 1);
+      // the eye: a black cell ringed in violet, breathing slowly
+      const breathe = Math.floor(t / 12 + e.id) % 4 === 0 ? 1 : 0.6;
+      a.push(x, y - 1, 3, 1, 0x8040ff, 0.5 * breathe);
+      n.push(x, y - 1, 1, 1, 0x000000, 1);
+      // two cells orbiting the eye, snapped to whole cells
+      for (let k = 0; k < 2; k++) {
+        const ang = t * 0.12 + e.id * 1.7 + k * Math.PI;
+        const ox = Math.round(Math.cos(ang) * 5);
+        const oy = Math.round(Math.sin(ang) * 2) - 2;
+        if (this.probe.solid(e.x + ox, e.y + oy)) continue;
+        a.push(x + ox, y + oy, 1, 1, k === 0 ? 0xd0b0ff : 0x7a48ff, 0.9);
+      }
+      if (!e.armed) continue;
+      // armed: a light that blinks once a second and a dotted ring at the trip distance
+      if ((t + e.id * 7) % 40 < 5) {
+        a.push(x, y - 3, 1, 1, 0xff60d0, 1);
+        a.push(x, y - 3, 3, 3, 0xff40c0, 0.35, Shape.Pixel);
+      }
+      const r = e.radius;
+      const steps = Math.max(16, Math.round(r * 1.6));
+      const spin = Math.floor(t / 6) % 2;
+      for (let s = spin; s < steps; s += 2) {
+        const ang = (s / steps) * Math.PI * 2;
+        const rx = Math.round(e.x + Math.cos(ang) * r);
+        const ry = Math.round(e.y - 2 + Math.sin(ang) * r);
+        if (this.probe.solid(rx, ry)) continue;
+        a.push(rx + 0.5, ry + 0.5, 1, 1, 0x9058ff, 0.45);
+      }
     }
   }
 
@@ -1788,6 +1924,26 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x, y, 4 - wob, 3 + wob, GLUE[2], 1);
         this.normal.push(x, y + 1, 2, 1, GLUE[3], 1);
         this.normal.push(x - 0.5, y - 1, 1, 1, GLUE[0], 1);
+        continue;
+      }
+      if (look?.shell === 'firework') {
+        // a rocket: white-hot head over a gold body
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        g.push(x, y + 1, 1, 2, 0xffa030, 1);
+        g.push(x, y, 1, 1, 0xffffff, 1);
+        continue;
+      }
+      if (look?.shell === 'star') {
+        // a burning star: one hot cell in its colour, flaring into a plus every few ticks
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const c = this.starColor.get(e.id) ?? 0xffd040;
+        if (((this.fxTick + e.id) & 3) === 0) {
+          g.push(x, y, 3, 1, c, 0.8);
+          g.push(x, y, 1, 3, c, 0.8);
+        }
+        g.push(x, y, 1, 1, ((this.fxTick + e.id) & 7) === 0 ? 0xffffff : c, 1);
         continue;
       }
       if (shells?.[e.weapon]?.shell === 'mud') {

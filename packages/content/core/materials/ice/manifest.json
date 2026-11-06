@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Ice",
-    "description": "Frozen ground. Never falls, resists blasts and shocks, but heat cuts straight through it.",
+    "description": "Frozen ground. Never falls and shrugs off blasts, but it is slippery: tanks slide down icy slopes. Blasts shatter the crater rim into loose ice shards, heat melts it into water, and fire or burning oil thaws whatever it touches.",
     "since": "core@0.3.0",
     "color": "#a9d8f0"
   },
@@ -19,5 +19,33 @@
     "corrosive": 4
   },
   "cohesion": 0,
-  "coating": false
+  "coating": false,
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.water",
+      "chance": 0.2
+    },
+    {
+      "with": "material.burning-oil",
+      "into": "material.water",
+      "chance": 0.1
+    }
+  ],
+  "slick": {
+    "ticks": 3
+  },
+  "rim": [
+    {
+      "damage": ["blast", "kinetic", "shock"],
+      "into": "material.ice-shards",
+      "depth": 4,
+      "chance": 0.7
+    },
+    {
+      "damage": ["heat"],
+      "into": "material.water",
+      "depth": 3
+    }
+  ]
 }

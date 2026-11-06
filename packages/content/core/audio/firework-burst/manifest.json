@@ -1,0 +1,49 @@
+{
+  "id": "audio.firework-burst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Firework burst",
+    "description": "A hollow chip thump, a bright noise crack and a quick sparkling arpeggio: one firework bursting in the sky.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 140,
+        "to": 45,
+        "release": 0.35,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 5000,
+        "to": 900,
+        "release": 0.3,
+        "volume": 0.32
+      },
+      {
+        "wave": "pulse25",
+        "freq": 1319,
+        "delay": 0.06,
+        "hold": 0.25,
+        "release": 0.35,
+        "volume": 0.14,
+        "arp": [0, 4, 7, 12, 16, 19, 24],
+        "arpRate": 0.04
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "fireworkBurst"
+    }
+  ],
+  "gap": 0.05
+}

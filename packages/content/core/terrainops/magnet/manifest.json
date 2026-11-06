@@ -1,0 +1,22 @@
+{
+  "id": "terrainop.magnet",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magnet",
+    "description": "A magnetic field around the impact point: tanks in range are dragged along the ground toward it and clamp on, exposed metal is torn out of the ground, and metal debris in the air bends toward it.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.magnet",
+  "arm": 30,
+  "life": 150,
+  "rise": 24,
+  "pull": 0.04,
+  "maxSpeed": 1.6,
+  "climb": 5,
+  "stick": 2,
+  "metals": ["material.meteorite", "material.slag", "material.lance-slag"],
+  "rip": 12,
+  "ripDepth": 10,
+  "pop": 0.8,
+  "debrisPull": 0.08
+}

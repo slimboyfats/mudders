@@ -260,6 +260,10 @@ button.primary,
   border-radius: 3px;
 }
 
+.weather {
+  color: #cfe2ff;
+}
+
 .wind-base {
   position: absolute;
   top: -3px;

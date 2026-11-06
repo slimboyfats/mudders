@@ -1,0 +1,64 @@
+{
+  "id": "weapon.volcano-seed",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Volcano Seed",
+    "description": "Plants itself in the ground and a cinder cone shoots up around it, tanks riding up its slopes. At the end of this turn and the next three, the crater erupts: it spits real lava high into the air and slops it over the rim. The lava rains down, runs downhill and pools, burns any tank sitting in it, and cools to rock.",
+    "category": "terrain-dynamics",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 10,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 8
+          },
+          "shake": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.volcano",
+        "mode": "grow"
+      },
+      "radius": 46,
+      "damageType": "kinetic"
+    },
+    {
+      "zone": {
+        "radius": 46,
+        "turns": 4,
+        "look": "volcano",
+        "terrainOp": {
+          "use": "terrainop.volcano",
+          "mode": "erupt",
+          "ticks": 45
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 8000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0.6
+  },
+  "look": {
+    "shell": "fire"
+  }
+}

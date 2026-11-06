@@ -1,0 +1,42 @@
+{
+  "id": "audio.firework-crackle",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Firework crackle",
+    "description": "A tiny short-noise snap with a falling blip: a firework star popping on the ground, or the rocket fizzing off at the top of its arc.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 6000,
+        "to": 2500,
+        "release": 0.07,
+        "volume": 0.2
+      },
+      {
+        "wave": "pulse12",
+        "freq": 2637,
+        "to": 1760,
+        "release": 0.06,
+        "volume": 0.1
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "fireworkStar"
+    },
+    {
+      "event": "fireworkLaunch"
+    }
+  ],
+  "gap": 0.04
+}
