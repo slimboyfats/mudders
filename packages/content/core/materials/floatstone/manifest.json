@@ -1,0 +1,23 @@
+{
+  "id": "material.floatstone",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Floatstone",
+    "description": "The stone core of a floating island. Never moves, so it holds up the dirt above it; a bit tougher than dirt to blast, much softer than bedrock.",
+    "since": "core@0.20.0",
+    "color": "#6a5f7a"
+  },
+  "cell": 28,
+  "settle": "static",
+  "density": 150,
+  "strength": {
+    "blast": 1.25,
+    "kinetic": 1.3,
+    "heat": 1.5,
+    "shock": 1.6,
+    "dig": 1.5,
+    "corrosive": 3
+  },
+  "cohesion": 0,
+  "coating": false
+}

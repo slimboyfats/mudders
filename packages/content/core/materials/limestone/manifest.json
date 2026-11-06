@@ -1,0 +1,23 @@
+{
+  "id": "material.limestone",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Limestone",
+    "description": "Cave stone: roofs, stalactites and pillars. Never moves, so a cave roof stays up; tougher than dirt, softer than bedrock.",
+    "since": "core@0.20.0",
+    "color": "#7d7064"
+  },
+  "cell": 29,
+  "settle": "static",
+  "density": 160,
+  "strength": {
+    "blast": 1.3,
+    "kinetic": 1.4,
+    "heat": 2,
+    "shock": 1.5,
+    "dig": 1.5,
+    "corrosive": 2
+  },
+  "cohesion": 0,
+  "coating": false
+}

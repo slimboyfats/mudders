@@ -1,0 +1,20 @@
+{
+  "id": "gen.caves",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Caves",
+    "description": "A cavern under a limestone roof hung with stalactites, with stone pillars between the tanks and a skylight or two. Shots must fit under the roof, or be blasted or dug through it.",
+    "since": "core@0.20.0"
+  },
+  "behaviour": "gen.caves",
+  "floorLevel": 0.72,
+  "floorAmplitude": 0.1,
+  "roofLevel": 0.2,
+  "roofAmplitude": 0.06,
+  "stalactites": [10, 16],
+  "stalactiteLength": 0.35,
+  "pillars": [1, 2],
+  "skylights": [1, 2],
+  "rockDepth": 0.14,
+  "spawnMargin": 0.08
+}

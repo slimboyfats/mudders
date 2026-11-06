@@ -1,0 +1,23 @@
+{
+  "id": "material.concrete",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Concrete",
+    "description": "Cast building concrete. Harder to blast than brick, does not burn, and pours down as rubble once a building gives way.",
+    "since": "core@0.20.0",
+    "color": "#8d8a84"
+  },
+  "cell": 26,
+  "settle": "static",
+  "density": 180,
+  "strength": {
+    "blast": 1.7,
+    "kinetic": 2,
+    "heat": 5,
+    "shock": 1.4,
+    "dig": 2.2,
+    "corrosive": 0.6
+  },
+  "cohesion": 0,
+  "coating": false
+}

@@ -7,7 +7,14 @@ describe('8 players (milestone 7)', () => {
     expect(MAX_PLAYERS).toBe(8);
   });
 
-  for (const generator of ['gen.hills', 'gen.village', 'gen.badlands']) {
+  for (const generator of [
+    'gen.hills',
+    'gen.village',
+    'gen.badlands',
+    'gen.city',
+    'gen.islands',
+    'gen.caves',
+  ]) {
     it(`${generator} spaces 8 tanks apart on the small map`, () => {
       for (let seed = 1; seed <= 4; seed++) {
         const w = makeWorld({ seed, players: 8, map: { ...MAP_SIZES.small, generator } });
@@ -32,4 +39,18 @@ describe('8 players (milestone 7)', () => {
     expect(w.results).toHaveLength(1);
     expect(w.results[0]!.points).toHaveLength(8);
   });
+
+  for (const generator of ['gen.city', 'gen.islands', 'gen.caves']) {
+    it(`plays a 4-bot match to the end on ${generator}`, () => {
+      const w = makeWorld({
+        seed: 6,
+        players: 4,
+        map: { ...MAP_SIZES.medium, generator },
+        bots: ['ai.shooter', 'ai.tosser', 'ai.cyborg', 'ai.poolshark'],
+        rules: { rounds: 1, turnTimer: 0 },
+      });
+      for (let i = 0; i < 400_000 && w.phase !== 'over'; i++) w.step();
+      expect(w.phase).toBe('over');
+    });
+  }
 });

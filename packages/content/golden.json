@@ -1,5 +1,5 @@
 {
-  "contentHash": "30f686268b259b29",
+  "contentHash": "409cc44eedd7f33a",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -261,9 +261,21 @@
       "ticks": 66,
       "hash": "c5fd2aa483fd8a7e"
     },
+    "gen.caves": {
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
+    },
+    "gen.city": {
+      "ticks": 150,
+      "hash": "0c7390be2d1e90f0"
+    },
     "gen.hills": {
       "ticks": 11,
       "hash": "0d543d548feb8621"
+    },
+    "gen.islands": {
+      "ticks": 165,
+      "hash": "3ee7973b699dd083"
     },
     "gen.marsh": {
       "ticks": 162,
@@ -285,9 +297,17 @@
       "ticks": 608,
       "hash": "27f540dfb9932179"
     },
+    "material.concrete": {
+      "ticks": 142,
+      "hash": "2e9a5e7c511205c9"
+    },
     "material.cracked-brick": {
       "ticks": 302,
       "hash": "4ea272a6f6937e41"
+    },
+    "material.cracked-concrete": {
+      "ticks": 266,
+      "hash": "1cebe94b8edf488c"
     },
     "material.dirt": {
       "ticks": 163,
@@ -296,6 +316,10 @@
     "material.fire": {
       "ticks": 325,
       "hash": "d10849b342ab6a0d"
+    },
+    "material.floatstone": {
+      "ticks": 165,
+      "hash": "3ee7973b699dd083"
     },
     "material.frost": {
       "ticks": 271,
@@ -324,6 +348,10 @@
     "material.leaf": {
       "ticks": 210,
       "hash": "2c60663880619f82"
+    },
+    "material.limestone": {
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
     },
     "material.liquid-dirt": {
       "ticks": 368,
@@ -405,9 +433,17 @@
       "ticks": 2400,
       "hash": "e1a546fdaccce9b2"
     },
+    "prop.apartments": {
+      "ticks": 756,
+      "hash": "40e936cd2b736a91"
+    },
     "prop.boulder": {
       "ticks": 474,
       "hash": "a840c4578d582866"
+    },
+    "prop.cave-roof": {
+      "ticks": 91,
+      "hash": "6513f0d9feffc43a"
     },
     "prop.house": {
       "ticks": 531,
@@ -424,6 +460,10 @@
     "prop.rock-outcrop": {
       "ticks": 687,
       "hash": "4ad33b9bb531f86f"
+    },
+    "prop.tower": {
+      "ticks": 1046,
+      "hash": "7be37494f55151dc"
     },
     "prop.tree": {
       "ticks": 325,

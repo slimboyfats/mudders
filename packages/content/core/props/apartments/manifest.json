@@ -1,0 +1,137 @@
+{
+  "id": "prop.apartments",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Apartment Block",
+    "description": "A wide five-storey brick block with concrete floors and a wooden water tank on the roof. The walls take a lot of punishment before they crack and come down as rubble, roof, tank and all. The windows shatter at the first hit and the water tank burns.",
+    "since": "core@0.20.0"
+  },
+  "shape": [
+    "                                  TTTTTTTT          ",
+    "                                 TTTTTTTTTT         ",
+    "                                 TTTTTTTTTT         ",
+    "                                 TTTTTTTTTT         ",
+    "                                 TTTTTTTTTT         ",
+    "                                 TTTTTTTTTT         ",
+    "                                  P      P          ",
+    "                                  P      P          ",
+    "                                  P      P          ",
+    "                                  P      P          ",
+    "RRRR                                            RRRR",
+    "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGDDDDDDGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGDDDDDDGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGDDDDDDGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGDDDDDDGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWGGGGWWWWGGGGWWWWGGGDDDDDDGGGWWWWGGGGWWWWGGGGWWWW",
+    "WWWWWWWWWWWWWWWWWWWWWWWDDDDDDWWWWWWWWWWWWWWWWWWWWWWW",
+    "SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS"
+  ],
+  "legend": {
+    "W": "wall",
+    "S": "floor",
+    "G": "window",
+    "D": "door",
+    "R": "roof",
+    "T": "tank",
+    "P": "legs"
+  },
+  "materials": {
+    "wall": "material.brick",
+    "floor": "material.concrete",
+    "window": "material.glass",
+    "door": "material.wood",
+    "roof": "material.concrete",
+    "tank": "material.wood",
+    "legs": "material.wood"
+  },
+  "groups": [
+    {
+      "name": "walls",
+      "roles": ["wall", "floor", "door"],
+      "integrity": 520,
+      "resistance": {
+        "blast": 2.2,
+        "kinetic": 2,
+        "heat": 4.5
+      },
+      "breakInto": {
+        "material.brick": "material.rubble",
+        "material.cracked-brick": "material.rubble",
+        "material.concrete": "material.rubble",
+        "material.cracked-concrete": "material.rubble",
+        "material.wood": "material.splinter"
+      },
+      "crack": {
+        "material.brick": "material.cracked-brick",
+        "material.concrete": "material.cracked-concrete"
+      }
+    },
+    {
+      "name": "panes",
+      "roles": ["window"],
+      "integrity": 6,
+      "supports": ["walls"],
+      "breakInto": {
+        "material.glass": "material.shard"
+      }
+    },
+    {
+      "name": "roof",
+      "roles": ["roof", "tank", "legs"],
+      "integrity": 120,
+      "supports": ["walls"],
+      "breakInto": {
+        "material.wood": "material.splinter",
+        "material.concrete": "material.rubble",
+        "material.cracked-concrete": "material.rubble"
+      },
+      "resistance": {
+        "blast": 1.5
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 8,
+    "clearance": 18
+  }
+}

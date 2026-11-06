@@ -1,0 +1,215 @@
+{
+  "id": "prop.tower",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Office Tower",
+    "description": "A tall concrete office block with a roof mast, built in three sections. Each section soaks up hits on its own, cracks and then pours down as rubble, so the top can be shot off while the base still stands. Bring the base down and the whole tower follows. Each section's windows shatter at the first hit.",
+    "since": "core@0.20.0"
+  },
+  "shape": [
+    "               AA               ",
+    "               AA               ",
+    "               AA               ",
+    "               AA               ",
+    "               AA               ",
+    "               AA               ",
+    "            RRRRRRRR            ",
+    "            RRRRRRRR            ",
+    "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTgggggTTgggggTTgggggTTgggggTTT",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMhhhhhMMhhhhhMMhhhhhMMhhhhhMMM",
+    "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBiiiiiBBiiiiiBBiiiiiBBiiiiiBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "BBBiiiiiBBBBBBBBBBBBBBBBiiiiiBBB",
+    "BBBiiiiiBBDDDDDBBDDDDDBBiiiiiBBB",
+    "BBBiiiiiBBDDDDDBBDDDDDBBiiiiiBBB",
+    "BBBiiiiiBBDDDDDBBDDDDDBBiiiiiBBB",
+    "BBBiiiiiBBDDDDDBBDDDDDBBiiiiiBBB",
+    "BBBiiiiiBBDDDDDBBDDDDDBBiiiiiBBB",
+    "BBBBBBBBBBDDDDDBBDDDDDBBBBBBBBBB",
+    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  ],
+  "legend": {
+    "A": "mast",
+    "R": "roof",
+    "T": "top",
+    "M": "middle",
+    "B": "base",
+    "g": "top-glass",
+    "h": "middle-glass",
+    "i": "base-glass",
+    "D": "lobby"
+  },
+  "materials": {
+    "mast": "material.concrete",
+    "roof": "material.concrete",
+    "top": "material.concrete",
+    "middle": "material.concrete",
+    "base": "material.concrete",
+    "top-glass": "material.glass",
+    "middle-glass": "material.glass",
+    "base-glass": "material.glass",
+    "lobby": "material.glass"
+  },
+  "groups": [
+    {
+      "name": "base",
+      "roles": ["base"],
+      "integrity": 420,
+      "resistance": {
+        "blast": 2,
+        "kinetic": 2,
+        "heat": 5
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble",
+        "material.cracked-concrete": "material.rubble"
+      },
+      "crack": {
+        "material.concrete": "material.cracked-concrete"
+      }
+    },
+    {
+      "name": "middle",
+      "roles": ["middle"],
+      "integrity": 320,
+      "supports": ["base"],
+      "resistance": {
+        "blast": 2,
+        "kinetic": 2,
+        "heat": 5
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble",
+        "material.cracked-concrete": "material.rubble"
+      },
+      "crack": {
+        "material.concrete": "material.cracked-concrete"
+      }
+    },
+    {
+      "name": "top",
+      "roles": ["top", "roof", "mast"],
+      "integrity": 300,
+      "supports": ["middle"],
+      "resistance": {
+        "blast": 2,
+        "kinetic": 2,
+        "heat": 5
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble",
+        "material.cracked-concrete": "material.rubble"
+      },
+      "crack": {
+        "material.concrete": "material.cracked-concrete"
+      }
+    },
+    {
+      "name": "base-windows",
+      "roles": ["base-glass", "lobby"],
+      "integrity": 4,
+      "supports": ["base"],
+      "breakInto": {
+        "material.glass": "material.shard"
+      }
+    },
+    {
+      "name": "middle-windows",
+      "roles": ["middle-glass"],
+      "integrity": 4,
+      "supports": ["middle"],
+      "breakInto": {
+        "material.glass": "material.shard"
+      }
+    },
+    {
+      "name": "top-windows",
+      "roles": ["top-glass"],
+      "integrity": 4,
+      "supports": ["top"],
+      "breakInto": {
+        "material.glass": "material.shard"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 8,
+    "clearance": 18
+  }
+}

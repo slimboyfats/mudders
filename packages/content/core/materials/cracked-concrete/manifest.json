@@ -1,0 +1,23 @@
+{
+  "id": "material.cracked-concrete",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cracked concrete",
+    "description": "Concrete that has taken a beating: the darker cells show a building about to come down.",
+    "since": "core@0.20.0",
+    "color": "#625f5b"
+  },
+  "cell": 27,
+  "settle": "static",
+  "density": 180,
+  "strength": {
+    "blast": 1.3,
+    "kinetic": 1.4,
+    "heat": 5,
+    "shock": 1.1,
+    "dig": 1.7,
+    "corrosive": 0.5
+  },
+  "cohesion": 0,
+  "coating": false
+}
