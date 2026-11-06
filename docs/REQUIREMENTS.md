@@ -213,6 +213,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Each player controls one tank with position, angle (0–180°), power (0–1000), health (0–100), shield state, fuel, inventory, and money.
 - Tanks sit on the terrain surface. If the terrain under a tank is destroyed, the tank falls; fall damage proportional to distance (configurable, can be disabled).
 - Tanks have a small collision footprint and can be hit directly by projectiles.
+- **Tank types** (`tank.*` content, core@0.13.0): each seat picks a tank on the setup screen or in the online lobby (guests pick their own; bots default to their personality's favourite; "Random" draws from the match seed). Every strength costs something: Classic (default, the standard tank), Bruiser (150% health, big 20×12 body, half drive), Howitzer (+30% shell damage, 80% health), Scout (12×7 body, double drive, 70% health), Bulwark (50-point shield that soaks hits first and refills each round, −15% shell damage), Longshot (+20% shell speed, 85% health). The kernel reads only numbers (health %, shield, body, damage %, muzzle %, drive %); the sprite is renderer-only.
 - Tanks can move left/right a limited distance per turn if they have fuel (bought in the shop). Movement is blocked by slopes above a threshold.
 - Death: tank explodes (configurable size, destroys terrain, can damage neighbours — chain reactions are a feature, not a bug).
 

@@ -2,8 +2,6 @@ import { z } from '@mudders/shared';
 import {
   FP,
   SETTLE_STATIC,
-  TANK_H,
-  TANK_HALF,
   defineTerrainOp,
   sinDeci,
   cosDeci,
@@ -11,6 +9,7 @@ import {
   type OpCall,
   type OpInstance,
   type SimApi,
+  type TankHandle,
 } from '@mudders/sim';
 
 const params = z.strictObject({
@@ -89,12 +88,12 @@ function centreAt(p: Params, d: number[], h: number): number {
 }
 
 /** Is any of a tank's body (bottom row `y`-1 and its middle row) in the ground at column x? */
-function blocked(api: SimApi, x: number, y: number): boolean {
+function blocked(api: SimApi, t: TankHandle, x: number, y: number): boolean {
   const g = api.grid;
-  for (const row of [y - 1, y - (TANK_H >> 1)]) {
+  for (const row of [y - 1, y - (t.h >> 1)]) {
     if (row < 0) continue;
     if (row >= g.height) return true;
-    for (let xx = x - TANK_HALF; xx < x + TANK_HALF; xx++) {
+    for (let xx = x - t.half; xx < x + t.half; xx++) {
       if (xx < 0 || xx >= g.width) return true;
       if (g.material[row * g.width + xx] !== 0) return true;
     }
@@ -226,13 +225,13 @@ function tanks(api: SimApi, p: Params, c: OpCall, d: number[], s: number, fv: nu
     }
     if (st === FREE) {
       if (s < S1 >> 1 || ending) continue;
-      if (Math.abs(t.x - fx) > c.radius + TANK_HALF || t.y < gy - 14 || t.y > gy + 18) continue;
+      if (Math.abs(t.x - fx) > c.radius + t.half || t.y < gy - 14 || t.y > gy + 18) continue;
       st = CARRIED;
       d[b] = st;
       d[b + 1] = t.x < fx ? 1800 : 0;
       d[b + 2] = t.x * FP;
       d[b + 3] = t.y * FP;
-      api.emit('tornadoGrab', t.x, t.y, TANK_HALF);
+      api.emit('tornadoGrab', t.x, t.y, t.half);
     }
     if (st === CARRIED) {
       busy = true;
@@ -243,8 +242,8 @@ function tanks(api: SimApi, p: Params, c: OpCall, d: number[], s: number, fv: nu
       const r = Math.trunc((widthAt(p, h, s) * 2) / 3);
       const target = centreAt(p, d, h) + r * cosDeci(spin);
       let tx = d[b + 2]! + Math.trunc((target - d[b + 2]!) / 4);
-      if (blocked(api, Math.floor(tx / FP), Math.floor(ty / FP))) tx = d[b + 2]!;
-      if (blocked(api, Math.floor(tx / FP), Math.floor(ty / FP))) ty -= FP;
+      if (blocked(api, t, Math.floor(tx / FP), Math.floor(ty / FP))) tx = d[b + 2]!;
+      if (blocked(api, t, Math.floor(tx / FP), Math.floor(ty / FP))) ty -= FP;
       d[b + 2] = tx;
       d[b + 3] = ty;
       if (h >= p.carry || ending || s < S1 >> 2) {
@@ -253,7 +252,7 @@ function tanks(api: SimApi, p: Params, c: OpCall, d: number[], s: number, fv: nu
         d[b] = THROWN;
         d[b + 4] = fv + tangent * toFixed(p.throw);
         d[b + 5] = -toFixed(p.throw) >> 1;
-        api.emit('tornadoThrow', Math.floor(tx / FP), Math.floor(ty / FP), TANK_HALF);
+        api.emit('tornadoThrow', Math.floor(tx / FP), Math.floor(ty / FP), t.half);
       }
       api.hold(t.player, Math.floor(tx / FP), Math.floor(ty / FP));
       continue;
@@ -265,11 +264,11 @@ function tanks(api: SimApi, p: Params, c: OpCall, d: number[], s: number, fv: nu
       const x = Math.floor(tx / FP);
       const y = Math.floor(ty / FP);
       if (
-        x < TANK_HALF ||
-        x >= g.width - TANK_HALF ||
-        y < TANK_H ||
+        x < t.half ||
+        x >= g.width - t.half ||
+        y < t.h ||
         y >= g.height ||
-        blocked(api, x, y) ||
+        blocked(api, t, x, y) ||
         g.material[y * g.width + x] !== 0
       ) {
         // it hits something: let go, and the kernel drops it from here with fall damage

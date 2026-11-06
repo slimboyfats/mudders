@@ -32,6 +32,13 @@ export interface TankView {
   y: number;
   angle: number;
   health: number;
+  /** Health at round start, for health bars (100 for the standard tank). */
+  maxHealth: number;
+  /** Shield points left, and what the tank started the round with (0 = no shield). */
+  shield: number;
+  maxShield: number;
+  /** Tank type id (`tank.*`), or '' for the built-in standard tank; picks the renderer's sprite. */
+  tank: string;
   alive: boolean;
   /** Power 0–1000 (for aim previews). */
   power: number;

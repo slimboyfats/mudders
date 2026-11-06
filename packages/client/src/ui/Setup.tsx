@@ -11,6 +11,7 @@ import {
 } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Rules } from './Rules';
+import { TankAbout, TankPick, useFavourites, useTanks } from './Tanks';
 import { TeamPick, TeamsToggle } from './Teams';
 
 interface Props {
@@ -31,7 +32,14 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
         .map((a) => ({ id: a.id, name: a.meta.name, desc: a.meta.description })),
     [],
   );
+  const tanks = useTanks();
+  const favourites = useFavourites();
   const [open, setOpen] = useState<string | null>(null);
+  const setTank = (i: number, t: string) => {
+    const next = [...setup.tanks];
+    next[i] = t;
+    update({ ...setup, tanks: next });
+  };
   const update = (s: MatchSetup) => {
     saveSetup(s);
     setSetup(s);
@@ -83,6 +91,16 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
               ))}
               {i >= 2 && <option value="off">—</option>}
             </select>
+            {slot !== 'off' && (
+              <TankPick
+                value={setup.tanks[i] ?? 'auto'}
+                seat={i}
+                bot={slot.startsWith('ai.') ? slot : undefined}
+                tanks={tanks}
+                favourites={favourites}
+                onChange={(t) => setTank(i, t)}
+              />
+            )}
             {teams && slot !== 'off' && (
               <TeamPick team={teams[i] ?? i % 2} seat={i} onChange={(t) => setTeam(i, t)} />
             )}
@@ -101,6 +119,10 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
         <button className="link" onClick={() => setOpen(open === 'ai' ? null : 'ai')}>
           {open === 'ai' ? 'Hide' : 'About'} the AI players
         </button>
+        <button className="link" onClick={() => setOpen(open === 'tanks' ? null : 'tanks')}>
+          {open === 'tanks' ? 'Hide' : 'About'} the tanks
+        </button>
+        {open === 'tanks' && <TankAbout tanks={tanks} />}
         {open === 'ai' && (
           <ul className="about">
             {bots.map((b) => (

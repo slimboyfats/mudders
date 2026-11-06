@@ -7,6 +7,7 @@
     "since": "core@0.7.0"
   },
   "behaviour": "ai.tosser",
+  "tank": "tank.bulwark",
   "angles": [78, 72, 66, 60],
   "angleError": 2,
   "powerError": 10,

@@ -145,6 +145,18 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
           throw new Error(`${t.name}: player ${i + 1} chip is off screen`);
       }
       await shot('5-eight-players');
+      // tank types (§3.2): pick a tank per seat on the setup screen, then the match starts with them
+      await page.goto(`${url}#setup`);
+      await page.reload();
+      await page.getByLabel('Player 1 tank', { exact: true }).selectOption('tank.bruiser');
+      const p2 = page.getByLabel('Player 2 tank', { exact: true });
+      if (!(await p2.locator('option:checked').textContent())?.includes('Howitzer'))
+        throw new Error(`${t.name}: the Shooter bot does not default to its favourite tank`);
+      await shot('6-tank-setup');
+      await page.getByTestId('start').click();
+      await page.locator('.game-canvas').waitFor();
+      await page.waitForTimeout(800);
+      await shot('7-tank-match');
       if (errors.length > 0) throw new Error(`${t.name}: page errors: ${errors.join('; ')}`);
       await ctx.close();
     }

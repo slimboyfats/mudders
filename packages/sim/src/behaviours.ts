@@ -21,6 +21,9 @@ export interface EffectSink {
 export interface TankHandle {
   readonly player: number;
   readonly alive: boolean;
+  /** Hitbox half-width and height in cells (they differ per tank type). */
+  readonly half: number;
+  readonly h: number;
   x: number;
   y: number;
 }

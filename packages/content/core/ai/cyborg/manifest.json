@@ -7,6 +7,7 @@
     "since": "core@0.7.0"
   },
   "behaviour": "ai.cyborg",
+  "tank": "random",
   "angles": [45, 35, 55, 65, 25, 75],
   "weapons": 3,
   "reserve": 100

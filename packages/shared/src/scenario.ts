@@ -29,6 +29,8 @@ export const ScenarioSchema = z.strictObject({
     .array(
       z.strictObject({
         x: z.number().int().min(0),
+        /** Tank type (`tank.*`, or "random"); omit for the mode's default tank. */
+        tank: z.union([z.literal('random'), ContentIdSchema]).optional(),
         /** Starting health instead of the mode's. */
         health: z.number().int().min(1).optional(),
         /** Inventory overrides by weapon id (-1 = unlimited, 0 = none); others keep the loadout. */

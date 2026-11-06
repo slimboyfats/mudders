@@ -8,12 +8,20 @@ import { canStart as canStartSetup, defaultTeams, loadSetup, saveSetup } from '.
 import type { Link } from '../net/link';
 import { localRegion, roomSummary } from '../net/listing';
 import { directAnswer, directOffer, RoomNet } from '../net/rtc';
-import { GuestSession, HostSession, PING_MS, TAKEOVER_MS, type LobbyRules } from '../net/session';
+import {
+  GuestSession,
+  HostSession,
+  PING_MS,
+  TAKEOVER_MS,
+  validTankPick,
+  type LobbyRules,
+} from '../net/session';
 import { SignalClient, type SignalStatus } from '../net/signal';
 import { BACKGROUND_CATCHUP_MS, startTicker } from '../net/ticker';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { MatchView } from './MatchView';
 import { Rules } from './Rules';
+import { TankPick, useFavourites, useTanks } from './Tanks';
 import { TeamPick, TeamsToggle } from './Teams';
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -104,6 +112,8 @@ function SeatRow({
   onSet,
   team,
   onTeam,
+  tank,
+  onTank,
 }: {
   seat: LobbySeat;
   i: number;
@@ -113,7 +123,12 @@ function SeatRow({
   /** Team play (milestone 7): this seat's team, and a picker for the host. */
   team?: number | undefined;
   onTeam?: ((team: number) => void) | undefined;
+  /** This seat's tank pick (§3.2), and a picker when this viewer may change it. */
+  tank?: string | undefined;
+  onTank?: ((tank: string) => void) | undefined;
 }) {
+  const tanks = useTanks();
+  const favourites = useFavourites();
   const label =
     seat.kind === 'bot'
       ? `AI: ${bots.find((b) => b.id === seat.bot)?.name ?? seat.bot}`
@@ -131,6 +146,16 @@ function SeatRow({
         {i === you && <em> (you)</em>}
         {seat.kind === 'host' && <em> host</em>}
       </span>
+      {tank !== undefined && seat.kind !== 'open' && (
+        <TankPick
+          value={tank}
+          seat={i}
+          bot={seat.kind === 'bot' ? seat.bot : undefined}
+          tanks={tanks}
+          favourites={favourites}
+          onChange={onTank}
+        />
+      )}
       {team !== undefined && seat.kind !== 'open' && (
         <TeamPick team={team} seat={i} onChange={onTeam} />
       )}
@@ -440,6 +465,8 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
               onSet={(v) => session.setSeat(i, v)}
               team={session.rules.teams ? (session.rules.teams[i] ?? i % 2) : undefined}
               onTeam={(t) => session.setTeam(i, t)}
+              tank={lobby.setup.tanks[i] ?? 'auto'}
+              onTank={s.kind === 'guest' ? undefined : (t) => session.setTank(i, t)}
             />
           ))}
         </ul>
@@ -724,6 +751,14 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
                 you={lobby.you}
                 bots={[]}
                 team={lobby.setup.teams ? (lobby.setup.teams[i] ?? i % 2) : undefined}
+                tank={lobby.setup.tanks[i] ?? 'auto'}
+                onTank={
+                  i === lobby.you && session
+                    ? (t) => {
+                        if (validTankPick(session.content, t)) session.pickTank(t);
+                      }
+                    : undefined
+                }
               />
             ))}
           </ul>

@@ -92,6 +92,23 @@ export function weaponsMarkdown(c: ResolvedContent): string {
     if (w.shop.price <= 0) continue;
     lines.push(`- **${w.meta.name}** (\`${w.id}\`): ${w.meta.description}`);
   }
+  const tanks = c.list('tank');
+  if (tanks.length > 0) {
+    lines.push(
+      '',
+      '## Tanks',
+      '',
+      'Picked per seat on the setup screen. Percentages are relative to the standard tank.',
+      '',
+      '| Id | Name | Health | Shield | Body | Damage | Shell speed | Drive |',
+      '| -- | ---- | ------ | ------ | ---- | ------ | ----------- | ----- |',
+    );
+    for (const t of tanks) {
+      lines.push(
+        `| \`${t.id}\` | ${t.meta.name} | ${t.health}% | ${t.shield} | ${t.body.width}×${t.body.height} | ${t.damage}% | ${t.muzzle}% | ${t.drive}% |`,
+      );
+    }
+  }
   return `${lines.join('\n')}\n`;
 }
 

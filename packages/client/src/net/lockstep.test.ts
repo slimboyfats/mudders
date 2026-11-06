@@ -20,6 +20,7 @@ const setup: NetSetup = {
   suddenDeath: true,
   startingCash: 3000,
   teams: null,
+  tanks: [],
 };
 const start: StartInfo = { seed: 1234, setup, mode: 'mode.classic' };
 

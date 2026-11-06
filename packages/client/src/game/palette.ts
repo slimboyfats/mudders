@@ -1,8 +1,8 @@
 import type { ResolvedContent } from '@mudders/sim';
 import { themeFrom, type PixelTheme } from '../render/pixel/theme';
-import type { MaterialLook, RenderPalette, ShellLook } from '../render/types';
+import type { MaterialLook, RenderPalette, ShellLook, TankLook } from '../render/types';
 
-/** Renderer palette from content: material colours (`meta.color`), material looks and themes. */
+/** Renderer palette from content: material colours (`meta.color`), material looks, themes, tanks. */
 export function paletteFrom(content: ResolvedContent): RenderPalette {
   const materials = new Uint32Array(256);
   const looks: MaterialLook[] = [];
@@ -23,11 +23,14 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
   }
   const themes: Record<string, PixelTheme> = {};
   for (const t of content.list('theme')) themes[t.id] = themeFrom(t);
+  const tanks: Record<string, TankLook> = {};
+  for (const t of content.list('tank'))
+    tanks[t.id] = { sprite: t.look.sprite, barrel: t.look.barrel };
   const shells: Record<string, ShellLook> = {};
   for (const w of content.list('weapon')) {
     if (w.look) shells[w.id] = { shell: w.look.shell, trail: w.look.trail, size: w.look.size };
   }
-  return { materials, looks, themes, shells };
+  return { materials, looks, themes, tanks, shells };
 }
 
 /** Theme ids with display names, for the settings picker. */

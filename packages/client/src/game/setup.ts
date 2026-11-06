@@ -64,6 +64,11 @@ export interface MatchSetup {
    * Indexed like `slots`; off slots keep their team for when they come back.
    */
   teams: number[] | null;
+  /**
+   * Tank type per slot (§3.2): a `tank.*` id, "random", or "auto" (a bot's favourite tank, the
+   * default tank for a human). Indexed like `slots`.
+   */
+  tanks: string[];
 }
 
 /** Team letters for the UI. */
@@ -89,6 +94,7 @@ export function defaultSetup(): MatchSetup {
     suddenDeath: true,
     startingCash: 3000,
     teams: null,
+    tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
 }
 
@@ -100,6 +106,11 @@ export function loadSetup(): MatchSetup {
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
       if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
+      const tanks: unknown = s.tanks;
+      s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
+        const t = Array.isArray(tanks) ? (tanks as unknown[])[i] : undefined;
+        return typeof t === 'string' ? t : 'auto';
+      });
       return s;
     }
   } catch {
@@ -122,10 +133,20 @@ export function activeSlots<S extends string>(s: { slots: readonly S[] }): S[] {
 }
 
 /** Anything shaped like a setup: the local `MatchSetup` or the networked `NetSetup`. */
-export type SetupLike = Omit<MatchSetup, 'slots' | 'teams'> & {
+export type SetupLike = Omit<MatchSetup, 'slots' | 'teams' | 'tanks'> & {
   slots: readonly string[];
   teams: readonly number[] | null;
+  tanks: readonly string[];
 };
+
+/** Tank pick of each active slot, in player order. */
+export function activeTanks(s: Pick<SetupLike, 'slots' | 'tanks'>): string[] {
+  const out: string[] = [];
+  s.slots.forEach((x, i) => {
+    if (x !== 'off') out.push(s.tanks[i] ?? 'auto');
+  });
+  return out;
+}
 
 /** Team of each active slot, in player order; null for a free-for-all. */
 export function activeTeams(s: Pick<SetupLike, 'slots' | 'teams'>): number[] | null {
@@ -161,6 +182,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     players: slots.length,
     map: { ...MAP_SIZES[s.size], generator: SCENERY_GEN[s.scenery] },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
+    tanks: activeTanks(s),
     rules,
     ...(teams ? { teams } : {}),
   };
