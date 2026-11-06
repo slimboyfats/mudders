@@ -519,6 +519,12 @@ export class EffectSystem {
       case 'rift':
         this.rift(e);
         break;
+      case 'sinkhole':
+        this.sinkhole(e);
+        break;
+      case 'sinkholeDust':
+        this.sinkholeDust(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -1190,6 +1196,88 @@ export class EffectSystem {
    * A fissure ripping open (Fault Line): a jolt, a lens kick through the ground, and a geyser of
    * dust and clods out of the crack mouth; a magma crack also throws up a spray of embers.
    */
+  /** The ground giving way: a hard jolt, air blasting dust out of the rim cracks, grit raining in. */
+  private sinkhole(e: EffectEvent): void {
+    const rng = this.rngFor(e, 53);
+    const R = Math.max(8, e.radius);
+    const depth = Math.max(8, e.params.depth ?? 40);
+    this.shakeAmp = Math.max(this.shakeAmp, 8);
+    this.shakeStart = e.tick;
+    this.ripples.push({
+      x: e.x,
+      y: e.y + depth * 0.5,
+      start: e.tick,
+      dur: 26,
+      maxR: R * 1.8,
+      width: 10,
+      strength: 0.9,
+    });
+    // air pushed out of the cavern blasts up through the cracks at the rim
+    for (let side = -1; side <= 1; side += 2) {
+      const x0 = Math.round(e.x + side * R);
+      const y0 = this.surfaceNear(x0, e.y, 60);
+      if (y0 < 0) continue;
+      const col = this.dustColor(x0, y0 + 2);
+      const n = Math.round(22 * this.mult) + 3;
+      for (let i = 0; i < n; i++) {
+        this.particles.add({
+          x: x0 + rng.range(-3, 3),
+          y: y0 - rng.range(0, 3),
+          vx: side * rng.range(-0.1, 0.5),
+          vy: -rng.range(0.6, 2.2),
+          life: rng.range(24, 50),
+          size: rng.range(2, 5),
+          color: shade(col, rng.range(0.85, 1.2)),
+          kind: PKind.Dust,
+        });
+      }
+    }
+    // clods breaking off the lip and dropping in
+    const nChunk = Math.round(36 * this.mult) + 4;
+    for (let i = 0; i < nChunk; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      const x = Math.round(e.x + side * R * rng.range(0.7, 1.05));
+      const y = this.surfaceNear(x, e.y, 60);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - 1,
+        vx: -side * rng.range(0.1, 0.9),
+        vy: rng.range(-0.8, 0.2),
+        life: rng.range(30, 60),
+        size: rng.range(1, 2),
+        color: shade(this.dustColor(x, y + 2), rng.range(0.7, 1.05)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * Dust over a sinkhole: while it sags, thin puffs wheeze out of cracks across the doomed ground;
+   * with `plume`, a wide brown cloud rolls up out of the finished pit.
+   */
+  private sinkholeDust(e: EffectEvent): void {
+    const rng = this.rngFor(e, 59);
+    const R = Math.max(8, e.radius);
+    const plume = (e.params.plume ?? 0) > 0;
+    const n = Math.round((plume ? 70 : 10) * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      const x = Math.round(e.x + rng.range(-R, R) * (plume ? 0.8 : 1));
+      const y = this.surfaceNear(x, e.y, plume ? 120 : 30);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - rng.range(1, plume ? 10 : 2),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.1, plume ? 1.3 : 0.5),
+        life: rng.range(plume ? 40 : 18, plume ? 90 : 36),
+        size: rng.range(plume ? 3 : 1, plume ? 6 : 3),
+        color: shade(this.dustColor(x, y + 1), rng.range(0.85, 1.15)),
+        kind: PKind.Dust,
+      });
+    }
+  }
+
   private rift(e: EffectEvent): void {
     const rng = this.rngFor(e, 43);
     const depth = Math.max(8, e.radius);
