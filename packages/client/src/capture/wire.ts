@@ -33,7 +33,7 @@ export interface WireSnapshot {
   patches: [number, number, number, number, string, string][];
   entities: EntityView[];
   effectEvents: EffectEvent[];
-  debris: { x: number[]; y: number[]; m: number[] };
+  debris: { x: number[]; y: number[]; vx: number[]; m: number[] };
   wind: number;
   theme: string;
 }

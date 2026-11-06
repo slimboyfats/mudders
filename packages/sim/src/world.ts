@@ -1969,6 +1969,7 @@ export class World implements SimApi {
         count: this.debris.count,
         x: this.debris.x,
         y: this.debris.y,
+        vx: this.debris.vx,
         material: this.debris.mat,
       },
       wind: this.wind / FP,

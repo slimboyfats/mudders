@@ -87,7 +87,7 @@ export interface RenderSnapshot {
    * Sim debris particles (cells in flight that become terrain where they land). Positions are
    * fixed-point (divide by FP); only the first `count` entries are valid. Read-only.
    */
-  debris: { count: number; x: Int32Array; y: Int32Array; material: Uint8Array };
+  debris: { count: number; x: Int32Array; y: Int32Array; vx: Int32Array; material: Uint8Array };
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   theme: string;
