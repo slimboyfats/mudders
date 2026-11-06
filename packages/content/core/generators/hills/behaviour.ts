@@ -1,5 +1,5 @@
 import { z } from '@mudders/shared';
-import { defineGenerator, type Prng } from '@mudders/sim';
+import { defineGenerator, type Grid, type MaterialTable, type Prng } from '@mudders/sim';
 
 const params = z.strictObject({
   /** Mean surface level as a fraction of map height from the top. */
@@ -24,6 +24,30 @@ const params = z.strictObject({
    */
   mudDepth: z.number().int().min(0).max(64).default(0),
   mudLevel: z.number().min(-0.2).max(0.3).default(0),
+  /**
+   * Clay (gen.claypits): a band `clayDepth` cells thick. Where the surface lies below the mean
+   * surface plus `clayLevel` (fraction of map height) it starts right at the surface as bare clay
+   * pits; elsewhere it runs under `claySoil` cells of dirt.
+   */
+  clayDepth: z.number().int().min(0).max(64).default(0),
+  clayLevel: z.number().min(-0.3).max(0.3).default(0),
+  claySoil: z.number().int().min(0).max(32).default(6),
+  /**
+   * Ice (gen.glacier): valleys below the mean surface plus `iceLevel` fill with flat frozen lakes
+   * up to that line, frozen `iceDepth` cells into the ground beneath; peaks more than `iceCap`
+   * (fraction of map height) above the mean wear an ice cap `iceDepth` thick.
+   */
+  iceDepth: z.number().int().min(0).max(64).default(0),
+  iceLevel: z.number().min(-0.3).max(0.3).default(0),
+  iceCap: z.number().min(0).max(0.5).default(0.5),
+  /** Buried gunpowder seams per 1000 columns: [min, max]. */
+  seams: z
+    .tuple([z.number().int().min(0).max(12), z.number().int().min(0).max(12)])
+    .default([0, 0]),
+  /** Buried magma pockets per 1000 columns: [min, max]. */
+  magmaPockets: z
+    .tuple([z.number().int().min(0).max(6), z.number().int().min(0).max(6)])
+    .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
 
@@ -53,6 +77,107 @@ export function noise1d(
     a = Math.round(a * roughness);
   }
   return out;
+}
+
+/**
+ * Gunpowder seams (§4b): meandering veins 2–3 cells thick, at least `minDepth` cells under the
+ * surface, through dirt, sand and rock only. `count` is per 1000 columns. Draws nothing from the
+ * rng when the count is [0, 0], so maps without seams are unchanged. Integer maths only.
+ */
+export function gunpowderSeams(
+  grid: Grid,
+  mats: MaterialTable,
+  rng: Prng,
+  surface: Int32Array,
+  count: readonly [number, number],
+  minDepth: number,
+  maxDepth: number,
+): void {
+  if (count[1] === 0) return;
+  const W = grid.width;
+  const H = grid.height;
+  const mat = grid.material;
+  const gp = mats.cellOf('material.gunpowder');
+  const dirt = mats.cellOf('material.dirt');
+  const sand = mats.cellOf('material.sand');
+  const rock = mats.cellOf('material.rock');
+  const scale = W / 1000;
+  const n = rng.range(Math.round(count[0] * scale), Math.round(count[1] * scale));
+  for (let i = 0; i < n; i++) {
+    let x = rng.range(20, W - 21);
+    const dir = rng.range(0, 1) === 0 ? -1 : 1;
+    const len = rng.range(70, 190);
+    const thick = rng.range(2, 3);
+    let fy = (surface[x]! + rng.range(minDepth, maxDepth)) * 256;
+    let slope = rng.range(-90, 90);
+    for (let s = 0; s < len; s++) {
+      x += dir;
+      if (x < 1 || x >= W - 1) break;
+      if ((s & 15) === 15) slope = Math.max(-140, Math.min(140, slope + rng.range(-60, 60)));
+      fy += slope;
+      // stay buried: the seam bends down under a dip in the surface
+      const lo = surface[x]! + minDepth;
+      if (fy < lo * 256) fy = lo * 256;
+      const cy = fy >> 8;
+      for (let t = 0; t < thick; t++) {
+        const y = cy + t;
+        if (y >= H - 2) break;
+        const c = mat[y * W + x]!;
+        if (c === dirt || c === sand || c === rock) mat[y * W + x] = gp;
+      }
+    }
+  }
+}
+
+/**
+ * Magma pockets (§4b): flat molten lenses deep under the surface, only where the ground holds
+ * them in on every side (no air within a few cells), so nothing flows until a blast opens one.
+ * `count` is per 1000 columns; [0, 0] draws nothing from the rng.
+ */
+export function magmaPockets(
+  grid: Grid,
+  mats: MaterialTable,
+  rng: Prng,
+  surface: Int32Array,
+  count: readonly [number, number],
+  minDepth: number,
+): void {
+  if (count[1] === 0) return;
+  const W = grid.width;
+  const H = grid.height;
+  const mat = grid.material;
+  const magma = mats.cellOf('material.magma');
+  const scale = W / 1000;
+  const n = rng.range(Math.round(count[0] * scale), Math.round(count[1] * scale));
+  for (let i = 0; i < n; i++) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const ry = rng.range(5, 9);
+      const rx = ry * 2 + rng.range(0, 8);
+      const cx = rng.range(rx + 4, W - rx - 5);
+      const cy = surface[cx]! + minDepth + ry + rng.range(0, 24);
+      if (cy + ry + 6 >= H) continue;
+      // sealed: solid ground everywhere within the lens plus a 5-cell crust
+      let sealed = true;
+      for (let y = cy - ry - 5; y <= cy + ry + 5 && sealed; y++) {
+        for (let x = cx - rx - 5; x <= cx + rx + 5; x++) {
+          if (y < 0 || mat[y * W + x] === 0) {
+            sealed = false;
+            break;
+          }
+        }
+      }
+      if (!sealed) continue;
+      for (let y = cy - ry; y <= cy + ry; y++) {
+        const dy = y - cy;
+        for (let x = cx - rx; x <= cx + rx; x++) {
+          const dx = x - cx;
+          // ellipse test in integers: (dx/rx)² + (dy/ry)² ≤ 1
+          if (dx * dx * ry * ry + dy * dy * rx * rx <= rx * rx * ry * ry) mat[y * W + x] = magma;
+        }
+      }
+      break;
+    }
+  }
 }
 
 export default defineGenerator<Params>({
@@ -126,6 +251,22 @@ export default defineGenerator<Params>({
       }
     }
 
+    let mean = 0;
+    for (let x = 0; x < W; x++) mean += surface[x]!;
+    mean = Math.floor(mean / W);
+
+    // Clay band: no rng either.
+    if (p.clayDepth > 0) {
+      const clay = mats.cellOf('material.clay');
+      const line = mean + Math.round(p.clayLevel * H);
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        const start = s >= line ? s : s + p.claySoil;
+        const bottom = Math.min(H, start + p.clayDepth);
+        for (let y = start; y < bottom; y++) if (mat[y * W + x] !== rock) mat[y * W + x] = clay;
+      }
+    }
+
     // Rock pockets: blobs buried in the dirt.
     for (let i = 0; i < p.rockPockets; i++) {
       const cx = rng.range(0, W - 1);
@@ -137,6 +278,31 @@ export default defineGenerator<Params>({
           const dx = x - cx;
           const dy = y - cy;
           if (dx * dx + dy * dy <= r * r && mat[y * W + x] !== 0) mat[y * W + x] = rock;
+        }
+      }
+    }
+
+    // Gunpowder seams and magma pockets (badlands): none on maps that don't ask for them.
+    gunpowderSeams(grid, mats, rng, surface, p.seams, 8, 40);
+    magmaPockets(grid, mats, rng, surface, p.magmaPockets, 22);
+    // Frozen lakes in the valleys and ice caps on the peaks (after the pockets, which need ground).
+    if (p.iceDepth > 0) {
+      const ice = mats.cellOf('material.ice');
+      const line = mean + Math.round(p.iceLevel * H);
+      const cap = mean - Math.round(p.iceCap * H);
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        let from = -1;
+        let to = -1;
+        if (s > line) {
+          from = line;
+          to = s + p.iceDepth;
+        } else if (s < cap) {
+          from = s;
+          to = s + p.iceDepth;
+        }
+        for (let y = Math.max(0, from); y < Math.min(H, to); y++) {
+          if (mat[y * W + x] !== rock) mat[y * W + x] = ice;
         }
       }
     }

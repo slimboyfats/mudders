@@ -44,6 +44,8 @@ export const ScenarioSchema = z.strictObject({
   turnOrder: z.array(z.number().int().min(0)).optional(),
   /** Force wind (cells/tick²) for the whole scenario. */
   wind: z.number().optional(),
+  /** Weather (`weather.*`) for the whole scenario; omit for clear skies. */
+  weather: ContentIdSchema.optional(),
   /** Team per player (milestone 7); omit for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(7)).optional(),
   /** AI personality per player (`ai.*`, null = scripted by `inputs`). */

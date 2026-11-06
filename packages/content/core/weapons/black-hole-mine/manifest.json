@@ -1,0 +1,32 @@
+{
+  "id": "weapon.black-hole-mine",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Black Hole Mine",
+    "description": "Lands quietly and sits on the ground. It arms when your turn ends, then waits: the first tank to come close, drive past or get blown onto it wakes a tiny black hole that drags the ground and every tank nearby into itself and swallows them whole. A tank already in reach when it arms sets it off at once; a blast also sets it off.",
+    "since": "core@0.21.0",
+    "category": "mine"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "mine": {
+        "weapon": "weapon.black-hole-mine-core",
+        "radius": 22,
+        "look": "black-hole"
+      }
+    }
+  ],
+  "shop": {
+    "price": 9500,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.4
+  }
+}

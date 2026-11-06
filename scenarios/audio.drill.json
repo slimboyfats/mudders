@@ -1,0 +1,57 @@
+{
+  "id": "audio.drill",
+  "schemaVersion": 1,
+  "description": "audio.drill in context: a Drill Torpedo grinding along under the ground.",
+  "subject": "audio.drill",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.drill-torpedo": -1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.drill-torpedo"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 480
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

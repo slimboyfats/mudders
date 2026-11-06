@@ -1,8 +1,10 @@
 import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
+import { drawPost, makePost, type Post } from './bumper';
 import { FxRng } from './gl';
 import { Lances } from './lance';
+import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
@@ -48,7 +50,10 @@ interface Front {
   cold?: boolean;
 }
 
-/** A singularity's hang: grit and light spiralling into a growing black core. */
+/**
+ * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
+ * Hole Mine's end instead: a wide black disc with a hard violet rim that slams shut to a point.
+ */
 interface Vortex {
   x: number;
   y: number;
@@ -56,6 +61,7 @@ interface Vortex {
   start: number;
   dur: number;
   rng: FxRng;
+  snap?: boolean;
 }
 
 interface Crystal {
@@ -68,6 +74,23 @@ interface Crystal {
   start: number;
   dur: number;
 }
+
+/** A firework burst in the sky: its two star colours, and a crackle due a moment after. */
+interface Firework {
+  x: number;
+  y: number;
+  start: number;
+  /** Main star colour and the inner ring's colour. */
+  main: number;
+  inner: number;
+  rng: FxRng;
+}
+
+/** Firework star colours: hard chip primaries, no blends. */
+const FIREWORK = [0xff4040, 0x40ff70, 0x5a8cff, 0xffd040, 0xff5ae6, 0x40f0ff, 0xffa030] as const;
+/** Ticks after a burst until its stars crackle, and how long a burst's colour stays claimable. */
+const FIREWORK_CRACKLE = 26;
+const FIREWORK_KEEP = 400;
 
 /** Ice colours, light to deep, for shards, glints and the frost front. */
 const ICE = [0xffffff, 0xe6f6ff, 0xbfe4fa, 0x8ccbef, 0x5ea8dc] as const;
@@ -136,6 +159,10 @@ export class EffectSystem {
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private funnels: Funnel[] = [];
+  private fireworks: Firework[] = [];
+  /** Bumper posts (weapon.bumper). */
+  private posts: Post[] = [];
+  private magnets: MagnetFx[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -214,6 +241,15 @@ export class EffectSystem {
         break;
       case 'meteorCall':
         this.meteorCall(e);
+        break;
+      case 'fireworkLaunch':
+        this.fireworkLaunch(e);
+        break;
+      case 'fireworkBurst':
+        this.fireworkBurst(e);
+        break;
+      case 'fireworkStar':
+        this.fireworkStar(e);
         break;
       case 'geyser':
         this.geyser(e, e.params.strength ?? 1);
@@ -401,6 +437,12 @@ export class EffectSystem {
           rng: this.rngFor(e, 61),
         });
         break;
+      case 'swallow':
+        this.swallow(e);
+        break;
+      case 'mineTrip':
+        this.mineTrip(e);
+        break;
       case 'eruption':
         this.eruption(e, e.params.strength ?? 1);
         break;
@@ -544,6 +586,12 @@ export class EffectSystem {
       case 'rift':
         this.rift(e);
         break;
+      case 'sinkhole':
+        this.sinkhole(e);
+        break;
+      case 'sinkholeDust':
+        this.sinkholeDust(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -622,6 +670,35 @@ export class EffectSystem {
       case 'tornado':
         this.tornado(e);
         break;
+      case 'magnet':
+        this.magnet(e);
+        break;
+      case 'magnetOn':
+        // the field kicks in: a jolt and a short drop in the sky's light
+        this.shakeAmp = Math.max(this.shakeAmp, 2);
+        this.shakeStart = e.tick;
+        this.tintSky([0, 0.05, 0.2, 0.3], 0.15);
+        break;
+      case 'magnetClank': {
+        // a tank slams onto the mine: hard white and cyan sparks off the contact
+        const rng = this.rngFor(e, 67);
+        const n = Math.round(18 * this.mult) + 3;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-3, 3),
+            y: e.y + rng.range(-2, 2),
+            vx: rng.range(-1.6, 1.6),
+            vy: -rng.range(0.3, 1.8),
+            life: rng.range(8, 20),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xffffff : 0x7fd8f0,
+            kind: PKind.Spark,
+          });
+        }
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        break;
+      }
       case 'touchdown': {
         // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
         this.shakeAmp = Math.max(this.shakeAmp, 3);
@@ -668,6 +745,34 @@ export class EffectSystem {
         }
         break;
       }
+      case 'bumper':
+        this.posts.push(makePost(e.x, e.y + 1, e.tick, e.params.windup ?? 10));
+        this.dirtPop(e, 10);
+        break;
+      case 'bumpKick':
+        this.bumpKick(e);
+        break;
+      case 'bumpLaunch':
+        this.dirtPop(e, 14);
+        this.stars(e, 12, 1.6);
+        break;
+      case 'bumpFly':
+        this.stars(e, 2, 0.4);
+        break;
+      case 'bumpBounce':
+        this.stars(e, 14, 1.4);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 14,
+          maxR: 18,
+          width: 5,
+          strength: 0.5,
+        });
+        this.shakeAmp = Math.max(this.shakeAmp, 2);
+        this.shakeStart = e.tick;
+        break;
       case 'tornadoEnd': {
         // the funnel breaks up: a burst of storm dust where it stood
         const rng = this.rngFor(e, 53);
@@ -831,6 +936,167 @@ export class EffectSystem {
     this.tintSky(DT_LOOK[4]!, 0.15);
     this.shakeAmp = Math.max(this.shakeAmp, 2);
     this.shakeStart = e.tick;
+  }
+
+  /**
+   * Cluster Fireworks popping at the top of its arc: a small white pop, a ring of gold sparks and
+   * a puff of grey smoke where the rockets broke away.
+   */
+  private fireworkLaunch(e: EffectEvent): void {
+    const rng = this.rngFor(e, 61);
+    this.glows.push({ x: e.x, y: e.y, r: 5, start: e.tick, dur: 6, color: 0xfff0c0, strength: 1 });
+    const n = Math.round(20 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.1, 0.1);
+      const v = rng.range(0.8, 1.6);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(10, 18),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : 0xffd060,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y: e.y + rng.range(-2, 2),
+        vx: rng.range(-0.1, 0.1),
+        vy: -rng.range(0, 0.08),
+        life: rng.range(40, 70),
+        size: rng.range(2, 4),
+        color: 0x8a8490,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
+  /**
+   * One firework bursting: a white pop, then a sphere of strobing stars in one colour around an
+   * inner ring of another, flung out hard and braking into a drooping ball. A moment later the
+   * ball crackles with white flecks. The sky flickers in the burst's colour.
+   */
+  private fireworkBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 67);
+    const main = FIREWORK[Math.floor(rng.next() * FIREWORK.length)]!;
+    let inner: number = FIREWORK[Math.floor(rng.next() * FIREWORK.length)]!;
+    if (inner === main) inner = 0xffffff;
+    this.fireworks.push({ x: e.x, y: e.y, start: e.tick, main, inner, rng });
+    this.glows.push({ x: e.x, y: e.y, r: 6, start: e.tick, dur: 5, color: main, strength: 1.2 });
+    const n = Math.round(56 * this.mult) + 12;
+    const tilt = rng.range(0, Math.PI * 2);
+    for (let i = 0; i < n; i++) {
+      const a = tilt + (i / n) * Math.PI * 2;
+      // a ball, not a ring: speeds spread over the sphere's projection onto the screen
+      const v = 1.2 * Math.sqrt(1 - rng.next() * rng.next());
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(48, 70),
+        size: 1,
+        color: main,
+        kind: PKind.Glitter,
+      });
+    }
+    const m = Math.round(20 * this.mult) + 6;
+    for (let i = 0; i < m; i++) {
+      const a = tilt + (i / m) * Math.PI * 2 + 0.1;
+      const v = rng.range(0.42, 0.55);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(34, 46),
+        size: 1,
+        color: inner,
+        kind: PKind.Glitter,
+      });
+    }
+    const r = (main >> 16) & 255;
+    const g = (main >> 8) & 255;
+    const b = main & 255;
+    this.tintSky([main, r / 255, g / 255, b / 255], 0.03);
+  }
+
+  /** A burning star landing: a tiny pop of sparks in its colour kicked up off the ground. */
+  private fireworkStar(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    const found = this.fireworkColor(e.x, e.tick, false);
+    const c = found < 0 ? 0xffd040 : found;
+    const n = Math.round(8 * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-1, 1),
+        y: e.y - 1,
+        vx: rng.range(-0.7, 0.7),
+        vy: -rng.range(0.4, 1.2),
+        life: rng.range(10, 20),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : c,
+        kind: PKind.Spark,
+      });
+    }
+    this.glows.push({ x: e.x, y: e.y - 1, r: 3, start: e.tick, dur: 4, color: c, strength: 0.8 });
+  }
+
+  /**
+   * Main colour of the firework burst a star at column `x` most likely came from, or -1 if there
+   * is none. A star just born (`born`) belongs to the newest burst, nearest sideways; a star
+   * landing to the nearest recent burst above it.
+   */
+  fireworkColor(x: number, t: number, born: boolean): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < this.fireworks.length; i++) {
+      const f = this.fireworks[i]!;
+      if (f.start > t) continue;
+      const d = (t - f.start) * (born ? 4 : 0.3) + Math.abs(f.x - x);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best < 0 ? -1 : this.fireworks[best]!.main;
+  }
+
+  /** Inner ring colour of the burst whose main colour is `main` (for a star's glitter trail). */
+  fireworkInner(main: number): number {
+    for (let i = this.fireworks.length - 1; i >= 0; i--) {
+      const f = this.fireworks[i]!;
+      if (f.main === main) return f.inner;
+    }
+    return 0xffffff;
+  }
+
+  /** Bursts crackle: white flecks winking on across the ball a moment after it opens. */
+  private fireworkTick(t: number): void {
+    this.fireworks = this.fireworks.filter((f) => t - f.start <= FIREWORK_KEEP);
+    for (const f of this.fireworks) {
+      const age = t - f.start;
+      if (age < FIREWORK_CRACKLE || age > FIREWORK_CRACKLE + 8) continue;
+      const n = Math.max(1, Math.round(3 * this.mult));
+      const reach = 17 + (age - FIREWORK_CRACKLE);
+      for (let i = 0; i < n; i++) {
+        const a = f.rng.range(0, Math.PI * 2);
+        const d = reach * Math.sqrt(f.rng.next());
+        this.particles.add({
+          x: f.x + Math.cos(a) * d,
+          y: f.y + Math.sin(a) * d + (age - FIREWORK_CRACKLE) * 0.4,
+          vx: 0,
+          vy: 0.05,
+          life: f.rng.range(4, 9),
+          size: 1,
+          color: 0xffffff,
+          kind: PKind.Spark,
+        });
+      }
+    }
   }
 
   /**
@@ -1045,11 +1311,116 @@ export class EffectSystem {
     for (const v of this.vortices) {
       const k = (t - v.start) / v.dur;
       if (k < 0 || k > 1) continue;
+      if (v.snap) {
+        // opens wide in the first few ticks, then slams shut; hard bands, whole cells
+        const open = Math.min(1, k * 6);
+        const size = 2 * Math.max(1, Math.round(v.r * 0.55 * open * (1 - k) * (1 - k))) + 1;
+        additive.push(
+          v.x + 0.5,
+          v.y + 0.5,
+          size + 6,
+          size + 6,
+          0x6020d0,
+          0.5 * (1 - k),
+          Shape.Pixel,
+        );
+        normal.push(v.x + 0.5, v.y + 0.5, size + 2, size + 2, 0xc8a0ff, 1, Shape.Pixel);
+        normal.push(v.x + 0.5, v.y + 0.5, size, size, 0x05030a, 1, Shape.Pixel);
+        continue;
+      }
       const core = 3 + Math.round(k * k * v.r * 0.18);
       additive.push(v.x, v.y, core * 2 + 6, core * 2 + 6, 0x8040ff, 0.35 + 0.3 * k, Shape.Pixel);
       normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
       normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
     }
+  }
+
+  /**
+   * A tripped Black Hole Mine: a hard violet ring snaps out to the trip radius, the sky goes
+   * purple, and a few sparks jump off the mine before the vortex takes over.
+   */
+  private mineTrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 18,
+      maxR: e.radius * 2,
+      width: 6,
+      strength: 0.5,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: Math.max(6, e.radius * 0.5),
+      start: e.tick,
+      dur: 10,
+      color: 0xa060ff,
+      strength: 0.9,
+    });
+    const n = Math.round(16 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const sp = rng.range(1.2, 2.2);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 1,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp * 0.7,
+        life: rng.range(8, 14),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0xb070ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.tintSky([0, 0.36, 0.08, 0.6], 0.35);
+  }
+
+  /**
+   * A Black Hole Mine's end: the hole slams shut. Everything near it streaks inward and vanishes
+   * (no debris thrown out), then the space around it springs back in a distortion band.
+   */
+  private swallow(e: EffectEvent): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(8, e.radius);
+    const dur = Math.max(8, e.params.ticks ?? 22);
+    this.vortices.push({ x: e.x, y: e.y, r, start: e.tick, dur, rng, snap: true });
+    const n = Math.round(70 * this.mult) + 20;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = r * rng.range(0.6, 1.5);
+      const life = rng.range(6, 14);
+      const cx = Math.round(e.x + Math.cos(a) * rr);
+      const cy = Math.round(e.y + Math.sin(a) * rr * 0.8);
+      const m = this.probe.material(cx, cy);
+      this.particles.add({
+        x: cx,
+        y: cy,
+        vx: (e.x - cx) / life,
+        vy: (e.y - cy) / life,
+        life,
+        size: 1,
+        color:
+          m !== 0 && rng.next() < 0.6
+            ? this.probe.color(m)
+            : rng.next() < 0.5
+              ? 0xd8c0ff
+              : 0x7040e0,
+        kind: PKind.Spark,
+      });
+    }
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + Math.round(dur * 0.7),
+      dur: 26,
+      maxR: r * 2.6,
+      width: 9,
+      strength: 1.1,
+    });
+    this.tintSky([0, 0.3, 0.05, 0.55], 0.5);
+    this.split = Math.max(this.split, 1);
   }
 
   /**
@@ -1215,6 +1586,88 @@ export class EffectSystem {
    * A fissure ripping open (Fault Line): a jolt, a lens kick through the ground, and a geyser of
    * dust and clods out of the crack mouth; a magma crack also throws up a spray of embers.
    */
+  /** The ground giving way: a hard jolt, air blasting dust out of the rim cracks, grit raining in. */
+  private sinkhole(e: EffectEvent): void {
+    const rng = this.rngFor(e, 53);
+    const R = Math.max(8, e.radius);
+    const depth = Math.max(8, e.params.depth ?? 40);
+    this.shakeAmp = Math.max(this.shakeAmp, 8);
+    this.shakeStart = e.tick;
+    this.ripples.push({
+      x: e.x,
+      y: e.y + depth * 0.5,
+      start: e.tick,
+      dur: 26,
+      maxR: R * 1.8,
+      width: 10,
+      strength: 0.9,
+    });
+    // air pushed out of the cavern blasts up through the cracks at the rim
+    for (let side = -1; side <= 1; side += 2) {
+      const x0 = Math.round(e.x + side * R);
+      const y0 = this.surfaceNear(x0, e.y, 60);
+      if (y0 < 0) continue;
+      const col = this.dustColor(x0, y0 + 2);
+      const n = Math.round(22 * this.mult) + 3;
+      for (let i = 0; i < n; i++) {
+        this.particles.add({
+          x: x0 + rng.range(-3, 3),
+          y: y0 - rng.range(0, 3),
+          vx: side * rng.range(-0.1, 0.5),
+          vy: -rng.range(0.6, 2.2),
+          life: rng.range(24, 50),
+          size: rng.range(2, 5),
+          color: shade(col, rng.range(0.85, 1.2)),
+          kind: PKind.Dust,
+        });
+      }
+    }
+    // clods breaking off the lip and dropping in
+    const nChunk = Math.round(36 * this.mult) + 4;
+    for (let i = 0; i < nChunk; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      const x = Math.round(e.x + side * R * rng.range(0.7, 1.05));
+      const y = this.surfaceNear(x, e.y, 60);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - 1,
+        vx: -side * rng.range(0.1, 0.9),
+        vy: rng.range(-0.8, 0.2),
+        life: rng.range(30, 60),
+        size: rng.range(1, 2),
+        color: shade(this.dustColor(x, y + 2), rng.range(0.7, 1.05)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * Dust over a sinkhole: while it sags, thin puffs wheeze out of cracks across the doomed ground;
+   * with `plume`, a wide brown cloud rolls up out of the finished pit.
+   */
+  private sinkholeDust(e: EffectEvent): void {
+    const rng = this.rngFor(e, 59);
+    const R = Math.max(8, e.radius);
+    const plume = (e.params.plume ?? 0) > 0;
+    const n = Math.round((plume ? 70 : 10) * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      const x = Math.round(e.x + rng.range(-R, R) * (plume ? 0.8 : 1));
+      const y = this.surfaceNear(x, e.y, plume ? 120 : 30);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - rng.range(1, plume ? 10 : 2),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.1, plume ? 1.3 : 0.5),
+        life: rng.range(plume ? 40 : 18, plume ? 90 : 36),
+        size: rng.range(plume ? 3 : 1, plume ? 6 : 3),
+        color: shade(this.dustColor(x, y + 1), rng.range(0.85, 1.15)),
+        kind: PKind.Dust,
+      });
+    }
+  }
+
   private rift(e: EffectEvent): void {
     const rng = this.rngFor(e, 43);
     const depth = Math.max(8, e.radius);
@@ -1464,6 +1917,33 @@ export class EffectSystem {
     if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
   }
 
+  /** Update (or start) the magnet mine an event belongs to: one event per mine per tick. */
+  private magnet(e: EffectEvent): void {
+    const pr = e.params;
+    let m: MagnetFx | undefined;
+    for (const g of this.magnets) {
+      if (e.tick - g.last <= 3 && g.x === e.x && g.y === e.y) {
+        m = g;
+        break;
+      }
+    }
+    if (!m) {
+      m = { x: e.x, y: e.y, r: e.radius, age: 0, arm: 0, life: 0, strength: 0, last: e.tick };
+      this.magnets.push(m);
+    }
+    m.r = e.radius;
+    m.age = pr.age ?? 0;
+    m.arm = pr.arm ?? 0;
+    m.life = pr.life ?? 0;
+    m.strength = (pr.strength ?? 0) / 100;
+    m.last = e.tick;
+  }
+
+  /** Magnet mines and their fields. */
+  drawMagnets(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const m of this.magnets) drawMagnet(m, normal, additive, t);
+  }
+
   /** Dust skirt churned up round each tornado's base, once per tick. */
   private funnelDust(f: Funnel, t: number): void {
     if (f.down < 1 || f.strength <= 0.05 || t - f.last > 2) return;
@@ -1498,6 +1978,69 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
+  }
+
+  /** A bumper kicks: a distortion punch out of the post, a jolt and a spray of pinball stars. */
+  private bumpKick(e: EffectEvent): void {
+    this.ripples.push({
+      x: e.x,
+      y: e.y - 8,
+      start: e.tick,
+      dur: 22,
+      maxR: e.radius * 1.6,
+      width: 10,
+      strength: 0.9,
+    });
+    this.shakeAmp = Math.max(this.shakeAmp, 4);
+    this.shakeStart = e.tick;
+    this.stars({ ...e, y: e.y - 12 }, 30, 2.2);
+    this.tintSky([0, 0.45, 0.35, 0.1], 0.18);
+  }
+
+  /** Hard-coloured pixel stars thrown out of a point (bumper kicks, trails, bounces). */
+  private stars(e: EffectEvent, count: number, speed: number): void {
+    const rng = this.rngFor(e, 71);
+    const n = Math.round(count * this.mult) + 1;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const s = rng.range(0.3, 1) * speed;
+      const c = rng.next();
+      this.particles.add({
+        x: e.x + rng.range(-1.5, 1.5),
+        y: e.y + rng.range(-1.5, 1.5),
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 0.3,
+        life: rng.range(10, 26),
+        size: 1,
+        color: c < 0.4 ? 0xffe070 : c < 0.7 ? 0xffffff : c < 0.85 ? 0xff5a8c : 0x6ae0ff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** Clods of the local ground kicked up (a bumper post breaking the surface, a tank kicked). */
+  private dirtPop(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 73);
+    const n = Math.round(count * this.mult) + 1;
+    const col = this.dustColor(e.x, e.y + 2);
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-6, 6),
+        y: e.y - rng.range(0, 3),
+        vx: rng.range(-1.1, 1.1),
+        vy: -rng.range(0.5, 1.8),
+        life: rng.range(18, 34),
+        size: 1,
+        color: shade(col, rng.range(0.7, 1.2)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Bumper posts, drawn behind tanks and particles; sunk ones are dropped. */
+  drawPosts(normal: QuadBatch, t: number): void {
+    if (this.posts.length === 0) return;
+    this.posts = this.posts.filter((p) => drawPost(p, normal, t));
   }
 
   /** Tornadoes, drawn behind particles and debris; stale ones are dropped. */
@@ -1929,6 +2472,7 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.feedJets(t);
+    this.fireworkTick(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
       const k = (t - f.start) / f.dur;
@@ -1998,6 +2542,7 @@ export class EffectSystem {
     });
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
+    this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -2251,6 +2796,8 @@ export class EffectSystem {
     this.lances.clear();
     this.vortices = [];
     this.funnels = [];
+    this.posts = [];
+    this.magnets = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

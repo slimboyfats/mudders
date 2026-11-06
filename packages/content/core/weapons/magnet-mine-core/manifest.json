@@ -1,0 +1,47 @@
+{
+  "id": "weapon.magnet-mine-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magnet Mine charge",
+    "description": "The charge inside a Magnet Mine: it goes off when the field runs out, with whatever it pulled in clamped to it.",
+    "category": "submunition",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 182
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 26,
+        "damage": 60,
+        "effects": {
+          "burst": {
+            "count": 50
+          },
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

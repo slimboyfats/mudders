@@ -1,0 +1,48 @@
+{
+  "id": "weapon.bumper",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bumper",
+    "description": "A pinball bumper post pops up where it lands and kicks every enemy tank nearby clean across the map. The closer they are, the farther they fly; they bounce off hills and the map's edges and take fall damage where they land, unless a parachute opens.",
+    "since": "core@0.21.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 8,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 12
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.bumper"
+      },
+      "radius": 40,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 35,
+    "terrainValue": 0
+  },
+  "audio": {
+    "fire": "audio.fire"
+  }
+}

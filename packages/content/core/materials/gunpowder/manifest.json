@@ -1,0 +1,50 @@
+{
+  "id": "material.gunpowder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gunpowder",
+    "description": "Black powder in seams buried under the dirt. Fire, lava, napalm or a blast lights it, the flame runs along the seam like a fuse and the seam goes off in a chain of explosions.",
+    "since": "core@0.21.0",
+    "color": "#3c3a42"
+  },
+  "cell": 61,
+  "settle": "fall",
+  "density": 90,
+  "strength": {
+    "blast": 0.8,
+    "kinetic": 0.9,
+    "heat": 0.6,
+    "corrosive": 10
+  },
+  "cohesion": 0,
+  "coating": false,
+  "ignite": {
+    "into": "material.lit-gunpowder",
+    "by": ["blast", "heat", "shock"]
+  },
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.lit-gunpowder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.lava",
+      "into": "material.lit-gunpowder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.lit-gunpowder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.burning-oil",
+      "into": "material.lit-gunpowder",
+      "chance": 0.5
+    }
+  ],
+  "look": {
+    "glint": true
+  }
+}

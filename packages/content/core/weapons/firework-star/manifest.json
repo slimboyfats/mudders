@@ -1,0 +1,53 @@
+{
+  "id": "weapon.firework-star",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Firework star",
+    "description": "One burning star of a firework burst: drifts down slowly on the wind and lands with a small hot pop that nicks the ground.",
+    "category": "submunition",
+    "since": "core@0.21.0"
+  },
+  "flight": {
+    "use": "flight.ballistic",
+    "gravityScale": 0.35,
+    "windScale": 1.5
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 9,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 6
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 0
+          },
+          "fireworkStar": {
+            "strength": 1
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "star",
+    "trail": false
+  }
+}
