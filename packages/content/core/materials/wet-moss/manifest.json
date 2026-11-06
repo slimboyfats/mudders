@@ -1,0 +1,40 @@
+{
+  "id": "material.wet-moss",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Soaked moss",
+    "description": "Sponge moss full of water: dark, swollen and heavy. It keeps drinking any water it touches and growing with it, won't burn, and dries back to sponge moss after three turns.",
+    "since": "core@0.21.0",
+    "color": "#3d6e30"
+  },
+  "cell": 65,
+  "settle": "fall",
+  "density": 90,
+  "strength": {
+    "blast": 0.9,
+    "kinetic": 0.7,
+    "heat": 4,
+    "shock": 0.7,
+    "dig": 0.6,
+    "corrosive": 6
+  },
+  "cohesion": 0.6,
+  "coating": false,
+  "decay": {
+    "into": "material.moss",
+    "turns": 3
+  },
+  "reactions": [
+    {
+      "with": "material.water",
+      "other": "air",
+      "spawn": "material.wet-moss",
+      "chance": 0.35
+    },
+    {
+      "with": "material.fire",
+      "other": "air",
+      "chance": 0.3
+    }
+  ]
+}

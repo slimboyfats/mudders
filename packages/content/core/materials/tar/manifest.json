@@ -1,0 +1,51 @@
+{
+  "id": "material.tar",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sticky tar",
+    "description": "Black goo that seeps into the deepest dips. Tanks bog down in it and drive at a third of the speed and range; rollers and bouncing shells stick where they touch it and diggers bore through at half speed. One spark and the whole pool burns for turns.",
+    "since": "core@0.21.0",
+    "color": "#1b181f"
+  },
+  "cell": 66,
+  "settle": "slide",
+  "density": 130,
+  "strength": {
+    "blast": 1.3,
+    "kinetic": 2,
+    "shock": 1.5,
+    "dig": 0.8,
+    "corrosive": 4
+  },
+  "cohesion": 0.4,
+  "coating": false,
+  "sticky": {
+    "drive": 3
+  },
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.burning-tar",
+      "chance": 0.15
+    },
+    {
+      "with": "material.burning-tar",
+      "into": "material.burning-tar",
+      "chance": 0.12
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.burning-tar",
+      "chance": 0.3
+    },
+    {
+      "with": "material.lava",
+      "into": "material.burning-tar",
+      "chance": 0.3
+    }
+  ],
+  "look": {
+    "cycle": ["#1b181f", "#1b181f", "#1b181f", "#2a2533", "#3a3446", "#2a2533"],
+    "cycleTicks": 12
+  }
+}

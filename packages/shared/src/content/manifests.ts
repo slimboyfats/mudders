@@ -162,6 +162,12 @@ export const MaterialSchema = z.strictObject({
    */
   slick: z.strictObject({ ticks: z.number().int().min(1).max(255) }).optional(),
   /**
+   * Sticky ground (tar): a tank with at least half its treads on it drives `drive` times slower,
+   * and each cell it drives costs `drive` cells of its turn's allowance. Flights may also read it
+   * (`MaterialTable.sticky`) to catch shells that roll or bounce.
+   */
+  sticky: z.strictObject({ drive: z.number().int().min(2).max(8) }).optional(),
+  /**
    * Compaction (mud): when a crater is carved out of this material, the blast packs the cells
    * beneath each carved column instead of only blowing them away. Per column, `ratio` cells of
    * this material below the crater floor become `into` for every carved cell (at least one), so

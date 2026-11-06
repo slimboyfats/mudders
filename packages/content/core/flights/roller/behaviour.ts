@@ -1,6 +1,6 @@
 import { z } from '@mudders/shared';
 import { defineFlight, toFixed } from '@mudders/sim';
-import { ballisticStep, cellX, cellY, placeAt, solidAt } from '../../../src/flight';
+import { ballisticStep, cellX, cellY, placeAt, solidAt, stickyAt } from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -31,13 +31,13 @@ function depth(api: Parameters<typeof solidAt>[0], x: number, y: number, max: nu
 
 /**
  * Roller (§5.1): flies a normal arc; on landing it rolls downhill along the surface, over small
- * bumps, until it hits a tank, runs into a wall, or would have to climb out of a valley, and
+ * bumps, until it hits a tank, sticks in tar, runs into a wall, or would have to climb out of a valley, and
  * goes off there.
  */
 export default defineFlight<z.infer<typeof params>>({
   kind: 'flight',
   id: 'flight.roller',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -73,6 +73,8 @@ export default defineFlight<z.infer<typeof params>>({
         ny = y + d;
       }
       placeAt(proj, nx, ny);
+      // rolled onto tar: it sticks there and goes off
+      if (stickyAt(api, nx, ny + 1)) return 'impact';
       if (ny > proj.data[3]!) proj.data[3] = ny;
       if (ny < proj.data[3]! - p.climbBudget) return 'impact';
       proj.data[2] = proj.data[2]! + 1;
@@ -84,6 +86,8 @@ export default defineFlight<z.infer<typeof params>>({
     if (hit.tank >= 0) return 'impact';
     // rolling: the step follows the ground itself; the tracer only clips corners
     if (proj.data[0] === ROLL) return 'continue';
+    // landed in tar: stuck, no roll
+    if (stickyAt(api, hit.x, hit.y)) return 'impact';
     // Landed: roll toward the side where the ground falls away more (ties: the way it was going).
     const left = depth(api, hit.freeX - 2, hit.freeY, 12);
     const right = depth(api, hit.freeX + 2, hit.freeY, 12);

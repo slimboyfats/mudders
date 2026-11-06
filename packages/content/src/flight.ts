@@ -52,3 +52,10 @@ export function solidAt(api: SimApi, x: number, y: number): boolean {
   if (y < 0) return false;
   return g.material[y * g.width + x] !== 0;
 }
+
+/** True when (x, y) is sticky ground (tar): rolling and bouncing shells stick to it. */
+export function stickyAt(api: SimApi, x: number, y: number): boolean {
+  const g = api.grid;
+  if (x < 0 || y < 0 || x >= g.width || y >= g.height) return false;
+  return api.mats.sticky[g.material[y * g.width + x]!] !== 0;
+}

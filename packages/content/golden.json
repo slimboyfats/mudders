@@ -1,5 +1,5 @@
 {
-  "contentHash": "63418db0f8f7faba",
+  "contentHash": "a9866e6cf6b559d4",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -358,8 +358,8 @@
       "hash": "f20a2f589637a3d1"
     },
     "gen.marsh": {
-      "ticks": 171,
-      "hash": "158d0d46b47bed6d"
+      "ticks": 377,
+      "hash": "cdbc4ffee80577f9"
     },
     "gen.village": {
       "ticks": 149,
@@ -376,6 +376,10 @@
     "material.burning-oil": {
       "ticks": 608,
       "hash": "4ac26d329465d87e"
+    },
+    "material.burning-tar": {
+      "ticks": 682,
+      "hash": "34c577ffebf35692"
     },
     "material.cinder": {
       "ticks": 1301,
@@ -427,7 +431,7 @@
     },
     "material.gas-pocket": {
       "ticks": 84,
-      "hash": "5f68aa7f19345fe8"
+      "hash": "2edb13b3946c28ef"
     },
     "material.glass": {
       "ticks": 156,
@@ -477,9 +481,13 @@
       "ticks": 98,
       "hash": "9e8ac2e5e79a4fc5"
     },
+    "material.moss": {
+      "ticks": 407,
+      "hash": "8f21e040f21378d8"
+    },
     "material.mud": {
-      "ticks": 171,
-      "hash": "158d0d46b47bed6d"
+      "ticks": 377,
+      "hash": "cdbc4ffee80577f9"
     },
     "material.napalm": {
       "ticks": 387,
@@ -494,8 +502,8 @@
       "hash": "4ac26d329465d87e"
     },
     "material.packed-mud": {
-      "ticks": 324,
-      "hash": "dbb662466b37eea5"
+      "ticks": 619,
+      "hash": "1a3c250d8d7c135f"
     },
     "material.rock-lit": {
       "ticks": 687,
@@ -537,6 +545,10 @@
       "ticks": 210,
       "hash": "ecdd6e7fee664c55"
     },
+    "material.tar": {
+      "ticks": 991,
+      "hash": "f2d14b481971148f"
+    },
     "material.water": {
       "ticks": 597,
       "hash": "239808c8502960db"
@@ -544,6 +556,10 @@
     "material.wet-clay": {
       "ticks": 414,
       "hash": "f975190043666ea8"
+    },
+    "material.wet-moss": {
+      "ticks": 407,
+      "hash": "8f21e040f21378d8"
     },
     "material.wood": {
       "ticks": 325,
@@ -871,7 +887,7 @@
     },
     "weapon.gas-burst": {
       "ticks": 120,
-      "hash": "2bae22ef41141acf"
+      "hash": "c1efa39c485fd373"
     },
     "weapon.glue-bomb": {
       "ticks": 380,

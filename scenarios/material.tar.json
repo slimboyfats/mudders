@@ -1,0 +1,93 @@
+{
+  "id": "material.tar",
+  "schemaVersion": 1,
+  "description": "A tank drives into the marsh tar pit and bogs down, napalms the tar so the whole pool burns, then a roller from the other side sticks where it reaches the tar.",
+  "subject": "material.tar",
+  "mode": "mode.classic",
+  "seed": 21,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.marsh"
+  },
+  "tanks": [
+    {
+      "x": 220,
+      "inventory": {
+        "weapon.napalm": 3
+      }
+    },
+    {
+      "x": 600,
+      "inventory": {
+        "weapon.roller": 3
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "drive",
+        "dir": 1
+      }
+    },
+    {
+      "t": 300,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.napalm"
+      }
+    },
+    {
+      "t": 300,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 260
+      }
+    },
+    {
+      "t": 300,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 700,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.roller"
+      }
+    },
+    {
+      "t": 700,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 120,
+        "power": 370
+      }
+    },
+    {
+      "t": 700,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2200,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

@@ -1,6 +1,14 @@
 import { z } from '@mudders/shared';
 import { defineFlight, toFixed } from '@mudders/sim';
-import { ballisticStep, cellX, cellY, placeAt, solidAt, withSpeed } from '../../../src/flight';
+import {
+  ballisticStep,
+  cellX,
+  cellY,
+  placeAt,
+  solidAt,
+  stickyAt,
+  withSpeed,
+} from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -19,6 +27,8 @@ const params = z.strictObject({
 
 // mode 0 = flying
 const DIG = 1;
+/** Cells ahead of the drill it checks for tar. */
+const STICKY_LOOK = 4;
 // data: [mode, dvx, dvy, dug]
 
 /**
@@ -29,7 +39,7 @@ const DIG = 1;
 export default defineFlight<z.infer<typeof params>>({
   kind: 'flight',
   id: 'flight.digger',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -39,8 +49,16 @@ export default defineFlight<z.infer<typeof params>>({
     }
     const dvx = proj.data[1]!;
     const dvy = proj.data[2]!;
-    proj.x += dvx;
-    proj.y += dvy;
+    // tar clings to the drill: it bores through at half speed (the pulse has already cleared
+    // the cell it sits in, so look at the face a few cells ahead)
+    const sp = toFixed(p.speed);
+    const slow = stickyAt(
+      api,
+      cellX(proj) + Math.trunc((dvx * STICKY_LOOK) / sp),
+      cellY(proj) + Math.trunc((dvy * STICKY_LOOK) / sp),
+    );
+    proj.x += slow ? Math.trunc(dvx / 2) : dvx;
+    proj.y += slow ? Math.trunc(dvy / 2) : dvy;
     const dug = proj.data[3]! + 1;
     proj.data[3] = dug;
     if (dug >= p.length) return p.end;
