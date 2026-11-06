@@ -1,5 +1,5 @@
 {
-  "contentHash": "c4a6802d7e8e6e36",
+  "contentHash": "1726cbac426a418f",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -398,8 +398,8 @@
       "hash": "95ed2ed1b78b8beb"
     },
     "weapon.baby-nuke": {
-      "ticks": 167,
-      "hash": "3b104b810c9e62e3"
+      "ticks": 188,
+      "hash": "bbcac91a29ba7061"
     },
     "weapon.baby-roller": {
       "ticks": 158,
@@ -462,8 +462,8 @@
       "hash": "1f4c9fd786337961"
     },
     "weapon.heavy-nuke": {
-      "ticks": 167,
-      "hash": "f2e6754490439b77"
+      "ticks": 192,
+      "hash": "a5b19d23ad696a9a"
     },
     "weapon.heavy-roller": {
       "ticks": 166,
@@ -522,8 +522,8 @@
       "hash": "1acdaed02b651e67"
     },
     "weapon.nuke": {
-      "ticks": 171,
-      "hash": "cc38e56af3efe238"
+      "ticks": 192,
+      "hash": "dcfe4336ebc74378"
     },
     "weapon.oil-slick": {
       "ticks": 357,

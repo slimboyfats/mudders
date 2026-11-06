@@ -29,6 +29,19 @@
           }
         }
       }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 70,
+        "damage": 0,
+        "push": 14,
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
     }
   ],
   "shop": {
