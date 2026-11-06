@@ -1,0 +1,25 @@
+{
+  "id": "terrainop.rift",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rift",
+    "description": "Fissures rip open in pairs outward from the impact and spew their ground into the air; the slabs between them heave up and drop away like fault blocks, and the innermost cracks end in a seam of magma. Rock and props hold.",
+    "since": "core@0.13.0"
+  },
+  "behaviour": "terrainop.rift",
+  "cracks": 4,
+  "spacing": 46,
+  "jitter": 10,
+  "depth": 80,
+  "width": 10,
+  "throw": 22,
+  "openTicks": 10,
+  "stagger": 7,
+  "shiftTicks": 22,
+  "spew": 0.5,
+  "spewLift": 3.2,
+  "floor": "material.lava",
+  "floorRows": 6,
+  "floorCracks": 2,
+  "floorDelay": 45
+}
