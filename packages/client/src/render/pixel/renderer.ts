@@ -442,9 +442,12 @@ export class PixelRenderer implements Renderer {
       if (l.cell <= 0 || l.cell > 255) continue;
       const n = Math.min(8, l.cycle.length);
       look[l.cell * 4] = n >= 2 ? n : 0;
-      this.lookFlags[l.cell] = (n >= 2 ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
+      // glinting cells animate too, so they keep the animated-terrain pass on
+      this.lookFlags[l.cell] = (n >= 2 || l.glint ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
-      look[l.cell * 4 + 2] = l.hot ? 255 : 0;
+      // b: 255 hot, 96 glint (the shader tells them apart by range)
+      look[l.cell * 4 + 2] = l.hot ? 255 : l.glint ? 96 : 0;
+      // a: 255 topsoil, 128 char-only
       look[l.cell * 4 + 3] = l.topsoil ? 255 : l.char ? 128 : 0;
       for (let i = 0; i < n; i++) {
         const o = ((1 + i) * 256 + l.cell) * 4;
@@ -1012,6 +1015,7 @@ export class PixelRenderer implements Renderer {
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
+    this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
@@ -1184,6 +1188,7 @@ export class PixelRenderer implements Renderer {
       // turret dome
       b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
       this.coverTank(x, y);
+      if (e.chill > 0) this.frostTank(x, y, t);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       this.drawDigit(x - 13, y - 16, e.player + 1);
       // health bar
@@ -1196,6 +1201,36 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
     }
+  }
+
+  /**
+   * A frosted tank (Frost Bomb): rimed hull and dome, icicles hanging off the hull, a glint that
+   * hops around in whole steps, and a snowflake mark beside the health bar so the state reads
+   * without colour.
+   */
+  private frostTank(x: number, y: number, t: number): void {
+    const b = this.normal;
+    b.rect(x - 7, y - 6, 14, 3, 0xd6ecfa, 0.55);
+    b.rect(x - 7, y - 6, 14, 1, 0xffffff, 0.8);
+    b.push(x + 0.5, y - 7, 7, 5, 0xe6f6ff, 0.45, Shape.Disc);
+    for (let i = 0; i < ICICLES.length; i += 2) {
+      b.rect(x + ICICLES[i]!, y - 3, 1, ICICLES[i + 1]!, 0xe6f6ff, 0.95);
+    }
+    const st = Math.floor(t / 9);
+    const gx = x - 7 + ((st * 5 + x) % 14);
+    const gy = y - 6 - ((st * 3) % 3);
+    b.rect(gx, gy, 1, 1, 0xffffff);
+    // snowflake: a 5×5 plus with diagonal tips, right of the health bar
+    const sx = x + 10;
+    const sy = y - 16;
+    b.rect(sx - 1, sy - 1, 7, 7, 0x000000, 0.6);
+    b.rect(sx + 2, sy, 1, 5, 0xbfe4fa);
+    b.rect(sx, sy + 2, 5, 1, 0xbfe4fa);
+    b.rect(sx, sy, 1, 1, 0xbfe4fa);
+    b.rect(sx + 4, sy, 1, 1, 0xbfe4fa);
+    b.rect(sx, sy + 4, 1, 1, 0xbfe4fa);
+    b.rect(sx + 4, sy + 4, 1, 1, 0xbfe4fa);
+    b.rect(sx + 2, sy + 2, 1, 1, 0xffffff);
   }
 
   /** A 3×5 pixel digit (1–9) on a dark backing, top-left at (x, y). */
@@ -1268,6 +1303,9 @@ export class PixelRenderer implements Renderer {
     this.fx.clear();
   }
 }
+
+/** Icicles under a frosted tank's hull: x offset from the centre, length in cells. */
+const ICICLES = [-6, 2, -3, 1, 0, 3, 3, 1, 5, 2] as const;
 
 /** Mean row of the topmost solid cell per column (columns with no ground count as the bottom). */
 export function meanGround(terrain: Uint8Array, w: number, h: number): number {

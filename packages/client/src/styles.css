@@ -339,6 +339,12 @@ button.primary,
   padding: 0;
 }
 
+.frost-note {
+  font-size: 0.75rem;
+  color: #bfe4fa;
+  white-space: nowrap;
+}
+
 .stepper .value {
   min-width: 3.2em;
   text-align: center;

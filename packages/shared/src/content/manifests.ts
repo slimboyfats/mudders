@@ -151,6 +151,11 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Slick ground (frost): a tank resting with at least half its treads on it slides one cell
+   * every `ticks` ticks toward a side that drops away below it, until it reaches level ground.
+   */
+  slick: z.strictObject({ ticks: z.number().int().min(1).max(255) }).optional(),
+  /**
    * Compaction (mud): when a crater is carved out of this material, the blast packs the cells
    * beneath each carved column instead of only blowing them away. Per column, `ratio` cells of
    * this material below the crater floor become `into` for every carved cell (at least one), so
@@ -179,6 +184,8 @@ export const MaterialSchema = z.strictObject({
       char: z.boolean().default(false),
       /** Licks pixel flames and black smoke up from exposed tops (napalm, burning oil). */
       flames: z.boolean().default(false),
+      /** Crystalline: scattered cells glint white for a moment, in whole-cell steps (frost). */
+      glint: z.boolean().default(false),
     })
     .optional(),
 });
@@ -235,6 +242,11 @@ const explosionBody = {
   falloff: z.enum(['linear', 'flat']),
   /** Horizontal shove applied to tanks in range at the centre, in cells. */
   push: z.number().int().min(0).max(200),
+  /**
+   * Frosts tanks in range for this many of their own turns: a frosted tank fires at no more than
+   * half power. 0 = none.
+   */
+  chill: z.number().int().min(0).max(3).default(0),
   terrainOp: EmbeddedTerrainOpSchema.nullable(),
   effects: EffectProfileSchema,
 };
