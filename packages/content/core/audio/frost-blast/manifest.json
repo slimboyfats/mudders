@@ -1,0 +1,69 @@
+{
+  "id": "audio.frost-blast",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Frost Blast",
+    "description": "A sharp crack, a falling glassy shimmer and a tinkling cascade of ice: the Frost Bomb going off.",
+    "since": "core@0.13.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 4000,
+        "to": 300,
+        "release": 0.35,
+        "volume": 0.45
+      },
+      {
+        "wave": "square",
+        "freq": 180,
+        "to": 50,
+        "release": 0.6,
+        "volume": 0.3
+      },
+      {
+        "wave": "metal",
+        "freq": 7000,
+        "to": 2500,
+        "delay": 0.05,
+        "release": 1.2,
+        "volume": 0.22
+      },
+      {
+        "wave": "pulse12",
+        "freq": 2093,
+        "delay": 0.12,
+        "hold": 0.6,
+        "release": 0.5,
+        "volume": 0.16,
+        "arp": [0, 7, 12, 19, 24, 19, 12, 7],
+        "arpRate": 0.045
+      },
+      {
+        "wave": "triangle",
+        "freq": 1568,
+        "to": 1046,
+        "delay": 0.2,
+        "release": 0.9,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.4
+        }
+      }
+    ],
+    "radiusRef": 80
+  },
+  "on": [
+    {
+      "event": "frostBlast"
+    }
+  ]
+}
