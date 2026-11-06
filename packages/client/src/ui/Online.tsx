@@ -459,6 +459,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
       </label>
       <Rules
         value={session.rules}
+        players={session.playerCount}
         onChange={(r) => {
           const rules = { ...session.rules, ...r };
           session.setRules(rules);

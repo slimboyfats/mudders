@@ -6,12 +6,36 @@ export type MapSize = keyof typeof MAP_SIZES;
 /** A player slot on the setup screen: a human on this device, an AI personality, or empty. */
 export type Slot = 'human' | 'off' | `ai.${string}`;
 
+/** Match-length presets (§8; marathon added in milestone 7 for longer evenings). */
 export const PRESETS = {
   quick: { rounds: 1, turnTimer: 10 },
   standard: { rounds: 3, turnTimer: 15 },
   long: { rounds: 5, turnTimer: 15 },
+  marathon: { rounds: 10, turnTimer: 20 },
 } as const;
 export type Preset = keyof typeof PRESETS;
+
+export const PRESET_NAMES: Record<Preset, string> = {
+  quick: 'Quick',
+  standard: 'Standard',
+  long: 'Long',
+  marathon: 'Marathon',
+};
+
+/** Shots each player fires in an average round (milestone 3 playtests: 4 players, 3 rounds, 5–10 min). */
+const SHOTS_PER_ROUND = 3;
+/** Seconds between rounds (shop, scoreboard). */
+const BETWEEN_ROUNDS = 20;
+
+/**
+ * Rough match length in minutes for the setup screen. A turn takes about half its timer plus the
+ * shell's flight (an untimed turn counts as a 20 s timer). A guide, not a promise.
+ */
+export function estimateMinutes(rounds: number, turnTimer: number, players: number): number {
+  const turn = (turnTimer > 0 ? turnTimer : 20) * 0.5 + 6;
+  const secs = rounds * (Math.max(2, players) * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
+  return Math.max(1, Math.round(secs / 60));
+}
 
 const SCENERY_GEN = {
   none: 'gen.hills',

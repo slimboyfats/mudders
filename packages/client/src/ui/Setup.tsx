@@ -112,7 +112,7 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
         )}
       </section>
 
-      <Rules value={setup} onChange={(r) => update({ ...setup, ...r })} />
+      <Rules value={setup} players={n} onChange={(r) => update({ ...setup, ...r })} />
 
       <div className="setup-actions">
         <button onClick={onBack}>Back</button>
