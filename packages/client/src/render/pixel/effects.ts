@@ -4,6 +4,7 @@ import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
 import { FxRng } from './gl';
 import { Lances } from './lance';
+import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
 import { shade } from './theme';
@@ -49,7 +50,10 @@ interface Front {
   cold?: boolean;
 }
 
-/** A singularity's hang: grit and light spiralling into a growing black core. */
+/**
+ * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
+ * Hole Mine's end instead: a wide black disc with a hard violet rim that slams shut to a point.
+ */
 interface Vortex {
   x: number;
   y: number;
@@ -57,6 +61,7 @@ interface Vortex {
   start: number;
   dur: number;
   rng: FxRng;
+  snap?: boolean;
 }
 
 interface Crystal {
@@ -139,6 +144,7 @@ export class EffectSystem {
   private funnels: Funnel[] = [];
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
+  private magnets: MagnetFx[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -404,6 +410,12 @@ export class EffectSystem {
           rng: this.rngFor(e, 61),
         });
         break;
+      case 'swallow':
+        this.swallow(e);
+        break;
+      case 'mineTrip':
+        this.mineTrip(e);
+        break;
       case 'eruption':
         this.eruption(e, e.params.strength ?? 1);
         break;
@@ -522,6 +534,12 @@ export class EffectSystem {
       case 'rift':
         this.rift(e);
         break;
+      case 'sinkhole':
+        this.sinkhole(e);
+        break;
+      case 'sinkholeDust':
+        this.sinkholeDust(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -600,6 +618,35 @@ export class EffectSystem {
       case 'tornado':
         this.tornado(e);
         break;
+      case 'magnet':
+        this.magnet(e);
+        break;
+      case 'magnetOn':
+        // the field kicks in: a jolt and a short drop in the sky's light
+        this.shakeAmp = Math.max(this.shakeAmp, 2);
+        this.shakeStart = e.tick;
+        this.tintSky([0, 0.05, 0.2, 0.3], 0.15);
+        break;
+      case 'magnetClank': {
+        // a tank slams onto the mine: hard white and cyan sparks off the contact
+        const rng = this.rngFor(e, 67);
+        const n = Math.round(18 * this.mult) + 3;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-3, 3),
+            y: e.y + rng.range(-2, 2),
+            vx: rng.range(-1.6, 1.6),
+            vy: -rng.range(0.3, 1.8),
+            life: rng.range(8, 20),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xffffff : 0x7fd8f0,
+            kind: PKind.Spark,
+          });
+        }
+        this.shakeAmp = Math.max(this.shakeAmp, 3);
+        this.shakeStart = e.tick;
+        break;
+      }
       case 'touchdown': {
         // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
         this.shakeAmp = Math.max(this.shakeAmp, 3);
@@ -1051,11 +1098,116 @@ export class EffectSystem {
     for (const v of this.vortices) {
       const k = (t - v.start) / v.dur;
       if (k < 0 || k > 1) continue;
+      if (v.snap) {
+        // opens wide in the first few ticks, then slams shut; hard bands, whole cells
+        const open = Math.min(1, k * 6);
+        const size = 2 * Math.max(1, Math.round(v.r * 0.55 * open * (1 - k) * (1 - k))) + 1;
+        additive.push(
+          v.x + 0.5,
+          v.y + 0.5,
+          size + 6,
+          size + 6,
+          0x6020d0,
+          0.5 * (1 - k),
+          Shape.Pixel,
+        );
+        normal.push(v.x + 0.5, v.y + 0.5, size + 2, size + 2, 0xc8a0ff, 1, Shape.Pixel);
+        normal.push(v.x + 0.5, v.y + 0.5, size, size, 0x05030a, 1, Shape.Pixel);
+        continue;
+      }
       const core = 3 + Math.round(k * k * v.r * 0.18);
       additive.push(v.x, v.y, core * 2 + 6, core * 2 + 6, 0x8040ff, 0.35 + 0.3 * k, Shape.Pixel);
       normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
       normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
     }
+  }
+
+  /**
+   * A tripped Black Hole Mine: a hard violet ring snaps out to the trip radius, the sky goes
+   * purple, and a few sparks jump off the mine before the vortex takes over.
+   */
+  private mineTrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 18,
+      maxR: e.radius * 2,
+      width: 6,
+      strength: 0.5,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: Math.max(6, e.radius * 0.5),
+      start: e.tick,
+      dur: 10,
+      color: 0xa060ff,
+      strength: 0.9,
+    });
+    const n = Math.round(16 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const sp = rng.range(1.2, 2.2);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 1,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp * 0.7,
+        life: rng.range(8, 14),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0xb070ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.tintSky([0, 0.36, 0.08, 0.6], 0.35);
+  }
+
+  /**
+   * A Black Hole Mine's end: the hole slams shut. Everything near it streaks inward and vanishes
+   * (no debris thrown out), then the space around it springs back in a distortion band.
+   */
+  private swallow(e: EffectEvent): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(8, e.radius);
+    const dur = Math.max(8, e.params.ticks ?? 22);
+    this.vortices.push({ x: e.x, y: e.y, r, start: e.tick, dur, rng, snap: true });
+    const n = Math.round(70 * this.mult) + 20;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = r * rng.range(0.6, 1.5);
+      const life = rng.range(6, 14);
+      const cx = Math.round(e.x + Math.cos(a) * rr);
+      const cy = Math.round(e.y + Math.sin(a) * rr * 0.8);
+      const m = this.probe.material(cx, cy);
+      this.particles.add({
+        x: cx,
+        y: cy,
+        vx: (e.x - cx) / life,
+        vy: (e.y - cy) / life,
+        life,
+        size: 1,
+        color:
+          m !== 0 && rng.next() < 0.6
+            ? this.probe.color(m)
+            : rng.next() < 0.5
+              ? 0xd8c0ff
+              : 0x7040e0,
+        kind: PKind.Spark,
+      });
+    }
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + Math.round(dur * 0.7),
+      dur: 26,
+      maxR: r * 2.6,
+      width: 9,
+      strength: 1.1,
+    });
+    this.tintSky([0, 0.3, 0.05, 0.55], 0.5);
+    this.split = Math.max(this.split, 1);
   }
 
   /**
@@ -1221,6 +1373,88 @@ export class EffectSystem {
    * A fissure ripping open (Fault Line): a jolt, a lens kick through the ground, and a geyser of
    * dust and clods out of the crack mouth; a magma crack also throws up a spray of embers.
    */
+  /** The ground giving way: a hard jolt, air blasting dust out of the rim cracks, grit raining in. */
+  private sinkhole(e: EffectEvent): void {
+    const rng = this.rngFor(e, 53);
+    const R = Math.max(8, e.radius);
+    const depth = Math.max(8, e.params.depth ?? 40);
+    this.shakeAmp = Math.max(this.shakeAmp, 8);
+    this.shakeStart = e.tick;
+    this.ripples.push({
+      x: e.x,
+      y: e.y + depth * 0.5,
+      start: e.tick,
+      dur: 26,
+      maxR: R * 1.8,
+      width: 10,
+      strength: 0.9,
+    });
+    // air pushed out of the cavern blasts up through the cracks at the rim
+    for (let side = -1; side <= 1; side += 2) {
+      const x0 = Math.round(e.x + side * R);
+      const y0 = this.surfaceNear(x0, e.y, 60);
+      if (y0 < 0) continue;
+      const col = this.dustColor(x0, y0 + 2);
+      const n = Math.round(22 * this.mult) + 3;
+      for (let i = 0; i < n; i++) {
+        this.particles.add({
+          x: x0 + rng.range(-3, 3),
+          y: y0 - rng.range(0, 3),
+          vx: side * rng.range(-0.1, 0.5),
+          vy: -rng.range(0.6, 2.2),
+          life: rng.range(24, 50),
+          size: rng.range(2, 5),
+          color: shade(col, rng.range(0.85, 1.2)),
+          kind: PKind.Dust,
+        });
+      }
+    }
+    // clods breaking off the lip and dropping in
+    const nChunk = Math.round(36 * this.mult) + 4;
+    for (let i = 0; i < nChunk; i++) {
+      const side = rng.next() < 0.5 ? -1 : 1;
+      const x = Math.round(e.x + side * R * rng.range(0.7, 1.05));
+      const y = this.surfaceNear(x, e.y, 60);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - 1,
+        vx: -side * rng.range(0.1, 0.9),
+        vy: rng.range(-0.8, 0.2),
+        life: rng.range(30, 60),
+        size: rng.range(1, 2),
+        color: shade(this.dustColor(x, y + 2), rng.range(0.7, 1.05)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * Dust over a sinkhole: while it sags, thin puffs wheeze out of cracks across the doomed ground;
+   * with `plume`, a wide brown cloud rolls up out of the finished pit.
+   */
+  private sinkholeDust(e: EffectEvent): void {
+    const rng = this.rngFor(e, 59);
+    const R = Math.max(8, e.radius);
+    const plume = (e.params.plume ?? 0) > 0;
+    const n = Math.round((plume ? 70 : 10) * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      const x = Math.round(e.x + rng.range(-R, R) * (plume ? 0.8 : 1));
+      const y = this.surfaceNear(x, e.y, plume ? 120 : 30);
+      if (y < 0) continue;
+      this.particles.add({
+        x,
+        y: y - rng.range(1, plume ? 10 : 2),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.1, plume ? 1.3 : 0.5),
+        life: rng.range(plume ? 40 : 18, plume ? 90 : 36),
+        size: rng.range(plume ? 3 : 1, plume ? 6 : 3),
+        color: shade(this.dustColor(x, y + 1), rng.range(0.85, 1.15)),
+        kind: PKind.Dust,
+      });
+    }
+  }
+
   private rift(e: EffectEvent): void {
     const rng = this.rngFor(e, 43);
     const depth = Math.max(8, e.radius);
@@ -1468,6 +1702,33 @@ export class EffectSystem {
     f.down = (pr.down ?? 100) / 100;
     f.last = e.tick;
     if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
+  }
+
+  /** Update (or start) the magnet mine an event belongs to: one event per mine per tick. */
+  private magnet(e: EffectEvent): void {
+    const pr = e.params;
+    let m: MagnetFx | undefined;
+    for (const g of this.magnets) {
+      if (e.tick - g.last <= 3 && g.x === e.x && g.y === e.y) {
+        m = g;
+        break;
+      }
+    }
+    if (!m) {
+      m = { x: e.x, y: e.y, r: e.radius, age: 0, arm: 0, life: 0, strength: 0, last: e.tick };
+      this.magnets.push(m);
+    }
+    m.r = e.radius;
+    m.age = pr.age ?? 0;
+    m.arm = pr.arm ?? 0;
+    m.life = pr.life ?? 0;
+    m.strength = (pr.strength ?? 0) / 100;
+    m.last = e.tick;
+  }
+
+  /** Magnet mines and their fields. */
+  drawMagnets(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const m of this.magnets) drawMagnet(m, normal, additive, t);
   }
 
   /** Dust skirt churned up round each tornado's base, once per tick. */
@@ -2067,6 +2328,7 @@ export class EffectSystem {
     });
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
+    this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
@@ -2321,6 +2583,7 @@ export class EffectSystem {
     this.vortices = [];
     this.funnels = [];
     this.posts = [];
+    this.magnets = [];
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Badlands",
-    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head.",
+    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head. Gunpowder seams run under the slopes and a magma pocket or two lies deep down.",
     "since": "core@0.5.0"
   },
   "extends": "gen.hills",
@@ -30,5 +30,7 @@
       "count": [2, 4],
       "cluster": false
     }
-  ]
+  ],
+  "seams": [3, 5],
+  "magmaPockets": [1, 2]
 }
