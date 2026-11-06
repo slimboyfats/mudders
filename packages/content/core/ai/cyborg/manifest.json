@@ -10,5 +10,7 @@
   "tank": "random",
   "angles": [45, 35, 55, 65, 25, 75],
   "weapons": 3,
-  "reserve": 100
+  "reserve": 100,
+  "step": 6,
+  "fuel": 120
 }

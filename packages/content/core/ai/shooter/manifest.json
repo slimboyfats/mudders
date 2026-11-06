@@ -9,5 +9,7 @@
   "behaviour": "ai.shooter",
   "tank": "tank.howitzer",
   "angle": 50,
-  "jitter": 12
+  "jitter": 12,
+  "approach": 300,
+  "fuel": 80
 }

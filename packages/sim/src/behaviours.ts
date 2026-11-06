@@ -197,6 +197,17 @@ export interface AiTankView {
   readonly x: number;
   readonly y: number;
   readonly health: number;
+  /** Shield points left (Bulwark), soaked before health. */
+  readonly shield: number;
+  /** Half-width and height of the hitbox, in cells. */
+  readonly half: number;
+  readonly h: number;
+}
+
+/** A place a tank can stand: centre column and the row it stands on. */
+export interface AiSpot {
+  readonly x: number;
+  readonly y: number;
 }
 
 /** A weapon the bot owns (count ≠ 0), by index into the world's weapon table. */
@@ -239,8 +250,23 @@ export interface AiApi {
   /** Cells per tick at power 1000, fixed-point. */
   readonly maxSpeed: number;
   surfaceY(x: number): number;
-  /** Simulate a shell of `weapon` from my barrel through the current terrain. */
-  predict(weapon: number, angle: number, power: number): ShotPrediction;
+  /**
+   * Simulate a shell of `weapon` from my barrel through the current terrain, from where I stand or
+   * from `from` (a spot from `reach`). A frosted tank's power cap applies, as it does when firing.
+   */
+  predict(weapon: number, angle: number, power: number, from?: AiSpot): ShotPrediction;
+  /** Drive fuel left (one unit per cell). */
+  readonly fuel: number;
+  /** Cells I may still drive this turn (the tank type's allowance), before fuel. */
+  readonly driveLeft: number;
+  /**
+   * The spots I can drive to this turn in direction `dir`, nearest first: what driving would do
+   * cell by cell (steps up to the mode's climb), limited by `driveLeft` and `fuel`, and ending
+   * before any drop deep enough to hurt (short drops are fine).
+   */
+  reach(dir: -1 | 1): readonly AiSpot[];
+  /** Own turns left frosted; while > 0 shells fire at no more than CHILL_POWER. */
+  readonly chill: number;
   /** My previous shot this round, or null. */
   readonly lastShot: {
     readonly x: number;
@@ -271,13 +297,35 @@ export interface AiShopApi {
   /** Rounds played so far. */
   readonly round: number;
   readonly items: readonly AiShopItem[];
+  /** Drive fuel I have, the most I may hold, and what one pack adds and costs (§3.2). */
+  readonly fuel: number;
+  readonly fuelMax: number;
+  readonly fuelPack: number;
+  readonly fuelPrice: number;
+  /** Cells my tank type may drive per turn. */
+  readonly driveCells: number;
+}
+
+/** `item` value of a purchase that buys fuel packs instead of a weapon. */
+export const AI_FUEL = -1;
+
+/** One shop purchase: `packs` of the item at index `item`, or of fuel when `item` is AI_FUEL. */
+export interface AiPurchase {
+  item: number;
+  packs: number;
 }
 
 export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
   readonly kind: 'ai';
+  /**
+   * Optional, before aiming: the column to drive to this turn. It must be one of the spots
+   * `reach` offers (anything else, or my own column, means stay); the kernel drives there cell by
+   * cell like a human holding the drive button, then the bot aims from where it stopped.
+   */
+  move?(api: AiApi, params: P): number;
   aim(api: AiApi, params: P): AiShot;
   /** Purchases in order; the kernel validates each as it would a human's. */
-  shop(api: AiShopApi, params: P): { item: number; packs: number }[];
+  shop(api: AiShopApi, params: P): AiPurchase[];
 }
 
 export type AnyBehaviour =

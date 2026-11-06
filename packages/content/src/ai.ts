@@ -1,4 +1,12 @@
-import type { AiApi, AiShopApi, AiTankView, AiWeaponView } from '@mudders/sim';
+import {
+  AI_FUEL,
+  type AiApi,
+  type AiPurchase,
+  type AiShopApi,
+  type AiSpot,
+  type AiTankView,
+  type AiWeaponView,
+} from '@mudders/sim';
 
 /**
  * Shared helpers for `ai.*` behaviours (§3.7). Everything here runs inside the deterministic sim:
@@ -84,15 +92,16 @@ export function solvePower(
   angle: number,
   tx: number,
   iterations = 11,
+  from?: AiSpot,
 ): { power: number; miss: number; hit: number } {
   const m = me(api);
-  const dir = tx >= m.x ? 1 : -1;
+  const dir = tx >= (from ?? m).x ? 1 : -1;
   let lo = 50;
   let hi = 1000;
   let best = { power: hi, miss: Infinity, hit: -1 };
   for (let i = 0; i < iterations; i++) {
     const mid = (lo + hi) >> 1;
-    const p = api.predict(weapon, angle, mid);
+    const p = from ? api.predict(weapon, angle, mid, from) : api.predict(weapon, angle, mid);
     const miss = p.landed ? (p.x - tx) * dir : Infinity;
     const enemy = p.tank >= 0 && api.tanks[p.tank]?.team !== m.team;
     const score = enemy ? -1 : Math.abs(miss);
@@ -112,12 +121,12 @@ export function buyByValue(
   value: (item: AiShopApi['items'][number]) => number,
   reserve: number,
   maxPicks: number,
-): { item: number; packs: number }[] {
+): AiPurchase[] {
   const items = api.items
     .filter((i) => i.price > 0 && i.count >= 0 && value(i) > 0)
     .map((i) => ({ i, v: (value(i) * i.pack * 1000) / i.price }))
     .sort((a, b) => b.v - a.v || a.i.index - b.i.index);
-  const out: { item: number; packs: number }[] = [];
+  const out: AiPurchase[] = [];
   let money = api.money;
   for (let k = 0; k < items.length && out.length < maxPicks; k++) {
     const it = items[k]!.i;
@@ -127,4 +136,144 @@ export function buyByValue(
     money -= packs * it.price;
   }
   return out;
+}
+
+// ── driving (§3.2) ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Where I could drive this turn: my own spot first, then every `step`-th reachable spot each way
+ * (and the far end), nearest first, keeping at least `keepFuel` fuel in the tank.
+ */
+export function candidateSpots(api: AiApi, step: number, keepFuel = 0): AiSpot[] {
+  const m = me(api);
+  const budget = Math.max(0, Math.min(api.driveLeft, api.fuel - keepFuel));
+  const sides: AiSpot[][] = [];
+  for (const dir of [-1, 1] as const) {
+    const r = api.reach(dir).slice(0, budget);
+    const picks: AiSpot[] = [];
+    for (let i = step - 1; i < r.length; i += step) picks.push(r[i]!);
+    const last = r[r.length - 1];
+    if (last && picks[picks.length - 1] !== last) picks.push(last);
+    sides.push(picks);
+  }
+  const out: AiSpot[] = [{ x: m.x, y: m.y }];
+  const [l, r] = [sides[0]!, sides[1]!];
+  for (let i = 0; i < Math.max(l.length, r.length); i++) {
+    if (r[i]) out.push(r[i]!);
+    if (l[i]) out.push(l[i]!);
+  }
+  return out;
+}
+
+export interface ShotPlan {
+  spot: AiSpot;
+  weapon: number;
+  angle: number;
+  power: number;
+  /** -1 = the shell hits the target; otherwise how far it lands from it, in cells. */
+  score: number;
+}
+
+/**
+ * The best shot at `target` from each candidate spot in turn (nearest first), trying each weapon
+ * and launch angle (mirrored for a target on the left) through the sim's predictor. Stops at the
+ * first spot that hits. `plans[0]` is always from the first spot.
+ */
+export function planShots(
+  api: AiApi,
+  spots: readonly AiSpot[],
+  weapons: readonly number[],
+  angles: readonly number[],
+  target: AiTankView,
+  iterations = 11,
+): ShotPlan[] {
+  const plans: ShotPlan[] = [];
+  for (const spot of spots) {
+    const dir = target.x >= spot.x ? 1 : -1;
+    let best: ShotPlan = { spot, weapon: weapons[0] ?? 0, angle: 90, power: 300, score: Infinity };
+    for (const w of weapons) {
+      for (const a of angles) {
+        const angle = dir > 0 ? a : 180 - a;
+        const s = solvePower(api, w, angle, target.x, iterations, spot);
+        const score = s.hit === target.player ? -1 : Math.abs(s.miss);
+        if (score < best.score) best = { spot, weapon: w, angle, power: s.power, score };
+        if (score < 0) break;
+      }
+      if (best.score < 0) break;
+    }
+    plans.push(best);
+    if (best.score < 0) break;
+  }
+  return plans;
+}
+
+/**
+ * Drive for a better shot: stay if the shot from here hits (or nothing reachable is at least
+ * `minGain` cells better), else go to the nearest spot that hits, or failing that the one that
+ * misses by least.
+ */
+export function moveForShot(
+  api: AiApi,
+  target: AiTankView | undefined,
+  weapons: readonly number[],
+  angles: readonly number[],
+  step: number,
+  keepFuel: number,
+  minGain: number,
+): number {
+  const m = me(api);
+  if (!target || weapons.length === 0) return m.x;
+  // at most 6 spots besides my own, so a turn's thinking stays within a frame or two
+  const spots = candidateSpots(api, step, keepFuel).slice(0, 7);
+  if (spots.length < 2) return m.x;
+  const plans = planShots(api, spots, weapons, angles, target, 9);
+  const here = plans[0]!;
+  if (here.score < 0) return m.x;
+  let best = here;
+  for (const p of plans) if (p.score < best.score) best = p;
+  if (best.score < 0 || best.score + minGain <= here.score) return best.spot.x;
+  return m.x;
+}
+
+/**
+ * The far end of my reach in `dir` (keeping `keepFuel`), or my own column if I can't move that
+ * way.
+ */
+export function driveEnd(api: AiApi, dir: -1 | 1, keepFuel = 0): number {
+  const budget = Math.max(0, Math.min(api.driveLeft, api.fuel - keepFuel));
+  const r = api.reach(dir).slice(0, budget);
+  return r[r.length - 1]?.x ?? me(api).x;
+}
+
+/** Shop: fuel packs to top my tank up to `want` units, never spending below `reserve`. */
+export function topUpFuel(api: AiShopApi, want: number, reserve: number): AiPurchase[] {
+  const goal = Math.min(want, api.fuelMax);
+  if (api.fuel >= goal || api.fuelPrice <= 0) return [];
+  const need = Math.ceil((goal - api.fuel) / api.fuelPack);
+  const afford = Math.floor((api.money - reserve) / api.fuelPrice);
+  const packs = Math.min(need, afford);
+  return packs > 0 ? [{ item: AI_FUEL, packs }] : [];
+}
+
+/** Money left after a list of purchases (the kernel may still refuse some of them). */
+export function moneyAfter(api: AiShopApi, buys: readonly AiPurchase[]): number {
+  let money = api.money;
+  for (const b of buys) {
+    const price = b.item === AI_FUEL ? api.fuelPrice : (api.items[b.item]?.price ?? 0);
+    money -= price * b.packs;
+  }
+  return money;
+}
+
+/**
+ * A weapon that does no damage but moves a lot of ground (dirt that buries, charges that dig) if I
+ * own one: bots that bought it use it now and then on a healthy target.
+ */
+export function terrainWeapon(api: AiApi): AiWeaponView | undefined {
+  let best: AiWeaponView | undefined;
+  for (const w of api.weapons) {
+    if (w.expectedDamage > 0 || w.terrainValue < 0.5) continue;
+    if (!best || w.terrainValue > best.terrainValue) best = w;
+  }
+  return best;
 }

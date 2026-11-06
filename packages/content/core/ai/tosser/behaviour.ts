@@ -1,6 +1,17 @@
 import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
-import { buyByValue, me, nearest, solvePower, strongest } from '../../../src/ai';
+import {
+  buyByValue,
+  driveEnd,
+  me,
+  moneyAfter,
+  moveForShot,
+  nearest,
+  solvePower,
+  strongest,
+  terrainWeapon,
+  topUpFuel,
+} from '../../../src/ai';
 
 const params = z.strictObject({
   /** High launch angles it tries, steepest first (mirrored for targets on the left). */
@@ -8,21 +19,45 @@ const params = z.strictObject({
   angleError: z.number().int().min(0).max(20),
   powerError: z.number().int().min(0).max(200),
   reserve: z.number().int().min(0),
+  /** Backs away to keep at least `minRange` cells from the nearest tank (lobs need room). */
+  minRange: z.number().int().min(0),
+  step: z.number().int().min(1).max(40),
+  keepFuel: z.number().int().min(0),
+  fuel: z.number().int().min(0),
 });
 
 /**
  * Tosser (§3.7): solves the shot like Poolshark, but lobs: it only tries steep angles, so its
  * shells drop over cover onto the nearest tank, and it spends on the heaviest weapons it can.
+ * It drives to keep its distance, or to a spot where a lob gets through.
  */
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.tosser',
-  version: 1,
+  version: 2,
   params,
+  move(api, p) {
+    const m = me(api);
+    const target = nearest(api);
+    if (!target) return m.x;
+    if (Math.abs(target.x - m.x) < p.minRange) {
+      return driveEnd(api, target.x >= m.x ? -1 : 1, p.keepFuel);
+    }
+    return moveForShot(
+      api,
+      target,
+      [strongest(api).index],
+      p.angles.slice(0, 2),
+      p.step,
+      p.keepFuel,
+      8,
+    );
+  },
   aim(api, p) {
     const m = me(api);
     const target = nearest(api);
-    const w = strongest(api);
+    const dirt = terrainWeapon(api);
+    const w = dirt && target && target.health > 60 && api.rng.chance(1, 5) ? dirt : strongest(api);
     if (!target) return { weapon: w.index, angle: 90, power: 300 };
     const dir = target.x >= m.x ? 1 : -1;
     let best = { angle: dir > 0 ? p.angles[0]! : 180 - p.angles[0]!, power: 500, score: Infinity };
@@ -41,6 +76,9 @@ export default defineAi<z.infer<typeof params>>({
   },
   shop(api, p) {
     // heavy hitters: damage counts double, and pricier tiers are preferred
-    return buyByValue(api, (i) => i.expectedDamage * 2 + i.tier * 10, p.reserve, 3);
+    const fuel = topUpFuel(api, p.fuel, p.reserve);
+    const spent = api.money - moneyAfter(api, fuel);
+    const value = (i: (typeof api.items)[number]) => i.expectedDamage * 2 + i.tier * 10;
+    return [...fuel, ...buyByValue(api, value, p.reserve + spent, 3)];
   },
 });

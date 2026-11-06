@@ -11,5 +11,8 @@
   "angles": [35, 45, 55, 65, 75],
   "angleError": 2,
   "powerError": 14,
-  "reserve": 500
+  "reserve": 500,
+  "step": 8,
+  "keepFuel": 20,
+  "fuel": 100
 }

@@ -16,8 +16,10 @@ import {
   TICK_RATE,
 } from '@mudders/shared';
 import {
+  AI_FUEL,
   type AiApi,
   type AiBehaviour,
+  type AiSpot,
   type AiShopApi,
   type AiWeaponView,
   type ContactResult,
@@ -58,8 +60,12 @@ const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
-/** Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. */
+/**
+ * Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. A bot
+ * that drives decides where to go a few ticks in, and the countdown waits while it drives.
+ */
 export const BOT_THINK_TICKS = 50;
+const BOT_MOVE_TICK = BOT_THINK_TICKS - 8;
 /** Longest flight the AI's predictor simulates. */
 const PREDICT_TICKS = 900;
 
@@ -204,6 +210,8 @@ export interface Tank extends TankHandle {
   bot: number;
   /** Bot-owned integers (bracketing state…), hashed. */
   aiMem: number[];
+  /** Column a bot is driving to this turn (-1 = none). */
+  botGoal: number;
   /** Where this tank's last shell went off this round (-1 = none yet), and its aim. */
   lastShotX: number;
   lastShotY: number;
@@ -575,6 +583,8 @@ export class World implements SimApi {
     if (bot === null && t.bot < 0) return;
     const next = bot === null ? -1 : this.bindBot(bot);
     t.bot = next;
+    t.driving = 0;
+    t.botGoal = -1;
     if (this.phase === 'aim' && t.player === this.activePlayer) {
       this.botWait = next >= 0 ? BOT_THINK_TICKS : 0;
       this.timer = next >= 0 ? 0 : this.turnTimerTicks;
@@ -634,6 +644,7 @@ export class World implements SimApi {
         money: cash,
         bot: botId ? this.bindBot(botId) : -1,
         aiMem: [],
+        botGoal: -1,
         lastShotX: -1,
         lastShotY: -1,
         lastShotAngle: 0,
@@ -986,6 +997,43 @@ export class World implements SimApi {
   }
 
   /**
+   * Where driving in `dir` would take this tank this turn, cell by cell (the same rules as
+   * `driveStep`), without moving it: up to its drive allowance and fuel, stopping at a wall, the
+   * map edge, or before a drop it would take fall damage from. Read-only, so bots can plan with it.
+   */
+  reach(t: Tank, dir: -1 | 1): AiSpot[] {
+    const g = this.grid;
+    const climb = this.mode.drive.climb;
+    const safe = this.mode.fallDamage.safeCells;
+    const out: AiSpot[] = [];
+    const n = Math.min(t.driveLeft, t.fuel);
+    let x = t.x;
+    let y = t.y;
+    for (let i = 0; i < n; i++) {
+      const nx = x + dir;
+      if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) break;
+      const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
+      let top = y;
+      for (let r = Math.max(0, y - t.h); r < Math.min(g.height, y); r++) {
+        if (g.material[r * g.width + col] !== 0) {
+          top = r;
+          break;
+        }
+      }
+      if (y - top > climb) break;
+      let ny = top;
+      for (let d = 0; d < climb && !this.supportedAt(nx, ny, t.half); d++) ny++;
+      // past the climb it falls; a drop it lands from unhurt is fine, a deeper one is not
+      for (let d = 0; d < safe && !this.supportedAt(nx, ny, t.half); d++) ny++;
+      if (!this.supportedAt(nx, ny, t.half)) break;
+      x = nx;
+      y = ny;
+      out.push({ x, y });
+    }
+    return out;
+  }
+
+  /**
    * Buy `packs` packs of a weapon at this round's price (§3.6). Returns false (and changes nothing)
    * if it isn't shop time, the item isn't for sale, the player already has it unlimited, or can't
    * afford it.
@@ -1052,7 +1100,16 @@ export class World implements SimApi {
       return;
     }
     if (t.bot >= 0) {
+      if (t.driving !== 0) {
+        if (!t.falling && this.tick % this.mode.drive.ticksPerCell === 0) {
+          this.driveStep(t);
+          if (t.x === t.botGoal) t.driving = 0;
+        }
+        return;
+      }
+      if (t.falling) return;
       this.botWait--;
+      if (this.botWait === BOT_MOVE_TICK) this.botMove(t);
       if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t);
       if (this.botWait <= 0) this.fire(t);
       return;
@@ -1067,8 +1124,8 @@ export class World implements SimApi {
     }
   }
 
-  private botAim(t: Tank): void {
-    const bot = this.bots[t.bot]!;
+  /** The bot's view of the match on its turn (§3.7). */
+  private aiApi(t: Tank): AiApi {
     const weapons: AiWeaponView[] = [];
     for (let i = 0; i < t.inventory.length; i++) {
       const count = t.inventory[i]!;
@@ -1082,7 +1139,7 @@ export class World implements SimApi {
         terrainValue: w.terrainValue,
       });
     }
-    const api: AiApi = {
+    return {
       rng: this.rng,
       me: t.player,
       tanks: this.tanks,
@@ -1093,7 +1150,11 @@ export class World implements SimApi {
       gravity: this.gravity,
       maxSpeed: this.muzzleSpeed(t, 1000),
       surfaceY: (x) => this.grid.surfaceY(x),
-      predict: (w, angle, power) => this.predict(t, w, angle, power),
+      predict: (w, angle, power, from) => this.predict(t, w, angle, power, from),
+      fuel: t.fuel,
+      driveLeft: t.driveLeft,
+      reach: (dir) => this.reach(t, dir),
+      chill: t.chill,
       lastShot:
         t.lastShotX >= 0
           ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
@@ -1102,7 +1163,25 @@ export class World implements SimApi {
       angle: t.angle,
       power: t.power,
     };
-    const shot = bot.b.aim(api, bot.params);
+  }
+
+  /** A bot that drives picks a reachable column and starts rolling there. */
+  private botMove(t: Tank): void {
+    const bot = this.bots[t.bot]!;
+    t.driving = 0;
+    t.botGoal = -1;
+    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0) return;
+    const goal = bot.b.move(this.aiApi(t), bot.params);
+    if (!Number.isInteger(goal) || goal === t.x) return;
+    const dir = goal > t.x ? 1 : -1;
+    if (!this.reach(t, dir).some((s) => s.x === goal)) return;
+    t.botGoal = goal;
+    t.driving = dir;
+  }
+
+  private botAim(t: Tank): void {
+    const bot = this.bots[t.bot]!;
+    const shot = bot.b.aim(this.aiApi(t), bot.params);
     if (t.inventory[shot.weapon] !== undefined && t.inventory[shot.weapon] !== 0) {
       t.weapon = shot.weapon;
     } else if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
@@ -1115,18 +1194,20 @@ export class World implements SimApi {
    * shot itself would change. Uses the weapon's own flight behaviour and the same tracer as real
    * shells, so it is exact for the first impact.
    */
-  predict(t: Tank, weapon: number, angle: number, power: number): ShotPrediction {
+  predict(t: Tank, weapon: number, angle: number, power: number, from?: AiSpot): ShotPrediction {
     const w = this.weapons[weapon] ?? this.weapons[0]!;
     const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const speed = this.muzzleSpeed(t, power);
+    const speed = this.muzzleSpeed(t, t.chill > 0 ? Math.min(power, CHILL_POWER) : power);
+    const ox = from ? from.x | 0 : t.x;
+    const oy = from ? from.y | 0 : t.y;
     const p: Projectile = {
       id: 0,
       weapon,
       owner: t.player,
-      x: t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP),
-      y: (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP),
+      x: ox * FP + FP / 2 + Math.trunc((BARREL * c) / FP),
+      y: (oy - t.h) * FP - Math.trunc((BARREL * s) / FP),
       vx: Math.trunc((speed * c) / FP),
       vy: -Math.trunc((speed * s) / FP),
       age: 0,
@@ -1850,10 +1931,14 @@ export class World implements SimApi {
   }
 
   private supported(t: Tank): boolean {
-    if (t.y >= this.grid.height) return true;
+    return this.supportedAt(t.x, t.y, t.half);
+  }
+
+  private supportedAt(cx: number, cy: number, half: number): boolean {
+    if (cy >= this.grid.height) return true;
     const m = this.grid.material;
-    const row = t.y * this.grid.width;
-    for (let x = Math.max(0, t.x - t.half); x < Math.min(this.grid.width, t.x + t.half); x++) {
+    const row = cy * this.grid.width;
+    for (let x = Math.max(0, cx - half); x < Math.min(this.grid.width, cx + half); x++) {
       if (m[row + x] !== 0) return true;
     }
     return false;
@@ -2069,6 +2154,11 @@ export class World implements SimApi {
       me: t.player,
       money: t.money,
       round: this.round,
+      fuel: t.fuel,
+      fuelMax: this.mode.drive.fuelMax,
+      fuelPack: this.mode.drive.fuelPack,
+      fuelPrice: this.mode.drive.fuelPrice,
+      driveCells: this.driveCells(t),
       items: this.weapons.map((w, i) => ({
         index: i,
         id: w.id,
@@ -2081,6 +2171,10 @@ export class World implements SimApi {
       })),
     };
     for (const b of bot.b.shop(api, bot.params)) {
+      if (b.item === AI_FUEL) {
+        this.buyFuel(t, b.packs);
+        continue;
+      }
       const w = this.weapons[b.item];
       if (w) this.buy(t, w.id, b.packs);
     }
@@ -2239,7 +2333,7 @@ export class World implements SimApi {
         .num(t.ready ? 1 : 0);
       h.num(t.lastShotX).num(t.lastShotY).num(t.lastShotAngle).num(t.lastShotPower);
       for (const v of t.inventory) h.num(v);
-      h.num(t.aiMem.length);
+      h.num(t.botGoal).num(t.aiMem.length);
       for (const v of t.aiMem) h.num(v);
     }
     h.num(this.projectiles.length);
