@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -43,6 +43,7 @@
     "flight.digger",
     "flight.homing",
     "flight.lightning",
+    "flight.ricochet",
     "flight.roller",
     "flight.static",
     "gen.badlands",
@@ -146,6 +147,7 @@
     "weapon.plasma-blast",
     "weapon.quicksand",
     "weapon.resonator",
+    "weapon.ricochet-ball",
     "weapon.riot-blast",
     "weapon.riot-bomb",
     "weapon.riot-charge",

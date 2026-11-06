@@ -34,7 +34,7 @@ export interface RenderPalette {
 
 /** How a weapon's shell is drawn in flight (from its manifest `look`). */
 export interface ShellLook {
-  shell: 'spark' | 'fire';
+  shell: 'spark' | 'fire' | 'ricochet';
   trail: boolean;
 }
 

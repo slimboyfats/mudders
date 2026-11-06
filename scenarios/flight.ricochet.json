@@ -1,0 +1,58 @@
+{
+  "id": "flight.ricochet",
+  "schemaVersion": 1,
+  "description": "Ricochet flight, shown by the Ricochet Ball: rebounds off the hills at the mirrored angle.",
+  "subject": "flight.ricochet",
+  "mode": "mode.classic",
+  "seed": 4242,
+  "players": 2,
+  "map": {
+    "generator": "gen.hills",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 690,
+      "inventory": {
+        "weapon.ricochet-ball": -1
+      }
+    },
+    {
+      "x": 80
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.ricochet-ball"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 115,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}
