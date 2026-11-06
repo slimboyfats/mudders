@@ -33,6 +33,7 @@ const BETWEEN_ROUNDS = 20;
  */
 export function estimateMinutes(rounds: number, turnTimer: number, players: number): number {
   const turn = (turnTimer > 0 ? turnTimer : 20) * 0.5 + 6;
+  // every round opens with the shop, round 1 included
   const secs = rounds * (Math.max(2, players) * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
   return Math.max(1, Math.round(secs / 60));
 }
@@ -175,6 +176,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     suddenDeath: s.suddenDeath,
     windType: s.wind,
     startingCash: s.startingCash,
+    // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)
+    openingShop: true,
   };
   return {
     seed,

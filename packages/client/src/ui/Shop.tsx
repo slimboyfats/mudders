@@ -67,7 +67,7 @@ interface ShopProps {
 }
 
 /**
- * Between-round shop (§3.6, §8a): card grid with large buy buttons and the timer. Hot-seat players
+ * The shop before round 1 and between rounds (§3.6, §8a): card grid with large buy buttons and the timer. Hot-seat players
  * take turns on one device via the player tabs; AI players have already shopped.
  */
 export function Shop({ hud, controls, send }: ShopProps) {
@@ -76,6 +76,7 @@ export function Shop({ hud, controls, send }: ShopProps) {
   const [sel, setSel] = useState(firstOpen?.player ?? 0);
   const me = hud.tanks[sel] && controls(sel) ? hud.tanks[sel] : firstOpen;
   const last = hud.results[hud.results.length - 1];
+  const opening = hud.results.length === 0;
   const owned = (id: string) =>
     me?.gear.find((g) => g.id === id)?.count ?? me?.inventory.find((i) => i.id === id)?.count ?? 0;
 
@@ -83,23 +84,33 @@ export function Shop({ hud, controls, send }: ShopProps) {
     <div className="shop" role="dialog" aria-label="Shop">
       <header>
         <h2>
-          Round {hud.round} of {hud.rounds}:{' '}
-          {hud.teams && last && last.winnerTeam >= 0 ? (
-            <>Team {teamName(last.winnerTeam)} wins</>
-          ) : last && last.winner >= 0 ? (
-            <>
-              <span className="swatch" style={{ background: pcolor(last.winner) }} />P
-              {last.winner + 1} wins
-            </>
+          {opening ? (
+            <>Round 1 of {hud.rounds} starts in</>
           ) : (
-            'draw'
+            <>
+              Round {hud.round} of {hud.rounds}:{' '}
+              {hud.teams && last && last.winnerTeam >= 0 ? (
+                <>Team {teamName(last.winnerTeam)} wins</>
+              ) : last && last.winner >= 0 ? (
+                <>
+                  <span className="swatch" style={{ background: pcolor(last.winner) }} />P
+                  {last.winner + 1} wins
+                </>
+              ) : (
+                'draw'
+              )}
+            </>
           )}
         </h2>
-        <span className="timer" aria-label="Shop time left">
+        <span
+          className={`timer${hud.seconds >= 0 && hud.seconds <= 5 ? ' low' : ''}`}
+          aria-label={opening ? 'Round 1 starts in' : 'Shop time left'}
+          data-testid="shop-timer"
+        >
           {hud.seconds >= 0 ? `${hud.seconds}s` : ''}
         </span>
       </header>
-      <Scoreboard hud={hud} final={false} />
+      {!opening && <Scoreboard hud={hud} final={false} />}
       {me && (
         <>
           <div className="tabs" role="tablist">

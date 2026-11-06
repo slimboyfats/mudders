@@ -62,11 +62,22 @@ function pair() {
   };
 }
 
-/** Both humans aim and fire whenever it is their turn; one step of the host, then the guest. */
+/** Both humans shop, then aim and fire whenever it is their turn; one step of the host, then the guest. */
 function play(p: ReturnType<typeof pair>, ticks: number, guestFollows = true) {
   let shot = -1;
+  let shopped = -1;
   for (let i = 0; i < ticks; i++) {
     const w = p.host.world;
+    // the shop (before round 1 and between rounds): both humans buy fuel and ready up
+    if (w.phase === 'shop' && shopped !== w.round) {
+      const gw = p.guest().world;
+      if (!guestFollows || (gw.phase === 'shop' && gw.round === w.round)) {
+        p.host.input(0, { type: 'buyFuel', packs: 1 });
+        p.host.input(0, { type: 'ready' });
+        if (guestFollows) p.guest().input(1, { type: 'ready' });
+        shopped = w.round;
+      }
+    }
     if (w.phase === 'aim' && w.turn !== shot) {
       if (w.activePlayer === 0) {
         p.host.input(0, { type: 'aim', angle: 60 + (w.turn % 5) * 5, power: 520 });

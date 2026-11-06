@@ -748,6 +748,11 @@ button.link {
   color: var(--accent);
 }
 
+.shop .timer.low {
+  color: #ff8a5c;
+  font-weight: 700;
+}
+
 .scores {
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;

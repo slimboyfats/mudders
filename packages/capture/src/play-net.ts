@@ -320,6 +320,23 @@ async function runOne(
     const path = await dbg<string | null>(guest, 'path');
     if (path !== expected) throw new Error(`${run}: guest link path is ${path}, want ${expected}`);
 
+    // the opening shop (§3.6): both humans buy fuel and ready up (the AI seat shopped already);
+    // round 1 starts on both peers once the ready inputs have gone through the lockstep
+    for (const p of [host, guest]) await p.locator('.shop').waitFor({ timeout: 10_000 });
+    await shot(guest, '3b-opening-shop');
+    for (const p of [host, guest]) {
+      await p.getByTestId('buy-fuel').click();
+      await p.getByTestId('ready').click();
+    }
+    for (const p of [host, guest]) {
+      await p
+        .locator('.shop')
+        .waitFor({ state: 'hidden', timeout: 10_000 })
+        .catch(() => {
+          throw new Error(`${run}: round 1 did not start after both humans were ready`);
+        });
+    }
+
     // play: each human fires on their turn until both have fired twice. The AI seat can knock a
     // human out early, and then that human's next shot only comes in the next round, after the
     // others have finished this one: allow for a whole round plus the shop.
