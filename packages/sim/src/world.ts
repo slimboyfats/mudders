@@ -424,6 +424,8 @@ export class World implements SimApi {
   private readonly deathExplosion: RtExplosion;
   private readonly windLocked: boolean;
   private readonly weaponIndex: Record<string, number> = {};
+  /** Weapon index a bursting material (gas pocket) sets off, per cell byte; -1 = none. */
+  private readonly burstWeapon = new Int16Array(256).fill(-1);
   private readonly gearIndex: Record<string, number> = {};
   private nextProjectileId = 1;
   private shooter = -1;
@@ -507,6 +509,14 @@ export class World implements SimApi {
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
+    for (let c = 1; c < 256; c++) {
+      const id = this.mats.burstWeapon[c]!;
+      if (id === '') continue;
+      if (!Object.hasOwn(this.weaponIndex, id)) {
+        throw new Error(`${this.mats.ids[c]}: burst weapon ${id} is not loaded`);
+      }
+      this.burstWeapon[c] = this.weaponIndex[id]!;
+    }
 
     this.modeApi = {
       rng: this.rng,
@@ -958,6 +968,7 @@ export class World implements SimApi {
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
     reactStep(this.grid, this.mats, this.tick);
+    if (this.grid.burstCount > 0) this.burstPockets();
     if (this.groups.any) {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
@@ -1578,6 +1589,84 @@ export class World implements SimApi {
       else if (imp.kind === 'op') this.startOp(imp.op, x, y, imp.radius, imp.damageType, p.owner);
       else if (imp.kind === 'spawn') this.spawn(imp.s, p, x, y);
       else this.addZone(imp.z, x, y, p.owner);
+    }
+  }
+
+  /**
+   * Uncovered gas pockets (§4b `burst`): each queued cell's whole 4-connected pocket of the same
+   * material (up to the material's `max`) turns to air at once, and the material's burst weapon
+   * goes off at the pocket's middle, credited to the shooter. Its blast may uncover the next
+   * pocket, which `reactStep` finds on the next tick: pockets go off in a chain.
+   */
+  private burstPockets(): void {
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    const q = this.scratch.queue;
+    const mark = this.scratch.mark;
+    const n = g.burstCount;
+    g.burstCount = 0;
+    for (let b = 0; b < n; b++) {
+      const start = g.bursts[b]!;
+      const m = mat[start]!;
+      const wi = this.burstWeapon[m]!;
+      if (wi < 0) continue; // already gone with an earlier pocket
+      const max = this.mats.burstMax[m]!;
+      const gen = this.scratch.nextMarkGen();
+      let head = 0;
+      let tail = 0;
+      q[tail++] = start;
+      mark[start] = gen;
+      while (head < tail) {
+        const i = q[head++]!;
+        const x = i % W;
+        const y = (i - x) / W;
+        for (let k = 0; k < 4; k++) {
+          const nx = k === 0 ? x - 1 : k === 1 ? x + 1 : x;
+          const ny = k === 2 ? y - 1 : k === 3 ? y + 1 : y;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+          const j = ny * W + nx;
+          if (mark[j] === gen || mat[j] !== m || tail >= max) continue;
+          mark[j] = gen;
+          q[tail++] = j;
+        }
+      }
+      let sx = 0;
+      let sy = 0;
+      let x0 = W;
+      let x1 = -1;
+      let y0 = H;
+      let y1 = -1;
+      for (let k = 0; k < tail; k++) {
+        const i = q[k]!;
+        const x = i % W;
+        const y = (i - x) / W;
+        g.clearCell(i);
+        sx += x;
+        sy += y;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+      g.markDirty(x0, y0, x1, y1);
+      const cx = Math.trunc(sx / tail);
+      const cy = Math.trunc(sy / tail);
+      this.emit('pocketBurst', cx, cy, Math.max(x1 - x0, y1 - y0) >> 1, { cells: tail });
+      const p: Projectile = {
+        id: 0,
+        weapon: wi,
+        owner: this.shooter,
+        x: cx * FP + FP / 2,
+        y: cy * FP + FP / 2,
+        vx: 0,
+        vy: 0,
+        age: 0,
+        alive: false,
+        data: [],
+      };
+      this.runImpacts(this.weapons[wi]!.impacts, p, cx, cy);
     }
   }
 

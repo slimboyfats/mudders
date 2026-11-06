@@ -1,5 +1,6 @@
 import { z } from '@mudders/shared';
 import { defineGenerator, type Prng } from '@mudders/sim';
+import { buryGasPockets } from '../../../src/minerals';
 
 const params = z.strictObject({
   /** Mean surface level as a fraction of map height from the top. */
@@ -24,6 +25,10 @@ const params = z.strictObject({
    */
   mudDepth: z.number().int().min(0).max(64).default(0),
   mudLevel: z.number().min(-0.2).max(0.3).default(0),
+  /** Gas pockets buried in the soft ground per 1000 columns: [min, max] (gen.marsh: swamp gas). */
+  gasPockets: z
+    .tuple([z.number().int().min(0).max(40), z.number().int().min(0).max(40)])
+    .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
 
@@ -139,6 +144,14 @@ export default defineGenerator<Params>({
           if (dx * dx + dy * dy <= r * r && mat[y * W + x] !== 0) mat[y * W + x] = rock;
         }
       }
+    }
+    // Gas pockets last, and only when asked for, so maps without them are unchanged.
+    if (p.gasPockets[1] > 0) {
+      const scale = W / 1000;
+      const n = rng.range(Math.round(p.gasPockets[0] * scale), Math.round(p.gasPockets[1] * scale));
+      const soft = [dirt, sand];
+      if (p.mudDepth > 0) soft.push(mats.cellOf('material.mud'));
+      buryGasPockets(api, surface, n, soft);
     }
     return { spawns };
   },

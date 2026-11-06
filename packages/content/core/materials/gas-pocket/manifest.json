@@ -1,0 +1,30 @@
+{
+  "id": "material.gas-pocket",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gas pocket",
+    "description": "A bubble of trapped gas buried in the ground, looking just like the dirt around it. The moment a crater, a tunnel or a cave-in lets air at it, the whole pocket bursts in a fiery blast, which can uncover the next one.",
+    "since": "core@0.21.0",
+    "color": "#8a5a2b"
+  },
+  "cell": 52,
+  "settle": "static",
+  "density": 10,
+  "strength": {
+    "blast": 0.3,
+    "kinetic": 0.3,
+    "heat": 0.3,
+    "shock": 0.3,
+    "dig": 0.3,
+    "corrosive": 0.3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "burst": {
+    "weapon": "weapon.gas-burst",
+    "max": 4000
+  },
+  "look": {
+    "topsoil": true
+  }
+}

@@ -546,6 +546,12 @@ export class EffectSystem {
       case 'gasBurst':
         this.gasBurst(e);
         break;
+      case 'reflect':
+        this.reflect(e);
+        break;
+      case 'pocketBurst':
+        this.pocketBurst(e);
+        break;
       case 'zoneHurt':
         this.puff(e, 0xb8f040, 8);
         break;
@@ -1641,6 +1647,69 @@ export class EffectSystem {
    * thrown up off the surface, a tiny lens kick, and a scorched glint left on the ground. Each
    * bounce burns hotter: more sparks, a bigger pop, colours climbing towards white.
    */
+  /** A beam glancing off crystal: a hard white-violet flash and glints sprayed along the bounce. */
+  private reflect(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 5,
+      start: e.tick,
+      dur: 5,
+      color: 0xe6d6ff,
+      strength: 1.1,
+    });
+    const vx = (e.params.vx ?? 0) / 256;
+    const vy = (e.params.vy ?? 0) / 256;
+    const len = Math.max(0.01, Math.hypot(vx, vy));
+    const n = Math.round(12 * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      const s = rng.range(0.6, 2.2);
+      this.particles.add({
+        x: e.x + 0.5,
+        y: e.y + 0.5,
+        vx: (vx / len) * s + rng.range(-0.6, 0.6),
+        vy: (vy / len) * s + rng.range(-0.6, 0.6),
+        life: rng.range(6, 16),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xc3a2f4,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** An uncovered gas pocket going up: tongues of fire licking out of the hollow, then soot. */
+  private pocketBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(4, e.radius);
+    const n = Math.round((24 + r * 2) * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + Math.round(rng.range(-r, r)),
+        y: e.y + Math.round(rng.range(-r / 2, r / 2)),
+        vx: rng.range(-0.5, 0.5),
+        vy: -rng.range(0.6, 2.2),
+        life: rng.range(14, 34),
+        size: rng.next() < 0.3 ? 3 : 2,
+        color: 0xff8a20,
+        kind: PKind.Flame,
+      });
+    }
+    const m = Math.round(10 * this.mult) + 2;
+    for (let i = 0; i < m; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r),
+        y: e.y - rng.range(0, r),
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.2, 0.6),
+        life: rng.range(40, 80),
+        size: rng.range(4, 8),
+        color: 0x2a2220,
+        kind: PKind.Smoke,
+      });
+    }
+  }
+
   private ricochet(e: EffectEvent): void {
     const heat = this.heatAt(e.tick) + 1;
     this.ricochetHeat = heat;

@@ -1,5 +1,6 @@
 import { z } from '@mudders/shared';
 import { defineGenerator } from '@mudders/sim';
+import { buryGasPockets, growCrystals } from '../../../src/minerals';
 import { noise1d } from '../hills/behaviour';
 
 const params = z.strictObject({
@@ -21,6 +22,14 @@ const params = z.strictObject({
   rockDepth: z.number().min(0.02).max(1),
   /** Fraction of the width kept free of tanks at each edge. */
   spawnMargin: z.number().min(0).max(0.4),
+  /** Crystal clusters per 1000 columns, on the floor and hanging from the roof: [min, max]. */
+  crystals: z
+    .tuple([z.number().int().min(0).max(30), z.number().int().min(0).max(30)])
+    .default([0, 0]),
+  /** Gas pockets buried in the floor per 1000 columns: [min, max]. */
+  gasPockets: z
+    .tuple([z.number().int().min(0).max(40), z.number().int().min(0).max(40)])
+    .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
 
@@ -28,7 +37,9 @@ type Params = z.infer<typeof params>;
  * An underground cavern (§4b): rolling dirt floor over bedrock, a static limestone roof hanging
  * with stalactites (glued by prop.cave-roof, so cut-off stone falls as dirt), a few stone pillars between the tanks and a skylight or two to the open air.
  * Shots have to fit under the roof, or be dug or blasted through it. Tanks spawn on the floor
- * (`spawnFrom` sits under the roof). Integer maths only.
+ * (`spawnFrom` sits under the roof). Crystal clusters grow from the floor and hang from the roof,
+ * and gas pockets lie hidden in the floor's dirt (drawn last, so the cave itself is unchanged by
+ * them). Integer maths only.
  */
 export default defineGenerator<Params>({
   kind: 'gen',
@@ -162,6 +173,34 @@ export default defineGenerator<Params>({
         break;
       }
     }
+
+    // Crystal clusters, clear of the tanks: some grow up from the floor, some hang from the roof.
+    const nCr = rng.range(Math.round(p.crystals[0] * scale), Math.round(p.crystals[1] * scale));
+    for (let i = 0; i < nCr; i++) {
+      const cx = rng.range(20, W - 21);
+      const up = rng.int(3) !== 0;
+      let ok = sky[cx] === 0 || up;
+      for (const sx of spawns) if (sx > cx - 40 && sx < cx + 40) ok = false;
+      if (!ok) continue;
+      const room = floor[cx]! - roof[cx]!;
+      if (up) {
+        let ay = floor[cx]!;
+        while (ay > 0 && mat[(ay - 1) * W + cx] !== 0) ay--;
+        const len = rng.range(18, Math.max(19, Math.min(44, room >> 1)));
+        growCrystals(api, cx, ay, -1, rng.range(4, 6), len, ay - Math.max(12, room - 34));
+      } else {
+        const ay = roof[cx]! - 1;
+        const len = rng.range(12, Math.max(13, Math.min(28, room >> 2)));
+        growCrystals(api, cx, ay, 1, rng.range(3, 5), len, floor[cx]! - 30);
+      }
+    }
+
+    // Gas pockets hidden in the floor's dirt.
+    const nGas = rng.range(
+      Math.round(p.gasPockets[0] * scale),
+      Math.round(p.gasPockets[1] * scale),
+    );
+    if (nGas > 0) buryGasPockets(api, floor, nGas, [dirt]);
 
     const spawnFrom = new Int32Array(W);
     for (let x = 0; x < W; x++) spawnFrom[x] = sky[x] !== 0 ? 0 : roof[x]!;

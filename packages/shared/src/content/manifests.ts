@@ -174,6 +174,29 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Shattering (crystal): cells a carve blows out of this material are not all lost: about
+   * `keep` of them fly out of the crater as loose `into` debris (shards) and land as terrain.
+   */
+  shatter: z
+    .strictObject({
+      into: MaterialRefSchema,
+      keep: z.number().min(0).max(1),
+      /** Launch speed of the flying shards, cells per tick. */
+      speed: z.number().min(0.1).max(8),
+    })
+    .optional(),
+  /**
+   * Bursting (gas pockets): when a cell of this material touches open air, the whole connected
+   * pocket (up to `max` cells) turns to air at once and `weapon`'s impacts go off at its middle,
+   * credited to the player whose turn it is. A burst can uncover the next pocket (chains).
+   */
+  burst: z
+    .strictObject({
+      weapon: ContentIdSchema.refine((id) => id.startsWith('weapon.'), 'must be a weapon.* id'),
+      max: z.number().int().min(1).max(20000),
+    })
+    .optional(),
+  /**
    * Renderer look (cosmetic, never read by the sim): `cycle` steps the cell through these colours
    * every `cycleTicks` ticks in hard bands (lava, water); `hot` makes the air above shimmer.
    */

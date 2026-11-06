@@ -1,0 +1,31 @@
+{
+  "id": "material.crystal",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal",
+    "description": "Violet crystal growing in caves. Lasers and the Orbital Lance bounce off it like a mirror and heat barely marks it, but it is brittle: a blast shatters it and throws shards across the ground.",
+    "since": "core@0.21.0",
+    "color": "#9a6ee0"
+  },
+  "cell": 50,
+  "settle": "static",
+  "density": 150,
+  "strength": {
+    "blast": 0.6,
+    "kinetic": 0.5,
+    "heat": 6,
+    "shock": 0.5,
+    "dig": 2,
+    "corrosive": 3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "shatter": {
+    "into": "material.crystal-shard",
+    "keep": 0.45,
+    "speed": 2.5
+  },
+  "look": {
+    "glint": true
+  }
+}
