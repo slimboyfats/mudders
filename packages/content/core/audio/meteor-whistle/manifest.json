@@ -1,0 +1,47 @@
+{
+  "id": "audio.meteor-whistle",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Meteor whistle",
+    "description": "A falling chip whistle over a low rushing roar as a meteor streaks in.",
+    "since": "core@0.14.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 2200,
+        "to": 500,
+        "attack": 0.05,
+        "hold": 0.45,
+        "release": 0.25,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.4
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 600,
+        "to": 1800,
+        "attack": 0.3,
+        "hold": 0.3,
+        "release": 0.2,
+        "volume": 0.22
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "meteorEntry"
+    }
+  ],
+  "gap": 0.12
+}

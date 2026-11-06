@@ -17,6 +17,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         topsoil: m.look.topsoil,
         flames: m.look.flames,
         char: m.look.char,
+        glint: m.look.glint,
       });
     }
   }
@@ -24,7 +25,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
   for (const t of content.list('theme')) themes[t.id] = themeFrom(t);
   const shells: Record<string, ShellLook> = {};
   for (const w of content.list('weapon')) {
-    if (w.look) shells[w.id] = { shell: w.look.shell, trail: w.look.trail };
+    if (w.look) shells[w.id] = { shell: w.look.shell, trail: w.look.trail, size: w.look.size };
   }
   return { materials, looks, themes, shells };
 }

@@ -1,0 +1,44 @@
+{
+  "id": "weapon.magma-glob",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lava bomb",
+    "description": "A glowing lump of lava thrown out by a Magma Bomb. It lands as a small pool of lava.",
+    "category": "submunition",
+    "since": "core@0.13.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.glob-splash",
+        "radius": 3,
+        "damage": 5
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.lava"
+      },
+      "radius": 3,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "fire",
+    "trail": false
+  }
+}
