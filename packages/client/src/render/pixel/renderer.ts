@@ -1,4 +1,4 @@
-import type { EntityView, RenderSnapshot, ZoneView } from '@mudders/shared';
+import type { EntityView, RenderSnapshot, TankView, ZoneView } from '@mudders/shared';
 import type {
   Quality,
   RenderPalette,
@@ -52,6 +52,8 @@ const SCENERY_UNIFORMS = [
   'u_cam',
 ] as const;
 const TANK_W = 16;
+/** How long fresh char smoulders after a blast (ticks; keep in step with the shader). */
+const EMBER_TICKS = 600;
 const TANK_H = 10;
 const GRAVITY = 0.12;
 
@@ -81,6 +83,20 @@ export class PixelRenderer implements Renderer {
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
   private coatTex!: WebGLTexture;
+  /** Where grass may grow (R8UI, 1 = round-start surface), seeded once per round. */
+  private grassTex!: WebGLTexture;
+  private readonly grassMask: Uint8Array;
+  /** Round the grass mask was seeded for (snapshot turn / 1000); -1 = not yet. */
+  private grassRound = -1;
+  /** Tick + 1 of the last blast over each cell (R32UI, 0 = none): fresh char smoulders. */
+  private burnTex!: WebGLTexture;
+  private readonly burn: Uint32Array;
+  /** Last tick any cell was scorched (-1 = none): the ember pass is skipped after it cools. */
+  private lastBurn = -1;
+  /** Where each wreck is drawn (by player; NaN = not dead yet): it drops onto the ground left
+   * under it, since the sim stops moving dead tanks. */
+  private wreckY: number[] = [];
+  private wreckV: number[] = [];
   /** Shaded terrain colours, one texel per cell, re-shaded only inside dirty rects. */
   private colorTex!: WebGLTexture;
   private colorFbo!: WebGLFramebuffer;
@@ -116,6 +132,9 @@ export class PixelRenderer implements Renderer {
       | 'u_starColor'
       | 'u_scenery'
       | 'u_grass'
+      | 'u_grassMask'
+      | 'u_burn'
+      | 'u_burnOn'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -155,6 +174,7 @@ export class PixelRenderer implements Renderer {
       | 'u_grass'
       | 'u_ground'
       | 'u_flowers'
+      | 'u_grassMask'
     >
   >;
   private uPost!: ReturnType<
@@ -206,6 +226,8 @@ export class PixelRenderer implements Renderer {
   ) {
     this.camera = new Camera(mapWidth, mapHeight);
     this.terrain = new Uint8Array(mapWidth * mapHeight);
+    this.grassMask = new Uint8Array(mapWidth * mapHeight);
+    this.burn = new Uint32Array(mapWidth * mapHeight);
     this.probe = {
       width: mapWidth,
       height: mapHeight,
@@ -248,6 +270,7 @@ export class PixelRenderer implements Renderer {
       'u_grass',
       'u_ground',
       'u_flowers',
+      'u_grassMask',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -272,6 +295,9 @@ export class PixelRenderer implements Renderer {
       'u_starColor',
       'u_scenery',
       'u_grass',
+      'u_grassMask',
+      'u_burn',
+      'u_burnOn',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -315,6 +341,30 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_BYTE,
       new Uint8Array(this.mapWidth * this.mapHeight),
+    );
+    this.grassTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.grassMask,
+    );
+    this.burnTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R32UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_INT,
+      this.burn,
     );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
@@ -509,6 +559,35 @@ export class PixelRenderer implements Renderer {
     }
     this.terrain = s.terrain;
     this.coating = s.coating;
+    // grass belongs to the ground a round starts with: craters dug later stay bare. The round
+    // number goes up when a round ends; the next map arrives later as one whole-map rect.
+    const round = Math.floor(s.turn / 1000);
+    const fresh =
+      this.grassRound < 0 ||
+      (round !== this.grassRound &&
+        s.dirtyRects.some((r) => r.x === 0 && r.y === 0 && r.w >= s.width && r.h >= s.height));
+    if (fresh && s.width === this.mapWidth && s.height === this.mapHeight) {
+      this.grassRound = round;
+      grassMask(s.terrain, s.width, s.height, this.grassMask);
+      gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        s.width,
+        s.height,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        this.grassMask,
+      );
+      this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+      this.burn.fill(0);
+      this.lastBurn = -1;
+      this.uploadBurn(0, 0, s.width, s.height);
+      this.wreckY = [];
+      this.wreckV = [];
+    }
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
@@ -520,8 +599,93 @@ export class PixelRenderer implements Renderer {
     if (this.fxTick < 0) this.fxTick = s.tick;
     // catch cosmetic time up to this snapshot before spawning its events
     while (this.fxTick < s.tick) this.stepFx();
-    for (const e of s.effectEvents) this.fx.handle(e);
+    for (const e of s.effectEvents) {
+      this.fx.handle(e);
+      if (e.type === 'flash') this.scorch(e.x, e.y, e.radius, e.tick);
+    }
     this.updateTrails(s);
+  }
+
+  /** Stamp a blast's tick over the cells it reached, so the char there smoulders for a while. */
+  private scorch(x: number, y: number, radius: number, tick: number): void {
+    const r = Math.ceil(radius * 1.15) + 2;
+    const w = this.mapWidth;
+    const x0 = Math.max(0, Math.floor(x - r));
+    const y0 = Math.max(0, Math.floor(y - r));
+    const x1 = Math.min(w, Math.ceil(x + r) + 1);
+    const y1 = Math.min(this.mapHeight, Math.ceil(y + r) + 1);
+    if (x0 >= x1 || y0 >= y1) return;
+    const r2 = r * r;
+    const stamp = tick + 1;
+    const burn = this.burn;
+    for (let cy = y0; cy < y1; cy++) {
+      const dy = cy - y;
+      for (let cx = x0; cx < x1; cx++) {
+        const dx = cx - x;
+        if (dx * dx + dy * dy <= r2) burn[cy * w + cx] = stamp;
+      }
+    }
+    this.lastBurn = Math.max(this.lastBurn, tick);
+    this.uploadBurn(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  private uploadBurn(x: number, y: number, w: number, h: number): void {
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.burnTex);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, this.mapWidth);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, w, h, gl.RED_INTEGER, gl.UNSIGNED_INT, this.burn);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+  }
+
+  /** First solid row at or below `y` under a wreck's 14-cell footprint (map height if none). */
+  private restRow(x: number, y: number): number {
+    const w = this.mapWidth;
+    const t = this.terrain;
+    for (let r = Math.max(0, Math.floor(y)); r < this.mapHeight; r++) {
+      const row = r * w;
+      for (let cx = Math.max(0, x - 7); cx < Math.min(w, x + 7); cx++)
+        if (t[row + cx] !== 0) return r;
+    }
+    return this.mapHeight + 12;
+  }
+
+  /** Drop wrecks onto whatever ground is left under them, one cosmetic tick at a time. */
+  private stepWrecks(): void {
+    for (const e of this.entities) {
+      if (e.kind !== 'tank') continue;
+      const p = e.player;
+      if (e.alive) {
+        this.wreckY[p] = NaN;
+        continue;
+      }
+      let y = this.wreckY[p] ?? NaN;
+      if (Number.isNaN(y)) {
+        y = e.y;
+        this.wreckV[p] = 0;
+      }
+      const rest = this.restRow(e.x, y);
+      if (y < rest) {
+        const v = Math.min((this.wreckV[p] ?? 0) + 0.2, 4);
+        this.wreckV[p] = v;
+        y = Math.min(y + v, rest);
+      } else {
+        this.wreckV[p] = 0;
+      }
+      this.wreckY[p] = y;
+    }
+  }
+
+  /** Row a tank is drawn standing on: wrecks use their dropped position. */
+  private tankY(e: TankView): number {
+    if (e.alive) return e.y;
+    const y = this.wreckY[e.player];
+    return y === undefined || Number.isNaN(y) ? e.y : Math.floor(y);
   }
 
   private scanLooks(): void {
@@ -537,6 +701,7 @@ export class PixelRenderer implements Renderer {
 
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
+    this.stepWrecks();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
     // smoke from wrecks
@@ -546,7 +711,7 @@ export class PixelRenderer implements Renderer {
         const seed = (this.fxTick * 31 + e.player * 17) % 13;
         this.particles.add({
           x: e.x - 3 + (seed % 6),
-          y: e.y - 5,
+          y: this.tankY(e) - 5,
           vx: 0,
           vy: -0.2,
           life: 70,
@@ -656,7 +821,14 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindTexture(gl.TEXTURE_2D, this.sceneryTex);
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.activeTexture(gl.TEXTURE7);
+    gl.bindTexture(gl.TEXTURE_2D, this.burnTex);
     gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_grassMask, 6);
+    gl.uniform1i(this.uBg.u_burn, 7);
+    gl.uniform1f(this.uBg.u_burnOn, this.lastBurn >= 0 && t - this.lastBurn < EMBER_TICKS ? 1 : 0);
     gl.uniform1i(this.uBg.u_terrain, 1);
     gl.uniform1i(this.uBg.u_coat, 2);
     gl.uniform1i(this.uBg.u_look, 3);
@@ -795,6 +967,9 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.uniform1i(this.uTer.u_look, 3);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.uniform1i(this.uTer.u_grassMask, 4);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
@@ -832,7 +1007,7 @@ export class PixelRenderer implements Renderer {
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
-      const y = e.y;
+      const y = this.tankY(e);
       const col = playerColor(e.player);
       if (!e.alive) {
         b.rect(x - 7, y - 3, 14, 3, 0x2a2426);
@@ -937,4 +1112,22 @@ export function meanGround(terrain: Uint8Array, w: number, h: number): number {
     sum += y;
   }
   return w > 0 ? sum / w : h;
+}
+
+/**
+ * Grass mask for a round's starting ground: 1 on each surface cell (solid with air or the map top
+ * above) and one row either side of it, so a cell of settling doesn't strip the grass. Ground
+ * exposed later by a blast is lower than this, so it stays bare dirt.
+ */
+export function grassMask(terrain: Uint8Array, w: number, h: number, out: Uint8Array): void {
+  out.fill(0);
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    for (let x = 0; x < w; x++) {
+      if (terrain[row + x] === 0 || (y > 0 && terrain[row - w + x] !== 0)) continue;
+      out[row + x] = 1;
+      if (y > 0) out[row - w + x] = 1;
+      if (y + 1 < h) out[row + w + x] = 1;
+    }
+  }
 }
