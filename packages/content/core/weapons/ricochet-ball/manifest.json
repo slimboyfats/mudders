@@ -1,0 +1,79 @@
+{
+  "id": "weapon.ricochet-ball",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ricochet Ball",
+    "description": "A ball of crackling energy that rebounds off the ground at the angle it came in, five times, throwing sparks and burning hotter with every bounce, then goes off in a white-hot burst. Bank it off a slope or a wall onto a tank hiding behind cover. A tank in its path sets it off at once.",
+    "since": "core@0.14.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.ricochet"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 4,
+        "damage": 8,
+        "damageType": "heat",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0.7
+          },
+          "shake": {
+            "strength": 1
+          },
+          "ricochet": {
+            "strength": 1
+          }
+        }
+      }
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 30,
+        "damage": 70,
+        "damageType": "heat",
+        "push": 6,
+        "effects": {
+          "burst": {
+            "count": 70
+          },
+          "flash": {
+            "strength": 1.6
+          },
+          "shake": {
+            "strength": 4
+          },
+          "ripple": {
+            "strength": 1.2
+          },
+          "ricochetBurst": {
+            "strength": 1
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 6500,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.3
+  },
+  "look": {
+    "shell": "ricochet"
+  }
+}

@@ -11,7 +11,7 @@ import type {
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
-import { EffectSystem, QUALITY_PARTICLES } from './effects';
+import { EffectSystem, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import {
@@ -946,6 +946,28 @@ export class PixelRenderer implements Renderer {
         });
       }
     }
+    // ricochet balls shed sparks in their heat colour
+    if (shells) {
+      const heat = Math.min(this.fx.heatAt(this.fxTick), RICOCHET_HEAT.length - 1);
+      for (const e of this.entities) {
+        if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'ricochet') continue;
+        let r = (Math.imul(this.fxTick + 7, 2654435761) ^ Math.imul(e.id + 3, 40503)) >>> 0;
+        const n = 1 + (heat >> 1);
+        for (let i = 0; i < n; i++) {
+          r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+          this.particles.add({
+            x: e.x + ((r >>> 4) & 3) - 1.5,
+            y: e.y + ((r >>> 8) & 3) - 1.5,
+            vx: (((r >>> 12) & 15) - 7.5) * 0.04,
+            vy: (((r >>> 16) & 15) - 7.5) * 0.04,
+            life: 8 + ((r >>> 20) & 7) + heat * 2,
+            size: 1,
+            color: (r & 3) === 0 ? 0xffffff : RICOCHET_HEAT[heat]!,
+            kind: PKind.Spark,
+          });
+        }
+      }
+    }
     // smoke from wrecks
     if (this.fxTick % 9 === 0) {
       for (const e of this.entities) {
@@ -1353,6 +1375,10 @@ export class PixelRenderer implements Renderer {
     for (const e of this.entities) {
       if (e.kind !== 'projectile') continue;
       const look = shells?.[e.weapon];
+      if (look?.shell === 'ricochet') {
+        this.drawRicochetBall(e.x, e.y, e.id);
+        continue;
+      }
       if (look?.shell === 'meteor') {
         this.drawMeteor(e.id, e.x, e.y, look.size ?? 1);
         continue;
@@ -1368,6 +1394,37 @@ export class PixelRenderer implements Renderer {
       }
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
+    }
+  }
+
+  /**
+   * A Ricochet Ball: a ball of energy in hard concentric bands (halo, body, white heart) that
+   * swells and climbs from cyan to white-hot with each bounce, with a crackle of stray cells
+   * flickering around it.
+   */
+  private drawRicochetBall(fx: number, fy: number, id: number): void {
+    const g = this.additive;
+    const heat = Math.min(this.fx.heatAt(this.fxTick), RICOCHET_HEAT.length - 1);
+    const col = RICOCHET_HEAT[heat]!;
+    const hot = RICOCHET_HEAT[Math.min(heat + 2, RICOCHET_HEAT.length - 1)]!;
+    const x = Math.floor(fx) + 0.5;
+    const y = Math.floor(fy) + 0.5;
+    // pulse a cell bigger every few ticks
+    const pulse = (this.fxTick >> 1) & 1;
+    const body = 4 + heat;
+    g.push(x, y, body * 2 + 6 + pulse * 2, body * 2 + 6 + pulse * 2, col, 0.3, Shape.Pixel);
+    g.push(x, y, body + 2, body + 2, col, 0.8, Shape.Pixel);
+    g.push(x, y, body, body, hot, 1, Shape.Pixel);
+    g.push(x, y, Math.max(1, body - 2), Math.max(1, body - 2), 0xffffff, 1, Shape.Pixel);
+    // crackle: a few cells jumping around the rim, more as it heats up
+    let r = (Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(id + 1, 40503)) >>> 0;
+    const n = 2 + heat;
+    const reach = (body >> 1) + 2 + (heat >> 1);
+    for (let i = 0; i < n; i++) {
+      r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+      const dx = ((r >>> 4) % (2 * reach + 1)) - reach;
+      const dy = ((r >>> 12) % (2 * reach + 1)) - reach;
+      g.push(x + dx, y + dy, 1, 1, (r & 1) === 0 ? 0xffffff : col, 0.9);
     }
   }
 

@@ -121,6 +121,13 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /**
+   * Ricochet Ball heat: bounces of the ball in flight (0 = fresh), from its `ricochet` events.
+   * Only one shot flies at a time, so a single counter is enough; it resets on the final burst
+   * or after a long gap.
+   */
+  ricochetHeat = 0;
+  private ricochetLast = -1000;
 
   constructor(
     private readonly particles: Particles,
@@ -183,6 +190,12 @@ export class EffectSystem {
         break;
       case 'geyser':
         this.geyser(e, e.params.strength ?? 1);
+        break;
+      case 'ricochet':
+        this.ricochet(e);
+        break;
+      case 'ricochetBurst':
+        this.ricochetBurst(e, e.params.strength ?? 1);
         break;
       case 'shake':
         this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
@@ -1083,6 +1096,147 @@ export class EffectSystem {
     }
   }
 
+  /** Current Ricochet Ball heat at tick `t` (0 once the last bounce is long past). */
+  heatAt(t: number): number {
+    return t - this.ricochetLast > RICOCHET_GAP ? 0 : this.ricochetHeat;
+  }
+
+  /**
+   * A Ricochet Ball striking the ground: a hard pop in the ball's heat colour, a fan of sparks
+   * thrown up off the surface, a tiny lens kick, and a scorched glint left on the ground. Each
+   * bounce burns hotter: more sparks, a bigger pop, colours climbing towards white.
+   */
+  private ricochet(e: EffectEvent): void {
+    const heat = this.heatAt(e.tick) + 1;
+    this.ricochetHeat = heat;
+    this.ricochetLast = e.tick;
+    const rng = this.rngFor(e, 61);
+    const h = Math.min(heat, RICOCHET_HEAT.length - 1);
+    const col = RICOCHET_HEAT[h]!;
+    const hot = RICOCHET_HEAT[Math.min(h + 1, RICOCHET_HEAT.length - 1)]!;
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 8 + heat * 2.5,
+      start: e.tick,
+      dur: 7,
+      color: col,
+      strength: 1.2,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 14,
+      maxR: 12 + heat * 4,
+      width: 5,
+      strength: 0.5 + heat * 0.1,
+    });
+    const n = Math.round((20 + heat * 12) * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      // a fan up and out off the surface, hottest sparks fastest
+      const a = Math.PI + rng.range(0.1, Math.PI - 0.1);
+      const s = rng.range(0.8, 2 + heat * 0.35);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 1,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rng.range(10, 18 + heat * 3),
+        size: 1,
+        color: i % 4 === 0 ? 0xffffff : rng.next() < 0.5 ? col : hot,
+        kind: PKind.Spark,
+      });
+    }
+    // a crackle of short arcs licking along the ground from the bounce, from the third bounce on
+    if (heat >= 3) this.arcs({ ...e, radius: 4 + heat }, 0.35);
+    this.shakeAmp = Math.max(this.shakeAmp, 0.6 + heat * 0.25);
+    this.shakeStart = e.tick;
+  }
+
+  /**
+   * The Ricochet Ball going off: a white-hot core that blooms through the ball's colours in hard
+   * bands, a sphere of sparks, arcs crawling out across the ground, motes of energy drifting up
+   * and the sky blinking violet.
+   */
+  private ricochetBurst(e: EffectEvent, k: number): void {
+    const heat = Math.max(1, this.heatAt(e.tick));
+    this.ricochetHeat = 0;
+    this.ricochetLast = -1000;
+    const rng = this.rngFor(e, 67);
+    const r = Math.max(8, e.radius);
+    // nested hard-banded blooms: violet rim, pink body, white heart, staggered so it swells
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 1.7,
+      start: e.tick,
+      dur: 22,
+      color: 0x8040ff,
+      strength: 1.1 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 1.15,
+      start: e.tick,
+      dur: 16,
+      color: 0xff60d0,
+      strength: 1.3 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.6,
+      start: e.tick,
+      dur: 12,
+      color: 0xffffff,
+      strength: 1.6 * k,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: r * 0.9,
+      start: e.tick + 3,
+      dur: 14,
+      color: 0x70e0ff,
+      strength: 0.9 * k,
+    });
+    const n = Math.round((90 + heat * 12) * k * this.mult) + 10;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.08, 0.08);
+      const s = rng.range(1.2, 2.2 + r / 10);
+      const c = rng.next();
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s - 0.6,
+        life: rng.range(14, 30),
+        size: 1,
+        color: c < 0.3 ? 0xffffff : c < 0.55 ? 0xff70d0 : c < 0.8 ? 0xb080ff : 0x70e0ff,
+        kind: PKind.Spark,
+      });
+    }
+    // slow motes of energy that hang in the air after the flash
+    const motes = Math.round(24 * k * this.mult) + 4;
+    for (let i = 0; i < motes; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r * 0.6, r * 0.6),
+        y: e.y + rng.range(-r * 0.6, r * 0.3),
+        vx: rng.range(-0.25, 0.25),
+        vy: -rng.range(0.6, 1.4),
+        life: rng.range(40, 70),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffa0f0 : 0xa0f0ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.arcs({ ...e, radius: r * 0.7 }, 0.8 * k);
+    this.tintSky([0, 0.55, 0.3, 0.9], 0.35 * k);
+    this.split = Math.max(this.split, 1.5 * k);
+  }
+
   /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
   private dustColor(x: number, y: number): number {
     const p = this.probe;
@@ -1414,6 +1568,14 @@ export class EffectSystem {
     this.split = 0;
   }
 }
+
+/** Ticks without a bounce after which the Ricochet Ball counts as cooled (a new shot). */
+const RICOCHET_GAP = 240;
+
+/** Ricochet Ball colour per heat (bounces so far): cold cyan climbing to white-hot. */
+export const RICOCHET_HEAT = [
+  0x50e8ff, 0x70b0ff, 0x9a80ff, 0xd070ff, 0xff68c8, 0xffb0f0, 0xffffff,
+] as const;
 
 /** Zone looks by index (gas, acid, resonance), matching the sim's zone `look` order. */
 export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff] as const;
