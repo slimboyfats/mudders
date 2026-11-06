@@ -75,6 +75,8 @@ uniform vec3 u_starColor;
 uniform sampler2D u_scenery; // sky, clouds and ranges per 2×2 cells; a = open sky
 uniform vec4 u_grass;        // rgb, enabled
 uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
+uniform usampler2D u_burn;   // tick + 1 of the last blast over the cell, 0 = none
+uniform float u_burnOn;      // any blast recent enough to still smoulder
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -128,6 +130,28 @@ void main() {
         uint cm = texelFetch(u_coat, cell, 0).r;
         if (cm != 0u && look(cm).r > 0.0) c = mix(c, cycled(cm, cell, c), 0.8);
         else if (look(mm).r > 0.0) c = cycled(mm, cell, c);
+      }
+      // embers: for a while after a blast, cells of fresh char near the surface flicker red,
+      // orange and yellow in whole-cell steps, thinning out and reddening as they cool
+      if (u_burnOn > 0.0) {
+        uint bt = texelFetch(u_burn, cell, 0).r;
+        float age = u_time - float(bt) + 1.0;
+        if (bt != 0u && age >= 0.0 && age < 600.0) {
+          uint mm = mat(cell);
+          int sd = 0;
+          for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
+          if (sd > 0 && topsoil(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+            float cool = age / 600.0;
+            float h = hash(cell + ivec2(13, 77));
+            int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
+            float f = hash(cell + ivec2(st * 7, st * 3 + 91));
+            float dens = (sd == 1 ? 0.34 : sd == 2 ? 0.18 : 0.08) * (1.0 - cool) * (1.0 - cool);
+            if (f < dens) {
+              float pick = hash(cell + ivec2(st * 5 + 3, 17)) + cool * 0.5;
+              c = pick < 0.3 ? vec3(1.0, 0.86, 0.32) : pick < 0.7 ? vec3(0.98, 0.5, 0.12) : vec3(0.78, 0.16, 0.08);
+            }
+          }
+        }
       }
     } else {
       float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
