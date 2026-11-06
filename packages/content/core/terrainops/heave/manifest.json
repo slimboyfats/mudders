@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.heave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Heave",
+    "description": "Something tunnelling close under the ground bumps the surface above it: every few ticks the loose top cells over it hop up and drop back, leaving a ridge of churned soil. Rock and props hold.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.heave",
+  "every": 3,
+  "from": 4,
+  "reach": 24,
+  "lift": 1.1
+}
