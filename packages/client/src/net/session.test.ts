@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadContent } from '@mudders/content';
-import { PROTOCOL_VERSION } from '@mudders/shared';
+import { MAX_PLAYERS, PROTOCOL_VERSION } from '@mudders/shared';
 import type { ResolvedContent } from '@mudders/sim';
 import { linkPair } from './link';
 import {
@@ -60,8 +60,21 @@ describe('host and guest sessions', () => {
     expect(a.status).toBe('lobby');
     expect(a.token).toBe('tok1');
     expect(b.lobby?.you).toBe(2);
-    expect(b.lobby?.seats.map((s) => s.kind)).toEqual(['host', 'guest', 'guest', 'bot']);
-    expect(a.lobby?.setup.slots).toEqual(['human', 'human', 'human', 'ai.shooter']);
+    const rest = MAX_PLAYERS - 4;
+    expect(b.lobby?.seats.map((s) => s.kind)).toEqual([
+      'host',
+      'guest',
+      'guest',
+      'bot',
+      ...Array<string>(rest).fill('open'),
+    ]);
+    expect(a.lobby?.setup.slots).toEqual([
+      'human',
+      'human',
+      'human',
+      'ai.shooter',
+      ...Array<string>(rest).fill('off'),
+    ]);
 
     const match = host.start(99);
     expect(a.status).toBe('playing');
@@ -102,13 +115,13 @@ describe('host and guest sessions', () => {
     expect(String((got[0] as { reason: string }).reason)).toMatch(/content/);
     expect(g.open).toBe(false);
 
-    for (let i = 1; i < 4; i++) host.setSeat(i, 'ai.shooter');
+    for (let i = 1; i < MAX_PLAYERS; i++) host.setSeat(i, 'ai.shooter');
     const late = new GuestSession(content, 'Late', undefined, e);
     connect(host, late);
     expect(late.status).toBe('refused');
     expect(late.reason).toMatch(/full/);
 
-    host.setSeat(3, 'open');
+    host.setSeat(MAX_PLAYERS - 1, 'open');
     host.start(1);
     const later = new GuestSession(content, 'Later', undefined, e);
     connect(host, later);

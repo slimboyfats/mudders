@@ -1061,3 +1061,23 @@ a.button {
   color: #ffb000;
   font-weight: 700;
 }
+
+.slots .hint {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+/* 5–8 players (milestone 7): smaller chips so the bar stays out of the sky on phones */
+.players.many {
+  gap: 3px;
+}
+
+.players.many .player {
+  padding: 1px 5px;
+  font-size: 0.72rem;
+}
+
+.players.many .player .hp {
+  margin-left: 4px;
+}

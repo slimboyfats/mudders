@@ -130,6 +130,21 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         .catch(() => {
           throw new Error(`${t.name}: battle music did not start after the first tap`);
         });
+      // milestone 7: an 8-player hot-seat match fits the HUD (every player chip visible)
+      await page.goto(`${url}#play/8/large`);
+      await page.reload();
+      await page.locator('.game-canvas').waitFor();
+      await page.waitForTimeout(800);
+      const chips = page.locator('.hud-top .player');
+      if ((await chips.count()) !== 8)
+        throw new Error(`${t.name}: 8-player HUD shows ${await chips.count()} chips`);
+      const vw = t.device.viewport.width;
+      for (let i = 0; i < 8; i++) {
+        const b = await chips.nth(i).boundingBox();
+        if (!b || b.x < 0 || b.x + b.width > vw + 1)
+          throw new Error(`${t.name}: player ${i + 1} chip is off screen`);
+      }
+      await shot('5-eight-players');
       if (errors.length > 0) throw new Error(`${t.name}: page errors: ${errors.join('; ')}`);
       await ctx.close();
     }
