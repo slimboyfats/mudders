@@ -34,8 +34,10 @@ export interface RenderPalette {
 
 /** How a weapon's shell is drawn in flight (from its manifest `look`). */
 export interface ShellLook {
-  shell: 'spark' | 'fire';
+  shell: 'spark' | 'fire' | 'meteor';
   trail: boolean;
+  /** Scale of a meteor head and streak. */
+  size?: number;
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */

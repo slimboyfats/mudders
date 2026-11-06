@@ -1,0 +1,16 @@
+{
+  "id": "flight.meteor",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Meteor",
+    "description": "Waits a moment above the map, then streaks down out of the sky in a straight slanted line onto a spot near where its parent landed.",
+    "since": "core@0.14.0"
+  },
+  "behaviour": "flight.meteor",
+  "speed": 6,
+  "slant": 0.55,
+  "reach": 40,
+  "maxDelay": 75,
+  "startAbove": 40,
+  "maxTicks": 400
+}
