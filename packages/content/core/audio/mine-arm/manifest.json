@@ -1,0 +1,45 @@
+{
+  "id": "audio.mine-arm",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mine arm",
+    "description": "A soft thunk as a mine lands, and a two-note chip blip as it arms.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 110,
+        "to": 60,
+        "release": 0.12,
+        "volume": 0.35
+      },
+      {
+        "wave": "pulse25",
+        "freq": 880,
+        "delay": 0.05,
+        "hold": 0.04,
+        "release": 0.06,
+        "volume": 0.12,
+        "arp": [0, 7],
+        "arpRate": 0.05
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "mineLaid"
+    },
+    {
+      "event": "mineArmed"
+    }
+  ],
+  "gap": 0.15
+}

@@ -1309,11 +1309,14 @@ export class PixelRenderer implements Renderer {
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
     this.fx.drawFunnels(this.normal, this.additive, t);
+    this.fx.drawPosts(this.normal, t);
     this.drawDebris();
+    this.drawMines(t);
     this.drawTanks(t);
     this.particles.draw(this.normal, this.additive);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
+    this.fx.drawMagnets(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
@@ -1468,6 +1471,54 @@ export class PixelRenderer implements Renderer {
       const col = shade(pal[d.material[i]!] ?? 0x7a5a3a, DEBRIS_SHADES[h & 3]!);
       if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
       else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
+    }
+  }
+
+  /**
+   * Black Hole Mines: a squat dark dome on the ground with a black eye, two violet cells orbiting
+   * it, and once armed a slow blinking light and a dotted ring marking how close is too close.
+   */
+  private drawMines(t: number): void {
+    const n = this.normal;
+    const a = this.additive;
+    for (const e of this.entities) {
+      if (e.kind !== 'mine') continue;
+      const x = e.x + 0.5;
+      const y = e.y + 0.5;
+      // dome: 7 wide at the ground, 5 above, 3 on top; lit cells top-left
+      n.push(x, y, 7, 1, 0x1a1226, 1);
+      n.push(x, y - 1, 5, 1, 0x2a1d40, 1);
+      n.push(x, y - 2, 3, 1, 0x3a2a58, 1);
+      n.push(x - 2, y - 1, 1, 1, 0x6a54a0, 1);
+      n.push(x - 1, y - 2, 1, 1, 0x8a74c8, 1);
+      // the eye: a black cell ringed in violet, breathing slowly
+      const breathe = Math.floor(t / 12 + e.id) % 4 === 0 ? 1 : 0.6;
+      a.push(x, y - 1, 3, 1, 0x8040ff, 0.5 * breathe);
+      n.push(x, y - 1, 1, 1, 0x000000, 1);
+      // two cells orbiting the eye, snapped to whole cells
+      for (let k = 0; k < 2; k++) {
+        const ang = t * 0.12 + e.id * 1.7 + k * Math.PI;
+        const ox = Math.round(Math.cos(ang) * 5);
+        const oy = Math.round(Math.sin(ang) * 2) - 2;
+        if (this.probe.solid(e.x + ox, e.y + oy)) continue;
+        a.push(x + ox, y + oy, 1, 1, k === 0 ? 0xd0b0ff : 0x7a48ff, 0.9);
+      }
+      if (!e.armed) continue;
+      // armed: a light that blinks once a second and a dotted ring at the trip distance
+      if ((t + e.id * 7) % 40 < 5) {
+        a.push(x, y - 3, 1, 1, 0xff60d0, 1);
+        a.push(x, y - 3, 3, 3, 0xff40c0, 0.35, Shape.Pixel);
+      }
+      const r = e.radius;
+      const steps = Math.max(16, Math.round(r * 1.6));
+      const spin = Math.floor(t / 6) % 2;
+      for (let s = spin; s < steps; s += 2) {
+        const ang = (s / steps) * Math.PI * 2;
+        const rx = Math.round(e.x + Math.cos(ang) * r);
+        const ry = Math.round(e.y - 2 + Math.sin(ang) * r);
+        if (this.probe.solid(rx, ry)) continue;
+        a.push(rx + 0.5, ry + 0.5, 1, 1, 0x9058ff, 0.45);
+      }
     }
   }
 
