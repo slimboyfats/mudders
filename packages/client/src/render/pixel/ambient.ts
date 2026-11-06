@@ -133,6 +133,8 @@ export function drawZones(
           normal.push(x + 0.5, y, 1, 2, 0xd8ff60, 0.85 * fade);
         }
       }
+    } else if (z.look === 'volcano') {
+      drawVolcano(normal, additive, z, t, probe, mult, fade, salt);
     } else {
       // resonance: two rings of single cells expanding from the centre, plus a pulsing core
       for (let k = 0; k < 2; k++) {
@@ -156,6 +158,53 @@ export function drawZones(
       const beat = mod(t, 25) < 4 ? 1 : 0.5;
       additive.push(z.x + 0.5, z.y + 0.5, 6, 6, ZONE_COLOR[2], 0.5 * beat * fade, Shape.Pixel);
     }
+  }
+}
+
+/** Volcano ash, darkest at the vent; embers. */
+const ASH = [0x3a3034, 0x544a4e, 0x6e6468, 0x8a8084] as const;
+const EMBER = [0xff7a24, 0xffa838, 0xffe070] as const;
+
+/**
+ * A smoking volcano (Volcano Seed): blocky ash puffs boil up out of the vent at the top of the
+ * column, grow and pale as they rise, and lean downwind; embers spark up out of the crater.
+ * Thins as the zone's turns run out.
+ */
+function drawVolcano(
+  normal: QuadBatch,
+  additive: QuadBatch,
+  z: ZoneView,
+  t: number,
+  probe: AmbientProbe,
+  mult: number,
+  fade: number,
+  salt: number,
+): void {
+  // the vent: the top of the column (the cone may have grown, been blasted or buried)
+  let vy = 0;
+  while (vy < probe.height && !probe.solid(z.x, vy)) vy++;
+  if (vy >= probe.height) return;
+  const rise = 150;
+  const puffs = Math.round(40 * Math.max(0.5, mult) * fade);
+  for (let i = 0; i < puffs; i++) {
+    const ph = mod(t / rise + h01(i, salt), 1);
+    const up = ph * (60 + h01(i, salt + 1) * 40);
+    const lean = ph * ph * 26 * (h01(i, salt + 9) < 0.5 ? 1 : 0.6);
+    const x = Math.round(z.x + (h01(i, salt + 2) - 0.5) * (4 + ph * 22) + lean);
+    const y = Math.round(vy - 3 - up);
+    // snap sizes to whole cells, 2..10
+    const size = 2 * Math.round(1 + ph * 3 + h01(i, salt + 3) * 1.5);
+    const band = Math.min(3, Math.floor(ph * 4 + h01(i, salt + 4) * 0.8));
+    const alpha = (ph < 0.08 ? ph / 0.08 : 1 - (ph - 0.08) / 0.92) * 0.85 * fade;
+    normal.push(x, y, size, size, ASH[band]!, alpha, Shape.Pixel);
+  }
+  const embers = Math.round(8 * Math.max(0.5, mult) * fade);
+  for (let i = 0; i < embers; i++) {
+    const ph = mod(t / 60 + h01(i, salt + 5), 1);
+    const x = Math.round(z.x + (h01(i, salt + 6) - 0.5) * 8 + (h01(i, salt + 7) - 0.5) * ph * 20);
+    const y = Math.round(vy - 2 - ph * (20 + h01(i, salt + 8) * 30));
+    if (probe.solid(x, y)) continue;
+    additive.push(x + 0.5, y + 0.5, 1, 1, EMBER[i % 3]!, (1 - ph) * 0.9 * fade);
   }
 }
 
