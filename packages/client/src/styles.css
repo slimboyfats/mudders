@@ -189,6 +189,7 @@ button.primary,
 }
 
 .hud-top {
+  flex-wrap: wrap;
   position: absolute;
   top: env(safe-area-inset-top);
   left: env(safe-area-inset-left);
@@ -1027,4 +1028,36 @@ a.button {
 .invite label.toggle {
   flex-direction: row;
   align-items: center;
+}
+
+/* §8 accessibility: menus and HUD scale with Settings → Text and controls size */
+.menu,
+.setup,
+.hud-top,
+.controls,
+.round-over,
+.shop,
+.net-banner,
+.sandbox-panel {
+  zoom: var(--ui-scale, 1);
+}
+
+/* Settings → Show performance */
+.perf {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 6px;
+  font:
+    11px/1.4 ui-monospace,
+    monospace;
+  background: rgb(0 0 0 / 0.65);
+  color: #e8e8e8;
+  pointer-events: none;
+  zoom: var(--ui-scale, 1);
+}
+
+.perf-row.over {
+  color: #ffb000;
+  font-weight: 700;
 }

@@ -71,6 +71,9 @@ export function App() {
       muted: settings.muted,
     });
   }, [settings]);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
+  }, [settings.uiScale]);
 
   useEffect(() => {
     const on = () => setRoute(fromHash());

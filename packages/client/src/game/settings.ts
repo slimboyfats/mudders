@@ -10,19 +10,27 @@ export interface Settings {
   musicVolume: number;
   sfxVolume: number;
   muted: boolean;
+  /** Size of menus and HUD (§8 accessibility: scalable UI), 0.8–1.6. */
+  uiScale: number;
+  /** Show the sim/render frame-time overlay (§9: budget checks on real devices). */
+  perfHud: boolean;
 }
 
 const KEY = 'mudders.settings.v1';
 
 function defaults(): Settings {
-  const mobile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const mq = (q: string) => typeof matchMedia === 'function' && matchMedia(q).matches;
+  const mobile = mq('(pointer: coarse)');
   return {
     quality: mobile ? 'medium' : 'high',
-    shake: true,
+    // no screen shake for players who asked their system for less motion
+    shake: !mq('(prefers-reduced-motion: reduce)'),
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,
     muted: false,
+    uiScale: 1,
+    perfHud: false,
   };
 }
 

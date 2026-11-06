@@ -16,6 +16,19 @@ import { PKind, Particles } from './particles';
 import { BG_FS, FULLSCREEN_VS, MAX_RIPPLES, POST_FS, TERRAIN_FS, TERRAIN_VS } from './shaders';
 import { DEFAULT_THEME, pixelTheme, playerColor, shade, type PixelTheme } from './theme';
 
+/** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
+const DIGITS: Record<number, readonly number[]> = {
+  1: [0b010, 0b110, 0b010, 0b010, 0b111],
+  2: [0b110, 0b001, 0b010, 0b100, 0b111],
+  3: [0b110, 0b001, 0b010, 0b001, 0b110],
+  4: [0b101, 0b101, 0b111, 0b001, 0b001],
+  5: [0b111, 0b100, 0b110, 0b001, 0b110],
+  6: [0b011, 0b100, 0b110, 0b101, 0b010],
+  7: [0b111, 0b001, 0b010, 0b010, 0b010],
+  8: [0b010, 0b101, 0b010, 0b101, 0b010],
+  9: [0b010, 0b101, 0b011, 0b001, 0b110],
+};
+
 const FP = 65536;
 const TANK_W = 16;
 const TANK_H = 10;
@@ -719,6 +732,8 @@ export class PixelRenderer implements Renderer {
       // turret dome
       b.push(x + 0.5, y - 7, 7, 5, shade(col, 1.12), 1, Shape.Disc);
       this.coverTank(x, y);
+      // player number beside the health bar, so tanks never differ by colour alone (§8)
+      this.drawDigit(x - 13, y - 16, e.player + 1);
       // health bar
       const hp = Math.max(0, Math.min(1, e.health / 100));
       b.rect(x - 8, y - 14, 16, 1.6, 0x000000, 0.55);
@@ -728,6 +743,18 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, y - 19 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
         b.push(x + 0.5, y - 19 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
+    }
+  }
+
+  /** A 3×5 pixel digit (1–9) on a dark backing, top-left at (x, y). */
+  private drawDigit(x: number, y: number, n: number): void {
+    const rows = DIGITS[n];
+    if (!rows) return;
+    const b = this.normal;
+    b.rect(x - 1, y - 1, 5, 7, 0x000000, 0.6);
+    for (let r = 0; r < 5; r++) {
+      const bits = rows[r]!;
+      for (let c = 0; c < 3; c++) if (bits & (4 >> c)) b.rect(x + c, y + r, 1, 1, 0xffffff);
     }
   }
 
