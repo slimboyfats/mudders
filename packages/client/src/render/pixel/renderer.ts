@@ -12,7 +12,7 @@ import type {
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
-import { EffectSystem, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
+import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import { PKind, Particles } from './particles';
 import {
@@ -1398,6 +1398,7 @@ export class PixelRenderer implements Renderer {
     this.drawDebris();
     this.drawMines(t);
     this.drawTanks(t);
+    this.fx.drawGoo(this.normal, t);
     this.particles.draw(this.normal, this.additive);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
@@ -1658,6 +1659,7 @@ export class PixelRenderer implements Renderer {
       const charged = t - (this.batteryAt[e.player] ?? -1e9);
       if (charged < BATTERY_TICKS) this.drawCharge(x, y0, charged);
       if (e.chill > 0) this.frostTank(x, y, t);
+      if (e.glue > 0) this.glueTank(x, y, sw, y0, t, e.chill > 0);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
       this.drawDigit(x - 13, top - 7, e.player + 1);
@@ -1795,6 +1797,51 @@ export class PixelRenderer implements Renderer {
   }
 
   /**
+   * A glued tank (Glue Bomb): a puddle of cream goo under it, dithered goo gumming the treads, gobs
+   * on the hull, strings and drips at the hull ends that stretch in whole cells, and a drop mark
+   * beside the health bar (next to the frost mark if both) so the state reads without colour.
+   */
+  private glueTank(
+    x: number,
+    y: number,
+    sw: number,
+    top: number,
+    t: number,
+    frosted: boolean,
+  ): void {
+    const b = this.normal;
+    const half = sw >> 1;
+    // puddle the tank sits in, wider than the hull, with a few lit cells
+    b.rect(x - half - 3, y - 1, sw + 6, 1, GLUE[2]);
+    for (let c = -half - 2; c < half + 3; c += 5) b.rect(x + c, y - 1, 1, 1, GLUE[0]);
+    // goo gumming the treads: a dithered row, so the tank's own colour still shows through
+    const ph = (t >> 4) & 1;
+    for (let c = 0; c < sw; c++) {
+      if ((c + ph) % 3 !== 0) b.rect(x - half + c, y - 2, 1, 1, GLUE[1]);
+    }
+    // gobs on the hull, and strings from the hull ends down into the puddle
+    b.rect(x - 3, top + 4, 2, 1, GLUE[1]);
+    b.rect(x + 2, top + 5, 1, 1, GLUE[0]);
+    b.rect(x - half - 1, y - 4, 1, 3, GLUE[1]);
+    b.rect(x + half, y - 4, 1, 3, GLUE[1]);
+    // drips off the hull ends: stretch a cell at a time, then snap back
+    for (let i = 0; i < 2; i++) {
+      const len = 1 + (((t >> 3) + i * 2) % 3);
+      const dx = i === 0 ? -half - 2 : half + 1;
+      b.rect(x + dx, y - 3, 1, len, GLUE[2]);
+    }
+    // drop mark: a 5×6 teardrop right of the health bar
+    const sx = x + (frosted ? 18 : 10);
+    const sy = top - 7;
+    b.rect(sx - 1, sy - 1, 7, 8, 0x000000, 0.6);
+    b.rect(sx + 2, sy, 1, 1, GLUE[1]);
+    b.rect(sx + 1, sy + 1, 3, 2, GLUE[1]);
+    b.rect(sx, sy + 3, 5, 2, GLUE[2]);
+    b.rect(sx + 1, sy + 5, 3, 1, GLUE[3]);
+    b.rect(sx + 1, sy + 3, 1, 1, GLUE[0]);
+  }
+
+  /**
    * How a tank standing at row `y` across columns `x0…x0+sw-1` leans: the ground's slope between
    * its two ends (cells per column, at most about 22°), pivoting on the end that stands highest.
    * The sim keeps tanks level on their highest support; this is only how they are drawn.
@@ -1867,6 +1914,16 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
         this.normal.push(x, y, 3, 3, 0xff8a20, 1);
         g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
+      if (look?.shell === 'glue') {
+        // a wobbling glob of glue: cream body that squashes and stretches, a lit cell on top
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const wob = (this.fxTick >> 2) & 1;
+        this.normal.push(x, y, 4 - wob, 3 + wob, GLUE[2], 1);
+        this.normal.push(x, y + 1, 2, 1, GLUE[3], 1);
+        this.normal.push(x - 0.5, y - 1, 1, 1, GLUE[0], 1);
         continue;
       }
       if (look?.shell === 'firework') {

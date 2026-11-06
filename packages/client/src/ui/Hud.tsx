@@ -81,7 +81,7 @@ function Drive({
   send: (input: Input) => void;
 }) {
   const left = Math.min(tank?.driveLeft ?? 0, tank?.fuel ?? 0);
-  const off = disabled || left <= 0;
+  const off = disabled || left <= 0 || (tank?.glue ?? 0) > 0;
   const button = (dir: -1 | 1, label: string, glyph: string) => (
     <button
       className={`drive-btn${tank?.driving === dir ? ' on' : ''}`}
@@ -300,6 +300,11 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           {t && t.chill > 0 && (
             <span className="frost-note" role="status">
               ❄ Frosted: max power {CHILL_POWER}
+            </span>
+          )}
+          {t && t.glue > 0 && (
+            <span className="glue-note" role="status">
+              ◍ Glued: can't drive
             </span>
           )}
         </div>

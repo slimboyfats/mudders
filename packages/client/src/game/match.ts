@@ -29,6 +29,8 @@ export interface HudTank {
   power: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
+  /** Own turns left glued (Glue Bomb): no driving. */
+  glue: number;
   weapon: string;
   inventory: { id: string; name: string; count: number }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
@@ -218,6 +220,7 @@ export abstract class SimMatch implements SnapshotStream {
         angle: t.angle,
         power: t.power,
         chill: t.chill,
+        glue: t.glue,
         weapon: w.weaponId(t.weapon),
         inventory: t.inventory
           .map((count, i) => ({ id: w.weaponId(i), name: this.names[w.weaponId(i)] ?? '', count }))

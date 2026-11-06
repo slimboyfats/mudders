@@ -1,0 +1,62 @@
+{
+  "id": "audio.glue-splat",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Glue Splat",
+    "description": "A wet, rubbery splorch: a squelchy low thump, a boing that stretches and sags, and a few sticky bloops as the strings snap back.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 120,
+        "release": 0.22,
+        "volume": 0.4
+      },
+      {
+        "wave": "square",
+        "freq": 110,
+        "to": 45,
+        "release": 0.35,
+        "volume": 0.3
+      },
+      {
+        "wave": "triangle",
+        "freq": 220,
+        "to": 330,
+        "delay": 0.04,
+        "hold": 0.12,
+        "release": 0.45,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 14,
+          "depth": 0.6
+        }
+      },
+      {
+        "wave": "pulse25",
+        "freq": 392,
+        "to": 196,
+        "delay": 0.18,
+        "release": 0.3,
+        "volume": 0.14,
+        "arp": [0, 5, 0, -7],
+        "arpRate": 0.06
+      }
+    ],
+    "radiusRef": 44
+  },
+  "on": [
+    {
+      "event": "glueSplat"
+    }
+  ]
+}

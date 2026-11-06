@@ -358,6 +358,12 @@ button.primary,
   white-space: nowrap;
 }
 
+.glue-note {
+  font-size: 0.75rem;
+  color: #f3e7b0;
+  white-space: nowrap;
+}
+
 .stepper .value {
   min-width: 3.2em;
   text-align: center;

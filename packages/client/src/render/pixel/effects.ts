@@ -106,6 +106,34 @@ interface Jet {
   rng: FxRng;
 }
 
+/** Glue tones (Glue Bomb): highlight, lit body, body, shadow. Cream, so it never reads as tar. */
+export const GLUE = [0xfffbea, 0xf2e6b4, 0xd8c785, 0xa88f4c] as const;
+
+/**
+ * A string of glue: anchored at one end, its head flies out (and sticks where it lands); the
+ * string between sags, thins at the middle and snaps when its life runs out.
+ */
+interface Strand {
+  ax: number;
+  ay: number;
+  hx: number;
+  hy: number;
+  vx: number;
+  vy: number;
+  start: number;
+  life: number;
+  stuck: boolean;
+}
+
+/** A dome of glue swelling up where a Glue Bomb burst, wobbling and slumping into a puddle. */
+interface Splat {
+  x: number;
+  y: number;
+  r: number;
+  start: number;
+  dur: number;
+}
+
 /** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
 const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 /** Steam puffs over a geyser. */
@@ -159,6 +187,9 @@ export class EffectSystem {
   private mushrooms: Mushroom[] = [];
   private vortices: Vortex[] = [];
   private funnels: Funnel[] = [];
+  /** Glue Bomb strings and domes. */
+  private strands: Strand[] = [];
+  private splats: Splat[] = [];
   private fireworks: Firework[] = [];
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
@@ -476,6 +507,15 @@ export class EffectSystem {
         break;
       case 'frostBlast':
         this.frostBlast(e);
+        break;
+      case 'glueSplat':
+        this.glueSplat(e);
+        break;
+      case 'glued':
+        this.glued(e);
+        break;
+      case 'unglued':
+        this.unglued(e);
         break;
       case 'frostFront':
         this.fronts.push({
@@ -1889,6 +1929,158 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * A Glue Bomb bursting: a dome of glue swells and wobbles at the impact, strings of glue fly out
+   * with gobs on their ends and stick where they land, and a crown of goo spatters around.
+   */
+  private glueSplat(e: EffectEvent): void {
+    const rng = this.rngFor(e, 131);
+    const k = e.params.strength ?? 1;
+    // the dome sits on the ground under the burst (a hit on a tank bursts above it)
+    const gy = this.surfaceNear(Math.round(e.x), Math.round(e.y), 24);
+    this.splats.push({ x: e.x, y: gy >= 0 ? gy : e.y, r: 10 * k, start: e.tick, dur: 90 });
+    const n = Math.round(9 * this.mult * k) + 5;
+    for (let i = 0; i < n; i++) {
+      // fan out over the upper half, both sides
+      const a = Math.PI * (0.08 + 0.84 * ((i + rng.next()) / n));
+      const v = rng.range(1.1, 2.6) * Math.sqrt(k);
+      this.strands.push({
+        ax: e.x + rng.range(-3, 3),
+        ay: e.y - rng.range(1, 5),
+        hx: e.x,
+        hy: e.y - 2,
+        vx: Math.cos(a) * v,
+        vy: -Math.sin(a) * v,
+        start: e.tick,
+        life: Math.round(rng.range(24, 60)),
+        stuck: false,
+      });
+    }
+    const m = Math.round(46 * this.mult * k) + 6;
+    for (let i = 0; i < m; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      this.particles.add({
+        x: e.x + side * rng.range(0, 4),
+        y: e.y - rng.range(1, 4),
+        vx: side * rng.range(0.2, 1.8),
+        vy: -rng.range(0.6, 2.6),
+        life: rng.range(30, 60),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: GLUE[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+    this.shakeAmp = Math.max(this.shakeAmp, 2);
+    this.shakeStart = e.tick;
+  }
+
+  /** A tank gummed up: goo slaps onto it, and strings stretch from the hull down to the ground. */
+  private glued(e: EffectEvent): void {
+    const rng = this.rngFor(e, 137);
+    const half = Math.max(4, e.radius);
+    for (let i = 0; i < 4; i++) {
+      const side = i < 2 ? -1 : 1;
+      this.strands.push({
+        ax: e.x + side * rng.range(2, half),
+        ay: e.y - rng.range(3, 7),
+        hx: e.x + side * half,
+        hy: e.y - 4,
+        vx: side * rng.range(0.3, 0.9),
+        vy: rng.range(0, 0.4),
+        start: e.tick,
+        life: Math.round(rng.range(40, 70)),
+        stuck: false,
+      });
+    }
+    const n = Math.round(18 * this.mult) + 4;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-half, half),
+        y: e.y - rng.range(2, 9),
+        vx: rng.range(-0.6, 0.6),
+        vy: -rng.range(0.2, 1.2),
+        life: rng.range(16, 30),
+        size: 1,
+        color: GLUE[Math.floor(rng.next() * 3)]!,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** The glue lets go: strings from the hull to the ground stretch up and snap. */
+  private unglued(e: EffectEvent): void {
+    const rng = this.rngFor(e, 139);
+    const half = Math.max(4, e.radius);
+    for (let i = 0; i < 6; i++) {
+      const x = e.x + rng.range(-half - 2, half + 2);
+      this.strands.push({
+        ax: x,
+        ay: e.y,
+        hx: x,
+        hy: e.y - 3,
+        vx: rng.range(-0.2, 0.2),
+        vy: -rng.range(0.4, 0.9),
+        start: e.tick,
+        life: Math.round(rng.range(8, 16)),
+        stuck: true,
+      });
+    }
+  }
+
+  /** Move glue string heads (gravity, sticking on terrain); snap strings whose time is up. */
+  private tickStrands(t: number): void {
+    if (this.strands.length === 0) return;
+    const keep: Strand[] = [];
+    for (const s of this.strands) {
+      const age = t - s.start;
+      if (age > s.life) {
+        // snap: the two halves fall away as gobs
+        const mx = (s.ax + s.hx) / 2;
+        const my = (s.ay + s.hy) / 2;
+        for (let i = 0; i < 2; i++) {
+          this.particles.add({
+            x: i === 0 ? mx : s.hx,
+            y: i === 0 ? my : s.hy,
+            vx: (i === 0 ? -0.2 : 0.2) + s.vx * 0.1,
+            vy: 0.2,
+            life: 26,
+            size: 1,
+            color: GLUE[2]!,
+            kind: PKind.Chunk,
+          });
+        }
+        continue;
+      }
+      if (s.stuck) {
+        // an unsticking string keeps rising (it is being pulled off), a landed one stays put
+        if (s.vy < 0) {
+          s.hx += s.vx;
+          s.hy += s.vy;
+        }
+      } else if (age >= 0) {
+        s.vy += 0.1;
+        const nx = s.hx + s.vx;
+        const ny = s.hy + s.vy;
+        const p = this.probe;
+        const cx = Math.floor(nx);
+        const cy = Math.floor(ny);
+        if (cx < 0 || cx >= p.width || cy >= p.height) {
+          s.stuck = true;
+          s.vy = 0;
+        } else if (cy >= 0 && p.material(cx, cy) !== 0) {
+          s.stuck = true;
+          s.vy = 0;
+        } else {
+          s.hx = nx;
+          s.hy = ny;
+        }
+      }
+      keep.push(s);
+    }
+    this.strands = keep;
+    this.splats = this.splats.filter((s) => t - s.start <= s.dur);
+  }
+
   /** Update (or start) the tornado an event belongs to: one event per tornado per tick. */
   private tornado(e: EffectEvent): void {
     const pr = e.params;
@@ -2472,6 +2664,7 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.feedJets(t);
+    this.tickStrands(t);
     this.fireworkTick(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
@@ -2766,6 +2959,55 @@ export class EffectSystem {
     }
   }
 
+  /** Glue domes slumping into puddles, then the strings of glue over them. */
+  drawGoo(normal: QuadBatch, t: number): void {
+    for (const s of this.splats) {
+      const age = t - s.start;
+      if (age < 0 || age > s.dur) continue;
+      const k = age / s.dur;
+      // swells up in a few ticks, wobbles (hard steps), then slumps flat and wide
+      const grow = Math.min(1, (age + 1) / 4);
+      const wob = age < 24 ? (((age >> 2) & 1) === 0 ? 1.18 : 0.86) : 1;
+      const hgt = Math.max(1, Math.round(s.r * 0.75 * grow * wob * (1 - 0.8 * k)));
+      const wid = s.r * grow * (1 + 0.6 * k) * (wob > 1 ? 0.92 : 1.08);
+      for (let j = 0; j < hgt; j++) {
+        const f = j / hgt;
+        const half = Math.round(wid * Math.sqrt(1 - f * f));
+        if (half <= 0) continue;
+        const row = Math.floor(s.y) - 1 - j;
+        // fading out: rows drop away from the top down in a hashed dither
+        if (k > 0.75) {
+          const h = (Math.imul(row + 3, 2654435761) ^ Math.imul(s.start + 1, 40503)) >>> 24;
+          if (h / 255 < (k - 0.75) * 4 * (0.4 + f)) continue;
+        }
+        const col = f > 0.7 ? GLUE[0] : f > 0.35 ? GLUE[1] : j === 0 ? GLUE[3] : GLUE[2];
+        normal.rect(Math.floor(s.x) - half, row, half * 2 + 1, 1, col);
+      }
+      // a lit glint high on the dome's shoulder while it is still round
+      if (hgt > 3) normal.rect(Math.floor(s.x) - (hgt >> 1), Math.floor(s.y) - hgt, 1, 1, 0xffffff);
+    }
+    for (const st of this.strands) {
+      const age = t - st.start;
+      if (age < 0) continue;
+      const dx = st.hx - st.ax;
+      const dy = st.hy - st.ay;
+      const n = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)));
+      // sags more the longer it hangs; the middle necks thin just before it snaps
+      const sag = Math.min(6, age * 0.25) * Math.min(1, n / 12);
+      const neck = age > st.life * 0.7;
+      for (let i = 0; i <= n; i++) {
+        const u = n === 0 ? 0 : i / n;
+        if (neck && u > 0.4 && u < 0.6 && (i & 1) === 0) continue;
+        const x = Math.floor(st.ax + dx * u);
+        const y = Math.floor(st.ay + dy * u + sag * 4 * u * (1 - u));
+        normal.rect(x, y, 1, 1, i % 6 === 2 ? GLUE[1] : GLUE[2]);
+      }
+      // the gob on the end
+      normal.rect(Math.floor(st.hx) - 1, Math.floor(st.hy) - 1, 2, 2, GLUE[1]);
+      normal.rect(Math.floor(st.hx) - 1, Math.floor(st.hy) - 1, 1, 1, GLUE[0]);
+    }
+  }
+
   /** Low quality has no distortion pass: draw ripples as plain rings instead. */
   drawRippleRings(additive: QuadBatch, t: number): void {
     for (const r of this.ripples) {
@@ -2796,6 +3038,8 @@ export class EffectSystem {
     this.lances.clear();
     this.vortices = [];
     this.funnels = [];
+    this.strands = [];
+    this.splats = [];
     this.posts = [];
     this.magnets = [];
     this.shakeAmp = 0;

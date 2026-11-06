@@ -316,6 +316,8 @@ export interface AiApi {
   reach(dir: -1 | 1): readonly AiSpot[];
   /** Own turns left frosted; while > 0 shells fire at no more than CHILL_POWER. */
   readonly chill: number;
+  /** Own turns left glued (Glue Bomb); while > 0 I can't drive (`reach` offers nothing). */
+  readonly glue: number;
   /** My previous shot this round, or null. */
   readonly lastShot: {
     readonly x: number;
