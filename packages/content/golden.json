@@ -1,5 +1,5 @@
 {
-  "contentHash": "b26dfaa0ec397143",
+  "contentHash": "a15903e2c23cd3a6",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -402,12 +402,12 @@
       "hash": "8c4be79da6e93348"
     },
     "weapon.baby-nuke-core": {
-      "ticks": 126,
-      "hash": "b3f482b0dc6d36c0"
+      "ticks": 176,
+      "hash": "6e122848ede5fd83"
     },
     "weapon.baby-nuke": {
-      "ticks": 228,
-      "hash": "18320a16ff227efa"
+      "ticks": 321,
+      "hash": "0a179b0ce8f0ca09"
     },
     "weapon.baby-roller": {
       "ticks": 158,
@@ -470,12 +470,12 @@
       "hash": "5f149ea5134808ca"
     },
     "weapon.heavy-nuke-core": {
-      "ticks": 145,
-      "hash": "87fc8a145cccc836"
+      "ticks": 212,
+      "hash": "f13503cacb656def"
     },
     "weapon.heavy-nuke": {
-      "ticks": 252,
-      "hash": "3bfcab05ed6d53ef"
+      "ticks": 325,
+      "hash": "8848ffd28beaee86"
     },
     "weapon.heavy-roller": {
       "ticks": 166,
@@ -534,12 +534,12 @@
       "hash": "0fbf0d7314c8edc5"
     },
     "weapon.nuke-core": {
-      "ticks": 128,
-      "hash": "ee81e69d36d50568"
+      "ticks": 211,
+      "hash": "1944a7e161aeedf5"
     },
     "weapon.nuke": {
-      "ticks": 242,
-      "hash": "f46fb968bfc85a10"
+      "ticks": 321,
+      "hash": "484a77991f1d434a"
     },
     "weapon.oil-slick": {
       "ticks": 357,
