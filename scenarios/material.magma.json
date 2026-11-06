@@ -1,0 +1,58 @@
+{
+  "id": "material.magma",
+  "schemaVersion": 1,
+  "description": "A baby nuke breaks into a magma pocket under the cave floor: the molten rock pours out as lava and runs downhill.",
+  "subject": "material.magma",
+  "mode": "mode.classic",
+  "seed": 3,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.caves"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.baby-nuke": 5
+      }
+    },
+    {
+      "x": 640
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-nuke"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 15,
+        "power": 350
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

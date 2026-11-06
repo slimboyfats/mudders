@@ -1,0 +1,62 @@
+{
+  "id": "weapon.magnet-mine",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magnet Mine",
+    "description": "Beds in where it lands, then switches on a strong magnet: tanks nearby are dragged along the ground and clamped onto it, and metal in the ground is torn loose and flies in. When the field runs out, the mine goes off with everything stuck to it.",
+    "since": "core@0.21.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 4,
+        "damage": 0,
+        "damageType": "kinetic",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 8
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.magnet"
+      },
+      "radius": 90,
+      "damageType": "shock"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.magnet-mine-core",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 11000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0.2
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}
