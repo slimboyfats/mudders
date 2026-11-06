@@ -48,7 +48,10 @@ interface Front {
   cold?: boolean;
 }
 
-/** A singularity's hang: grit and light spiralling into a growing black core. */
+/**
+ * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
+ * Hole Mine's end instead: a wide black disc with a hard violet rim that slams shut to a point.
+ */
 interface Vortex {
   x: number;
   y: number;
@@ -56,6 +59,7 @@ interface Vortex {
   start: number;
   dur: number;
   rng: FxRng;
+  snap?: boolean;
 }
 
 interface Crystal {
@@ -400,6 +404,12 @@ export class EffectSystem {
           dur: Math.max(8, e.params.ticks ?? 40),
           rng: this.rngFor(e, 61),
         });
+        break;
+      case 'swallow':
+        this.swallow(e);
+        break;
+      case 'mineTrip':
+        this.mineTrip(e);
         break;
       case 'eruption':
         this.eruption(e, e.params.strength ?? 1);
@@ -1020,11 +1030,116 @@ export class EffectSystem {
     for (const v of this.vortices) {
       const k = (t - v.start) / v.dur;
       if (k < 0 || k > 1) continue;
+      if (v.snap) {
+        // opens wide in the first few ticks, then slams shut; hard bands, whole cells
+        const open = Math.min(1, k * 6);
+        const size = 2 * Math.max(1, Math.round(v.r * 0.55 * open * (1 - k) * (1 - k))) + 1;
+        additive.push(
+          v.x + 0.5,
+          v.y + 0.5,
+          size + 6,
+          size + 6,
+          0x6020d0,
+          0.5 * (1 - k),
+          Shape.Pixel,
+        );
+        normal.push(v.x + 0.5, v.y + 0.5, size + 2, size + 2, 0xc8a0ff, 1, Shape.Pixel);
+        normal.push(v.x + 0.5, v.y + 0.5, size, size, 0x05030a, 1, Shape.Pixel);
+        continue;
+      }
       const core = 3 + Math.round(k * k * v.r * 0.18);
       additive.push(v.x, v.y, core * 2 + 6, core * 2 + 6, 0x8040ff, 0.35 + 0.3 * k, Shape.Pixel);
       normal.push(v.x, v.y, core * 2 + 2, core * 2 + 2, 0xd0b0ff, 0.9, Shape.Pixel);
       normal.push(v.x, v.y, core * 2, core * 2, 0x07040c, 1, Shape.Pixel);
     }
+  }
+
+  /**
+   * A tripped Black Hole Mine: a hard violet ring snaps out to the trip radius, the sky goes
+   * purple, and a few sparks jump off the mine before the vortex takes over.
+   */
+  private mineTrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 18,
+      maxR: e.radius * 2,
+      width: 6,
+      strength: 0.5,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: Math.max(6, e.radius * 0.5),
+      start: e.tick,
+      dur: 10,
+      color: 0xa060ff,
+      strength: 0.9,
+    });
+    const n = Math.round(16 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const sp = rng.range(1.2, 2.2);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 1,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp * 0.7,
+        life: rng.range(8, 14),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0xb070ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.tintSky([0, 0.36, 0.08, 0.6], 0.35);
+  }
+
+  /**
+   * A Black Hole Mine's end: the hole slams shut. Everything near it streaks inward and vanishes
+   * (no debris thrown out), then the space around it springs back in a distortion band.
+   */
+  private swallow(e: EffectEvent): void {
+    const rng = this.rngFor(e, 73);
+    const r = Math.max(8, e.radius);
+    const dur = Math.max(8, e.params.ticks ?? 22);
+    this.vortices.push({ x: e.x, y: e.y, r, start: e.tick, dur, rng, snap: true });
+    const n = Math.round(70 * this.mult) + 20;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = r * rng.range(0.6, 1.5);
+      const life = rng.range(6, 14);
+      const cx = Math.round(e.x + Math.cos(a) * rr);
+      const cy = Math.round(e.y + Math.sin(a) * rr * 0.8);
+      const m = this.probe.material(cx, cy);
+      this.particles.add({
+        x: cx,
+        y: cy,
+        vx: (e.x - cx) / life,
+        vy: (e.y - cy) / life,
+        life,
+        size: 1,
+        color:
+          m !== 0 && rng.next() < 0.6
+            ? this.probe.color(m)
+            : rng.next() < 0.5
+              ? 0xd8c0ff
+              : 0x7040e0,
+        kind: PKind.Spark,
+      });
+    }
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + Math.round(dur * 0.7),
+      dur: 26,
+      maxR: r * 2.6,
+      width: 9,
+      strength: 1.1,
+    });
+    this.tintSky([0, 0.3, 0.05, 0.55], 0.5);
+    this.split = Math.max(this.split, 1);
   }
 
   /**
