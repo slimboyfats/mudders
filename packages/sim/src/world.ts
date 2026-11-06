@@ -957,7 +957,7 @@ export class World implements SimApi {
     return true;
   }
 
-  hold(player: number, x: number, y: number): void {
+  hold(player: number, x: number, y: number, fallFrom?: number): void {
     const t = this.tanks[player];
     if (!t || !t.alive) return;
     t.x = Math.max(t.half, Math.min(this.grid.width - 1 - t.half, x));
@@ -968,6 +968,7 @@ export class World implements SimApi {
     } else if (t.y < t.fallFrom) {
       t.fallFrom = t.y;
     }
+    if (fallFrom !== undefined) t.fallFrom = Math.min(t.y, fallFrom);
     // stepTanks adds 1 before moving it, so a held tank stays put this tick
     t.fallVel = -1;
     t.sunk = 0;
