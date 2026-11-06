@@ -21,10 +21,17 @@ export default defineTerrainOp<z.infer<typeof params>>({
     const W = grid.width;
     const R = c.radius;
     const r2s = R * R * 65536;
-    const x0 = Math.max(0, c.x - R);
-    const x1 = Math.min(W - 1, c.x + R);
-    const y0 = Math.max(0, c.y - R);
-    const y1 = Math.min(grid.height - 1, c.y + R);
+    // Rims (ice, clay) can reach a few cells past the radius.
+    const RR = R + mats.rimMaxDepth;
+    const x0 = Math.max(0, c.x - RR);
+    const x1 = Math.min(W - 1, c.x + RR);
+    const y0 = Math.max(0, c.y - RR);
+    const y1 = Math.min(grid.height - 1, c.y + RR);
+    const dt = c.damageTypeIndex;
+    const rInto = mats.rimInto;
+    const rDepth = mats.rimDepth;
+    const rChance = mats.rimChance;
+    const R256 = R * 256;
     const mat = grid.material;
     const str = mats.strength;
     const nd = NUM_DAMAGE_TYPES;
@@ -45,9 +52,26 @@ export default defineTerrainOp<z.infer<typeof params>>({
         if (m === 0) continue;
         const dx = x - c.x;
         const d2 = dx * dx + dy * dy;
-        if (d2 > R * R) continue;
-        const s = str[m * nd + c.damageTypeIndex]!;
-        if (s !== 0 && d2 * s * s > r2s) continue;
+        const s = str[m * nd + dt]!;
+        if (d2 > R * R || (s !== 0 && d2 * s * s > r2s)) {
+          // Not carved: maybe on the rim, within `depth` cells of where this material gave way.
+          const ri = m * nd + dt;
+          const into = rInto[ri]!;
+          if (into === keep) continue;
+          const e =
+            s > 256 ? Math.floor((R256 * 256) / s) + rDepth[ri]! * 256 : R256 + rDepth[ri]! * 256;
+          if (d2 * 65536 > e * e) continue;
+          const ch = rChance[ri]!;
+          if (
+            ch < 256 &&
+            Math.imul(x * 374761393 + y * 668265263 + c.x * 2246822519, 3266489917) >>> 24 >= ch
+          )
+            continue;
+          mat[i] = into;
+          grid.cellState[i] = 0;
+          grid.fallVel[i] = 0;
+          continue;
+        }
         if (cInto[m] !== keep) {
           const k = x - x0;
           if (!compacted) {

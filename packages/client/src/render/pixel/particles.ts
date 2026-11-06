@@ -21,6 +21,11 @@ export const PKind = {
   Snow: 5,
   /** A gust of wind: a thin horizontal dash of `size` cells sailing across the sky, no gravity. */
   Streak: 6,
+  /**
+   * A firework star: an additive cell that flies out fast, brakes hard in the air, droops, and
+   * strobes on and off as it burns out.
+   */
+  Glitter: 7,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 
@@ -106,6 +111,10 @@ export class Particles {
         vy += gravity * 0.6;
         vx *= 0.97;
         vy *= 0.97;
+      } else if (k === PKind.Glitter) {
+        vy += gravity * 0.25;
+        vx *= 0.93;
+        vy *= 0.93;
       } else if (k === PKind.Chunk) {
         vy += gravity;
         vx *= 0.99;
@@ -150,6 +159,12 @@ export class Particles {
         // one bright cell, snapped to the grid
         const fade = t < 0.6 ? 1 : (1 - t) / 0.4;
         additive.push(Math.floor(this.x[i]!) + 0.5, Math.floor(this.y[i]!) + 0.5, 1, 1, c, fade);
+      } else if (k === PKind.Glitter) {
+        // full on, then strobing in whole ticks as it burns out
+        if (t > 0.55 && ((this.age[i]! + (c & 7)) & 2) === 0) continue;
+        const x = Math.floor(this.x[i]!) + 0.5;
+        const y = Math.floor(this.y[i]!) + 0.5;
+        additive.push(x, y, s, s, c, t < 0.55 ? 1 : 0.85);
       } else if (k === PKind.Snow) {
         normal.push(
           Math.floor(this.x[i]!) + 0.5,

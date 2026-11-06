@@ -133,6 +133,11 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
       if (fm & ACT_DECAY) {
         const s = state[i]! + 1;
         if (s >= mats.decayTicks[m]!) {
+          const burst = mats.detonateChance[m]!;
+          if (burst !== 0 && grid.burstCount < grid.bursts.length && roll(i, tick, 7) < burst) {
+            grid.bursts[grid.burstCount++] = i;
+            grid.bursts[grid.burstCount++] = m;
+          }
           setCell(grid, i, mats.decayInto[m]!);
           dirty(grid, i);
           continue;
@@ -163,7 +168,7 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
       ) {
         // a buried pocket that has just been uncovered: the world sets it off after this pass
         // (queue full: stay in the region and try again next tick)
-        if (grid.burstCount < grid.bursts.length) grid.bursts[grid.burstCount++] = i;
+        if (grid.pocketCount < grid.pockets.length) grid.pockets[grid.pocketCount++] = i;
         else alive = true;
       }
       if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, false, tick);

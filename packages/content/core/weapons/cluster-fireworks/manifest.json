@@ -1,0 +1,63 @@
+{
+  "id": "weapon.cluster-fireworks",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cluster Fireworks",
+    "description": "A fizzing rocket that pops at the top of its arc and sends five fireworks climbing on up, each one higher than the last. They burst one after another in a rolling chain of colourful stars across the sky, and the burning stars drift down on the wind and pepper the ground below with little hot pops.",
+    "since": "core@0.21.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onApex", "onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 0,
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 0
+          },
+          "fireworkLaunch": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.firework-rocket",
+        "count": 5,
+        "inherit": 0.3,
+        "spread": 1.0,
+        "up": 0.25,
+        "stagger": 0.15
+      }
+    }
+  ],
+  "shop": {
+    "price": 8000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.15
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  },
+  "look": {
+    "shell": "firework"
+  }
+}

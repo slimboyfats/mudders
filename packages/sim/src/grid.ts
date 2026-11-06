@@ -24,6 +24,12 @@ export class Grid {
   /** Group cells lost outside ops (burnt, collapsed edge) since the kernel last looked. */
   readonly groupLost = new Int32Array(256);
   groupLostAny = false;
+  /**
+   * Bursts the reaction pass queued this tick (lit gunpowder going off): cell index and material
+   * pairs. The kernel drains it right after `reactStep`; extra bursts past the cap are dropped.
+   */
+  readonly bursts = new Int32Array(128);
+  burstCount = 0;
 
   /** Union of everything `markDirty` touched since `clearWatch` (inclusive; empty if max < min). */
   watchMinX = 0;
@@ -50,8 +56,8 @@ export class Grid {
    * Bursting cells (gas pockets) `reactStep` found touching air this tick, for the world to set
    * off. Transient: emptied every tick, never part of the state.
    */
-  readonly bursts = new Int32Array(32);
-  burstCount = 0;
+  readonly pockets = new Int32Array(32);
+  pocketCount = 0;
 
   private renderRects: Rect[] = [];
 
@@ -78,6 +84,8 @@ export class Grid {
     this.groupMat.fill(0);
     this.groupLost.fill(0);
     this.groupLostAny = false;
+    this.burstCount = 0;
+    this.pocketCount = 0;
     this.clearWatch();
     this.clearSettle();
     this.clearReact();

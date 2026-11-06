@@ -51,6 +51,6 @@ describe('8 players (milestone 7)', () => {
       });
       for (let i = 0; i < 400_000 && w.phase !== 'over'; i++) w.step();
       expect(w.phase).toBe('over');
-    });
+    }, 120_000); // caves matches run long under coverage: seams, magma and gas pockets chain
   }
 });

@@ -229,6 +229,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Fixed-timestep simulation (e.g. 60 Hz), fully **deterministic** (see §6.3).
 - Gravity (configurable).
 - **Wind**: horizontal force, changes per round or per turn (host setting), with a visible wind indicator. Options: none / constant / changes each turn / random gusts.
+- **Weather** (host setting, `weather.*` content): clear / rain / snow / random. Weather drags on shells (bots predict with it), changes the terrain at every turn start (rain soaks surface dirt into mud and pools water in craters; snow piles up as loose `material.snow` that blasts pack into ice and heat melts) and brings its own falling particles and chiptune ambience over any theme.
 - Projectile motion is integrated numerically (semi-implicit Euler) so wind, gravity and special weapon behaviour (rollers, bouncers, homing) can all share one loop.
 - Walls (map edges): configurable per match — bounce, wrap-around, absorb, random, or "concrete" (projectile explodes on wall).
 - Ceiling: off-screen projectiles continue to be simulated until they return or exceed a bound.

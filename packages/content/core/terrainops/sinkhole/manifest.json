@@ -1,0 +1,20 @@
+{
+  "id": "terrainop.sinkhole",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sinkhole",
+    "description": "A cavern opens under the impact: the ground sags with a rumble, then drops out as a round pit with sheer walls, carrying whatever stands on it to the bottom, and the rim crumbles in after it. The swallowed ground is gone. Rock and props hold.",
+    "since": "core@0.21.0"
+  },
+  "behaviour": "terrainop.sinkhole",
+  "depth": 70,
+  "rough": 3,
+  "wall": 8,
+  "cavern": 48,
+  "sagTicks": 36,
+  "sagRows": 3,
+  "plungeTicks": 18,
+  "rim": 7,
+  "rimRows": 10,
+  "crumble": 0.55
+}

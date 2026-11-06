@@ -1,0 +1,61 @@
+{
+  "id": "weapon.drill-torpedo",
+  "schemaVersion": 1,
+  "description": "Drill Torpedo on the hills: landed short of a tank behind a ridge, it burrows on under the ground and pops up beneath it.",
+  "subject": "weapon.drill-torpedo",
+  "mode": "mode.classic",
+  "seed": 4242,
+  "players": 3,
+  "map": {
+    "generator": "gen.hills",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 120,
+      "inventory": {
+        "weapon.drill-torpedo": -1
+      }
+    },
+    {
+      "x": 560
+    },
+    {
+      "x": 720
+    }
+  ],
+  "turnOrder": [0],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.drill-torpedo"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 50,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}
