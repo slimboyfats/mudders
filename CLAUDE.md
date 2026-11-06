@@ -23,6 +23,7 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm smoke`: Headless Chromium + SwiftShader renders a WebGL2 triangle, writes `captures/smoke-webgl2.{png,gif}`
 - `pnpm check:ffmpeg`: Verifies ffmpeg is installed, with install instructions if not
 - `pnpm determinism:browsers`: golden hashes in headless Chromium, Firefox and WebKit must equal `golden.json` (~10 s)
+- `pnpm deploy:pages`: Build the client for GitHub Pages (`/mudders/`) and push it to `gh-pages` (`--no-push` to try; `VITE_SIGNAL_URL=` for the lobby)
 - `pnpm setup:browsers`: installs headless Firefox + WebKitGTK from the Ubuntu archive (idempotent; run by the above)
 - `pnpm bench`: §9 sim benchmarks vs `packages/content/bench/baseline.json` (`-- --update` to rebaseline)
 - `pnpm content:validate`: Schemas, `use`/`extends` resolution, tests + scenario stubs per item, id lock, docs up to date
@@ -103,8 +104,8 @@ task `needs-device`, give the deploy preview URL, and list what to check by hand
 ## Workflow notes
 
 - Captures go to `captures/` (gitignored). Only `captures/reference/` (regression baselines) is committed.
-- Deploy previews are not wired up yet. When they are, use the static host's own Git integration
-  (e.g. Cloudflare Pages builds on its side), not GitHub Actions.
+- The client is hosted on GitHub Pages, built locally by `pnpm deploy:pages` and pushed to `gh-pages`
+  (deploy from branch, no workflow file). Free tiers only, never paid hosting.
 - TypeScript is pinned to 6.x because typescript-eslint does not support TS 7 yet.
 - Playwright is pinned to the version preinstalled in cloud sessions (`PLAYWRIGHT_BROWSERS_PATH`);
   do not run `playwright install` there.
