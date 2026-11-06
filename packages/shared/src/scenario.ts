@@ -54,6 +54,7 @@ export const ScenarioSchema = z.strictObject({
       rounds: z.number().int().min(1).optional(),
       turnTimer: z.number().min(0).optional(),
       shopTimer: z.number().min(1).optional(),
+      openingShop: z.boolean().optional(),
       suddenDeath: z.boolean().optional(),
       windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),

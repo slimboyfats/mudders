@@ -206,7 +206,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Turn order: configurable — simultaneous (all players fire, then resolve), sequential (random order each round), or sequential ordered by previous-round score (lowest first). Default: sequential, random.
 - A round ends when ≤1 player (or team) is alive, or after a turn cap (default 12 turns per player) at which point survivors are ranked by health and points.
 - **Sudden death**: from turn 8 onward, all weapon damage ×1.5 and the map edges start collapsing inward, to prevent stalemates and keep rounds short.
-- Between rounds: the shop (§3.6).
+- Before round 1 and between rounds: the shop (§3.6).
 - Match ends after the last round; final scoreboard.
 
 ### 3.2 Tanks
@@ -240,8 +240,9 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Kill attribution tracks the originating shooter through chain reactions (so a kill caused by a neighbour's death explosion from your shot is yours).
 
 ### 3.6 Economy and shop
-- Between rounds every player visits the shop, with a 30 s timer (auto-ready on expiry). Items: weapons (in packs, e.g. 10 × Missile), shields, fuel, parachutes, repair kits, utilities.
-- Players start each match with a small loadout so round 1 is interesting without a pre-round shop.
+- Before round 1 and between rounds every player visits the shop, with a 30 s timer (auto-ready on expiry; it closes early once everyone is ready). Items: weapons (in packs, e.g. 10 × Missile), shields, fuel, parachutes, repair kits, utilities.
+- The opening shop (Joel, 2026-11-06) sits on round 1's map, so players can see the ground while they buy. Bots shop in it too, and in online games it runs in the lockstep sim like the between-round shop. Kernel rule `openingShop` (scenarios and old replays leave it off); the client always turns it on.
+- Players still start each match with a small loadout, so a player who skips the opening shop has something to fire.
 - Prices fluctuate ±X% per round around a base price (host setting; can be fixed).
 - Money persists across rounds within a match. Starting cash is a host setting.
 - Inventory is per-player and consumed on use.

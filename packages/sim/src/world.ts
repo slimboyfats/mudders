@@ -76,6 +76,8 @@ export interface MatchRules {
   rounds?: number | undefined;
   turnTimer?: number | undefined;
   shopTimer?: number | undefined;
+  /** Open the shop before round 1 too (same timer as between rounds), on round 1's map. */
+  openingShop?: boolean | undefined;
   suddenDeath?: boolean | undefined;
   windType?: WindType | undefined;
   startingCash?: number | undefined;
@@ -528,7 +530,14 @@ export class World implements SimApi {
     };
 
     this.createTanks();
-    this.startRound();
+    if (rules.openingShop === true) {
+      // the opening shop (§3.6): round 1's map is generated and shown behind the shop, and the
+      // first turn begins when everyone is ready or the timer runs out
+      this.startRound(false);
+      this.openShop();
+    } else {
+      this.startRound();
+    }
   }
 
   // ── setup ───────────────────────────────────────────────────────────────────────────────
@@ -743,7 +752,7 @@ export class World implements SimApi {
     };
   }
 
-  private startRound(): void {
+  private startRound(firstTurn = true): void {
     const g = this.grid;
     g.reset();
     this.debris.count = 0;
@@ -812,7 +821,7 @@ export class World implements SimApi {
     this.modeB.onRoundStart(this.modeApi, this.modeParams);
     this.turnPos = 0;
     this.turn = 0;
-    this.beginTurn();
+    if (firstTurn) this.beginTurn();
   }
 
   private firstWeapon(t: Tank): number {
@@ -2378,7 +2387,11 @@ export class World implements SimApi {
 
   private stepShop(): void {
     if (this.timer > 0) this.timer--;
-    if (this.timer === 0 || this.tanks.every((t) => t.ready)) this.startRound();
+    if (this.timer > 0 && !this.tanks.every((t) => t.ready)) return;
+    for (const t of this.tanks) t.ready = false;
+    // the opening shop sits on round 1's map already; between rounds a new map is generated
+    if (this.round === 0) this.beginTurn();
+    else this.startRound();
   }
 
   /**

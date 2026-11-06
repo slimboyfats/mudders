@@ -6,7 +6,7 @@ import { REPO_ROOT, capturesDir } from './paths';
 
 /**
  * Hot-seat smoke test in emulated phones and a laptop (§2d (c), §8a): loads the built client,
- * starts a local match, aims with a slingshot drag (touch or mouse), checks the drag did NOT fire,
+ * starts a local match, passes the opening shop, aims with a slingshot drag (touch or mouse), checks the drag did NOT fire,
  * taps FIRE, waits for the turn to pass, and screenshots each step with the HUD visible.
  * Not a substitute for real devices (`needs-device`): it proves layout and the input wiring.
  *
@@ -47,6 +47,36 @@ async function turnLabel(page: Page): Promise<string> {
   );
 }
 
+/**
+ * Every match opens with the shop before round 1 (§3.6): check its countdown, then press each
+ * hot-seat player's Ready so the first turn starts.
+ */
+async function passOpeningShop(
+  page: Page,
+  name: string,
+  shot?: () => Promise<void>,
+): Promise<void> {
+  const shop = page.locator('.shop');
+  await shop.waitFor({ timeout: 10_000 }).catch(() => {
+    throw new Error(`${name}: no shop before round 1`);
+  });
+  const secs = Number((await page.getByTestId('shop-timer').textContent())?.replace('s', ''));
+  if (!(secs > 20 && secs <= 30))
+    throw new Error(`${name}: the opening shop countdown shows ${secs}s, expected about 30s`);
+  if (shot) await shot();
+  for (let i = 0; i < 8 && (await shop.isVisible()); i++) {
+    const ready = page.getByTestId('ready');
+    // the shop closes the moment the last player is ready, so a click can find it gone
+    if (await ready.isEnabled().catch(() => false))
+      await ready.click({ timeout: 2000 }).catch(() => undefined);
+    await page.waitForTimeout(100);
+  }
+  await shop.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {
+    throw new Error(`${name}: round 1 did not start once everyone was ready`);
+  });
+  await page.waitForTimeout(300);
+}
+
 export async function runPlaySmoke(): Promise<PlaySmokeResult> {
   const server = await preview({
     root: resolve(REPO_ROOT, 'packages/client'),
@@ -73,6 +103,7 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         await page.screenshot({ path: p });
         shots.push(p);
       };
+      await passOpeningShop(page, t.name, () => shot('0-opening-shop'));
       await shot('1-start');
       const before = await turnLabel(page);
       if (!/^P[12]$/.test(before)) throw new Error(`${t.name}: no active player (got "${before}")`);
@@ -135,6 +166,7 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       await page.reload();
       await page.locator('.game-canvas').waitFor();
       await page.waitForTimeout(800);
+      await passOpeningShop(page, t.name);
       const chips = page.locator('.hud-top .player');
       if ((await chips.count()) !== 8)
         throw new Error(`${t.name}: 8-player HUD shows ${await chips.count()} chips`);
@@ -156,7 +188,20 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       await page.getByTestId('start').click();
       await page.locator('.game-canvas').waitFor();
       await page.waitForTimeout(800);
+      await passOpeningShop(page, t.name);
       await shot('7-tank-match');
+      // the turn order is random: if the Shooter bot is up first, wait for it to pass to P1
+      await page
+        .waitForFunction(
+          () =>
+            document.querySelector('.player.active .pname')?.textContent === 'P1' &&
+            !(document.querySelector('[data-testid=fire]') as HTMLButtonElement | null)?.disabled,
+          undefined,
+          { timeout: 20_000 },
+        )
+        .catch(() => {
+          throw new Error(`${t.name}: P1 never got the turn in the tank match`);
+        });
       // driving (§3.2): holding ▶ spends the turn's drive
       const gauge = page.locator('.drive-left .drive-n');
       const driveBefore = Number(await gauge.textContent());

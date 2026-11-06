@@ -67,7 +67,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   useEffect(() => {
     if (myTurn) sfx('audio.turn');
   }, [myTurn, hud.activePlayer, hud.turn]);
-  const roundOver = hud.phase === 'shop' || hud.phase === 'over';
+  // the opening shop (before round 1) has no round to celebrate
+  const roundOver = (hud.phase === 'shop' && hud.results.length > 0) || hud.phase === 'over';
   useEffect(() => {
     if (roundOver) sfx('audio.round-end');
   }, [roundOver]);
