@@ -349,6 +349,21 @@ export const ZoneSchema = z.strictObject({
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
 
+/**
+ * Mine (§4a): plants a mine where the shell lands instead of going off. It sits on the ground
+ * (falling when the ground under it goes) and stays until the round ends. It arms when the turn it
+ * was laid in ends; from then on it trips as soon as any live tank (its owner's too) comes within
+ * `radius` cells of it, or a damaging blast reaches it. A tank already in range when it arms trips
+ * it there and then, and driving into one ends the driver's turn. Tripping runs `weapon`'s impacts
+ * at the mine, owned by whoever laid it. `look` tells renderers how to draw it.
+ */
+export const MineSchema = z.strictObject({
+  weapon: WeaponIdSchema,
+  radius: z.number().int().min(2).max(120),
+  look: z.enum(['black-hole']).default('black-hole'),
+});
+export type MineSpec = z.infer<typeof MineSchema>;
+
 export const ImpactSchema = z.union([
   z.strictObject({ explosion: EmbeddedExplosionSchema }),
   z.strictObject({
@@ -358,6 +373,7 @@ export const ImpactSchema = z.union([
   }),
   z.strictObject({ spawn: SpawnSchema }),
   z.strictObject({ zone: ZoneSchema }),
+  z.strictObject({ mine: MineSchema }),
 ]);
 export type Impact = z.infer<typeof ImpactSchema>;
 
