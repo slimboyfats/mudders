@@ -186,6 +186,8 @@ export const NetSetupSchema = z.object({
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),
   wind: WindTypeSchema,
+  /** Weather (§3.4); older hosts don't send it, which means clear. */
+  weather: z.enum(['clear', 'rain', 'snow', 'random']).optional(),
   suddenDeath: z.boolean(),
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Team per seat (milestone 7), or null for a free-for-all. */

@@ -3,6 +3,7 @@ import {
   MANIFEST_BASE_KEYS,
   MANIFEST_SCHEMAS,
   AI_CORE_KEYS,
+  WEATHER_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
   PackSchema,
@@ -79,6 +80,7 @@ const BEHAVIOUR_TYPES: Partial<Record<ContentType, BehaviourKind>> = {
   terrainop: 'terrainop',
   mode: 'mode',
   ai: 'ai',
+  weather: 'weather',
 };
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -291,7 +293,9 @@ export function resolveContent(source: ContentSource): ResolvedContent {
             ? GEN_CORE_KEYS
             : type === 'ai'
               ? AI_CORE_KEYS
-              : [],
+              : type === 'weather'
+                ? WEATHER_CORE_KEYS
+                : [],
       );
     if (type === 'explosion') checkExplosion(item, id);
     if (type === 'weapon') {

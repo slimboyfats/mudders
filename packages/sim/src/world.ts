@@ -2,6 +2,7 @@ import {
   AI_CORE_KEYS,
   GEN_CORE_KEYS,
   MODE_CORE_KEYS,
+  WEATHER_CORE_KEYS,
   type DamageType,
   type EffectEvent,
   type EmbeddedExplosion,
@@ -12,6 +13,7 @@ import {
   type ModeManifest,
   type RenderSnapshot,
   type WallRule,
+  type WeatherManifest,
   type WindType,
   DAMAGE_TYPES,
   TICK_RATE,
@@ -30,6 +32,7 @@ import {
   type FlightSignal,
   type ModeApi,
   type ModeBehaviour,
+  type WeatherBehaviour,
   type OpCall,
   type OpInstance,
   type Projectile,
@@ -116,6 +119,8 @@ export interface WorldOptions {
     | undefined;
   /** Force wind (cells/tick²) for the whole match. */
   wind?: number | undefined;
+  /** Weather (`weather.*` id); unset = clear skies. */
+  weather?: string | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
   turnOrder?: readonly number[] | undefined;
   rules?: MatchRules | undefined;
@@ -393,6 +398,10 @@ export class World implements SimApi {
   readonly gear: RtGear[] = [];
   readonly mode: ModeManifest;
   readonly gravity: number;
+  /** Weather drag, fixed-point share of velocity per tick. */
+  readonly drag: number;
+  /** The match weather, or null for clear skies. */
+  readonly weather: WeatherManifest | null;
   /** Effective match rules (mode values with setup-screen overrides applied). */
   readonly rounds: number;
   readonly turnCap: number;
@@ -457,6 +466,8 @@ export class World implements SimApi {
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
+  private readonly weatherB: WeatherBehaviour | null;
+  private readonly weatherParams: unknown;
 
   constructor(
     readonly content: ResolvedContent,
@@ -474,6 +485,14 @@ export class World implements SimApi {
     this.groups = new Groups(content.list('prop'), this.mats);
     this.scratch = new Scratch(this.grid.size);
     this.gravity = toFixed(mode.physics.gravity);
+    const weather = options.weather ? content.get('weather', options.weather) : null;
+    this.weather = weather;
+    this.drag = weather ? Math.trunc((weather.drag * FP) / 1000) : 0;
+    this.weatherB = weather ? content.behaviours.getKind(weather.behaviour, 'weather') : null;
+    this.weatherParams =
+      weather && this.weatherB
+        ? this.weatherB.params.parse(behaviourParams(weather, WEATHER_CORE_KEYS))
+        : undefined;
     this.maxSpeed = toFixed(mode.physics.maxSpeed);
     this.walls = mode.walls;
     this.settleCap = mode.settle.maxCellsPerTick;
@@ -990,6 +1009,7 @@ export class World implements SimApi {
     }
     if (this.phase === 'aim') this.stepAim();
     this.modeB.onTick?.(this.modeApi, this.modeParams);
+    this.weatherB?.onTick?.(this, this.weatherParams);
 
     this.stepProjectiles();
     this.stepOps();
@@ -2421,6 +2441,7 @@ export class World implements SimApi {
     this.shooter = -1;
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
+    this.weatherB?.onTurnStart?.(this, this.weatherParams);
     if (this.suddenDeathActive) this.collapseEdges();
     const t = this.tanks[this.activePlayer];
     this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
@@ -2747,6 +2768,15 @@ export class World implements SimApi {
       },
       wind: this.wind / FP,
       theme: 'theme.default',
+      weather: this.weather
+        ? {
+            id: this.weather.id,
+            kind: this.weather.ambient.kind,
+            density: this.weather.ambient.density,
+            color: this.weather.ambient.color,
+            wet: this.weather.wet,
+          }
+        : undefined,
     };
   }
 

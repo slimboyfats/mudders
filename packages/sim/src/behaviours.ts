@@ -44,6 +44,8 @@ export interface SimApi extends EffectSink {
   readonly wind: number;
   /** Gravity in fixed-point cells/tick². */
   readonly gravity: number;
+  /** Air drag from the weather: fixed-point share of a shell's velocity lost per tick (0 = none). */
+  readonly drag: number;
   /**
    * Knock a cell loose as a sim debris particle (fixed-point position and velocity). The cell is
    * cleared from the grid and becomes terrain again where the particle lands. Returns false (and
@@ -400,8 +402,26 @@ export interface AiBehaviour<P = unknown> extends BehaviourBase<P> {
   shop(api: AiShopApi, params: P): AiPurchase[];
 }
 
+// ── weather ─────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Match weather (`weather.*`): rain soaking the ground, snow piling up. Called at the start of every
+ * turn (after the mode) and every tick of aiming and resolving. It may change cells (marking them
+ * dirty so they settle), draw from the match RNG and emit effect events.
+ */
+export interface WeatherBehaviour<P = unknown> extends BehaviourBase<P> {
+  readonly kind: 'weather';
+  onTurnStart?(api: SimApi, params: P): void;
+  onTick?(api: SimApi, params: P): void;
+}
+
 export type AnyBehaviour =
-  GeneratorBehaviour | FlightBehaviour | TerrainOpBehaviour | ModeBehaviour | AiBehaviour;
+  | GeneratorBehaviour
+  | FlightBehaviour
+  | TerrainOpBehaviour
+  | ModeBehaviour
+  | AiBehaviour
+  | WeatherBehaviour;
 
 export type BehaviourKind = AnyBehaviour['kind'];
 
@@ -420,6 +440,9 @@ export function defineMode<P>(b: ModeBehaviour<P>): ModeBehaviour {
 }
 export function defineAi<P>(b: AiBehaviour<P>): AiBehaviour {
   return b as unknown as AiBehaviour;
+}
+export function defineWeather<P>(b: WeatherBehaviour<P>): WeatherBehaviour {
+  return b as unknown as WeatherBehaviour;
 }
 
 /** Behaviours by id. Lookup only; never iterated where order matters (ids are sorted on export). */

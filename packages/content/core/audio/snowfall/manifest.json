@@ -1,0 +1,51 @@
+{
+  "id": "audio.snowfall",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Snowfall",
+    "description": "Snowstorm ambience: a low, hushed chip-noise wind that rises and sinks every three seconds while it snows.",
+    "since": "core@0.21.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 160,
+        "to": 260,
+        "attack": 0.9,
+        "hold": 0.6,
+        "release": 1.4,
+        "volume": 0.05,
+        "vibrato": {
+          "rate": 0.8,
+          "depth": 2
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 110,
+        "to": 98,
+        "attack": 1,
+        "hold": 0.4,
+        "release": 1.4,
+        "volume": 0.02,
+        "vibrato": {
+          "rate": 3,
+          "depth": 0.4
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "snowHush"
+    }
+  ],
+  "gap": 2.5
+}

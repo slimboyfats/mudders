@@ -114,4 +114,6 @@ export interface RenderSnapshot {
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   theme: string;
+  /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
+  weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;
 }
