@@ -55,7 +55,7 @@ interface Jet {
 /** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
 const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 /** Steam puffs over a geyser. */
-const STEAM = [0xe8e4d8, 0xc8c2b2, 0xa8a090] as const;
+const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
 
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
@@ -645,7 +645,8 @@ export class EffectSystem {
         y: e.y - rng.range(0, 3),
         vx: rng.range(-0.7, 0.7),
         vy: -up,
-        life: rng.range(70, 120),
+        // gone as it falls back to the vent's level (particles don't hit the ground)
+        life: (2 * up) / 0.12 + rng.range(0, 4),
         size: rng.next() < 0.5 ? 2 : 1,
         color: MUD[Math.floor(rng.next() * 4)]!,
         kind: PKind.Chunk,
@@ -665,33 +666,34 @@ export class EffectSystem {
       const sputter = k > 0.6 && j.rng.next() < 0.35 ? 0.3 : 1;
       const v0 = Math.sqrt(2 * 0.12 * j.height) * Math.sqrt(power) * sputter;
       const rng = j.rng;
-      const n = Math.round(26 * power * this.mult) + 1;
+      const n = Math.round(32 * power * this.mult) + 1;
       for (let i = 0; i < n; i++) {
         // the core of the column is tight; the skin of it peels off wider
         const skin = i % 4 === 0;
+        const up = v0 * rng.range(skin ? 0.5 : 0.82, 1.02);
         this.particles.add({
           x: j.x + rng.range(-4.5, 4.5),
           y: j.y - rng.range(0, 2),
-          vx: skin ? rng.range(-0.6, 0.6) : rng.range(-0.14, 0.14),
-          vy: -v0 * rng.range(skin ? 0.5 : 0.82, 1.02),
-          life: rng.range(60, 110),
+          vx: skin ? rng.range(-0.7, 0.7) : rng.range(-0.24, 0.24),
+          vy: -up,
+          life: (2 * up) / 0.12 + rng.range(0, 4),
           size: skin ? 1 : rng.next() < 0.6 ? 2 : 3,
-          color: MUD[skin ? Math.floor(rng.next() * 2) : 1 + Math.floor(rng.next() * 3)]!,
+          color: MUD[rng.next() < 0.12 ? 3 : Math.floor(rng.next() * 3)]!,
           kind: PKind.Chunk,
         });
       }
       // steam boiling off the column all the way up, thickest near the top
       const hNow = j.height * power * sputter;
-      const ns = Math.round(4 * power * this.mult) + (age % 2 === 0 ? 1 : 0);
+      const ns = Math.round(1.5 * power * this.mult) + (age % 3 === 0 ? 1 : 0);
       for (let i = 0; i < ns; i++) {
-        const along = Math.sqrt(rng.next());
+        const along = 0.55 + 0.45 * rng.next();
         this.particles.add({
           x: j.x + rng.range(-4, 4) * (0.5 + along),
           y: j.y - along * hNow,
           vx: rng.range(-0.3, 0.3),
           vy: -rng.range(0.2, 0.9),
           life: rng.range(50, 100),
-          size: rng.range(3, 6) + along * along * 9,
+          size: rng.range(3, 6),
           color: STEAM[Math.floor(rng.next() * 3)]!,
           kind: PKind.Smoke,
         });
@@ -717,7 +719,7 @@ export class EffectSystem {
 
   /** A glob of mud landing: a wet crown of mud thrown sideways and a puff of steam. */
   private mudSplat(e: EffectEvent, count: number): void {
-    const rng = this.rngFor(e, 59);
+    const rng = this.rngFor(e, 83);
     const n = Math.round(count * this.mult) + 3;
     for (let i = 0; i < n; i++) {
       const side = i % 2 === 0 ? -1 : 1;
@@ -833,7 +835,7 @@ export class EffectSystem {
    * surface, flickering, with sparks spat off them.
    */
   private arcs(e: EffectEvent, k: number): void {
-    const rng = this.rngFor(e, 83);
+    const rng = this.rngFor(e, 59);
     const reach = Math.max(12, e.radius) * 2.5 * k;
     const n = 4 + Math.round(2 * k);
     for (let a = 0; a < n; a++) {

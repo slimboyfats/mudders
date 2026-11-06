@@ -10,10 +10,7 @@
   "flight": {
     "use": "flight.ballistic"
   },
-  "triggers": [
-    "onSolid",
-    "onTank"
-  ],
+  "triggers": ["onSolid", "onTank"],
   "impact": [
     {
       "explosion": {
@@ -35,13 +32,9 @@
     {
       "terrainOp": {
         "use": "terrainop.convert",
-        "from": [
-          "material.dirt",
-          "material.sand",
-          "material.ash"
-        ],
+        "from": ["material.dirt", "material.sand", "material.ash"],
         "into": "material.mud",
-        "core": 0.55,
+        "core": 0.85,
         "expandTicks": 40
       },
       "radius": 44,

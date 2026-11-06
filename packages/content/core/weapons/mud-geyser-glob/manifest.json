@@ -43,5 +43,9 @@
   "ai": {
     "expectedDamage": 0,
     "terrainValue": 0
+  },
+  "look": {
+    "shell": "mud",
+    "trail": false
   }
 }

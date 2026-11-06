@@ -331,11 +331,12 @@ export const WeaponSchema = z.strictObject({
   audio: z.strictObject({ fire: ref('audio') }).optional(),
   /**
    * Renderer look of the shell in flight (cosmetic, never read by the sim): `fire` draws a burning
-   * gob shedding flames instead of the default spark; `trail: false` leaves no trail line.
+   * gob shedding flames instead of the default spark, `mud` a dripping glob of wet mud;
+   * `trail: false` leaves no trail line.
    */
   look: z
     .strictObject({
-      shell: z.enum(['spark', 'fire']).default('spark'),
+      shell: z.enum(['spark', 'fire', 'mud']).default('spark'),
       trail: z.boolean().default(true),
     })
     .optional(),

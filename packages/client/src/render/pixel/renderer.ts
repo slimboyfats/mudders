@@ -842,8 +842,26 @@ export class PixelRenderer implements Renderer {
     const shells = this.palette.shells;
     if (shells) {
       for (const e of this.entities) {
-        if (e.kind !== 'projectile' || shells[e.weapon]?.shell !== 'fire') continue;
+        if (e.kind !== 'projectile') continue;
+        const look = shells[e.weapon]?.shell;
         const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
+        if (look === 'mud') {
+          // mud globs drip as they fly
+          if ((r >>> 20) % 3 === 0) {
+            this.particles.add({
+              x: e.x + ((r >>> 4) & 1) - 0.5,
+              y: e.y + 1.5,
+              vx: 0,
+              vy: 0.1,
+              life: 14 + ((r >>> 12) & 7),
+              size: 1,
+              color: (r >>> 8) & 1 ? 0x5a4c34 : 0x7a6a48,
+              kind: PKind.Chunk,
+            });
+          }
+          continue;
+        }
+        if (look !== 'fire') continue;
         this.particles.add({
           x: e.x + ((r >>> 4) & 3) - 1.5,
           y: e.y + ((r >>> 8) & 3) - 1.5,
@@ -1236,6 +1254,15 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
         this.normal.push(x, y, 3, 3, 0xff8a20, 1);
         g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
+      if (shells?.[e.weapon]?.shell === 'mud') {
+        // a wet glob of mud: dark body, a lit cell on top where the light catches it
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        this.normal.push(x, y, 3, 3, 0x5a4c34, 1);
+        this.normal.push(x, y + 1, 1, 1, 0x3a3020, 1);
+        this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
         continue;
       }
       g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
