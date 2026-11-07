@@ -1,5 +1,5 @@
 /**
- * Slingshot aiming (§8a): drag anywhere; the pull vector sets angle (pointing away from the pull,
+ * Slingshot aiming (§8a, mouse): drag anywhere; the pull vector sets angle (pointing away from the pull,
  * like a slingshot) and length sets power. Pure so it can be unit-tested.
  */
 export interface Aim {
