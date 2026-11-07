@@ -16,5 +16,6 @@
   },
   "fall": 450,
   "maxDepth": 12,
-  "hush": 180
+  "hush": 180,
+  "temperature": -18
 }

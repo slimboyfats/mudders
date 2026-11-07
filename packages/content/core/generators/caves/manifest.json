@@ -20,5 +20,6 @@
   "crystals": [8, 12],
   "gasPockets": [5, 8],
   "seams": [3, 4],
-  "magmaPockets": [2, 3]
+  "magmaPockets": [2, 3],
+  "temperature": 10
 }

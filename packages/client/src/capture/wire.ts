@@ -39,6 +39,7 @@ export interface WireSnapshot {
   wind: number;
   theme: string;
   weather?: RenderSnapshot['weather'];
+  temperature?: number;
 }
 
 export interface CaptureApi {

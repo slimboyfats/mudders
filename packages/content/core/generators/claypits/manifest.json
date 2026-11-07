@@ -11,5 +11,6 @@
   "sandChance": 0.1,
   "clayDepth": 28,
   "clayLevel": 0,
-  "claySoil": 8
+  "claySoil": 8,
+  "temperature": 27
 }

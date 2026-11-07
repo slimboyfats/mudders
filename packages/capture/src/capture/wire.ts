@@ -42,5 +42,6 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
     wind: s.wind,
     theme: s.theme,
     ...(s.weather ? { weather: s.weather } : {}),
+    ...(s.temperature !== undefined ? { temperature: s.temperature } : {}),
   };
 }

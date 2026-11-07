@@ -83,6 +83,8 @@ export interface HudState {
   gusty: boolean;
   /** Weather label ("Rain", "Snow"), or '' in clear skies. */
   weather: string;
+  /** Air temperature, whole °C. */
+  temperature: number;
   /** Fuel Tank in the shop (§3.2): units per pack, price per pack, most a tank can hold. */
   fuel: { pack: number; price: number; max: number };
   tanks: HudTank[];
@@ -193,6 +195,7 @@ export abstract class SimMatch implements SnapshotStream {
       windMax: w.mode.wind.max,
       gusty: w.windType === 'gusty',
       weather: w.weather?.label ?? '',
+      temperature: w.temperature,
       fuel: {
         pack: w.mode.drive.fuelPack,
         price: w.mode.drive.fuelPrice,
@@ -284,7 +287,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.winner}|${h.results.length}`;
+  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

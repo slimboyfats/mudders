@@ -1,0 +1,130 @@
+{
+  "id": "showcase.snowstorm",
+  "schemaVersion": 1,
+  "description": "Freezing air (−18 °C): a snowstorm blows across the glacier with the wind, shading the air white, while four shots are traded.",
+  "subject": "showcase.snowstorm",
+  "theme": "theme.snow",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.glacier"
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.008,
+  "weather": "weather.snow",
+  "temperature": -18,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 124,
+        "power": 610
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 57,
+        "power": 620
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 630
+      }
+    },
+    {
+      "t": 3,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 5000,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

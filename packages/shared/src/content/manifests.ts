@@ -282,9 +282,11 @@ export type GenProp = z.infer<typeof GenPropSchema>;
 export const GeneratorSchema = z.looseObject({
   ...behaviourBacked,
   props: z.array(GenPropSchema).max(8).optional(),
+  /** Base air temperature in °C (§3.4); unset = TEMP_MILD. */
+  temperature: z.number().int().min(-20).max(45).optional(),
 });
 /** Keys the kernel reads from a generator itself; the rest go to its behaviour. */
-export const GEN_CORE_KEYS: readonly string[] = ['props'];
+export const GEN_CORE_KEYS: readonly string[] = ['props', 'temperature'];
 export const FlightSchema = z.looseObject({ ...behaviourBacked });
 export const TerrainOpSchema = z.looseObject({ ...behaviourBacked });
 export type GeneratorManifest = z.infer<typeof GeneratorSchema>;
@@ -943,6 +945,8 @@ export const WeatherSchema = z.looseObject({
     color: HexColorSchema,
   }),
   wet: z.number().min(0).max(1).default(0),
+  /** Shift to the map's base temperature, °C (snow and rain cool the air). */
+  temperature: z.number().int().min(-30).max(30).default(0),
   /** Short label for the HUD and setup screen. */
   label: z.string().min(1).max(12),
 });
