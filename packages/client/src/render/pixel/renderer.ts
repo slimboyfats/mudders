@@ -19,6 +19,7 @@ import {
   BG_FS,
   CUT_REACH,
   FULLSCREEN_VS,
+  HAZE_TICKS,
   MAX_RIPPLES,
   POST_FS,
   SCENERY_FS,
@@ -1378,7 +1379,9 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(this.uBg.u_look, 3);
     gl.uniform1i(this.uBg.u_palette, 4);
     gl.uniform1f(this.uBg.u_time, t);
-    gl.uniform1f(this.uBg.u_haze, distort && this.anyHot ? 1 : 0);
+    // haze over hot ground, and over fresh craters while they cool
+    const warm = this.lastBurn >= 0 && t - this.lastBurn < HAZE_TICKS;
+    gl.uniform1f(this.uBg.u_haze, distort && (this.anyHot || warm) ? 1 : 0);
     gl.uniform1f(this.uBg.u_anim, this.anyCycle ? 1 : 0);
     gl.uniform1f(
       this.uBg.u_stars,

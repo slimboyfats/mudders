@@ -39,10 +39,15 @@ void main() {
   gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
 }`;
 
+/** Rows of air a heat source warms (the hottest reach all of them). */
+export const HAZE_RISE = 16;
+/** Ticks a fresh crater keeps giving off heat haze. */
+export const HAZE_TICKS = 420;
+
 /**
  * Background in one fullscreen pass: letterbox, sky gradient (with stateless twinkling stars),
  * the cached terrain colours at the camera's integer scale (nearest-neighbour), palette cycling
- * for animated materials, heat haze over hot ones, sky tint and vignette. One pass keeps software
+ * for animated materials, heat haze over hot ground and fresh craters, sky tint and vignette. One pass keeps software
  * GL (SwiftShader capture) fast. Everything is evaluated per map cell, so it stays on the grid.
  *
  * `u_look` is 256×9: row 0 per material = (cycle length, ticks per step, hot, 0) as bytes,
@@ -123,18 +128,43 @@ void main() {
     c = u_letterbox;
   } else {
     ivec2 cell = ivec2(floor(m));
-    // heat haze: air over a hot material shimmers sideways by whole cells
+    // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
+    // the cells sideways (and now and then up a cell) by whole cells, strongest near the source
     float heat = 0.0;
-    if (u_haze > 0.0) {
-      for (int k = 1; k <= 10; k++) {
-        uint b = mat(cell + ivec2(0, k));
+    float streak = 0.0;
+    if (u_haze > 0.0 && mat(cell) == 0u) {
+      for (int k = 1; k <= ${HAZE_RISE}; k++) {
+        ivec2 g = cell + ivec2(0, k);
+        uint b = mat(g);
         if (b == 0u) continue;
-        if (look(b).b > 0.5) heat = 1.0 - float(k) / 11.0;
+        float src = look(b).b > 0.5 ? 1.0 : 0.0;
+        if (src == 0.0 && u_burnOn > 0.0) {
+          // a fresh crater: the scorched floor gives off heat that fades as it cools
+          uint bt = texelFetch(u_burn, g, 0).r;
+          float age = u_time - float(bt) + 1.0;
+          if (bt != 0u && age >= 0.0 && age < ${HAZE_TICKS}.0) {
+            float f = 1.0 - age / ${HAZE_TICKS}.0;
+            src = 0.9 * f * f;
+          }
+        }
+        // hotter ground sends the haze higher
+        float reach = 3.0 + ${HAZE_RISE - 4}.0 * src;
+        heat = src * clamp(1.0 - (float(k) - 1.0) / reach, 0.0, 1.0);
         break;
       }
       if (heat > 0.0) {
-        float w = sin(u_time * 0.31 + float(cell.y) * 0.9) * 1.6 * heat * u_haze;
+        // pockets: 3-cell strips with their own phase and speed, so the air tears and wobbles
+        // instead of swaying as one sheet; the phase climbs with time, so the waves rise
+        float hp = hash(ivec2(cell.x / 3, 61));
+        float ph = u_time * (0.2 + hp * 0.12) + float(cell.y) * 0.8 + hp * 6.283;
+        float w = sin(ph) * (0.5 + 1.6 * heat) * u_haze;
+        int dy = heat > 0.45 && sin(ph * 1.7 + 1.3) > 0.82 ? 1 : 0;
         cell.x = clamp(cell.x + int(floor(w + 0.5)), 0, int(u_map.x) - 1);
+        // faint rising ripple lines, dithered on every other cell, so the air itself reads wavy
+        float rl = sin(float(cell.y) * 0.45 + u_time * 0.16 + sin(float(cell.x) * 0.38 + hp * 6.283) * 1.3);
+        if (rl > 0.86 && ((cell.x + cell.y) & 1) == 0) streak = heat;
+        cell.x = clamp(cell.x + int(floor(w + 0.5)), 0, int(u_map.x) - 1);
+        cell.y = max(cell.y - dy, 0);
       }
     }
     // the cache was rendered through a y-flipped viewport: map row r lives in texel row H-1-r
@@ -200,8 +230,8 @@ void main() {
       }
       c += u_flash;
     }
-    // warm dither in the hottest air
-    if (heat > 0.55 && ((cell.x + cell.y + int(u_time / 4.0)) & 3) == 0) c += vec3(0.07, 0.025, 0.0);
+    // the ripple lines: a warm lift in two hard steps, stronger near the source
+    if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
