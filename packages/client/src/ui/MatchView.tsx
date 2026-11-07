@@ -43,9 +43,6 @@ interface PanDrag {
   vy: number;
 }
 
-/** A touch within this many CSS px of the active tank grabs the slingshot; farther away pans. */
-const AIM_REACH_PX = 56;
-
 export function MatchView({ match, settings, controls, onExit, onRematch, side, banner }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -263,10 +260,10 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     };
   }, [canAim, active, send]);
 
-  // pointer (§8a): at the whole-map view a touch anywhere pulls the slingshot. Zoomed in, a touch
-  // near the active tank pulls the slingshot and a touch anywhere else drags the map, flinging it
-  // on release; when it isn't your turn every one-finger drag pans. Two fingers pinch-zoom smoothly around their midpoint and
-  // pan with it. Mouse: left button = slingshot anywhere, right/middle = pan, wheel = zoom.
+  // pointer (§8a): one finger moves the camera (at any zoom, past the map edges, with a fling on
+  // release); touch aims with the angle/power pills, never by dragging. Two fingers pinch-zoom
+  // smoothly around their midpoint and pan with it. Mouse: left button = slingshot anywhere,
+  // right/middle = pan, wheel = zoom.
   const local = (e: React.PointerEvent): Vec2 => {
     const rect = e.currentTarget.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -274,16 +271,6 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   const fullPx = () => {
     const rect = wrapRef.current?.getBoundingClientRect() ?? { width: 400, height: 300 };
     return Math.max(120, Math.min(rect.width, rect.height) * 0.45);
-  };
-  const nearTank = (p: Vec2): boolean => {
-    if (!anchor) return false;
-    // the anchor sits just above the hull; centre the grab circle on the tank itself
-    const r = rendererRef.current;
-    const reach = Math.max(
-      AIM_REACH_PX,
-      ((r?.camera.scale ?? 1) * 10) / (window.devicePixelRatio || 1),
-    );
-    return Math.hypot(p.x - anchor.x, p.y - (anchor.y + 6)) <= reach;
   };
   const startPan = (id: number, p: Vec2, t: number) => {
     panDrag.current = { id, x: p.x, y: p.y, t, vx: 0, vy: 0 };
@@ -315,10 +302,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       return;
     }
     if (pointers.current.size !== 1) return;
-    // at the whole-map view there is nothing to pan, so a drag anywhere aims as before; zoomed
-    // in, only a touch on the tank aims (the angle/power pills always work too)
-    const r = rendererRef.current;
-    if (canAim && (e.pointerType === 'mouse' || (r?.camera.isFit ?? true) || nearTank(p))) {
+    if (canAim && e.pointerType === 'mouse') {
       setDrag({ id: e.pointerId, x0: p.x, y0: p.y, x: p.x, y: p.y });
     } else {
       startPan(e.pointerId, p, e.timeStamp);

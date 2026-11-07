@@ -108,7 +108,9 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       let before = await turnLabel(page);
       if (!/^P[12]$/.test(before)) throw new Error(`${t.name}: no active player (got "${before}")`);
 
-      // slingshot at the whole-map view: pull down-left from the middle → aims up-right
+      // mouse: the slingshot, pull down-left from the middle → aims up-right. Touch: one finger
+      // never aims (the angle/power pills do); it moves the camera, even from on top of the tank,
+      // and can bring an edge tank (maybe hidden under the dock) to mid-screen
       const box = (await page.locator('[data-testid=playfield]').boundingBox())!;
       const x0 = box.x + box.width * 0.5;
       const y0 = box.y + box.height * 0.4;
@@ -116,20 +118,25 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         .locator('[data-testid=aim-angle] .value')
         .first()
         .textContent();
+      const turnBefore = await turnLabel(page);
       if (t.device.hasTouch) {
+        const tank = await centreTank(page, ctx, t.name, box);
         const cdp = await ctx.newCDPSession(page);
         const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
           cdp.send('Input.dispatchTouchEvent', {
             type,
             touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }],
           });
-        await touch('touchStart', x0, y0);
-        for (let i = 1; i <= 10; i++) await touch('touchMove', x0 - i * 9, y0 + i * 7);
+        await touch('touchStart', tank.x, tank.y);
+        for (let i = 1; i <= 10; i++) await touch('touchMove', tank.x - i * 9, tank.y + i * 7);
         await page.waitForTimeout(100);
-        await shot('2-aiming');
-        if (!(await page.getByTestId('aim-readout').isVisible()))
-          throw new Error(`${t.name}: no angle · power readout while dragging`);
-        await touch('touchEnd', x0 - 90, y0 + 70);
+        await shot('2-dragged');
+        if (await page.getByTestId('aim-readout').isVisible())
+          throw new Error(
+            `${t.name}: a one-finger drag from the tank aimed (touch aims with pills)`,
+          );
+        await page.waitForTimeout(200);
+        await touch('touchEnd', tank.x - 90, tank.y + 70);
       } else {
         await page.mouse.move(x0, y0);
         await page.mouse.down();
@@ -163,8 +170,11 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         });
       }
       const angleAfter = await page.locator('[data-testid=aim-angle] .value').first().textContent();
-      if (angleAfter === angleBefore)
+      if (!t.device.hasTouch && angleAfter === angleBefore)
         throw new Error(`${t.name}: slingshot drag did not change the angle`);
+      // (the slow software renderer can run the turn clock out mid-test; only compare one turn)
+      if (t.device.hasTouch && angleAfter !== angleBefore && (await turnLabel(page)) === turnBefore)
+        throw new Error(`${t.name}: a one-finger touch drag changed the aim`);
       if (await page.locator('[data-testid=fire]').isDisabled()) {
         throw new Error(`${t.name}: releasing the drag fired the shot (§8a forbids it)`);
       }
@@ -357,9 +367,51 @@ async function pwaOffline(browser: Browser, url: string, out: string): Promise<s
   }
 }
 
+/** Touch: drag the map until the active tank is mid-screen. */
+async function centreTank(
+  page: Page,
+  ctx: BrowserContext,
+  name: string,
+  box: { x: number; y: number; width: number; height: number },
+): Promise<{ x: number; y: number }> {
+  const cdp = await ctx.newCDPSession(page);
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', pts: { x: number; y: number }[]) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i + 1 })),
+    });
+  const tank = async () => {
+    const m = (await page.locator('.aim-marker').boundingBox())!;
+    // the marker floats just above the hull
+    return { x: m.x + m.width / 2, y: m.y + m.height + 12 };
+  };
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height * 0.45;
+  const t0 = await tank();
+  const sx = t0.x < cx ? box.x + box.width * 0.75 : box.x + box.width * 0.25;
+  const sy = box.y + box.height * 0.3;
+  const dx = cx - t0.x;
+  const dy = cy - t0.y;
+  await send('touchStart', [{ x: sx, y: sy }]);
+  for (let i = 1; i <= 8; i++)
+    await send('touchMove', [{ x: sx + (dx * i) / 8, y: sy + (dy * i) / 8 }]);
+  if (await page.getByTestId('aim-readout').isVisible())
+    throw new Error(`${name}: a drag away from the tank aimed instead of moving the camera`);
+  // hold still before lifting, so there is no fling
+  await page.waitForTimeout(200);
+  await send('touchEnd', []);
+  await page.waitForTimeout(200);
+  const t1 = await tank();
+  if (Math.hypot(t1.x - cx, t1.y - cy) > 40)
+    throw new Error(
+      `${name}: could not drag the tank to mid-screen (${Math.round(t1.x)},${Math.round(t1.y)})`,
+    );
+  return t1;
+}
+
 /**
- * Touch camera: two fingers spread → smooth zoom in; one finger away from the tank drags the map
- * (no slingshot, no aim change); Fit map fits it again.
+ * Touch camera: two fingers spread → smooth zoom in; one finger drags the map (no slingshot, no
+ * aim change); Fit map fits it again.
  */
 async function panAndPinch(
   page: Page,

@@ -173,35 +173,27 @@ export class Camera implements CameraControl {
     // keep (mx, my) under (sx, sy)
     this.cx = mx - (sx - this.vw / 2) / next;
     this.cy = my - (sy - this.vh / 2) / next;
-    this.fitted = next === this.fitScale() && this.coversWhole();
+    // pinching all the way out lands back on the centred whole-map view
+    this.fitted = next === this.fitScale();
     if (this.fitted) this.fit();
     else this.clamp();
   }
 
-  private coversWhole(): boolean {
-    return this.mapW * this.s <= this.vw && this.mapH * this.s <= this.vh;
-  }
-
   pan(dx: number, dy: number): void {
+    if (dx === 0 && dy === 0) return;
     this.cx -= (dx * this.dpr) / this.s;
     this.cy -= (dy * this.dpr) / this.s;
-    // panning a view that already shows the whole map changes nothing: stay fitted
-    if (!this.coversWhole()) this.fitted = false;
+    this.fitted = false;
     this.clamp();
   }
 
-  /** Keep the map on screen: centred on an axis it fits in, otherwise edge-to-edge at most. */
+  /**
+   * Free camera: the view centre may go anywhere on the map, so any point (a tank at the very
+   * edge, say) can be brought to the middle of the screen, with letterbox beyond the map edge.
+   */
   private clamp(): void {
-    const halfW = this.vw / 2 / this.s;
-    const halfH = this.vh / 2 / this.s;
-    this.cx =
-      this.mapW <= 2 * halfW
-        ? this.mapW / 2
-        : Math.max(halfW, Math.min(this.mapW - halfW, this.cx));
-    this.cy =
-      this.mapH <= 2 * halfH
-        ? this.mapH / 2
-        : Math.max(halfH, Math.min(this.mapH - halfH, this.cy));
+    this.cx = Math.max(0, Math.min(this.mapW, this.cx));
+    this.cy = Math.max(0, Math.min(this.mapH, this.cy));
   }
 
   unproject(p: Vec2): Vec2 {

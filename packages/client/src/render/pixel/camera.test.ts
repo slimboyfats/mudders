@@ -36,13 +36,14 @@ describe('Camera', () => {
     expect(c.isFit).toBe(true);
   });
 
-  it('keeps the map on screen while panning', () => {
+  it('lets the view centre go anywhere on the map, but no further', () => {
     const c = new Camera(800, 400);
     c.setViewport(800, 400, 1);
     c.zoomBy(1);
     c.pan(-100000, -100000);
-    expect(c.unproject({ x: 800, y: 400 }).x).toBeCloseTo(800);
-    expect(c.unproject({ x: 800, y: 400 }).y).toBeCloseTo(400);
+    // the map's bottom-right corner sits in the middle of the screen
+    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(800);
+    expect(c.unproject({ x: 400, y: 200 }).y).toBeCloseTo(400);
   });
 });
 
@@ -103,10 +104,13 @@ describe('Camera touch motion', () => {
     expect(c.cx).toBe(x2);
   });
 
-  it('stays fitted when panning a view that shows the whole map', () => {
+  it('pans at the whole-map view too, so an edge tank can be centred; fit recentres', () => {
     const c = new Camera(800, 400);
     c.setViewport(800, 400, 1);
-    c.pan(50, 20);
-    expect(c.isFit).toBe(true);
+    c.pan(300, 0);
+    expect(c.isFit).toBe(false);
+    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(100);
+    c.fit();
+    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(400);
   });
 });
