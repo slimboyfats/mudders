@@ -15,6 +15,7 @@ export interface WireInit {
   themes: Record<string, PixelTheme>;
   tanks: Record<string, TankLook>;
   shells: Record<string, ShellLook>;
+  liquids: number[];
   quality: Quality;
   theme: string;
   /** Canvas size in CSS px and device pixel ratio. */

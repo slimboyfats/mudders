@@ -50,6 +50,7 @@ const api: CaptureApi = {
         themes: init.themes,
         tanks: init.tanks,
         shells: init.shells,
+        liquids: init.liquids,
       },
       shake: init.shake,
       preserveDrawingBuffer: true,

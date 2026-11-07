@@ -1,0 +1,57 @@
+{
+  "id": "audio.water-splash",
+  "schemaVersion": 1,
+  "description": "Water splashes and ripples: a Water Cannon floods the basin a tank sits in; the stream's drops splash into the growing pool, waves run out along the surface and bounce off the banks, and the tank is shoved through the water.",
+  "subject": "audio.water-splash",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.water-cannon": 3
+      }
+    },
+    {
+      "x": 700
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.water-cannon"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
