@@ -69,6 +69,8 @@ export const CHILL_POWER = 500;
  * Ticks a bot "thinks" before its shot (so humans can follow); it aims halfway through. A bot
  * that drives decides where to go a few ticks in, and the countdown waits while it drives.
  */
+/** Shot power a tank starts every round with (0–1000). */
+export const START_POWER = 500;
 export const BOT_THINK_TICKS = 50;
 const BOT_MOVE_TICK = BOT_THINK_TICKS - 8;
 /** Longest flight the AI's predictor simulates. */
@@ -768,7 +770,7 @@ export class World implements SimApi {
         gear,
         chute: false,
         angle: 90,
-        power: 500,
+        power: START_POWER,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
         inventory,
         falling: false,
@@ -876,7 +878,12 @@ export class World implements SimApi {
       tank.shield = tank.type.shield;
       tank.shieldMax = tank.type.shield;
       tank.chute = false;
+      // aim starts fresh every round (power too), like a new tank on a new map
       tank.angle = tank.x < g.width / 2 ? 45 : 135;
+      tank.power = START_POWER;
+      tank.driveLeft = 0;
+      tank.driving = 0;
+      tank.botGoal = -1;
       if (tank.inventory[tank.weapon] === 0) tank.weapon = this.firstWeapon(tank);
       tank.falling = false;
       tank.fallFrom = 0;

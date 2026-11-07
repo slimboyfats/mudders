@@ -4,7 +4,7 @@ import { resolveContent } from './content/resolve';
 import { FP } from './fixed';
 import { makeReplay, playReplay, runInputs } from './replay';
 import { ScenarioDriver } from './scenario';
-import { TANK_H, World, type WorldOptions } from './world';
+import { START_POWER, TANK_H, World, type WorldOptions } from './world';
 
 const content = fixtureContent();
 const make = (o: Partial<WorldOptions> = {}) =>
@@ -335,11 +335,25 @@ describe('match loop', () => {
     // aim inputs are ignored while shopping
     w.applyInput(0, { type: 'fire' });
     w.applyInput(0, { type: 'ready' });
+    // left over from the last round: must not reach the new one
+    for (const t of w.tanks) {
+      t.driving = 1;
+      t.driveLeft = 9;
+    }
     w.applyInput(1, { type: 'ready' });
     w.step();
     w.step();
     expect(w.phase).toBe('aim');
     expect(w.round).toBe(1);
+    // aim starts fresh on the new map: default angle for the side, default power, no drive state
+    expect(w.tanks.map((t) => [t.angle, t.power])).toEqual([
+      [45, START_POWER],
+      [135, START_POWER],
+    ]);
+    for (const t of w.tanks) {
+      expect(t.driving).toBe(0);
+      if (t.player !== w.activePlayer) expect(t.driveLeft).toBe(0);
+    }
     expect(w.tanks.every((t) => t.alive && t.health === 100)).toBe(true);
     expect(w.tanks[1]!.inventory[SHELL]).toBe(5);
     expect(w.grid.material).toEqual(pre);
