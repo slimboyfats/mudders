@@ -2,6 +2,7 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
+import { Chunks } from './chunks';
 import { FxRng } from './gl';
 import { Lances } from './lance';
 import { drawMagnet, type MagnetFx } from './magnet';
@@ -183,6 +184,13 @@ const DT_LOOK: readonly (readonly [number, number, number, number])[] = [
   [0xb8f040, 0.22, 0.5, 0.1],
 ];
 
+/** Debris chunks alive at once (cosmetic; the oldest resting one is replaced when full). */
+const CHUNK_CAP = 192;
+/** Smallest blast radius that throws debris chunks. */
+const CHUNK_MIN_RADIUS = 18;
+/** Gravity for chunks, in cells/tick² (the renderer's particle gravity). */
+const CHUNK_GRAVITY = 0.12;
+
 export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> = {
   low: { cap: 800, mult: 0.35 },
   medium: { cap: 2500, mult: 0.7 },
@@ -236,12 +244,39 @@ export class EffectSystem {
    */
   ricochetHeat = 0;
   private ricochetLast = -1000;
+  /** Debris chunks big blasts throw: they bounce, settle and crumble away. */
+  readonly chunks: Chunks;
 
   constructor(
     private readonly particles: Particles,
     private readonly probe: TerrainProbe,
   ) {
     this.lances = new Lances(particles);
+    this.chunks = new Chunks(
+      CHUNK_CAP,
+      { solid: (x, y) => probe.material(x, y) !== 0 },
+      (x, y, speed) => this.thud(x, y, speed),
+    );
+  }
+
+  /** A little puff of dust where a chunk lands hard. */
+  private thud(x: number, y: number, speed: number): void {
+    if (this.mult < 0.5) return;
+    const col = shade(this.dustColor(x, y + 1), 1.15);
+    const n = speed > 2.5 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const side = i === 0 ? -1 : 1;
+      this.particles.add({
+        x: x + side,
+        y: y - 1,
+        vx: side * 0.25,
+        vy: -0.12,
+        life: 18 + Math.round(speed * 4),
+        size: 2 + Math.min(2, speed * 0.5),
+        color: col,
+        kind: PKind.Dust,
+      });
+    }
   }
 
   private rngFor(e: EffectEvent, salt: number): FxRng {
@@ -2785,6 +2820,7 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
+    if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
     const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
@@ -2800,8 +2836,45 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Debris chunks out of a big blast: blocks of the ground it was in, sampled round the crater
+   * rim (so grass, dirt and rock come out in their own colours), thrown up and out in a cone.
+   * More and bigger chunks the bigger the blast.
+   */
+  private throwChunks(e: EffectEvent, rng: FxRng): void {
+    const r = e.radius;
+    const n = Math.round(Math.min(64, 6 + (r - CHUNK_MIN_RADIUS) * 0.7) * Math.max(0.6, this.mult));
+    const big = r >= 50 ? 1 : 0;
+    const speed = 1.3 + Math.min(2.4, r / 32);
+    for (let i = 0; i < n; i++) {
+      // where on the rim it came from sets its colour and its launch angle
+      const a = rng.range(Math.PI * 0.12, Math.PI * 0.88);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const col = this.dustColor(e.x + ca * (r + 1), e.y + sa * (r * 0.6 + 1));
+      const s = rng.range(0.55, 1) * speed;
+      const w = 2 + Math.floor(rng.next() * (2 + big));
+      const h = Math.max(1, w - Math.floor(rng.next() * 2));
+      this.chunks.add({
+        x: e.x + ca * r * 0.55,
+        y: e.y - sa * r * 0.35,
+        vx: ca * s * 1.15 + rng.range(-0.2, 0.2),
+        vy: -sa * s - rng.range(0.4, 1),
+        w,
+        h,
+        color: shade(col, DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]! * 0.8),
+        rest: rng.range(150, 260),
+      });
+    }
+  }
+
+  drawChunks(batch: QuadBatch): void {
+    this.chunks.draw(batch);
+  }
+
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
+    this.chunks.step(CHUNK_GRAVITY, this.probe.height);
     this.feedJets(t);
     this.tickStrands(t);
     this.fireworkTick(t);
@@ -3175,6 +3248,7 @@ export class EffectSystem {
     this.crystals = [];
     this.mushrooms = [];
     this.lances.clear();
+    this.chunks.clear();
     this.vortices = [];
     this.funnels = [];
     this.strands = [];
