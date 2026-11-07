@@ -2916,3 +2916,188 @@ a.button {
     display: none;
   }
 }
+
+/* ── Landscape phones, compact pass: a one-row dock, a big weapon sheet, a two-pane shop ── */
+
+@media (max-height: 460px) and (min-aspect-ratio: 1/1) {
+  /* the dock is one slim row: angle · power · drive · weapon · FIRE */
+  .controls {
+    gap: 6px;
+    padding-top: 0;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+  }
+  .controls::before {
+    height: 64px;
+  }
+  .controls .aim {
+    position: relative;
+    flex-direction: row;
+    gap: 6px;
+  }
+  .controls .aim .scrub {
+    height: 44px;
+  }
+  .controls .aim .scrub-body {
+    width: 92px;
+    padding: 2px 6px;
+  }
+  .controls .aim .scrub .nudge {
+    min-width: 32px;
+  }
+  .controls .aim .frost-note,
+  .controls .aim .glue-note {
+    position: absolute;
+    left: 4px;
+    bottom: calc(100% + 4px);
+  }
+  .controls .aim .glue-note {
+    bottom: calc(100% + 20px);
+  }
+  .controls .drive-btn {
+    min-height: 44px;
+    min-width: 40px;
+  }
+  /* gear sits above the weapon button instead of taking a slot in the row */
+  .controls .weapons {
+    position: absolute;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(100% + 2px);
+    flex: none;
+    overflow: visible;
+  }
+  .controls .weapons button,
+  .controls .weapons .gear-chip {
+    min-height: 40px;
+    min-width: 64px;
+    font-size: 0.8rem;
+  }
+  .controls .weapon-picker {
+    margin-left: auto;
+  }
+  .controls .weapon-btn {
+    width: 148px;
+    min-height: 44px;
+    padding: 2px 22px 2px 12px;
+  }
+  .controls .weapon-btn .wname {
+    font-size: 0.95rem;
+  }
+  .controls .fire {
+    min-width: 88px;
+    min-height: 44px;
+    font-size: 1.1rem;
+    border-radius: 14px;
+  }
+
+  /* the weapon grid: a big sheet over the map and the top bar, the dock stays visible below it */
+  .controls:has(.weapon-picker.open) {
+    z-index: 7;
+  }
+  .controls .weapon-pop {
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(max(6px, env(safe-area-inset-bottom)) + 52px);
+    width: auto;
+    max-height: none;
+    background: #16100c;
+  }
+  .weapon-scrim {
+    background: rgb(0 0 0 / 0.35);
+  }
+  .weapon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+  .weapon-tile {
+    min-height: 58px;
+  }
+  .weapon-tile .wname {
+    font-size: 1.02rem;
+  }
+  .weapon-tile .wcat {
+    color: var(--cat);
+  }
+
+  /* the shop: header row with Ready on the right, filters down the left, a scrolling grid */
+  .shop {
+    display: grid;
+    grid-template-columns: 136px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'head head foot'
+      'rail scores scores'
+      'rail cards cards';
+    overflow: hidden;
+  }
+  .shop-head {
+    grid-area: head;
+    position: static;
+    padding-top: calc(env(safe-area-inset-top) + 6px);
+    padding-bottom: 6px;
+  }
+  .shop-title .scrub-label {
+    display: none;
+  }
+  .shop-head .tabs button {
+    min-height: 34px;
+  }
+  .shop-foot {
+    grid-area: foot;
+    position: static;
+    margin: 0;
+    padding: calc(env(safe-area-inset-top) + 6px) max(12px, env(safe-area-inset-right)) 6px 0;
+    background: linear-gradient(#1d1511, #17110d);
+    border-top: 0;
+    border-bottom: 1px solid #2e241c;
+    backdrop-filter: none;
+  }
+  .shop-foot-note {
+    display: none;
+  }
+  .shop .shop-foot .ready {
+    min-width: 150px;
+    min-height: 40px;
+    font-size: 1rem;
+    border-radius: 12px;
+  }
+  .shop-filters {
+    grid-area: rail;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 8px 6px max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    border-right: 1px solid #2e241c;
+  }
+  .shop-filters button {
+    min-height: 36px;
+    padding: 0 10px;
+    border-radius: 10px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: inset 4px 0 0 var(--cat);
+  }
+  .shop-scores {
+    grid-area: scores;
+    max-height: 40vh;
+    overflow-y: auto;
+    margin: 8px max(12px, env(safe-area-inset-right)) 0 10px;
+  }
+  .shop .cards {
+    grid-area: cards;
+    overflow-y: auto;
+    align-content: start;
+    grid-auto-rows: max-content;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    padding: 8px max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) 10px;
+  }
+  .shop .card p {
+    font-size: 0.76rem;
+    color: #c9b8a6;
+  }
+  .shop .buy {
+    min-height: 38px;
+  }
+}
