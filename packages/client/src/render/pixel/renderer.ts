@@ -194,6 +194,7 @@ export class PixelRenderer implements Renderer {
       | 'u_bottom'
       | 'u_letterbox'
       | 'u_flash'
+      | 'u_white'
       | 'u_vignette'
       | 'u_terrain'
       | 'u_coat'
@@ -369,6 +370,7 @@ export class PixelRenderer implements Renderer {
       'u_bottom',
       'u_letterbox',
       'u_flash',
+      'u_white',
       'u_vignette',
       'u_terrain',
       'u_coat',
@@ -1354,6 +1356,8 @@ export class PixelRenderer implements Renderer {
       sky[1] + storm * 0.6,
       sky[2] + storm * 0.75,
     );
+    // nuke whiteout; softer for players who asked their system for less motion
+    gl.uniform1f(this.uBg.u_white, fx.whiteout(t) * (this.shakeOn ? 1 : 0.4));
     gl.uniform1f(this.uBg.u_vignette, this.quality === 'low' ? 0 : th.vignette);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);

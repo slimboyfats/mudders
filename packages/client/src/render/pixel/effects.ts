@@ -139,6 +139,27 @@ const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 /** Steam puffs over a geyser. */
 const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
 
+/** Ticks a nuke's sky whiteout holds at full strength before it starts to fade. */
+export const WHITEOUT_HOLD = 8;
+
+/**
+ * Nuke sky whiteout (day/night flash): the strength of the white sky `age` ticks after the bang.
+ * Holds at `peak` for WHITEOUT_HOLD ticks, then eases back to the normal sky over `fade` ticks
+ * (slow at first, slow at the end). The shader turns it into hard dithered bands.
+ */
+export function whiteoutAt(age: number, peak: number, fade: number): number {
+  if (age < 0 || peak <= 0) return 0;
+  if (age <= WHITEOUT_HOLD) return peak;
+  const k = 1 - (age - WHITEOUT_HOLD) / fade;
+  if (k <= 0) return 0;
+  return peak * k * k * (3 - 2 * k);
+}
+
+/** A nuke's whiteout size: bigger blasts light the sky harder and for longer. */
+export function whiteoutFor(radius: number): { peak: number; fade: number } {
+  return { peak: Math.min(1, 0.45 + radius / 130), fade: Math.round(60 + radius * 3) };
+}
+
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
   cells: Int32Array;
@@ -199,6 +220,10 @@ export class EffectSystem {
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
   readonly sky: [number, number, number] = [0, 0, 0];
   skyFlash = 0;
+  /** Nuke sky whiteout: bang tick, peak strength and fade length (see whiteoutAt). */
+  private whiteStart = 0;
+  private whitePeak = 0;
+  private whiteFade = 1;
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
@@ -910,6 +935,12 @@ export class EffectSystem {
   private nuke(e: EffectEvent): void {
     const r = e.radius;
     const k = e.params.strength ?? 1;
+    // the whole sky goes white with the bang, then slowly fades back (a second nuke restarts it)
+    const w = whiteoutFor(r * k);
+    const now = this.whiteout(e.tick);
+    this.whiteStart = e.tick;
+    this.whitePeak = Math.max(w.peak, now);
+    this.whiteFade = Math.max(w.fade, now > 0 ? this.whiteFade : 1);
     // the mushroom cloud starts with the bang, together with the shockwave
     this.mushrooms.push(makeMushroom(e.x, e.y, r, e.tick, this.rngFor(e, 31).next() * 4294967296));
     this.ripples.push({
@@ -2305,6 +2336,11 @@ export class EffectSystem {
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
     this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t));
+  }
+
+  /** Strength 0..1 of the nuke sky whiteout at tick `t`. */
+  whiteout(t: number): number {
+    return whiteoutAt(t - this.whiteStart, this.whitePeak, this.whiteFade);
   }
 
   /** Add a coloured sky tint (§2a sky reaction); `amount` ~0.5 is a big flash. */

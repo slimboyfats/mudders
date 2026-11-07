@@ -66,6 +66,7 @@ uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
 uniform vec3 u_flash;
+uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
 uniform float u_time;
 uniform float u_haze;
@@ -199,6 +200,16 @@ void main() {
         }
       }
       c += u_flash;
+    }
+    // nuke whiteout: the sky blazes white, then the colour creeps back from the top down in hard
+    // steps with an ordered dither between them; the ground catches a little of the light
+    if (u_white > 0.0) {
+      float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
+      float a = clamp(u_white * (0.7 + 0.6 * k), 0.0, 1.0);
+      float lv = a * 6.0;
+      float w = (floor(lv) + (fract(lv) > bayer(cell) ? 1.0 : 0.0)) / 6.0;
+      vec3 hot = mix(vec3(1.0, 0.74, 0.46), vec3(1.0, 0.98, 0.93), clamp(a * 1.5, 0.0, 1.0));
+      c = mix(c, hot, t.a > 0.5 ? w * 0.3 : w);
     }
     // warm dither in the hottest air
     if (heat > 0.55 && ((cell.x + cell.y + int(u_time / 4.0)) & 3) == 0) c += vec3(0.07, 0.025, 0.0);
