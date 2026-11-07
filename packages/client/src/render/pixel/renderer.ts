@@ -1396,6 +1396,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawFunnels(this.normal, this.additive, t);
     this.fx.drawPosts(this.normal, t);
     this.drawDebris();
+    this.fx.drawChunks(this.normal);
     this.drawMines(t);
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
