@@ -30,6 +30,7 @@
   "exports": {
     "./capture-wire": "./src/capture/wire.ts",
     "./render-types": "./src/render/types.ts",
-    "./palette": "./src/game/palette.ts"
+    "./palette": "./src/game/palette.ts",
+    "./slowmo": "./src/game/slowmo.ts"
   }
 }

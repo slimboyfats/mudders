@@ -16,6 +16,7 @@ import { ScenarioSchema, TICK_RATE, type Scenario } from '@mudders/shared';
 import { KERNEL_VERSION, ScenarioDriver } from '@mudders/sim';
 import type { WireInit, WireSnapshot } from '@mudders/client/capture-wire';
 import { paletteFrom } from '@mudders/client/palette';
+import { SlowMo } from '@mudders/client/slowmo';
 import { launchHeadless } from '../browser';
 import { checkFfmpeg } from '../ffmpeg';
 import { REPO_ROOT, capturesDir } from '../paths';
@@ -111,6 +112,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
         fps: o.fps,
         gif: o.gif,
         mp4: o.mp4,
+        ...(o.slowmo ? { slowmo: true } : {}),
       }),
     )
     .digest('hex')
@@ -180,24 +182,36 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
       }
     };
 
+    // Frame times in ticks. Real time moves `step` ticks a frame; the slow-mo finisher moves
+    // less, and the renderer draws the fractional times in between.
+    const slow = o.slowmo ? new SlowMo() : undefined;
+    slow?.observe(w);
+    let clock = Math.ceil(w.tick / step) * step;
+    let slowFrames = 0;
     while (!driver.done) {
-      const snap = w.snapshot();
-      pending.push(toWire(snap));
-      if (
-        impactTick < 0 &&
-        snap.effectEvents.some((e) => e.type !== 'muzzle' && e.type !== 'land')
-      ) {
-        impactTick = snap.tick;
-      }
-      if (snap.tick % step === 0) {
-        await grab(snap.tick);
-        if (impactTick >= 0 && impactFrame < 0) impactFrame = frames - 1;
-        if (impactTick >= 0 && halfFrame < 0 && snap.tick >= impactTick + TICK_RATE / 2) {
-          halfFrame = frames - 1;
+      while (!driver.done && w.tick <= clock) {
+        const snap = w.snapshot();
+        pending.push(toWire(snap));
+        if (
+          impactTick < 0 &&
+          snap.effectEvents.some((e) => e.type !== 'muzzle' && e.type !== 'land')
+        ) {
+          impactTick = snap.tick;
         }
+        driver.step();
+        slow?.observe(w);
       }
-      driver.step();
+      if (w.tick <= clock) break;
+      await grab(clock);
+      if (impactTick >= 0 && impactFrame < 0) impactFrame = frames - 1;
+      if (impactTick >= 0 && halfFrame < 0 && clock >= impactTick + TICK_RATE / 2) {
+        halfFrame = frames - 1;
+      }
+      const scale = slow ? slow.next(1000 / o.fps) : 1;
+      if (scale < 1) slowFrames++;
+      clock += scale === 1 ? step : step * scale;
     }
+    if (slow) console.error(`slow-mo finisher: ${slowFrames} frames`);
     // hold the settled frame for half a second
     pending.push(toWire(w.snapshot()));
     const endTick = w.tick;
@@ -244,6 +258,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
           frames,
           ticks: endTick,
           durationSeconds: frames / o.fps,
+          slowmo: o.slowmo,
           stateHash: w.hash(),
           gitSha: gitSha(),
           device: o.device ?? null,
