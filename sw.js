@@ -1,7 +1,7 @@
 /* Mudders service worker (§8: PWA install, offline local play). Generated at build time by the
  * `pwa` plugin in vite.config.ts, which fills in VERSION and PRECACHE. Plain JS: it runs as-is. */
-const VERSION = '9ee9ee920396';
-const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","assets/MatchView-CLf2pCaC.js","assets/Online-BFVJN9q7.js","assets/Play-COIsg-iF.js","assets/Sandbox-A9cFwSSU.js","assets/Setup-iVlrRweZ.js","assets/Teams-6CAIBPpg.js","assets/battle-C98AQSKG.mod","assets/engine-Bt5m4b7y.js","assets/index-1sjzoN_b.css","assets/index-DOiq9DVU.js","assets/module-BImwpPm9.js","assets/pixel-DN7FH6o7.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
+const VERSION = 'fd9b34e038f1';
+const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","assets/MatchView-C4OMng74.js","assets/Online-Bt-9qCCB.js","assets/Play-Qr5kNUro.js","assets/Sandbox-pf8pJyrP.js","assets/Setup-CBpmUW5u.js","assets/Teams-4VfmI4Ib.js","assets/battle-C98AQSKG.mod","assets/engine-C6S8ajfr.js","assets/index-CuYf89Tk.css","assets/index-tVWSIX93.js","assets/module-BImwpPm9.js","assets/pixel-BitsCUxa.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
 const CACHE = `mudders-${VERSION}`;
 
 self.addEventListener('install', (event) => {
