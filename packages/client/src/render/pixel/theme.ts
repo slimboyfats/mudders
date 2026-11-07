@@ -133,6 +133,13 @@ export function shade(rgb: number, k: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+/** Blend two 0xRRGGBB colours: `k` = 0 gives `a`, 1 gives `b`. */
+export function mix(a: number, b: number, k: number): number {
+  const ch = (s: number): number =>
+    Math.round(((a >> s) & 255) + (((b >> s) & 255) - ((a >> s) & 255)) * k);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
 const AMBIENT_KINDS: readonly AmbientKind[] = ['none', 'rain', 'snow', 'embers', 'stars', 'dust'];
 
 /**
