@@ -1,0 +1,59 @@
+{
+  "id": "audio.tank-cookoff",
+  "schemaVersion": 1,
+  "description": "P1's missile finishes off P2 (5 health): the turret blows off, the hull burns and the ammo cooks off in four pops.",
+  "subject": "audio.tank-cookoff",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620,
+      "health": 5
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 300
+  },
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  }
+}

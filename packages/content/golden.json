@@ -1,5 +1,5 @@
 {
-  "contentHash": "a9866e6cf6b559d4",
+  "contentHash": "6663190340bd251d",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -216,6 +216,10 @@
     "audio.swallow": {
       "ticks": 46,
       "hash": "dd23ee401b784b90"
+    },
+    "audio.tank-cookoff": {
+      "ticks": 415,
+      "hash": "c7de150ce438f117"
     },
     "audio.tank-death": {
       "ticks": 158,
@@ -616,6 +620,10 @@
     "showcase.gusty-wind": {
       "ticks": 721,
       "hash": "ebe4d405b88593fc"
+    },
+    "showcase.smoke-columns": {
+      "ticks": 953,
+      "hash": "5eb778851d7a7583"
     },
     "showcase.tank-drive": {
       "ticks": 838,
