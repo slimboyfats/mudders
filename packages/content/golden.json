@@ -1,5 +1,5 @@
 {
-  "contentHash": "a9866e6cf6b559d4",
+  "contentHash": "6663190340bd251d",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -216,6 +216,10 @@
     "audio.swallow": {
       "ticks": 46,
       "hash": "dd23ee401b784b90"
+    },
+    "audio.tank-cookoff": {
+      "ticks": 415,
+      "hash": "c7de150ce438f117"
     },
     "audio.tank-death": {
       "ticks": 158,
