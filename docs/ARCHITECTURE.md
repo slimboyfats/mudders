@@ -327,7 +327,7 @@ half a phone screen). Zoom steps are integers; the origin snaps to whole device 
 
 Client (`packages/client/src`): `game/match.ts` (`LocalMatch`: 60 Hz accumulator, max 8 ticks per
 frame, snapshot stream, HUD state), `game/aim.ts` (slingshot maths), `ui/MatchView.tsx` (canvas,
-pointer/keyboard input, aim preview), `ui/Hud.tsx` (wind, players, steppers, weapon strip, FIRE),
+pointer/keyboard input, aim preview), `ui/Hud.tsx` (wind, players, drag-to-change aim pills in `ui/Scrub.tsx`, weapon strip, FIRE),
 `ui/Sandbox.tsx` (§2c.5). The match and sandbox are code-split from the title screen.
 
 ## 6. Audio (milestone 6; requirement §8b)

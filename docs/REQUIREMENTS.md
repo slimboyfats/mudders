@@ -494,7 +494,7 @@ All audio — music, ambience and sound effects — is made in a chiptune / trac
 Mobile is a launch platform, not a port. Everything in the match screen must be operable one-handed on a ~6" phone.
 
 - **Layout**: landscape primary — map on top, control bar below (or right-hand side on very wide screens). Portrait supported: map letterboxed at the top, large control area beneath. Safe-area insets respected (notch, home indicator).
-- **Aiming**: drag anywhere on the map to set angle and power together (drag direction = angle, drag length = power, like a slingshot, with a preview line); tap-and-hold a tank to fine-tune. Also provide ± steppers for angle and power for precision play. Last-used settings persist between turns.
+- **Aiming**: drag anywhere on the map to set angle and power together (drag direction = angle, drag length = power, like a slingshot, with a preview line); tap-and-hold a tank to fine-tune. Angle and power also have drag-to-change pills: press and slide sideways (touch or mouse) with a pop-up ruler, slide up away from the bar for fine control, and ± nudge buttons that repeat when held. Last-used settings persist between turns.
 - **Weapon selection**: horizontal scrollable strip above the fire button showing icon + count; tap to select, long-press for description.
 - **Fire**: one large thumb-reachable button. No accidental fires: a shot needs a deliberate tap on the fire button, never a release of the aiming drag.
 - **Movement**: left/right buttons appear only when fuel is available.

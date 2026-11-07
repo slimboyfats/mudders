@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useState, type CSSProperties, type RefObject } from 'react';
 import type { Input } from '@mudders/shared';
 import { clampAim } from '../game/aim';
 import type { HudState } from '../game/match';
@@ -7,6 +7,9 @@ import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Scoreboard, Shop } from './Shop';
 import { CHILL_POWER } from '@mudders/sim';
+import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
+import { Scrub } from './Scrub';
+import { WeaponPicker } from './WeaponPicker';
 
 interface Props {
   hud: HudState;
@@ -119,120 +122,133 @@ function Drive({
   );
 }
 
-function Stepper(props: {
-  label: string;
-  value: number;
-  unit?: string;
-  step: number;
-  big: number;
-  disabled: boolean;
-  onChange: (v: number) => void;
-}) {
-  const { label, value, unit, step, big, disabled, onChange } = props;
-  return (
-    <div className="stepper">
-      <span className="label">{label}</span>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value - big)}
-        aria-label={`${label} −${big}`}
-      >
-        «
-      </button>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value - step)}
-        aria-label={`${label} −${step}`}
-      >
-        −
-      </button>
-      <span className="value">
-        {value}
-        {unit}
-      </span>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value + step)}
-        aria-label={`${label} +${step}`}
-      >
-        +
-      </button>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value + big)}
-        aria-label={`${label} +${big}`}
-      >
-        »
-      </button>
-    </div>
-  );
-}
-
 export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onRematch }: Props) {
   const t = hud.tanks[hud.activePlayer];
+  const [menu, setMenu] = useState(false);
   const aim = (angle: number, power: number) =>
     send({ type: 'aim', ...clampAim({ angle, power }) });
   return (
     <>
       <div className="hud-top">
         <div className={`players${hud.tanks.length > 4 ? ' many' : ''}`}>
-          {hud.tanks.map((p) => (
-            <div
-              key={p.player}
-              className={`player${p.player === hud.activePlayer && hud.phase === 'aim' ? ' active' : ''}${p.alive ? '' : ' dead'}`}
-            >
-              <span className="swatch" style={{ background: pcolor(p.player) }} />
-              <span className="pname">P{p.player + 1}</span>
-              {hud.teams && (
-                <span
-                  className={`team-badge team-${p.team}`}
-                  aria-label={`Team ${teamName(p.team)}`}
-                >
-                  {teamName(p.team)}
+          {hud.tanks.map((p) => {
+            const hp = p.alive ? Math.max(0, Math.min(1, p.health / p.maxHealth)) : 0;
+            return (
+              <div
+                key={p.player}
+                className={`player${p.player === hud.activePlayer && hud.phase === 'aim' ? ' active' : ''}${p.alive ? '' : ' dead'}`}
+                style={{ '--pc': pcolor(p.player) } as CSSProperties}
+                aria-label={`Player ${p.player + 1}${p.alive ? `, health ${p.health}` : ', destroyed'}, score ${p.score}`}
+              >
+                <span className="pname">P{p.player + 1}</span>
+                {hud.teams && (
+                  <span
+                    className={`team-badge team-${p.team}`}
+                    aria-label={`Team ${teamName(p.team)}`}
+                  >
+                    {teamName(p.team)}
+                  </span>
+                )}
+                <span className="pbar" aria-hidden="true">
+                  <span
+                    className={`pbar-fill${hp <= 0.3 ? ' low' : ''}`}
+                    style={{ width: `${hp * 100}%` }}
+                  />
+                  {p.alive && p.shield > 0 && <span className="pbar-shield" />}
                 </span>
-              )}
-              <span className="hp">{p.alive ? `${p.health}` : '✕'}</span>
-              {p.alive && p.shield > 0 && (
-                <span className="shield" aria-label="shield">
-                  +{p.shield}
+                <span className="hp">{p.alive ? `${p.health}` : '✕'}</span>
+                {p.alive && p.shield > 0 && (
+                  <span className="shield" aria-label="shield">
+                    +{p.shield}
+                  </span>
+                )}
+                <span className="pscore" aria-label="score">
+                  ★{p.score}
                 </span>
-              )}
-              <span className="pscore" aria-label="score">
-                {p.score}
-              </span>
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
-        <div className="round-info">
+        <div className="hud-center">
           <span className="badge" aria-label="Round">
             R{Math.min(hud.round, hud.rounds)}/{hud.rounds}
           </span>
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
+          <Wind
+            wind={hud.wind}
+            base={hud.windBase}
+            max={hud.windMax}
+            gusty={hud.gusty}
+            weather={hud.weather}
+          />
+          {hud.phase === 'aim' && hud.seconds >= 0 && (
+            <span className={`badge timer${hud.seconds <= 5 ? ' low' : ''}`} aria-label="Time left">
+              {hud.seconds}s
+            </span>
+          )}
         </div>
-        <Wind
-          wind={hud.wind}
-          base={hud.windBase}
-          max={hud.windMax}
-          gusty={hud.gusty}
-          weather={hud.weather}
-        />
-        <div className="cam">
+        <div className="cam" role="group" aria-label="Camera">
           <button onClick={() => renderer.current?.camera.zoomBy(-1)} aria-label="Zoom out">
             −
           </button>
           <button onClick={() => renderer.current?.camera.fit()} aria-label="Fit map">
-            Fit
+            ⤢
           </button>
           <button onClick={() => renderer.current?.camera.zoomBy(1)} aria-label="Zoom in">
             +
           </button>
-          {onExit && (
-            <button onClick={onExit} aria-label="Leave match">
-              ✕
-            </button>
-          )}
         </div>
+        {onExit && (
+          <button
+            className="menu-btn"
+            onClick={() => setMenu(true)}
+            aria-label="Menu"
+            aria-haspopup="dialog"
+          >
+            ☰
+          </button>
+        )}
       </div>
+
+      {hud.phase === 'aim' && t && (
+        <div
+          key={`${hud.round}-${hud.turn}`}
+          className="turn-banner"
+          style={{ '--pc': pcolor(t.player) } as CSSProperties}
+          aria-live="polite"
+        >
+          <span className="turn-banner-name">Player {t.player + 1}</span>
+          <span className="turn-banner-sub">{t.bot ? `${t.bot} is aiming…` : 'Your shot'}</span>
+        </div>
+      )}
+
+      {menu && onExit && (
+        <div className="sheet-scrim" onClick={() => setMenu(false)}>
+          <div
+            className="sheet"
+            role="dialog"
+            aria-label="Match menu"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>Menu</h2>
+            <p className="sheet-note">The match keeps running while this is open.</p>
+            <button className="primary" onClick={() => setMenu(false)}>
+              Back to the match
+            </button>
+            <button
+              onClick={() => {
+                renderer.current?.camera.fit();
+                setMenu(false);
+              }}
+            >
+              Fit map to screen
+            </button>
+            <button className="danger" onClick={onExit} aria-label="Leave match">
+              Leave match
+            </button>
+          </div>
+        </div>
+      )}
 
       {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
 
@@ -259,41 +275,31 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
       )}
 
       <div className="controls">
-        <div className="turn" style={{ borderColor: t ? pcolor(t.player) : undefined }}>
-          {hud.phase === 'aim' && t ? (
-            <>
-              <span className="swatch" style={{ background: pcolor(t.player) }} />
-              Player {t.player + 1}
-              {t.bot ? <small className="thinking"> {t.bot} is aiming…</small> : null}
-              {hud.seconds >= 0 && (
-                <span className={`timer${hud.seconds <= 5 ? ' low' : ''}`} aria-label="Time left">
-                  {hud.seconds}s
-                </span>
-              )}
-            </>
-          ) : hud.phase === 'resolve' ? (
-            'Incoming…'
-          ) : hud.phase === 'shop' ? (
-            'Shop'
-          ) : (
-            'Match over'
-          )}
-        </div>
         <div className="aim">
-          <Stepper
+          <Scrub
+            kind="angle"
             label="Angle"
             unit="°"
             value={t?.angle ?? 0}
+            spec={ANGLE_SCRUB}
             step={1}
-            big={10}
+            big={5}
+            invert
+            minor={5}
+            major={45}
             disabled={!canAim}
             onChange={(v) => t && aim(v, t.power)}
           />
-          <Stepper
+          <Scrub
+            kind="power"
             label="Power"
             value={t?.power ?? 0}
+            spec={POWER_SCRUB}
             step={5}
-            big={50}
+            big={25}
+            minor={25}
+            major={100}
+            {...(t && t.chill > 0 ? { cap: CHILL_POWER } : {})}
             disabled={!canAim}
             onChange={(v) => t && aim(t.angle, v)}
           />
@@ -309,7 +315,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           )}
         </div>
         <Drive tank={t} disabled={!canAim} send={send} />
-        <div className="weapons" role="listbox" aria-label="Weapons">
+        <div className="weapons" aria-label="Gear">
           {t?.gear
             .filter((g) => g.count > 0)
             .map((g) =>
@@ -336,20 +342,13 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
                 </span>
               ),
             )}
-          {t?.inventory.map((w) => (
-            <button
-              key={w.id}
-              role="option"
-              aria-selected={w.id === t.weapon}
-              className={w.id === t.weapon ? 'selected' : ''}
-              disabled={!canAim}
-              onClick={() => send({ type: 'selectWeapon', weapon: w.id })}
-            >
-              <span className="wname">{w.name}</span>
-              <span className="count">{w.count < 0 ? '∞' : w.count}</span>
-            </button>
-          ))}
         </div>
+        <WeaponPicker
+          inventory={t?.inventory ?? []}
+          selected={t?.weapon ?? ''}
+          disabled={!canAim}
+          onSelect={(weapon) => send({ type: 'selectWeapon', weapon })}
+        />
         <button
           className="fire"
           disabled={!canAim}

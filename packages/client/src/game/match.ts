@@ -18,6 +18,8 @@ export interface HudTank {
   team: number;
   alive: boolean;
   health: number;
+  /** Full health for this tank type (health bars). */
+  maxHealth: number;
   /** Shield points left (Bulwark, §3.2); 0 for most tanks. */
   shield: number;
   /** Cells left to drive this turn, out of `driveMax` (§3.2), and fuel left for the match. */
@@ -32,7 +34,7 @@ export interface HudTank {
   /** Own turns left glued (Glue Bomb): no driving. */
   glue: number;
   weapon: string;
-  inventory: { id: string; name: string; count: number }[];
+  inventory: { id: string; name: string; count: number; category: string }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
   gear: HudGear[];
   /** AI personality name, or '' for a human. */
@@ -104,6 +106,7 @@ export abstract class SimMatch implements SnapshotStream {
   world: World;
   protected listeners: ((s: RenderSnapshot) => void)[] = [];
   private readonly names: Record<string, string> = {};
+  private readonly categories: Record<string, string> = {};
   /** `ai.*` id → display name. */
   private readonly botNames: Record<string, string> = {};
   private readonly shopItems: (ShopItem & { index: number })[] = [];
@@ -117,6 +120,7 @@ export abstract class SimMatch implements SnapshotStream {
     this.world = new World(content, options);
     for (const w of content.list('weapon')) {
       this.names[w.id] = w.meta.name;
+      this.categories[w.id] = w.meta.category ?? '';
       if (w.shop.price > 0) {
         this.shopItems.push({
           index: this.world.weaponByIndex(w.id),
@@ -212,6 +216,7 @@ export abstract class SimMatch implements SnapshotStream {
         team: t.team,
         alive: t.alive,
         health: t.health,
+        maxHealth: Math.max(1, t.maxHealth),
         shield: t.shield,
         driveLeft: t.driveLeft,
         driveMax: w.driveCells(t),
@@ -223,7 +228,12 @@ export abstract class SimMatch implements SnapshotStream {
         glue: t.glue,
         weapon: w.weaponId(t.weapon),
         inventory: t.inventory
-          .map((count, i) => ({ id: w.weaponId(i), name: this.names[w.weaponId(i)] ?? '', count }))
+          .map((count, i) => ({
+            id: w.weaponId(i),
+            name: this.names[w.weaponId(i)] ?? '',
+            count,
+            category: this.categories[w.weaponId(i)] ?? '',
+          }))
           .filter((x) => x.count !== 0),
         gear: w.gear.map((g, i) => ({
           id: g.id,

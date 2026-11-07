@@ -105,14 +105,17 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       };
       await passOpeningShop(page, t.name, () => shot('0-opening-shop'));
       await shot('1-start');
-      const before = await turnLabel(page);
+      let before = await turnLabel(page);
       if (!/^P[12]$/.test(before)) throw new Error(`${t.name}: no active player (got "${before}")`);
 
       // slingshot: pull down-left from the middle of the playfield → aims up-right
       const box = (await page.locator('[data-testid=playfield]').boundingBox())!;
       const x0 = box.x + box.width * 0.5;
       const y0 = box.y + box.height * 0.4;
-      const angleBefore = await page.locator('.stepper .value').first().textContent();
+      const angleBefore = await page
+        .locator('[data-testid=aim-angle] .value')
+        .first()
+        .textContent();
       if (t.device.hasTouch) {
         const cdp = await ctx.newCDPSession(page);
         const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
@@ -134,12 +137,69 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         await page.mouse.up();
       }
       await page.waitForTimeout(150);
-      const angleAfter = await page.locator('.stepper .value').first().textContent();
+      const angleAfter = await page.locator('[data-testid=aim-angle] .value').first().textContent();
       if (angleAfter === angleBefore)
         throw new Error(`${t.name}: slingshot drag did not change the angle`);
       if (await page.locator('[data-testid=fire]').isDisabled()) {
         throw new Error(`${t.name}: releasing the drag fired the shot (§8a forbids it)`);
       }
+      // drag-to-change (§8a): press the power pill and slide right; a ruler pops up, power grows
+      const pill = page.getByTestId('aim-power');
+      const powerBefore = Number(await pill.getAttribute('aria-valuenow'));
+      const pb = (await pill.boundingBox())!;
+      const px = pb.x + pb.width / 2;
+      const py = pb.y + pb.height / 2;
+      const target = powerBefore > 500 ? -1 : 1;
+      if (t.device.hasTouch) {
+        const cdp = await ctx.newCDPSession(page);
+        const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
+          cdp.send('Input.dispatchTouchEvent', {
+            type,
+            touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 2 }],
+          });
+        await touch('touchStart', px, py);
+        for (let i = 1; i <= 8; i++) await touch('touchMove', px + target * i * 8, py);
+        await page.locator('.scrub-pop').waitFor({ timeout: 2000 });
+        await shot('2b-scrub-power');
+        await touch('touchEnd', px + target * 64, py);
+      } else {
+        await page.mouse.move(px, py);
+        await page.mouse.down();
+        await page.mouse.move(px + target * 64, py, { steps: 8 });
+        await page.locator('.scrub-pop').waitFor({ timeout: 2000 });
+        await shot('2b-scrub-power');
+        await page.mouse.up();
+      }
+      await page.waitForTimeout(150);
+      const powerAfter = Number(await pill.getAttribute('aria-valuenow'));
+      if (Math.sign(powerAfter - powerBefore) !== target)
+        throw new Error(
+          `${t.name}: dragging the power pill did not change power (${powerBefore} → ${powerAfter})`,
+        );
+      if (await page.locator('.scrub-pop').isVisible())
+        throw new Error(`${t.name}: the scrub ruler stayed open after release`);
+      // weapon button (§8a): tap opens the grid of tiles, tapping a tile selects it and closes
+      const weaponBtn = page.getByTestId('weapon-button');
+      const weaponBefore = await weaponBtn.locator('.wname').textContent();
+      await weaponBtn.click();
+      const tiles = page.locator('[data-testid=weapon-pop] [role=option]');
+      await tiles.first().waitFor({ timeout: 2000 });
+      await shot('2c-weapon-picker');
+      const other = tiles.filter({ hasNot: page.locator('xpath=self::*[@aria-selected="true"]') });
+      const pick = (await other.first().locator('.wname').textContent()) ?? '';
+      await other.first().click();
+      await page.getByTestId('weapon-pop').waitFor({ state: 'hidden', timeout: 2000 });
+      // the pick goes through the match input queue, so the button updates a tick later
+      await weaponBtn
+        .locator('.wname', { hasText: pick })
+        .waitFor({ timeout: 2000 })
+        .catch(async () => {
+          const now = await weaponBtn.locator('.wname').textContent();
+          throw new Error(`${t.name}: picking ${pick} in the weapon grid left ${now} selected`);
+        });
+      if (pick === weaponBefore) throw new Error(`${t.name}: the grid offered no other weapon`);
+      // the steps above can outlast a slow software-GL turn timer: fire for whoever is up now
+      before = await turnLabel(page);
       await page.locator('[data-testid=fire]').click();
       await page.waitForTimeout(700);
       await shot('3-in-flight');
