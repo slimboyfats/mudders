@@ -105,7 +105,15 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             checked={settings.shake}
             onChange={(e) => update({ ...settings, shake: e.target.checked })}
           />
-          Screen shake
+          Screen shake and hit-stop
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.slowmo}
+            onChange={(e) => update({ ...settings, slowmo: e.target.checked })}
+          />
+          Slow-mo finishing shot
         </label>
         <label className="check">
           <input

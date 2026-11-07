@@ -15,6 +15,7 @@ export interface WireInit {
   themes: Record<string, PixelTheme>;
   tanks: Record<string, TankLook>;
   shells: Record<string, ShellLook>;
+  liquids: number[];
   quality: Quality;
   theme: string;
   /** Canvas size in CSS px and device pixel ratio. */
@@ -47,7 +48,8 @@ export interface CaptureApi {
    * data URL. Rendering never changes renderer state, so parallel pages that each draw every Nth
    * frame produce exactly the frames one page would.
    */
-  frame(snaps: WireSnapshot[], time: number, draw: boolean): string;
+  /** `held`: hit-stop ticks so far (`HitStop.held`), passed through to `render`. */
+  frame(snaps: WireSnapshot[], time: number, draw: boolean, held?: number): string;
 }
 
 declare global {

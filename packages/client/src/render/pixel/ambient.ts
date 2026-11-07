@@ -23,6 +23,8 @@ export interface AmbientProbe {
   width: number;
   height: number;
   solid(x: number, y: number): boolean;
+  /** A pool of cold liquid (rain plinks into it instead of splashing off). */
+  liquid?(x: number, y: number): boolean;
 }
 
 /**
@@ -56,6 +58,13 @@ export function drawWeather(
       if (y < 0) continue;
       if (probe.solid(x, y)) continue;
       if (probe.solid(x, y + 1)) {
+        if (probe.liquid?.(x, y + 1)) {
+          // plink into a puddle: a droplet hops up and the surface lights either side
+          normal.push(x + 0.5, y - 0.5, 1, 1, 0xe6f2ff, 0.8);
+          normal.push(x - 0.5, y + 1.5, 1, 1, 0xa8d0f8, 0.7);
+          normal.push(x + 1.5, y + 1.5, 1, 1, 0xa8d0f8, 0.7);
+          continue;
+        }
         // splash: two droplets either side of where it hits
         normal.push(x - 0.5, y + 0.5, 1, 1, a.color, 0.7);
         normal.push(x + 1.5, y - 0.5, 1, 1, a.color, 0.5);

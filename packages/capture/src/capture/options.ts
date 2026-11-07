@@ -20,6 +20,8 @@ export interface CaptureOptions {
   updateReference: boolean;
   cache: boolean;
   shake: boolean;
+  /** Play the round's deciding blow in slow motion, as the game does. */
+  slowmo: boolean;
   /** Theme id overriding the scenario's (`theme.*`). */
   theme: string | undefined;
 }
@@ -39,6 +41,7 @@ export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options
   --update-reference    write the sheet to captures/reference/ (commit it)
   --no-cache            render even if an identical capture exists
   --no-shake            disable screen shake
+  --slowmo              play the blow that decides the round in slow motion, as the game does
   --theme <theme-id>    render with this theme (default: the scenario's, else theme.default)`;
 
 export class UsageError extends Error {}
@@ -62,6 +65,7 @@ export function parseArgs(argv: string[]): CaptureOptions {
     updateReference: false,
     cache: true,
     shake: true,
+    slowmo: false,
     theme: undefined,
   };
   let onlyGif = false;
@@ -135,6 +139,9 @@ export function parseArgs(argv: string[]): CaptureOptions {
         break;
       case '--no-shake':
         o.shake = false;
+        break;
+      case '--slowmo':
+        o.slowmo = true;
         break;
       case '--theme': {
         const t = val();
