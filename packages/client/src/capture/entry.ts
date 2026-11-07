@@ -66,7 +66,7 @@ const api: CaptureApi = {
     return gl ? String(gl.getParameter(gl.RENDERER)) : 'unknown';
   },
 
-  frame(snaps: WireSnapshot[], time: number, draw: boolean): string {
+  frame(snaps: WireSnapshot[], time: number, draw: boolean, held = 0): string {
     if (!renderer || !canvas) throw new Error('capture page not initialised');
     for (const w of snaps) {
       const dirtyRects = [];
@@ -105,7 +105,7 @@ const api: CaptureApi = {
       for (const l of listeners) l(snap);
     }
     if (!draw) return '';
-    renderer.render(time);
+    renderer.render(time, held);
     return canvas.toDataURL('image/png');
   },
 };
