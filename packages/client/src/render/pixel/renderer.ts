@@ -798,6 +798,7 @@ export class PixelRenderer implements Renderer {
     this.trails = [];
     this.particles.clear();
     this.fx.clear();
+    this.water.clear();
     this.meteors.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
