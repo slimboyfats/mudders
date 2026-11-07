@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { devices, type Browser, type Page } from 'playwright';
+import { devices, type Browser, type BrowserContext, type Page } from 'playwright';
 import { preview } from 'vite';
 import { launchHeadless } from './browser';
 import { REPO_ROOT, capturesDir } from './paths';
@@ -108,7 +108,7 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       let before = await turnLabel(page);
       if (!/^P[12]$/.test(before)) throw new Error(`${t.name}: no active player (got "${before}")`);
 
-      // slingshot: pull down-left from the middle of the playfield → aims up-right
+      // slingshot at the whole-map view: pull down-left from the middle → aims up-right
       const box = (await page.locator('[data-testid=playfield]').boundingBox())!;
       const x0 = box.x + box.width * 0.5;
       const y0 = box.y + box.height * 0.4;
@@ -141,6 +141,7 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       await page.waitForTimeout(150);
       if (await page.getByTestId('aim-readout').isVisible())
         throw new Error(`${t.name}: the aim readout stayed up after the drag`);
+      if (t.device.hasTouch) await panAndPinch(page, ctx, t.name, box, shot);
       if (t.device.isMobile) {
         // landscape phones: the dock floats over the map, so the battlefield gets the full height
         const vh = t.device.viewport.height;
@@ -354,4 +355,87 @@ async function pwaOffline(browser: Browser, url: string, out: string): Promise<s
   } finally {
     await ctx.close();
   }
+}
+
+/**
+ * Touch camera: two fingers spread → smooth zoom in; one finger away from the tank drags the map
+ * (no slingshot, no aim change); Fit map fits it again.
+ */
+async function panAndPinch(
+  page: Page,
+  ctx: BrowserContext,
+  name: string,
+  box: { x: number; y: number; width: number; height: number },
+  shot: (step: string) => Promise<void>,
+): Promise<void> {
+  const cdp = await ctx.newCDPSession(page);
+  const zoom = async () => Number(await page.getByTestId('playfield').getAttribute('data-zoom'));
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', pts: { x: number; y: number }[]) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: pts.map((p, i) => ({ x: p.x, y: p.y, id: i + 1 })),
+    });
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const z0 = await zoom();
+  await send('touchStart', [
+    { x: cx - 30, y: cy },
+    { x: cx + 30, y: cy },
+  ]);
+  const zs: number[] = [];
+  for (let i = 1; i <= 8; i++) {
+    await send('touchMove', [
+      { x: cx - 30 - i * 10, y: cy },
+      { x: cx + 30 + i * 10, y: cy },
+    ]);
+    await page.waitForTimeout(30);
+    zs.push(await zoom());
+  }
+  await send('touchEnd', []);
+  await page.waitForTimeout(300);
+  const z1 = await zoom();
+  // smooth: the scale grows a bit with every finger move, not in one jump at the end
+  const steps = new Set(zs).size;
+  if (!(z1 > z0 * 2)) throw new Error(`${name}: pinch did not zoom in (${z0} → ${z1})`);
+  if (steps < 5) throw new Error(`${name}: pinch zoom moved in ${steps} jumps, not smoothly`);
+  await shot('2b-pinched');
+  const turn = await turnLabel(page);
+  const angle = await page.locator('[data-testid=aim-angle] .value').first().textContent();
+  const centre = async () =>
+    Number((await page.getByTestId('playfield').getAttribute('data-centre'))!.split(',')[0]);
+  const c0 = await centre();
+  // start the drag well away from the tank (which sits near a map edge) so it pans
+  const sx = box.x + box.width * 0.5;
+  const sy = box.y + box.height * 0.45;
+  const dx = 60;
+  await send('touchStart', [{ x: sx, y: sy }]);
+  for (let i = 1; i <= 6; i++) await send('touchMove', [{ x: sx + (dx * i) / 6, y: sy }]);
+  await page.waitForTimeout(150);
+  if (await page.getByTestId('aim-readout').isVisible())
+    throw new Error(`${name}: a drag away from the tank aimed instead of panning`);
+  // hold still before lifting, so there is no fling
+  await page.waitForTimeout(200);
+  await send('touchEnd', []);
+  await page.waitForTimeout(150);
+  const c1 = await centre();
+  if (Math.abs(c1 - c0) < 5)
+    throw new Error(`${name}: one-finger drag did not pan the map (centre x ${c0} → ${c1})`);
+  await shot('2c-panned');
+  // (the slow software renderer can run the turn clock out mid-test; only compare the same turn)
+  const same = (await turnLabel(page)) === turn;
+  if (
+    same &&
+    (await page.locator('[data-testid=aim-angle] .value').first().textContent()) !== angle
+  )
+    throw new Error(`${name}: panning changed the aim`);
+  await page.getByRole('button', { name: 'Fit map' }).click();
+  await page
+    .waitForFunction(
+      (z) => document.querySelector('[data-testid=playfield]')?.getAttribute('data-zoom') === z,
+      z0.toFixed(2),
+      { timeout: 3000 },
+    )
+    .catch(() => {
+      throw new Error(`${name}: Fit map did not fit the map again`);
+    });
 }

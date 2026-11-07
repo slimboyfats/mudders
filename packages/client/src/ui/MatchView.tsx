@@ -33,6 +33,19 @@ interface Drag {
   y: number;
 }
 
+/** One-finger (or right/middle button) map drag; `vx`/`vy` are CSS px per ms, for the fling. */
+interface PanDrag {
+  id: number;
+  x: number;
+  y: number;
+  t: number;
+  vx: number;
+  vy: number;
+}
+
+/** A touch within this many CSS px of the active tank grabs the slingshot; farther away pans. */
+const AIM_REACH_PX = 56;
+
 export function MatchView({ match, settings, controls, onExit, onRematch, side, banner }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -58,8 +71,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     if (!settings.slowmo) s.cancel();
   }, [settings.slowmo]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinch = useRef<{ dist: number; mid: Vec2 } | null>(null);
-  const panDrag = useRef<{ id: number; x: number; y: number } | null>(null);
+  const pinch = useRef<{ dist: number; scale: number; mid: Vec2 } | null>(null);
+  const panDrag = useRef<PanDrag | null>(null);
 
   const active = hud.tanks[hud.activePlayer];
   const canAim = hud.phase === 'aim' && active !== undefined && controls(hud.activePlayer);
@@ -112,6 +125,14 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       raf = requestAnimationFrame(frame);
       const wall = last < 0 ? 0 : now - last;
       last = now;
+      // camera glides and fling momentum run on wall time, untouched by hit-stop and slow-mo
+      r.camera.update(Math.min(wall, 100));
+      // current zoom and view centre (map cells), for the touch smoke test
+      const zoom = (r.camera.scale / (window.devicePixelRatio || 1)).toFixed(2);
+      if (wrap.dataset['zoom'] !== zoom) wrap.dataset['zoom'] = zoom;
+      const mid = r.unproject({ x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 });
+      const centre = `${Math.round(mid.x)},${Math.round(mid.y)}`;
+      if (wrap.dataset['centre'] !== centre) wrap.dataset['centre'] = centre;
       // a hit-stop hold eats wall time first; the slow-mo finisher then slows what is left
       const scale = slowmo.next(wall);
       const simDt = stop.take(wall) * scale;
@@ -182,8 +203,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const r = rendererRef.current;
-      if (e.key === '+' || e.key === '=') return r?.camera.zoomBy(1);
-      if (e.key === '-' || e.key === '_') return r?.camera.zoomBy(-1);
+      if (e.key === '+' || e.key === '=') return r?.camera.glideBy(1);
+      if (e.key === '-' || e.key === '_') return r?.camera.glideBy(-1);
       if (e.key === '0' || e.key === 'f') return r?.camera.fit();
       if (!canAim || !active) return;
       const big = e.shiftKey;
@@ -242,7 +263,10 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     };
   }, [canAim, active, send]);
 
-  // pointer: one finger / left button = slingshot; two fingers = pinch + pan; right/middle = pan
+  // pointer (§8a): at the whole-map view a touch anywhere pulls the slingshot. Zoomed in, a touch
+  // near the active tank pulls the slingshot and a touch anywhere else drags the map, flinging it
+  // on release; when it isn't your turn every one-finger drag pans. Two fingers pinch-zoom smoothly around their midpoint and
+  // pan with it. Mouse: left button = slingshot anywhere, right/middle = pan, wheel = zoom.
   const local = (e: React.PointerEvent): Vec2 => {
     const rect = e.currentTarget.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -251,26 +275,53 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     const rect = wrapRef.current?.getBoundingClientRect() ?? { width: 400, height: 300 };
     return Math.max(120, Math.min(rect.width, rect.height) * 0.45);
   };
+  const nearTank = (p: Vec2): boolean => {
+    if (!anchor) return false;
+    // the anchor sits just above the hull; centre the grab circle on the tank itself
+    const r = rendererRef.current;
+    const reach = Math.max(
+      AIM_REACH_PX,
+      ((r?.camera.scale ?? 1) * 10) / (window.devicePixelRatio || 1),
+    );
+    return Math.hypot(p.x - anchor.x, p.y - (anchor.y + 6)) <= reach;
+  };
+  const startPan = (id: number, p: Vec2, t: number) => {
+    panDrag.current = { id, x: p.x, y: p.y, t, vx: 0, vy: 0 };
+  };
+  const startPinch = () => {
+    const r = rendererRef.current;
+    const [a, b] = [...pointers.current.values()] as [Vec2, Vec2];
+    pinch.current = {
+      dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+      scale: r?.camera.scale ?? 1,
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+    };
+  };
 
   const onPointerDown = (e: React.PointerEvent) => {
     const p = local(e);
     (e.target as Element).setPointerCapture?.(e.pointerId);
     pointers.current.set(e.pointerId, p);
+    rendererRef.current?.camera.hold();
     if (e.pointerType === 'mouse' && e.button !== 0) {
-      panDrag.current = { id: e.pointerId, x: p.x, y: p.y };
+      startPan(e.pointerId, p, e.timeStamp);
       return;
     }
     if (pointers.current.size === 2) {
+      // a second finger turns whatever the first was doing into a pinch
       setDrag(null);
-      const [a, b] = [...pointers.current.values()] as [Vec2, Vec2];
-      pinch.current = {
-        dist: Math.hypot(a.x - b.x, a.y - b.y),
-        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      };
+      panDrag.current = null;
+      startPinch();
       return;
     }
-    if (pointers.current.size === 1 && canAim) {
+    if (pointers.current.size !== 1) return;
+    // at the whole-map view there is nothing to pan, so a drag anywhere aims as before; zoomed
+    // in, only a touch on the tank aims (the angle/power pills always work too)
+    const r = rendererRef.current;
+    if (canAim && (e.pointerType === 'mouse' || (r?.camera.isFit ?? true) || nearTank(p))) {
       setDrag({ id: e.pointerId, x0: p.x, y0: p.y, x: p.x, y: p.y });
+    } else {
+      startPan(e.pointerId, p, e.timeStamp);
     }
   };
 
@@ -279,9 +330,22 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     const p = local(e);
     pointers.current.set(e.pointerId, p);
     const r = rendererRef.current;
-    if (panDrag.current?.id === e.pointerId) {
-      r?.camera.pan(p.x - panDrag.current.x, p.y - panDrag.current.y);
-      panDrag.current = { id: e.pointerId, x: p.x, y: p.y };
+    const pd = panDrag.current;
+    if (pd?.id === e.pointerId) {
+      const dx = p.x - pd.x;
+      const dy = p.y - pd.y;
+      r?.camera.pan(dx, dy);
+      // smoothed velocity for the fling
+      const dt = Math.max(1, e.timeStamp - pd.t);
+      const k = Math.min(1, dt / 50);
+      panDrag.current = {
+        id: pd.id,
+        x: p.x,
+        y: p.y,
+        t: e.timeStamp,
+        vx: pd.vx + (dx / dt - pd.vx) * k,
+        vy: pd.vy + (dy / dt - pd.vy) * k,
+      };
       return;
     }
     if (pinch.current && pointers.current.size >= 2 && r) {
@@ -289,13 +353,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       r.camera.pan(mid.x - pinch.current.mid.x, mid.y - pinch.current.mid.y);
-      const ratio = dist / Math.max(1, pinch.current.dist);
-      if (ratio > 1.25 || ratio < 0.8) {
-        r.camera.zoomBy(ratio > 1 ? 1 : -1, mid);
-        pinch.current = { dist, mid };
-      } else {
-        pinch.current = { dist: pinch.current.dist, mid };
-      }
+      r.camera.zoomTo((pinch.current.scale * dist) / pinch.current.dist, mid, false);
+      pinch.current = { ...pinch.current, mid };
       return;
     }
     if (drag && drag.id === e.pointerId) {
@@ -309,8 +368,20 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
 
   const onPointerUp = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
-    if (panDrag.current?.id === e.pointerId) panDrag.current = null;
-    if (pointers.current.size < 2) pinch.current = null;
+    const r = rendererRef.current;
+    const pd = panDrag.current;
+    if (pd?.id === e.pointerId) {
+      panDrag.current = null;
+      // a finger that paused before lifting doesn't fling
+      if (e.type === 'pointerup' && e.timeStamp - pd.t < 80) r?.camera.fling(pd.vx, pd.vy);
+    }
+    if (pinch.current && pointers.current.size < 2) {
+      r?.camera.settle(pinch.current.mid);
+      pinch.current = null;
+      // the finger still down carries on as a pan, never as a surprise slingshot
+      const rest = [...pointers.current.entries()][0];
+      if (rest) startPan(rest[0], rest[1], e.timeStamp);
+    }
     if (drag?.id === e.pointerId) setDrag(null);
   };
 
@@ -318,7 +389,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     const r = rendererRef.current;
     if (!r) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    r.camera.zoomBy(e.deltaY < 0 ? 1 : -1, { x: e.clientX - rect.left, y: e.clientY - rect.top });
+    r.camera.glideBy(e.deltaY < 0 ? 1 : -1, { x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
   // aim guide: a line from the barrel whose length follows power, sized to the screen so it

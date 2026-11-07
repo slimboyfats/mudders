@@ -114,8 +114,21 @@ export interface CameraControl {
   fit(): void;
   /** Zoom by integer steps (+1 in, -1 out), keeping the map point under `screen` (CSS px) fixed. */
   zoomBy(steps: number, screen?: Vec2): void;
-  /** Continuous zoom (pinch), snapped to an integer cell scale when ≥ 1. */
-  zoomTo(scale: number, screen: Vec2): void;
+  /**
+   * Continuous zoom, snapped to an integer cell scale when ≥ 1 unless `snap` is false (a pinch
+   * in progress follows the fingers exactly; `settle` tidies up afterwards).
+   */
+  zoomTo(scale: number, screen: Vec2, snap?: boolean): void;
+  /** `zoomBy`, eased over a few frames (wheel, zoom buttons). */
+  glideBy(steps: number, screen?: Vec2): void;
+  /** After a pinch: ease to a crisp integer scale where that matters (DPR < 2). */
+  settle(screen?: Vec2): void;
+  /** Pan momentum after a one-finger drag lifts, CSS px per ms. */
+  fling(vx: number, vy: number): void;
+  /** Stop any glide or momentum. */
+  hold(): void;
+  /** Advance glides and momentum by `dt` ms of wall time (called once per frame). */
+  update(dt: number): void;
   /** Pan by a screen delta in CSS px. */
   pan(dx: number, dy: number): void;
   /** Device pixels per map cell. */

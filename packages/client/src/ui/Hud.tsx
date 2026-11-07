@@ -318,13 +318,13 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           )}
         </div>
         <div className="cam" role="group" aria-label="Camera">
-          <button onClick={() => renderer.current?.camera.zoomBy(-1)} aria-label="Zoom out">
+          <button onClick={() => renderer.current?.camera.glideBy(-1)} aria-label="Zoom out">
             −
           </button>
           <button onClick={() => renderer.current?.camera.fit()} aria-label="Fit map">
             ⤢
           </button>
-          <button onClick={() => renderer.current?.camera.zoomBy(1)} aria-label="Zoom in">
+          <button onClick={() => renderer.current?.camera.glideBy(1)} aria-label="Zoom in">
             +
           </button>
         </div>
