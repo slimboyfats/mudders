@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useMemo, useState } from 'react';
 import { loadContent } from '@mudders/content';
 import {
@@ -65,7 +66,7 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
   const shown = Math.min(setup.slots.length, Math.max(4, last + 2));
 
   return (
-    <main className="setup">
+    <main className="setup local">
       <h2>Local game</h2>
       <section className="slots" aria-label="Players">
         <TeamsToggle
@@ -75,7 +76,11 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
           }
         />
         {setup.slots.slice(0, shown).map((slot, i) => (
-          <label key={i} className={`slot${slot === 'off' ? ' off' : ''}`}>
+          <label
+            key={i}
+            className={`slot${slot === 'off' ? ' off' : ''}`}
+            style={{ '--pc': css(PLAYER_COLORS[i] ?? 0xffffff) } as CSSProperties}
+          >
             <span className="swatch" style={{ background: css(PLAYER_COLORS[i] ?? 0xffffff) }} />
             <span className="slot-name">Player {i + 1}</span>
             <select

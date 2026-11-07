@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import type { HudState } from '../game/match';
+import { categoryColor as colorOf, categoryLabel as label } from './categories';
 
 type Weapon = HudState['tanks'][number]['inventory'][number];
 
@@ -10,23 +11,7 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
-/** Accent per content category, so the tiles scan by kind at a glance (names stay the label). */
-const CATEGORY_COLORS: Record<string, string> = {
-  explosive: '#ff7a2f',
-  incendiary: '#ff4a2a',
-  submunition: '#ffb35c',
-  earthmover: '#c49a6c',
-  digger: '#a0785a',
-  'terrain-dynamics': '#8fbf6a',
-  beam: '#9fd8ff',
-  guided: '#c7a0ff',
-  roller: '#e0d070',
-  mine: '#ff6f91',
-  weird: '#d48cff',
-};
-const colorOf = (category: string) => CATEGORY_COLORS[category] ?? '#a8957f';
 const countText = (n: number) => (n < 0 ? '∞' : String(n));
-const label = (category: string) => category.replace(/-/g, ' ');
 
 /** Sideways drag on the button: px per weapon step. */
 const CYCLE_PX = 44;
