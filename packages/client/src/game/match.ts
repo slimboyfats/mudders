@@ -18,6 +18,8 @@ export interface HudTank {
   team: number;
   alive: boolean;
   health: number;
+  /** Full health for this tank type (health bars). */
+  maxHealth: number;
   /** Shield points left (Bulwark, §3.2); 0 for most tanks. */
   shield: number;
   /** Cells left to drive this turn, out of `driveMax` (§3.2), and fuel left for the match. */
@@ -214,6 +216,7 @@ export abstract class SimMatch implements SnapshotStream {
         team: t.team,
         alive: t.alive,
         health: t.health,
+        maxHealth: Math.max(1, t.maxHealth),
         shield: t.shield,
         driveLeft: t.driveLeft,
         driveMax: w.driveCells(t),

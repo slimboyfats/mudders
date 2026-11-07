@@ -1659,3 +1659,426 @@ a.button {
   font-size: 0.85rem;
   opacity: 0.75;
 }
+
+/* ── HUD v2: floating glass chips over the sky, turn banner, match menu ── */
+
+.hud-top {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+  font-size: 0.8rem;
+  z-index: 5;
+}
+
+.hud-top .players {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 4px;
+}
+
+.player {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-areas:
+    'name hp score'
+    'bar bar bar';
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 3px;
+  padding: 4px 8px 5px 10px;
+  border-radius: 10px;
+  background: rgb(14 10 8 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 3px 0 0 var(--pc);
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+}
+
+.player.active {
+  border-color: var(--pc);
+  transform: translateY(1px) scale(1.04);
+  box-shadow:
+    inset 3px 0 0 var(--pc),
+    0 0 0 1px var(--pc),
+    0 4px 14px rgb(0 0 0 / 0.4);
+}
+
+.player .pname {
+  grid-area: name;
+  font-weight: 800;
+  color: var(--pc);
+}
+
+.player .team-badge {
+  margin-left: 0;
+}
+
+.player .hp {
+  grid-area: hp;
+  margin-left: 0;
+  font-weight: 600;
+}
+
+.player .pscore {
+  grid-area: score;
+  margin-left: 0;
+  font-size: 0.9em;
+}
+
+.player .shield {
+  display: none;
+}
+
+.pbar {
+  grid-area: bar;
+  position: relative;
+  display: block;
+  height: 4px;
+  min-width: 56px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.12);
+  overflow: hidden;
+}
+
+.pbar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #7bd66b;
+  border-radius: 2px;
+  transition: width 0.3s ease-out;
+}
+
+.pbar-fill.low {
+  background: #ff5a3c;
+}
+
+.pbar-shield {
+  position: absolute;
+  inset: 0;
+  border: 1px solid #7fe0ff;
+  border-radius: 2px;
+}
+
+.players.many .player {
+  padding: 3px 5px 4px 7px;
+  font-size: 0.68rem;
+  column-gap: 4px;
+}
+
+.players.many .pbar {
+  min-width: 34px;
+  height: 3px;
+}
+
+.players.many .pscore {
+  display: none;
+}
+
+.hud-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.hud-center .badge,
+.hud-center .wind {
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: rgb(14 10 8 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(6px);
+}
+
+.hud-center .timer {
+  min-width: 3em;
+  text-align: center;
+  font-weight: 700;
+}
+
+.hud-center .timer.low {
+  background: #8a1c12;
+  color: #fff;
+  animation: timer-pulse 1s steps(2) infinite;
+}
+
+@keyframes timer-pulse {
+  50% {
+    background: #c4321a;
+  }
+}
+
+.cam {
+  gap: 0;
+  border-radius: 10px;
+  background: rgb(14 10 8 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+
+.cam button,
+.menu-btn {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 1.05rem;
+}
+
+.cam button + button {
+  border-left: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.menu-btn {
+  border-radius: 10px;
+  background: rgb(14 10 8 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(6px);
+}
+
+/* who's up: slides in under the top bar for a moment at each turn */
+.turn-banner {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 64px);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 22px;
+  border-radius: 14px;
+  background: rgb(14 10 8 / 0.78);
+  border: 1px solid var(--pc);
+  pointer-events: none;
+  opacity: 0;
+  animation: turn-banner 1.6s ease-out;
+}
+
+.turn-banner-name {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--pc);
+  letter-spacing: 0.02em;
+}
+
+.turn-banner-sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+@keyframes turn-banner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -10px) scale(0.95);
+  }
+  12%,
+  75% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turn-banner {
+    animation-name: turn-banner-fade;
+  }
+  @keyframes turn-banner-fade {
+    0%,
+    80% {
+      opacity: 1;
+      transform: translateX(-50%);
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(-50%);
+    }
+  }
+}
+
+/* match menu: a bottom sheet on phones, a centred card on wide screens */
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.5);
+  animation: fade-in 0.15s ease-out;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, 100%);
+  padding: 18px 18px max(18px, env(safe-area-inset-bottom));
+  border-radius: 20px 20px 0 0;
+  background: #1d1511;
+  border: 1px solid #4a3a2c;
+  border-bottom: 0;
+  animation: sheet-up 0.2s ease-out;
+  zoom: var(--ui-scale, 1);
+}
+
+.sheet h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.sheet-note {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.sheet button {
+  min-height: 52px;
+  border-radius: 12px;
+  font-size: 1rem;
+}
+
+.sheet .danger {
+  color: #ffb4a6;
+  border-color: #6b2a1f;
+  background: #2a1512;
+}
+
+@media (min-width: 900px) and (min-height: 600px) {
+  .sheet-scrim {
+    align-items: center;
+  }
+  .sheet {
+    border-radius: 20px;
+    border-bottom: 1px solid #4a3a2c;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+/* the bottom dock: a darker glass bar, aim on the left, weapon + FIRE on the right */
+.controls {
+  gap: 10px;
+  background: linear-gradient(#17110d, #0f0b09);
+  border-top: 1px solid #2e241c;
+}
+
+.controls .weapons {
+  justify-content: flex-end;
+}
+
+.fire {
+  min-width: 112px;
+  border-radius: 16px;
+  background: linear-gradient(#e0482c, #b02a14);
+  border: 1px solid #ff6a4a;
+  box-shadow:
+    0 4px 0 #6e1608,
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.3);
+  transition: transform 0.06s;
+}
+
+.fire:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 1px 0 #6e1608,
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+
+.drive-btn {
+  border-radius: 12px;
+}
+
+/* portrait phones: two tidy rows (aim pills side by side, then drive · weapon · FIRE) */
+@media (max-aspect-ratio: 1/1) {
+  .hud-top {
+    flex-wrap: wrap;
+  }
+  .hud-top .players {
+    flex-basis: calc(100% - 180px);
+  }
+  .hud-center {
+    order: 3;
+    flex-basis: 100%;
+    justify-content: center;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'aim aim aim'
+      'drive weapon fire'
+      'gear gear gear';
+    gap: 8px;
+  }
+  .controls .aim {
+    grid-area: aim;
+    flex-direction: row;
+  }
+  .controls .aim {
+    min-width: 0;
+  }
+  .controls .aim .scrub {
+    flex: 1;
+    min-width: 0;
+  }
+  .controls .aim .scrub-body {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    padding: 2px 6px;
+  }
+  .controls .aim .scrub .nudge {
+    min-width: 34px;
+  }
+  .controls .drive {
+    grid-area: drive;
+  }
+  .controls .weapon-picker {
+    grid-area: weapon;
+  }
+  .controls .weapon-btn {
+    width: 100%;
+  }
+  .controls .fire {
+    grid-area: fire;
+    margin: 0;
+    min-height: 56px;
+    min-width: 96px;
+  }
+  .controls .weapons {
+    grid-area: gear;
+  }
+  .controls .aim {
+    flex-wrap: wrap;
+  }
+  .controls .frost-note,
+  .controls .glue-note {
+    flex-basis: 100%;
+  }
+}
