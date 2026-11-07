@@ -144,12 +144,6 @@ export function Shop({ hud, controls, send }: ShopProps) {
           {hud.seconds >= 0 ? `${hud.seconds}s` : ''}
         </span>
       </header>
-      {!opening && (
-        <details className="shop-scores" open={hud.tanks.length <= 4}>
-          <summary>Scores</summary>
-          <Scoreboard hud={hud} final={false} />
-        </details>
-      )}
       {me && (
         <>
           <div className="shop-filters" role="tablist" aria-label="Filter">
@@ -166,79 +160,88 @@ export function Shop({ hud, controls, send }: ShopProps) {
               </button>
             ))}
           </div>
-          <div className="cards">
-            {shown('driving') && (
-              <div
-                className="card fuel-card"
-                style={{ '--cat': categoryColor('driving') } as CSSProperties}
-              >
-                <button
-                  className="card-top"
-                  onClick={() => setInfo(info === 'fuel' ? null : 'fuel')}
-                >
-                  <b>Fuel Tank</b>
-                  <span className="own">
-                    {me.fuel}/{hud.fuel.max}
-                  </span>
-                </button>
-                <p className={info === 'fuel' ? 'full' : ''}>
-                  Fuel for driving with ◀ ▶: one unit per cell. Driving doesn&apos;t use up your
-                  turn, and what you don&apos;t burn carries over to the next round.
-                </p>
-                <button
-                  className="buy"
-                  disabled={me.ready || me.fuel >= hud.fuel.max || me.money < hud.fuel.price}
-                  onClick={() => {
-                    sfx('audio.ui-buy');
-                    send(me.player, { type: 'buyFuel', packs: 1 });
-                  }}
-                  aria-label={`Buy ${hud.fuel.pack} fuel for ${hud.fuel.price}`}
-                  data-testid="buy-fuel"
-                >
-                  <span>+{hud.fuel.pack}</span>
-                  <span className="price">{money(hud.fuel.price)}</span>
-                </button>
-              </div>
+          {/* scores scroll together with the items, so a long table never hides them */}
+          <div className="shop-main">
+            {!opening && (
+              <details className="shop-scores" open={hud.tanks.length <= 4}>
+                <summary>Scores</summary>
+                <Scoreboard hud={hud} final={false} />
+              </details>
             )}
-            {hud.shop.map((it) => {
-              if (!shown(it.category)) return null;
-              const have = owned(it.id);
-              const full = it.gear !== undefined && have >= it.gear.max;
-              const can = !me.ready && have >= 0 && !full && me.money >= it.price;
-              return (
+            <div className="cards">
+              {shown('driving') && (
                 <div
-                  key={it.id}
-                  className={`card${it.gear ? ' gear-card' : ''}${have !== 0 ? ' owned' : ''}`}
-                  style={{ '--cat': categoryColor(it.category) } as CSSProperties}
+                  className="card fuel-card"
+                  style={{ '--cat': categoryColor('driving') } as CSSProperties}
                 >
                   <button
                     className="card-top"
-                    onClick={() => setInfo(info === it.id ? null : it.id)}
-                    aria-expanded={info === it.id}
+                    onClick={() => setInfo(info === 'fuel' ? null : 'fuel')}
                   >
-                    <b>{it.name}</b>
+                    <b>Fuel Tank</b>
                     <span className="own">
-                      {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
+                      {me.fuel}/{hud.fuel.max}
                     </span>
                   </button>
-                  <p className={info === it.id ? 'full' : ''}>
-                    <small className="cat">{categoryLabel(it.category)}</small> {it.description}
+                  <p className={info === 'fuel' ? 'full' : ''}>
+                    Fuel for driving with ◀ ▶: one unit per cell. Driving doesn&apos;t use up your
+                    turn, and what you don&apos;t burn carries over to the next round.
                   </p>
                   <button
                     className="buy"
-                    disabled={!can}
+                    disabled={me.ready || me.fuel >= hud.fuel.max || me.money < hud.fuel.price}
                     onClick={() => {
                       sfx('audio.ui-buy');
-                      send(me.player, { type: 'buy', item: it.id, packs: 1 });
+                      send(me.player, { type: 'buyFuel', packs: 1 });
                     }}
-                    aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
+                    aria-label={`Buy ${hud.fuel.pack} fuel for ${hud.fuel.price}`}
+                    data-testid="buy-fuel"
                   >
-                    <span>{full ? 'Full' : `+${it.pack}`}</span>
-                    <span className="price">{money(it.price)}</span>
+                    <span>+{hud.fuel.pack}</span>
+                    <span className="price">{money(hud.fuel.price)}</span>
                   </button>
                 </div>
-              );
-            })}
+              )}
+              {hud.shop.map((it) => {
+                if (!shown(it.category)) return null;
+                const have = owned(it.id);
+                const full = it.gear !== undefined && have >= it.gear.max;
+                const can = !me.ready && have >= 0 && !full && me.money >= it.price;
+                return (
+                  <div
+                    key={it.id}
+                    className={`card${it.gear ? ' gear-card' : ''}${have !== 0 ? ' owned' : ''}`}
+                    style={{ '--cat': categoryColor(it.category) } as CSSProperties}
+                  >
+                    <button
+                      className="card-top"
+                      onClick={() => setInfo(info === it.id ? null : it.id)}
+                      aria-expanded={info === it.id}
+                    >
+                      <b>{it.name}</b>
+                      <span className="own">
+                        {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
+                      </span>
+                    </button>
+                    <p className={info === it.id ? 'full' : ''}>
+                      <small className="cat">{categoryLabel(it.category)}</small> {it.description}
+                    </p>
+                    <button
+                      className="buy"
+                      disabled={!can}
+                      onClick={() => {
+                        sfx('audio.ui-buy');
+                        send(me.player, { type: 'buy', item: it.id, packs: 1 });
+                      }}
+                      aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
+                    >
+                      <span>{full ? 'Full' : `+${it.pack}`}</span>
+                      <span className="price">{money(it.price)}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <div className="shop-foot">
             <span className="shop-foot-note">
