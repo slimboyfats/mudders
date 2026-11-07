@@ -1,0 +1,48 @@
+{
+  "id": "audio.tank-cookoff",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tank cook-off",
+    "description": "After a tank dies: the clang of its turret blowing off, a hiss of fire, then the ammunition cooking off in four pops, the last one a deep thump. Delays match the wreck's cook-offs in the pixel renderer.",
+    "since": "core@0.35.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      { "wave": "metal", "freq": 3200, "to": 1400, "delay": 0.05, "release": 0.35, "volume": 0.22 },
+      {
+        "wave": "noise",
+        "freq": 5000,
+        "to": 2500,
+        "delay": 0.2,
+        "attack": 0.3,
+        "hold": 2.2,
+        "release": 1.5,
+        "volume": 0.08
+      },
+      { "wave": "noise", "freq": 1600, "to": 200, "delay": 0.567, "release": 0.22, "volume": 0.45 },
+      { "wave": "noise", "freq": 1400, "to": 160, "delay": 1.2, "release": 0.26, "volume": 0.5 },
+      { "wave": "noise", "freq": 1200, "to": 140, "delay": 1.967, "release": 0.3, "volume": 0.5 },
+      {
+        "wave": "noise",
+        "freq": 1000,
+        "to": 50,
+        "delay": 2.8,
+        "hold": 0.08,
+        "release": 0.7,
+        "volume": 0.7
+      },
+      { "wave": "square", "freq": 140, "to": 35, "delay": 2.8, "release": 0.5, "volume": 0.4 }
+    ]
+  },
+  "on": [
+    {
+      "event": "tankDeath"
+    }
+  ]
+}

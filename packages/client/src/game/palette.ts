@@ -30,10 +30,71 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
   for (const t of content.list('tank'))
     tanks[t.id] = { sprite: t.look.sprite, barrel: t.look.barrel };
   const shells: Record<string, ShellLook> = {};
+  const colors = trailColors(content);
   for (const w of content.list('weapon')) {
-    if (w.look) shells[w.id] = { shell: w.look.shell, trail: w.look.trail, size: w.look.size };
+    const look: ShellLook = w.look
+      ? { shell: w.look.shell, trail: w.look.trail, size: w.look.size }
+      : { shell: 'spark', trail: true };
+    const c = colors.get(w.id);
+    if (c !== undefined) look.trailColor = c;
+    shells[w.id] = look;
   }
   return { materials, looks, themes, tanks, shells, liquids };
+}
+
+/**
+ * Shell trail colour per weapon type (`meta.category`), in hard saturated hues that read on both
+ * day and night skies. Categories not listed (and weapons with none) keep the theme's trail colour.
+ */
+export const TRAIL_BY_CATEGORY: Readonly<Record<string, number>> = {
+  explosive: 0xffb040,
+  incendiary: 0xff5020,
+  digger: 0xd09050,
+  earthmover: 0xa87a44,
+  roller: 0xc4ccd4,
+  guided: 0x50f070,
+  beam: 0x60e0ff,
+  'terrain-dynamics': 0xa070ff,
+  weird: 0xff50c0,
+  mine: 0xe04060,
+};
+
+/**
+ * Trail colours by weapon id. Submunitions have no colour of their own: they take the colour of
+ * the weapon that spawns them (MIRV warheads trail like the MIRV), following spawn and mine chains.
+ */
+export function trailColors(content: ResolvedContent): Map<string, number> {
+  const out = new Map<string, number>();
+  const weapons = content.list('weapon');
+  for (const w of weapons) {
+    const c = TRAIL_BY_CATEGORY[w.meta.category ?? ''];
+    if (c !== undefined) out.set(w.id, c);
+  }
+  // a few passes reach chains like nuke → nuke-core; the first parent in pack order wins
+  for (let pass = 0; pass < 4; pass++) {
+    let changed = false;
+    for (const w of weapons) {
+      const c = out.get(w.id);
+      if (c === undefined) continue;
+      for (const imp of [...w.impact, ...w.pulse]) {
+        const kids =
+          'spawn' in imp
+            ? typeof imp.spawn.weapon === 'string'
+              ? [imp.spawn.weapon]
+              : imp.spawn.weapon
+            : 'mine' in imp
+              ? [imp.mine.weapon]
+              : [];
+        for (const k of kids) {
+          if (out.has(k)) continue;
+          out.set(k, c);
+          changed = true;
+        }
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
 }
 
 /** Theme ids with display names, for the settings picker. */
