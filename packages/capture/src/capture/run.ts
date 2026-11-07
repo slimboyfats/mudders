@@ -91,6 +91,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     themes: { ...pal.themes },
     tanks: { ...pal.tanks },
     shells: { ...pal.shells },
+    liquids: [...(pal.liquids ?? [])],
     quality: o.quality,
     theme,
     cssWidth: device?.cssWidth ?? w.grid.width * o.scale,

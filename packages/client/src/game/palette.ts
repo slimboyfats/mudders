@@ -6,8 +6,11 @@ import type { MaterialLook, RenderPalette, ShellLook, TankLook } from '../render
 export function paletteFrom(content: ResolvedContent): RenderPalette {
   const materials = new Uint32Array(256);
   const looks: MaterialLook[] = [];
+  const liquids: number[] = [];
   for (const m of content.list('material')) {
     materials[m.cell] = parseHex(m.meta.color, 0xff00ff);
+    // cold liquids splash; lava and burning liquids get their own fire looks instead
+    if (m.settle === 'flow' && !m.look?.hot && !m.look?.flames) liquids.push(m.cell);
     if (m.look) {
       looks.push({
         cell: m.cell,
@@ -30,7 +33,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
   for (const w of content.list('weapon')) {
     if (w.look) shells[w.id] = { shell: w.look.shell, trail: w.look.trail, size: w.look.size };
   }
-  return { materials, looks, themes, tanks, shells };
+  return { materials, looks, themes, tanks, shells, liquids };
 }
 
 /** Theme ids with display names, for the settings picker. */

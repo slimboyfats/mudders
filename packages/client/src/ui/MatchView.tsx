@@ -124,6 +124,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           theme: settings.theme,
           palette: paletteFrom(match.content),
           shake: settings.shake,
+          onCues: effectSounds,
         });
         rendererRef.current = r;
         const size = () => {

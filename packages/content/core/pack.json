@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -66,6 +66,7 @@
     "audio.ui-click",
     "audio.volcano-erupt",
     "audio.volcano-grow",
+    "audio.water-splash",
     "audio.zap",
     "explosion.glob-splash",
     "explosion.nuke-pull",

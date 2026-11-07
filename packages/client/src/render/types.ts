@@ -1,4 +1,4 @@
-import type { RenderSnapshot } from '@mudders/shared';
+import type { EffectEvent, RenderSnapshot } from '@mudders/shared';
 import type { PixelTheme } from './pixel/theme';
 
 /**
@@ -32,6 +32,8 @@ export interface RenderPalette {
   tanks?: Readonly<Record<string, TankLook>>;
   /** Shell looks by `weapon.*` id; weapons not listed draw the default spark with a trail. */
   shells?: Readonly<Record<string, ShellLook>>;
+  /** Material cells of cold liquids that splash and ripple (water, liquid dirt, oil). */
+  liquids?: readonly number[];
 }
 
 /** A tank type's pixel look (manifest `look`); plain data so it can cross the wire. */
@@ -77,6 +79,11 @@ export interface RendererOptions {
   shake?: boolean;
   /** Keep the drawing buffer so it can be read back (headless capture). */
   preserveDrawingBuffer?: boolean;
+  /**
+   * Sound cues the renderer spots itself (e.g. `waterSplash` when a shell hits a pool), as effect
+   * events for the audio engine. Called at most once per snapshot.
+   */
+  onCues?: (events: readonly EffectEvent[]) => void;
 }
 
 export interface Renderer {

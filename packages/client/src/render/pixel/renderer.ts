@@ -1,4 +1,4 @@
-import type { EntityView, RenderSnapshot, TankView, ZoneView } from '@mudders/shared';
+import type { EffectEvent, EntityView, RenderSnapshot, TankView, ZoneView } from '@mudders/shared';
 import type {
   Quality,
   RenderPalette,
@@ -10,6 +10,7 @@ import type {
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
+import { WaterFx } from './splash';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
@@ -273,6 +274,9 @@ export class PixelRenderer implements Renderer {
   private additive!: QuadBatch;
   private particles!: Particles;
   private fx!: EffectSystem;
+  /** Water splashes and ripples (cosmetic, watches the snapshots). */
+  private water!: WaterFx;
+  private onCues: ((events: readonly EffectEvent[]) => void) | undefined;
 
   /** Latest snapshot state the renderer mirrors (read-only views). */
   private terrain: Uint8Array;
@@ -318,6 +322,7 @@ export class PixelRenderer implements Renderer {
       height: mapHeight,
       solid: (x, y) =>
         x >= 0 && y >= 0 && x < mapWidth && y < mapHeight && this.terrain[y * mapWidth + x] !== 0,
+      liquid: (x, y) => this.water.isLiquid(x, y),
     };
   }
 
@@ -338,6 +343,13 @@ export class PixelRenderer implements Renderer {
     this.baseTheme = pixelTheme(options.theme, options.palette.themes);
     this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
+    this.onCues = options.onCues;
+    this.water = new WaterFx(
+      this.mapWidth,
+      this.mapHeight,
+      options.palette.liquids ?? [],
+      options.palette.materials,
+    );
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
     this.uTer = uniforms(gl, this.terrainProg, [
@@ -560,6 +572,7 @@ export class PixelRenderer implements Renderer {
       });
     }
     this.fx.mult = q.mult;
+    this.water.mult = q.mult;
   }
 
   setTheme(id: string): void {
@@ -649,6 +662,7 @@ export class PixelRenderer implements Renderer {
       gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
     }
     this.terrain = s.terrain;
+    this.water.setTerrain(s.terrain);
     this.coating = s.coating;
     // grass belongs to the ground a round starts with: craters dug later stay bare. The round
     // number goes up when a round ends; the next map arrives later as one whole-map rect.
@@ -699,6 +713,7 @@ export class PixelRenderer implements Renderer {
     for (const e of s.effectEvents) {
       this.fx.handle(e);
       if (e.type === 'flash') {
+        this.water.blast(e);
         if ((e.params.strength ?? 1) > 0) this.scorch(e.x, e.y, e.radius, e.tick);
       }
       // dirt geysers throw the char wider than the crater
@@ -711,6 +726,8 @@ export class PixelRenderer implements Renderer {
     this.fx.lances.track(s.entities, s.tick);
     this.tagStars();
     this.updateTrails(s);
+    const cues = this.water.drainCues();
+    if (cues.length > 0) this.onCues?.(cues);
   }
 
   /**
@@ -1144,6 +1161,7 @@ export class PixelRenderer implements Renderer {
     this.stepWrecks();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
+    this.water.tick(this.entities, this.fxTick);
     this.stepFlames();
     // burning shells shed flames as they fly
     const shells = this.palette.shells;
@@ -1400,6 +1418,7 @@ export class PixelRenderer implements Renderer {
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
     this.particles.draw(this.normal, this.additive);
+    this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
     this.fx.drawMagnets(this.normal, this.additive, t);
@@ -2037,6 +2056,7 @@ export class PixelRenderer implements Renderer {
     gl.deleteVertexArray(this.emptyVao);
     this.particles.clear();
     this.fx.clear();
+    this.water.clear();
   }
 }
 

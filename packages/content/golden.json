@@ -1,5 +1,5 @@
 {
-  "contentHash": "a9866e6cf6b559d4",
+  "contentHash": "182cba72b31c7be1",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -248,6 +248,10 @@
     "audio.volcano-grow": {
       "ticks": 1301,
       "hash": "ab619e1342e5cdef"
+    },
+    "audio.water-splash": {
+      "ticks": 709,
+      "hash": "10f777fcee6af923"
     },
     "audio.zap": {
       "ticks": 158,
