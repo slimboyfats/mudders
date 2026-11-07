@@ -15,6 +15,7 @@ import { loadContent } from '@mudders/content';
 import { ScenarioSchema, TICK_RATE, type Scenario } from '@mudders/shared';
 import { KERNEL_VERSION, ScenarioDriver } from '@mudders/sim';
 import type { WireInit, WireSnapshot } from '@mudders/client/capture-wire';
+import { HitStop } from '@mudders/client/impact';
 import { paletteFrom } from '@mudders/client/palette';
 import { launchHeadless } from '../browser';
 import { checkFfmpeg } from '../ffmpeg';
@@ -111,6 +112,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
         fps: o.fps,
         gif: o.gif,
         mp4: o.mp4,
+        hitStop: 1,
       }),
     )
     .digest('hex')
@@ -156,17 +158,21 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     let halfFrame = -1;
     const framePath = (i: number) => join(frameDir, `f-${String(i).padStart(5, '0')}.png`);
     let inflight: Promise<void>[] = [];
+    // hit-stop (§2a) as in the game: big hits hold the picture while the shake plays on
+    const stop = new HitStop(o.shake);
     const grab = async (time: number): Promise<void> => {
+      const held = stop.held;
       const index = frames++;
       const snaps = pending;
       pending = [];
       for (let k = 0; k < pages.length; k++) {
         const draw = index % pages.length === k;
         // per-page evaluate calls run in order, so each page sees snapshots in tick order
-        const job = pages[k]!.evaluate(([s, t, d]) => window.__mudders!.frame(s, t, d), [
+        const job = pages[k]!.evaluate(([s, t, d, h]) => window.__mudders!.frame(s, t, d, h), [
           snaps,
           time,
           draw,
+          held,
         ] as const).then((url) => {
           if (draw) {
             writeFileSync(framePath(index), Buffer.from(url.slice(url.indexOf(',') + 1), 'base64'));
@@ -189,12 +195,22 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
       ) {
         impactTick = snap.tick;
       }
+      const hold = stop.feed(snap);
       if (snap.tick % step === 0) {
         await grab(snap.tick);
         if (impactTick >= 0 && impactFrame < 0) impactFrame = frames - 1;
         if (impactTick >= 0 && halfFrame < 0 && snap.tick >= impactTick + TICK_RATE / 2) {
           halfFrame = frames - 1;
         }
+      }
+      if (hold > 0) {
+        // frozen frames on this tick; only `held` moves, so only the shake does
+        const n = Math.max(1, Math.round(hold / step));
+        for (let i = 0; i < n; i++) {
+          stop.skip(step);
+          await grab(snap.tick);
+        }
+        stop.skip(Infinity);
       }
       driver.step();
     }
