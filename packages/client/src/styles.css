@@ -2083,6 +2083,11 @@ a.button {
   }
 }
 
+/* the scores + items column: plain flow outside landscape phones */
+.shop-main {
+  display: contents;
+}
+
 /* ── Shop v2: sticky header, filter chips, compact tiles, sticky Ready bar ── */
 
 .shop {
@@ -3023,10 +3028,9 @@ a.button {
   .shop {
     display: grid;
     grid-template-columns: 136px minmax(0, 1fr) auto;
-    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       'head head foot'
-      'rail scores scores'
       'rail cards cards';
     overflow: hidden;
   }
@@ -3079,15 +3083,16 @@ a.button {
     text-overflow: ellipsis;
     box-shadow: inset 4px 0 0 var(--cat);
   }
-  .shop-scores {
-    grid-area: scores;
-    max-height: 40vh;
+  .shop-main {
+    grid-area: cards;
+    display: block;
+    min-height: 0;
     overflow-y: auto;
+  }
+  .shop-scores {
     margin: 8px max(12px, env(safe-area-inset-right)) 0 10px;
   }
   .shop .cards {
-    grid-area: cards;
-    overflow-y: auto;
     align-content: start;
     grid-auto-rows: max-content;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
