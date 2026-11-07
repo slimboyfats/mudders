@@ -14,6 +14,17 @@ import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
+import {
+  HEAT_NONE,
+  HEAT_RGB,
+  HEAT_STRENGTH,
+  Lights,
+  band,
+  heatFalloff,
+  heatField,
+  lightAt,
+  litColor,
+} from './lighting';
 import { PKind, Particles } from './particles';
 import {
   BG_FS,
@@ -209,6 +220,11 @@ export class PixelRenderer implements Renderer {
       | 'u_grassMask'
       | 'u_burn'
       | 'u_burnOn'
+      | 'u_lightCount'
+      | 'u_lights'
+      | 'u_lightCol'
+      | 'u_heat'
+      | 'u_heatOn'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -220,6 +236,13 @@ export class PixelRenderer implements Renderer {
    * and low-end phones). */
   private anyCycle = false;
   private anyHot = false;
+  /** This frame's point lights (blasts, fireballs), see lighting.ts. */
+  private readonly lights = new Lights();
+  private readonly lightTmp: [number, number, number] = [0, 0, 0];
+  /** Cells to the nearest hot or burning cell (R8UI), rebuilt with each look scan. */
+  private heat = new Uint8Array(0);
+  private heatTex!: WebGLTexture;
+  private heatOn = false;
   /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
   private readonly flameCells = new Int32Array(FLAME_CAP);
   private flameN = 0;
@@ -384,6 +407,11 @@ export class PixelRenderer implements Renderer {
       'u_grassMask',
       'u_burn',
       'u_burnOn',
+      'u_lightCount',
+      'u_lights',
+      'u_lightCol',
+      'u_heat',
+      'u_heatOn',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -451,6 +479,19 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_INT,
       this.burn,
+    );
+    this.heat = new Uint8Array(this.mapWidth * this.mapHeight).fill(HEAT_NONE);
+    this.heatTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.heat,
     );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
@@ -928,6 +969,7 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
+    this.scanHeat((any & 6) !== 0);
     this.flameN = 0;
     if ((any & 4) === 0) return;
     // flaming cells with air above: where the flame tongues lick up from
@@ -935,6 +977,18 @@ export class PixelRenderer implements Renderer {
     for (let i = w; i < t.length && this.flameN < FLAME_CAP; i++) {
       if ((f[t[i]!]! & 4) !== 0 && t[i - w] === 0) this.flameCells[this.flameN++] = i;
     }
+  }
+
+  /** Rebuild and upload the heat field lava and flames light the ground from. */
+  private scanHeat(any: boolean): void {
+    if (!any && !this.heatOn) return;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    this.heatOn = any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat);
+    if (!this.heatTex) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.heat);
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
@@ -1369,7 +1423,16 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
     gl.activeTexture(gl.TEXTURE7);
     gl.bindTexture(gl.TEXTURE_2D, this.burnTex);
+    gl.activeTexture(gl.TEXTURE8);
+    gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
     gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_heat, 8);
+    gl.uniform1f(this.uBg.u_heatOn, this.heatOn ? 1 : 0);
+    this.lights.clear();
+    this.fx.collectLights(this.lights, t);
+    gl.uniform1i(this.uBg.u_lightCount, this.lights.count);
+    gl.uniform4fv(this.uBg.u_lights, this.lights.pos);
+    gl.uniform3fv(this.uBg.u_lightCol, this.lights.col);
     gl.uniform1i(this.uBg.u_grassMask, 6);
     gl.uniform1i(this.uBg.u_burn, 7);
     gl.uniform1f(this.uBg.u_burnOn, this.lastBurn >= 0 && t - this.lastBurn < EMBER_TICKS ? 1 : 0);
@@ -1608,6 +1671,20 @@ export class PixelRenderer implements Renderer {
     }
   }
 
+  /** Light on a tank from this frame's blasts and nearby lava or flames, banded like the ground. */
+  private tankLight(x: number, y: number): [number, number, number] {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const l = lightAt(this.lights, xi, yi, this.lightTmp);
+    if (this.heatOn && xi >= 0 && yi >= 0 && xi < this.mapWidth && yi < this.mapHeight) {
+      const q = band(heatFalloff(this.heat[yi * this.mapWidth + xi]!) * HEAT_STRENGTH, xi, yi);
+      l[0] += HEAT_RGB[0] * q;
+      l[1] += HEAT_RGB[1] * q;
+      l[2] += HEAT_RGB[2] * q;
+    }
+    return l;
+  }
+
   private drawTanks(t: number): void {
     const b = this.normal;
     const looks = this.palette.tanks;
@@ -1622,10 +1699,11 @@ export class PixelRenderer implements Renderer {
       const sh = rows.length;
       const x0 = x - (sw >> 1);
       const y0 = y - sh;
+      const lit = this.tankLight(x, y - (sh >> 1));
       if (!e.alive) {
         // a flattened wreck as wide as the tank
-        b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
-        b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
+        b.rect(x0 + 1, y - 3, sw - 2, 3, litColor(0x2a2426, lit));
+        b.rect(x - 4, y - 5, 7, 2, litColor(0x1d191b, lit));
         continue;
       }
       // the tank leans with the ground: each sprite column drops by whole cells (a pixel shear)
@@ -1642,7 +1720,13 @@ export class PixelRenderer implements Renderer {
       for (let i = 1; i <= br.length; i++) {
         const cx = Math.round(px + ca * i);
         const cy = Math.round(py - sa * i);
-        b.rect(cx - off, cy - off, br.width, br.width, i === br.length ? 0xa8a298 : 0xd8d2c8);
+        b.rect(
+          cx - off,
+          cy - off,
+          br.width,
+          br.width,
+          litColor(i === br.length ? 0xa8a298 : 0xd8d2c8, lit),
+        );
       }
       const shieldOn = e.shield > 0;
       for (let r = 0; r < sh; r++) {
@@ -1650,7 +1734,7 @@ export class PixelRenderer implements Renderer {
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
-          b.rect(x0 + c, y0 + r + lean(c), 1, 1, spriteColor(code, col, shieldOn));
+          b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(spriteColor(code, col, shieldOn), lit));
         }
       }
       if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
@@ -2025,6 +2109,7 @@ export class PixelRenderer implements Renderer {
     this.additive.dispose();
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
+    gl.deleteTexture(this.heatTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);

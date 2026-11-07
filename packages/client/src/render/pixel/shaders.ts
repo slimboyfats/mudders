@@ -3,6 +3,8 @@
  * SwiftShader supports: no derivatives tricks, no float render targets, bounded loops.
  */
 
+import { HEAT_REACH, HEAT_RGB, HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
+
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
 const NOISE = `
 float hash(ivec2 c) {
@@ -77,6 +79,11 @@ uniform vec4 u_grass;        // rgb, enabled
 uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
 uniform usampler2D u_burn;   // tick + 1 of the last blast over the cell, 0 = none
 uniform float u_burnOn;      // any blast recent enough to still smoulder
+uniform int u_lightCount;    // dynamic lights (lighting.ts): blasts light the faces around them
+uniform vec4 u_lights[${MAX_LIGHTS}];  // x, y (cells), radius, strength
+uniform vec3 u_lightCol[${MAX_LIGHTS}];
+uniform usampler2D u_heat;   // cells to the nearest hot or burning cell, 0 = source, 255 = far
+uniform float u_heatOn;
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -170,6 +177,43 @@ void main() {
           }
         }
       }
+      // dynamic light: each blast lights the faces of the ground turned toward it (cells whose
+      // neighbours on its side are open air), in hard bands dithered per cell; buried cells catch
+      // only a little. Lava and flames warm the ground near them with a slow flicker.
+      vec3 L = vec3(0.0);
+      if (u_lightCount > 0) {
+        vec2 cc = vec2(cell) + 0.5;
+        for (int i = 0; i < ${MAX_LIGHTS}; i++) {
+          if (i >= u_lightCount) break;
+          vec4 l = u_lights[i];
+          vec2 d = l.xy - cc;
+          float dist = length(d);
+          if (dist >= l.z) continue;
+          ivec2 st = ivec2(sign(d) * vec2(greaterThan(abs(d), vec2(dist * 0.38))));
+          float face = 0.15;
+          if (dist < 2.0) face = 1.0;
+          else for (int k = 1; k <= 3; k++) {
+            if (mat(cell + st * k) == 0u) { face = k == 1 ? 1.0 : k == 2 ? 0.6 : 0.35; break; }
+          }
+          float f = 1.0 - dist / l.z;
+          float e = f * (0.4 + 0.6 * f) * l.w * face;
+          float q = clamp(floor(e * ${LIGHT_BANDS}.0 + bayer(cell) - 0.5) / ${LIGHT_BANDS}.0, 0.0, 1.5);
+          L += u_lightCol[i] * q;
+        }
+      }
+      if (u_heatOn > 0.0) {
+        uint hd = texelFetch(u_heat, cell, 0).r;
+        if (hd > 0u && hd <= ${HEAT_REACH}u) {
+          float f = 1.0 - float(hd - 1u) / ${HEAT_REACH}.0;
+          ivec2 blk = cell >> 3;
+          int st = int(floor(u_time / 9.0 + hash(blk) * 13.0));
+          float fl = 0.8 + 0.35 * hash(blk + ivec2(st * 7, st * 3 + 19));
+          float e = f * f * fl * ${HEAT_STRENGTH.toFixed(3)};
+          float q = floor(e * ${LIGHT_BANDS}.0 + bayer(cell) - 0.5) / ${LIGHT_BANDS}.0;
+          L += vec3(${HEAT_RGB.map((v) => v.toFixed(3)).join(', ')}) * max(q, 0.0);
+        }
+      }
+      c = min(c * (1.0 + L * 1.3) + L * 0.16, vec3(1.0));
     } else {
       float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
       vec4 sc = texelFetch(u_scenery, cell >> 1, 0);

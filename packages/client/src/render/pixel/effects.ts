@@ -4,6 +4,7 @@ import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
 import { FxRng } from './gl';
 import { Lances } from './lance';
+import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
@@ -174,6 +175,14 @@ export interface TerrainProbe {
   color(material: number): number;
   width: number;
   height: number;
+}
+
+/** Pull a glow colour halfway to a fire orange, for the light it casts on the ground. */
+function warmLight(c: number): number {
+  const r = ((c >> 16) & 255) * 0.5 + 255 * 0.5;
+  const g = ((c >> 8) & 255) * 0.5 + 150 * 0.5;
+  const b = (c & 255) * 0.5 + 60 * 0.5;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
 export class EffectSystem {
@@ -2992,6 +3001,23 @@ export class EffectSystem {
       });
     }
     this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
+  }
+
+  /**
+   * Point lights for the frame (see lighting.ts): every glow lights the ground and tanks around
+   * it, reaching further than the glow itself and fading over a little longer, in whole steps.
+   */
+  collectLights(lights: Lights, t: number): void {
+    for (const g of this.glows) {
+      const dur = g.dur * 4 + 16;
+      const k = (t - g.start) / dur;
+      if (k < 0 || k > 1) continue;
+      // a bright pop, then the light dies down in whole steps, snapping off like the pixels
+      const step = Math.floor(k * 6) / 6;
+      const s = (k < 0.1 ? 1.4 : 1.1 * (1 - step)) * Math.min(1.4, g.strength);
+      // fire light is warmer than the flash that casts it
+      lights.add(g.x, g.y, Math.max(12, g.r * 2.2), s, warmLight(g.color));
+    }
   }
 
   drawGlows(additive: QuadBatch, t: number): void {
