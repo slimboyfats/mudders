@@ -71,6 +71,20 @@ describe('inputs and turns', () => {
     expect(w.phase).toBe('aim');
   });
 
+  it('switches to a weapon it still has once the last shot of one is fired', () => {
+    const w = make();
+    const t = w.tanks[0]!;
+    const last = t.inventory.findIndex((n) => n > 0);
+    t.inventory[last] = 1;
+    t.weapon = last;
+    w.applyInput(0, { type: 'fire' });
+    w.step();
+    expect(w.phase).toBe('resolve');
+    expect(w.projectiles[0]!.weapon).toBe(last);
+    expect(t.inventory[last]).toBe(0);
+    expect(t.inventory[t.weapon]).not.toBe(0);
+  });
+
   it('fires, resolves, carves, damages and passes the turn', () => {
     const w = make();
     const solid = () => w.grid.material.reduce((a, m) => a + (m ? 1 : 0), 0);

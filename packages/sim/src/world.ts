@@ -1348,6 +1348,10 @@ export class World implements SimApi {
     const inv = t.inventory[t.weapon] ?? 0;
     if (inv === 0) return;
     if (inv > 0) t.inventory[t.weapon] = inv - 1;
+    // the last one is gone: hold the next weapon the tank still has, so the HUD never shows a
+    // weapon it can't fire (the shell below keeps the weapon it was fired with)
+    const fired = t.weapon;
+    if (t.inventory[fired] === 0) t.weapon = this.firstWeapon(t);
     t.driving = 0;
     const a = t.angle * 10;
     const c = cosDeci(a);
@@ -1358,7 +1362,7 @@ export class World implements SimApi {
     const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
     this.projectiles.push({
       id: this.nextProjectileId++,
-      weapon: t.weapon,
+      weapon: fired,
       owner: t.player,
       x,
       y,
@@ -1375,7 +1379,7 @@ export class World implements SimApi {
     this.timer = 0;
     this.emit('muzzle', Math.floor(x / FP), Math.floor(y / FP), 3, {
       angle: t.angle,
-      weapon: t.weapon,
+      weapon: fired,
     });
   }
 
