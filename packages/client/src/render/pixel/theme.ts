@@ -180,13 +180,13 @@ const HOT = {
   shadow: 0xa8845a,
 };
 const COLD = {
-  skyTop: 0x9eacbc,
-  skyBottom: 0xdde4ec,
+  skyTop: 0x4a5a6e,
+  skyBottom: 0x8a9cb0,
   grass: 0xc4d8dc,
   ground: 0xe4eeff,
-  range: 0xc8d2de,
-  cloud: 0xffffff,
-  shadow: 0x9aa6b4,
+  range: 0x9aa8b8,
+  cloud: 0xc8d2de,
+  shadow: 0x6a7888,
 };
 
 /**

@@ -148,7 +148,7 @@ export function drawStorm(
   }
 
   // grains and streaks
-  const n = Math.round(k * (sand ? 420 : 520) * (W / 1000) * Math.max(0.4, mult));
+  const n = Math.round(k * (sand ? 1100 : 1400) * (W / 1000) * Math.max(0.4, mult));
   for (let i = 0; i < n; i++) {
     const r0 = h01(i, 5);
     const r1 = h01(i, 6);
@@ -169,7 +169,7 @@ export function drawStorm(
       normal.rect(x0, y, len, 1, pal.streak, (sand ? 0.7 : 0.75) * Math.min(1, k + 0.3));
     } else {
       const c = pal.grain[i % pal.grain.length]!;
-      const size = r1 > (sand ? 0.7 : 0.4) ? 2 : 1;
+      const size = sand ? (r1 > 0.7 ? 2 : 1) : r1 > 0.9 ? 3 : r1 > 0.3 ? 2 : 1;
       normal.rect(x, y, size, size, c, 0.95);
     }
   }
