@@ -127,6 +127,8 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         for (let i = 1; i <= 10; i++) await touch('touchMove', x0 - i * 9, y0 + i * 7);
         await page.waitForTimeout(100);
         await shot('2-aiming');
+        if (!(await page.getByTestId('aim-readout').isVisible()))
+          throw new Error(`${t.name}: no angle · power readout while dragging`);
         await touch('touchEnd', x0 - 90, y0 + 70);
       } else {
         await page.mouse.move(x0, y0);
@@ -137,6 +139,28 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
         await page.mouse.up();
       }
       await page.waitForTimeout(150);
+      if (await page.getByTestId('aim-readout').isVisible())
+        throw new Error(`${t.name}: the aim readout stayed up after the drag`);
+      if (t.device.isMobile) {
+        // landscape phones: the dock floats over the map, so the battlefield gets the full height
+        const vh = t.device.viewport.height;
+        if (box.height < vh * 0.95)
+          throw new Error(`${t.name}: playfield is ${box.height}px of a ${vh}px screen`);
+        // full screen toggle (Chromium has the Fullscreen API; iPhone Safari gets a hint instead)
+        const fs = page.getByTestId('fullscreen');
+        await fs.click();
+        await page
+          .waitForFunction(() => document.fullscreenElement !== null, null, {
+            timeout: 2000,
+          })
+          .catch(() => {
+            throw new Error(`${t.name}: the full screen button did not go full screen`);
+          });
+        await fs.click();
+        await page.waitForFunction(() => document.fullscreenElement === null, null, {
+          timeout: 2000,
+        });
+      }
       const angleAfter = await page.locator('[data-testid=aim-angle] .value').first().textContent();
       if (angleAfter === angleBefore)
         throw new Error(`${t.name}: slingshot drag did not change the angle`);

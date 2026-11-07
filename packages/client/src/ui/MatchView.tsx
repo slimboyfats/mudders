@@ -44,6 +44,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   const [anchor, setAnchor] = useState<Vec2 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [perf, setPerf] = useState<PerfStats | null>(null);
+  // playfield size in CSS px, for the aim guide's length
+  const [viewMin, setViewMin] = useState(300);
   const perfOn = useRef(settings.perfHud);
   useEffect(() => {
     perfOn.current = settings.perfHud;
@@ -147,6 +149,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
         const size = () => {
           const rect = wrap.getBoundingClientRect();
           r.resize(rect.width, rect.height, window.devicePixelRatio || 1);
+          setViewMin(Math.min(rect.width, rect.height));
         };
         size();
         ro = new ResizeObserver(size);
@@ -318,10 +321,12 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     r.camera.zoomBy(e.deltaY < 0 ? 1 : -1, { x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
+  // aim guide: a line from the barrel whose length follows power, sized to the screen so it
+  // reads on a phone as well as a laptop
   const aimLine = (() => {
     if (!anchor || !active || hud.phase !== 'aim') return null;
     const a = (active.angle * Math.PI) / 180;
-    const len = 30 + (active.power / 1000) * 120;
+    const len = 24 + (active.power / 1000) * Math.max(120, viewMin * 0.45) * 0.8;
     return {
       x2: anchor.x + Math.cos(a) * len,
       y2: anchor.y - Math.sin(a) * len,
@@ -349,16 +354,45 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           {settings.perfHud && perf && <PerfOverlay stats={perf} />}
           <svg className="overlay" aria-hidden="true">
             {aimLine && anchor && (
-              <line
-                x1={anchor.x}
-                y1={anchor.y}
-                x2={aimLine.x2}
-                y2={aimLine.y2}
-                stroke={color}
-                strokeWidth={drag ? 2.5 : 1.5}
-                strokeDasharray="5 5"
-                opacity={drag ? 0.95 : 0.55}
-              />
+              <>
+                <line
+                  x1={anchor.x}
+                  y1={anchor.y}
+                  x2={aimLine.x2}
+                  y2={aimLine.y2}
+                  stroke="#000"
+                  strokeWidth={drag ? 5 : 4}
+                  strokeLinecap="round"
+                  opacity={0.35}
+                />
+                <line
+                  x1={anchor.x}
+                  y1={anchor.y}
+                  x2={aimLine.x2}
+                  y2={aimLine.y2}
+                  stroke={color}
+                  strokeWidth={drag ? 3 : 2}
+                  strokeDasharray="6 4"
+                  opacity={drag ? 1 : 0.8}
+                />
+                <circle
+                  cx={aimLine.x2}
+                  cy={aimLine.y2}
+                  r={drag ? 5 : 4}
+                  fill={color}
+                  stroke="#000"
+                  strokeOpacity={0.5}
+                />
+                <g className="aim-marker">
+                  <polygon
+                    points={`${anchor.x - 7},${anchor.y - 22} ${anchor.x + 7},${anchor.y - 22} ${anchor.x},${anchor.y - 13}`}
+                    fill={color}
+                    stroke="#000"
+                    strokeOpacity={0.6}
+                    strokeLinejoin="round"
+                  />
+                </g>
+              </>
             )}
             {drag && (
               <>
@@ -375,6 +409,15 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
               </>
             )}
           </svg>
+          {drag && active && (
+            <div
+              className="aim-readout"
+              style={{ left: drag.x, top: drag.y - 36, '--pc': color } as React.CSSProperties}
+              data-testid="aim-readout"
+            >
+              {active.angle}° · {active.power}
+            </div>
+          )}
           {error && <div className="error">Renderer failed: {error}</div>}
           {banner}
         </div>
