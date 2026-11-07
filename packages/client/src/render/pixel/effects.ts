@@ -134,10 +134,35 @@ interface Splat {
   dur: number;
 }
 
+/** Smoke column soot tones: deep, grey, black (fire). */
+const SOOT = [0x3a3436, 0x6a6262, 0x342c2a] as const;
+
 /** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
 const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 /** Steam puffs over a geyser. */
 const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
+
+/**
+ * A smoke column left standing over a big impact: a stream of `Plume` puffs fed from the crater,
+ * thinning out over `dur` ticks. The puffs drift with the wind, so the column bends downwind and
+ * its top spreads into a flat pall.
+ */
+interface SmokeColumn {
+  x: number;
+  y: number;
+  /** Blast radius that started it (grows when a blast lands right on top of it). */
+  r: number;
+  start: number;
+  dur: number;
+  /** Young puff tone: black soot for fire, grey for plain blasts, tinted dust for kinetic hits. */
+  color: number;
+  rng: FxRng;
+}
+
+/** Smallest blast radius that leaves a smoke column (a standard missile is 24). */
+export const SMOKE_COLUMN_MIN_R = 18;
+/** Columns kept at once; the oldest goes first. */
+const SMOKE_COLUMN_MAX = 10;
 
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
@@ -194,6 +219,8 @@ export class EffectSystem {
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
+  /** Lingering smoke columns over big impacts. */
+  readonly columns: SmokeColumn[] = [];
   private shakeAmp = 0;
   private shakeStart = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
@@ -246,6 +273,7 @@ export class EffectSystem {
           strength,
         });
         this.tintSky(look, 0.008 * e.radius * strength);
+        this.smokeColumn(e, e.params.dt ?? 0);
         // the biggest blasts (nukes) bloom white and split the picture's colours
         if (e.radius >= 60) {
           this.glows.push({
@@ -2764,9 +2792,83 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Leave a smoke column over a big blast. Fire and plain blasts and kinetic hits smoke; cold,
+   * shock, dig and corrosive blasts don't. A blast landing on a fresh column feeds that column
+   * instead of starting a second one, so MIRVs and meteor showers don't stack up dozens.
+   */
+  private smokeColumn(e: EffectEvent, dt: number): void {
+    if (e.radius < SMOKE_COLUMN_MIN_R || dt > 2) return;
+    const dur = Math.round(420 + e.radius * 10);
+    for (const c of this.columns) {
+      if (Math.abs(c.x - e.x) > Math.max(c.r, e.radius) || e.tick - c.start > c.dur * 0.5) continue;
+      c.r = Math.min(120, Math.max(c.r, e.radius) + 4);
+      c.dur = Math.max(c.dur, e.tick - c.start + dur);
+      if (dt === 2) c.color = SOOT[2];
+      return;
+    }
+    if (this.columns.length >= SMOKE_COLUMN_MAX) this.columns.shift();
+    // rise from the crater floor or the ground under an airburst, not from inside the dirt
+    const y = this.craterFloor(Math.round(e.x), e.y, e.radius);
+    const color =
+      dt === 2 ? SOOT[2] : dt === 1 ? shade(this.dustColor(e.x, e.y + 4), 0.45) : SOOT[1];
+    this.columns.push({
+      x: e.x,
+      y,
+      r: e.radius,
+      start: e.tick,
+      dur,
+      color,
+      rng: this.rngFor(e, 53),
+    });
+  }
+
+  /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
+  private craterFloor(x: number, y: number, r: number): number {
+    const p = this.probe;
+    if (x < 0 || x >= p.width) return y;
+    const y1 = Math.min(p.height - 1, Math.round(y + r * 1.3) + 4);
+    for (let yy = Math.max(0, Math.round(y)); yy <= y1; yy++) {
+      if (p.material(x, yy) !== 0) return yy - 1;
+    }
+    return y;
+  }
+
+  /** Feed each smoke column a few puffs: thick at first, thinning to wisps before it stops. */
+  private tickColumns(t: number): void {
+    for (let i = this.columns.length - 1; i >= 0; i--) {
+      const c = this.columns[i]!;
+      const k = (t - c.start) / c.dur;
+      if (k >= 1) {
+        this.columns.splice(i, 1);
+        continue;
+      }
+      if (k < 0) continue;
+      const big = c.r / 24;
+      // puffs per tick, falling off over the column's life
+      let n = (0.35 + big * 0.45) * this.mult * (1 - k) * (1 - k) + c.rng.next();
+      const w = c.r * (0.18 + 0.12 * (1 - k));
+      for (; n >= 1; n--) {
+        const s = c.rng.next();
+        this.particles.add({
+          x: c.x + c.rng.range(-w, w),
+          y: c.y - c.rng.range(0, 3),
+          vx: c.rng.range(-0.05, 0.05),
+          // the first seconds are hot: puffs shoot up fast, later ones only drift
+          vy: -c.rng.range(0.18, 0.3) * (1 + (1 - k) * 0.8) * Math.min(1.8, 0.75 + big * 0.25),
+          life: c.rng.range(200, 320) * Math.min(1.6, 0.8 + big * 0.2),
+          size: Math.round(3 + big * 2 + s * 3),
+          color: s < 0.25 ? shade(c.color, 0.7) : s > 0.8 ? shade(c.color, 1.25) : c.color,
+          kind: PKind.Plume,
+        });
+      }
+    }
+  }
+
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.feedJets(t);
+    this.tickColumns(t);
     this.tickStrands(t);
     this.fireworkTick(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
@@ -3145,6 +3247,7 @@ export class EffectSystem {
     this.splats = [];
     this.posts = [];
     this.magnets = [];
+    this.columns.length = 0;
     this.shakeAmp = 0;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
