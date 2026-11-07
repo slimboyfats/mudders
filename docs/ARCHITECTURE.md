@@ -267,7 +267,7 @@ interface Renderer {
   setTheme(id): void;
   setQuality(q): void;
   render(time: number): void; // time in ticks; no wall clock, so captures replay exactly
-  readonly camera: CameraControl; // fit, integer zoom steps, pan
+  readonly camera: CameraControl; // fit, integer zoom steps, eased glides, free pinch, pan + fling
   unproject(screen): Vec2; // screen (CSS px) → map
   project(map): Vec2;
   unmount(): void;
@@ -323,7 +323,7 @@ particle caps (800 / 2,500 / 6,000) and turns the distortion pass and vignette o
 
 Camera: the fit view uses an integer scale on standard-density screens and a fractional fit on
 DPR ≥ 2 (a one-device-pixel difference between cells is invisible there; rounding down would waste
-half a phone screen). Zoom steps are integers; the origin snaps to whole device pixels.
+half a phone screen). Zoom steps are integers; a pinch follows the fingers at any scale and then eases to an integer one when DPR < 2. The origin snaps to whole device pixels.
 
 Client (`packages/client/src`): `game/match.ts` (`LocalMatch`: 60 Hz accumulator, max 8 ticks per
 frame, snapshot stream, HUD state), `game/aim.ts` (slingshot maths), `ui/MatchView.tsx` (canvas,
