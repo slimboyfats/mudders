@@ -1,5 +1,5 @@
 {
-  "contentHash": "6214b7b86a1477a4",
+  "contentHash": "3c1ce80e7c36c1f3",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -579,7 +579,7 @@
     },
     "mode.teams": {
       "ticks": 2400,
-      "hash": "8b143a5a61ceec47"
+      "hash": "cedfde6703dc1678"
     },
     "prop.apartments": {
       "ticks": 756,

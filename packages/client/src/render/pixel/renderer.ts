@@ -751,6 +751,9 @@ export class PixelRenderer implements Renderer {
       this.wreckY = [];
       this.wreckV = [];
       this.wrecks = [];
+      // a new map: nothing from the last round carries over (shell trails, smoke columns, debris,
+      // flames, shield and battery flashes)
+      this.clearRoundFx();
     }
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
@@ -788,6 +791,19 @@ export class PixelRenderer implements Renderer {
     this.updateTrails(s);
     const cues = this.water.drainCues();
     if (cues.length > 0) this.onCues?.(cues);
+  }
+
+  /** Drop every cosmetic left over from the last round, so a new map starts clean. */
+  private clearRoundFx(): void {
+    this.trails = [];
+    this.particles.clear();
+    this.fx.clear();
+    this.water.clear();
+    this.meteors.clear();
+    this.starColor = new Map();
+    this.shieldHitAt = [];
+    this.shieldUpAt = [];
+    this.batteryAt = [];
   }
 
   /**
