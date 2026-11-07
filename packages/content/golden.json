@@ -1,5 +1,5 @@
 {
-  "contentHash": "e2d197068ba9e60c",
+  "contentHash": "01448fbaa7cba27b",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -179,7 +179,7 @@
     },
     "audio.parachute": {
       "ticks": 307,
-      "hash": "ffa27f9c440ca35c"
+      "hash": "3515d59438d0c69c"
     },
     "audio.rain": {
       "ticks": 480,
@@ -327,11 +327,11 @@
     },
     "gear.heavy-shield": {
       "ticks": 494,
-      "hash": "5a3bdbbdc55eceec"
+      "hash": "980edf13ca6b6998"
     },
     "gear.parachute": {
       "ticks": 307,
-      "hash": "ffa27f9c440ca35c"
+      "hash": "3515d59438d0c69c"
     },
     "gear.shield": {
       "ticks": 343,
@@ -635,7 +635,7 @@
     },
     "showcase.smoke-columns": {
       "ticks": 953,
-      "hash": "d40b27a13f3c28e9"
+      "hash": "ed0f5c49fb8de4ad"
     },
     "showcase.snowstorm": {
       "ticks": 5000,
@@ -843,7 +843,7 @@
     },
     "weapon.bumper": {
       "ticks": 257,
-      "hash": "30b60c7302d04d9e"
+      "hash": "d7102a693fb9e407"
     },
     "weapon.burrower": {
       "ticks": 164,
@@ -995,7 +995,7 @@
     },
     "weapon.magnet-mine": {
       "ticks": 328,
-      "hash": "c65c7592278d2e38"
+      "hash": "e12c219d00981b47"
     },
     "weapon.meteor-boulder": {
       "ticks": 104,
@@ -1151,11 +1151,11 @@
     },
     "weapon.tornado": {
       "ticks": 528,
-      "hash": "7be005d99a2688a4"
+      "hash": "93d9519f14483d72"
     },
     "weapon.toxic-gas": {
       "ticks": 900,
-      "hash": "28d3eb30315b8c85"
+      "hash": "8cf70944babc74a6"
     },
     "weapon.tracer": {
       "ticks": 158,
