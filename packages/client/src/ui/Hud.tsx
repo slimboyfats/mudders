@@ -7,6 +7,9 @@ import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { Scoreboard, Shop } from './Shop';
 import { CHILL_POWER } from '@mudders/sim';
+import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
+import { Scrub } from './Scrub';
+import { WeaponPicker } from './WeaponPicker';
 
 interface Props {
   hud: HudState;
@@ -115,55 +118,6 @@ function Drive({
         <small className="fuel">fuel {tank?.fuel ?? 0}</small>
       </span>
       {button(1, 'Drive right', '▶')}
-    </div>
-  );
-}
-
-function Stepper(props: {
-  label: string;
-  value: number;
-  unit?: string;
-  step: number;
-  big: number;
-  disabled: boolean;
-  onChange: (v: number) => void;
-}) {
-  const { label, value, unit, step, big, disabled, onChange } = props;
-  return (
-    <div className="stepper">
-      <span className="label">{label}</span>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value - big)}
-        aria-label={`${label} −${big}`}
-      >
-        «
-      </button>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value - step)}
-        aria-label={`${label} −${step}`}
-      >
-        −
-      </button>
-      <span className="value">
-        {value}
-        {unit}
-      </span>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value + step)}
-        aria-label={`${label} +${step}`}
-      >
-        +
-      </button>
-      <button
-        disabled={disabled}
-        onClick={() => onChange(value + big)}
-        aria-label={`${label} +${big}`}
-      >
-        »
-      </button>
     </div>
   );
 }
@@ -280,20 +234,30 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           )}
         </div>
         <div className="aim">
-          <Stepper
+          <Scrub
+            kind="angle"
             label="Angle"
             unit="°"
             value={t?.angle ?? 0}
+            spec={ANGLE_SCRUB}
             step={1}
-            big={10}
+            big={5}
+            invert
+            minor={5}
+            major={45}
             disabled={!canAim}
             onChange={(v) => t && aim(v, t.power)}
           />
-          <Stepper
+          <Scrub
+            kind="power"
             label="Power"
             value={t?.power ?? 0}
+            spec={POWER_SCRUB}
             step={5}
-            big={50}
+            big={25}
+            minor={25}
+            major={100}
+            {...(t && t.chill > 0 ? { cap: CHILL_POWER } : {})}
             disabled={!canAim}
             onChange={(v) => t && aim(t.angle, v)}
           />
@@ -309,7 +273,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           )}
         </div>
         <Drive tank={t} disabled={!canAim} send={send} />
-        <div className="weapons" role="listbox" aria-label="Weapons">
+        <div className="weapons" aria-label="Gear">
           {t?.gear
             .filter((g) => g.count > 0)
             .map((g) =>
@@ -336,20 +300,13 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
                 </span>
               ),
             )}
-          {t?.inventory.map((w) => (
-            <button
-              key={w.id}
-              role="option"
-              aria-selected={w.id === t.weapon}
-              className={w.id === t.weapon ? 'selected' : ''}
-              disabled={!canAim}
-              onClick={() => send({ type: 'selectWeapon', weapon: w.id })}
-            >
-              <span className="wname">{w.name}</span>
-              <span className="count">{w.count < 0 ? '∞' : w.count}</span>
-            </button>
-          ))}
         </div>
+        <WeaponPicker
+          inventory={t?.inventory ?? []}
+          selected={t?.weapon ?? ''}
+          disabled={!canAim}
+          onSelect={(weapon) => send({ type: 'selectWeapon', weapon })}
+        />
         <button
           className="fire"
           disabled={!canAim}

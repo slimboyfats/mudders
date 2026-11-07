@@ -335,23 +335,6 @@ button.primary,
   gap: 4px;
 }
 
-.stepper {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.stepper .label {
-  width: 3.4em;
-  font-size: 0.8rem;
-}
-
-.stepper button {
-  min-height: 36px;
-  min-width: 44px;
-  padding: 0;
-}
-
 .frost-note {
   font-size: 0.75rem;
   color: #bfe4fa;
@@ -364,10 +347,267 @@ button.primary,
   white-space: nowrap;
 }
 
-.stepper .value {
-  min-width: 3.2em;
-  text-align: center;
+/* drag-to-change aim values: press anywhere on the pill and slide; slide up for fine aim */
+.scrub {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(#2b2019, #1f1712);
+  border: 1px solid #4a3a2c;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.scrub.dragging {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px rgb(255 122 47 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.scrub .nudge {
+  min-width: 40px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.15rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.scrub .nudge:first-child {
+  border-radius: 11px 0 0 11px;
+  border-right: 1px solid #3a2d23;
+}
+
+.scrub .nudge:last-of-type {
+  border-radius: 0 11px 11px 0;
+  border-left: 1px solid #3a2d23;
+}
+
+.scrub .nudge:active:not(:disabled) {
+  background: #3a2618;
+  color: var(--fg);
+}
+
+.scrub-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 8px;
+  width: 112px;
+  padding: 2px 10px;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.scrub-body:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.scrub-body[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.scrub-label {
+  grid-column: 1 / -1;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.1;
+}
+
+.scrub-value {
+  font-size: 1.2rem;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  min-width: 2.6em;
+}
+
+.scrub-grip {
+  position: absolute;
+  right: 8px;
+  top: 3px;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: #6d5a49;
+}
+
+.scrub-dial {
+  width: 30px;
+  height: 17px;
+  justify-self: end;
+  overflow: visible;
+}
+
+.dial-arc {
+  fill: none;
+  stroke: #5a4838;
+  stroke-width: 2;
+}
+
+.dial-needle {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.dial-hub {
+  fill: var(--fg);
+}
+
+.scrub-meter {
+  position: relative;
+  justify-self: stretch;
+  height: 6px;
+  border-radius: 3px;
+  background: #3a2d23;
+  overflow: hidden;
+}
+
+.scrub-meter-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #ffb35c, var(--accent) 60%, #ff4a2a);
+  border-radius: 3px;
+}
+
+.scrub-meter-cap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #bfe4fa;
+}
+
+/* the pop-up ruler shown while dragging */
+.scrub-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 12px);
+  z-index: 20;
+  padding: 8px 10px 10px;
+  border-radius: 14px;
+  background: rgb(22 16 12 / 0.94);
+  border: 1px solid #5a4636;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+  animation: scrub-pop-in 0.12s ease-out;
+}
+
+@keyframes scrub-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
+.scrub-pop-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.scrub-pop-value {
+  font-size: 1.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+}
+
+.scrub-mode {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.scrub.fine .scrub-mode {
+  color: #1b1410;
+  background: #9fd8ff;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.ruler {
+  position: relative;
+  height: 30px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #120d0a;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+}
+
+.ruler-strip {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.ruler .tick {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  height: 8px;
+  background: #6d5a49;
+}
+
+.ruler .tick.major {
+  height: 14px;
+  width: 2px;
+  margin-left: -0.5px;
+  background: var(--fg);
+}
+
+.ruler .tick.capped {
+  background: #3d5866;
+}
+
+.tick-n {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.ruler-mark {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+}
+
+.ruler-mark::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4px;
+  border: 5px solid transparent;
+  border-top-color: var(--accent);
 }
 
 /* driving (§3.2): hold ◀ ▶; the number is cells left this turn */
@@ -463,6 +703,176 @@ button.primary,
   border-color: #3f7f8c;
 }
 
+/* one weapon button; tap for a grid of tiles, slide up and let go on one, or slide sideways */
+.weapon-picker {
+  position: relative;
+  display: flex;
+}
+
+.weapon-btn {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  width: 168px;
+  min-height: 56px;
+  padding: 4px 26px 4px 14px;
+  text-align: left;
+  border-radius: 12px;
+  background: linear-gradient(#2b2019, #1f1712);
+  border: 1px solid #4a3a2c;
+  box-shadow: inset 4px 0 0 var(--cat);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.weapon-btn.active,
+.weapon-picker.open .weapon-btn {
+  border-color: var(--accent);
+}
+
+.weapon-btn .wname {
+  font-weight: 700;
+  font-size: 1.02rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weapon-btn .count {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.weapon-btn .chev {
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.weapon-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+}
+
+.weapon-pop {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  z-index: 20;
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(62vh, 420px);
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgb(22 16 12 / 0.96);
+  border: 1px solid #5a4636;
+  box-shadow: 0 14px 40px rgb(0 0 0 / 0.55);
+  animation: scrub-pop-in 0.12s ease-out;
+}
+
+.weapon-pop-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 2px 8px;
+}
+
+.weapon-pop-hint {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.weapon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 8px;
+}
+
+.weapon-tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 4px;
+  min-height: 60px;
+  padding: 8px 10px 6px 14px;
+  text-align: left;
+  border-radius: 10px;
+  background: #261c15;
+  border: 1px solid #3f3126;
+  box-shadow: inset 4px 0 0 var(--cat);
+}
+
+.weapon-tile .wname {
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.weapon-tile .wmeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.weapon-tile .wcat {
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weapon-tile .count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: var(--fg);
+}
+
+.weapon-tile.selected {
+  border-color: var(--accent);
+  background: #3a2618;
+}
+
+.weapon-tile.hover {
+  border-color: #fff;
+  background: #4a3020;
+  transform: scale(1.03);
+}
+
+.weapon-cycle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.weapon-cycle .side {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.6);
+}
+
+.weapon-cycle .side:empty {
+  visibility: hidden;
+}
+
 .fire {
   min-width: 96px;
   min-height: 72px;
@@ -482,24 +892,30 @@ button.primary,
     order: 3;
     flex-basis: 100%;
   }
+  .weapons:empty {
+    display: none;
+  }
   .fire {
     margin-left: auto;
   }
 }
 
-/* short landscape phones: compact steppers */
+/* short landscape phones: compact aim pills */
 @media (max-height: 460px) {
   .controls {
     padding-top: 4px;
     gap: 6px;
   }
-  .stepper button {
-    min-height: 30px;
-    min-width: 36px;
+  .scrub {
+    height: 40px;
   }
   .weapons button {
     min-height: 48px;
     min-width: 84px;
+  }
+  .weapon-btn {
+    min-height: 48px;
+    width: 150px;
   }
   .weapons .gear-btn {
     min-width: 64px;
