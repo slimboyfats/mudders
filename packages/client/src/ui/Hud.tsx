@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type RefObject } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { TEMP_COLD, TEMP_HOT, type Input } from '@mudders/shared';
 import { clampAim } from '../game/aim';
 import type { HudState } from '../game/match';
@@ -10,6 +10,7 @@ import { CHILL_POWER } from '@mudders/sim';
 import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
 import { Scrub } from './Scrub';
 import { WeaponPicker } from './WeaponPicker';
+import { toggleFullscreen, useFullscreen } from './fullscreen';
 
 interface Props {
   hud: HudState;
@@ -33,12 +34,15 @@ function Wind({
   max,
   gusty,
   weather,
+  was,
 }: {
   wind: number;
   base: number;
   max: number;
   gusty: boolean;
   weather: string;
+  /** This player's wind on their previous turn, or null on their first. */
+  was: number | null;
 }) {
   const clamp = (v: number) => (max > 0 ? Math.max(-1, Math.min(1, v / max)) : 0);
   const k = clamp(wind);
@@ -46,26 +50,54 @@ function Wind({
   const n = Math.round(Math.abs(k) * 10);
   const arrow = k === 0 ? '·' : k > 0 ? '→' : '←';
   const dir = k > 0 ? 'right' : k < 0 ? 'left' : 'calm';
+  const w = was === null ? null : clamp(was);
+  const wn = w === null ? 0 : Math.round(Math.abs(w) * 10);
+  const warrow = w === null || wn === 0 ? '·' : w > 0 ? '→' : '←';
+  // signed change in the same 0–10 steps the HUD shows
+  const delta = w === null ? 0 : Math.round(b * 10) - Math.round(w * 10);
+  const changed = w !== null && delta !== 0;
   return (
     <div
-      className="wind"
-      aria-label={`${weather ? `${weather}, ` : ''}${gusty ? 'gusty wind' : 'wind'} ${n} ${dir}`}
+      className={`wind${changed ? ' changed' : ''}`}
+      aria-label={`${weather ? `${weather}, ` : ''}${gusty ? 'gusty wind' : 'wind'} ${n} ${dir}${
+        w === null ? '' : `, your last turn ${wn} ${w > 0 ? 'right' : w < 0 ? 'left' : 'calm'}`
+      }`}
+      data-testid="wind"
     >
       {weather && <span className="weather">{weather}</span>}
       <span className="label">{gusty ? 'Gusts' : 'Wind'}</span>
       <span className="wind-bar">
         <span
-          className="wind-fill"
-          style={{
-            left: k < 0 ? `${50 + k * 50}%` : '50%',
-            width: `${Math.abs(k) * 50}%`,
-          }}
+          className={`wind-fill ${k < 0 ? 'to-left' : 'to-right'}`}
+          style={
+            {
+              left: k < 0 ? `${50 + k * 50}%` : '50%',
+              width: `${Math.abs(k) * 50}%`,
+              // streaks race along the bar faster in a stronger wind
+              '--wind-speed': `${(1.6 / Math.max(0.15, Math.abs(k))).toFixed(2)}s`,
+            } as CSSProperties
+          }
         />
+        {w !== null && (
+          <span className="wind-was" style={{ left: `${50 + w * 50}%` }} title="Your last turn" />
+        )}
         {gusty && <span className="wind-base" style={{ left: `${50 + b * 50}%` }} />}
       </span>
       <span className="wind-value">
         {arrow} {n}
       </span>
+      {w !== null && (
+        <span className={`wind-delta${changed ? '' : ' same'}`} data-testid="wind-delta">
+          {changed ? (
+            <>
+              was {warrow}
+              {wn}
+            </>
+          ) : (
+            'same'
+          )}
+        </span>
+      )}
     </div>
   );
 }
@@ -134,9 +166,92 @@ function Drive({
   );
 }
 
+/**
+ * Each player's wind on their previous turn (client-side memory, never the sim), so the HUD can
+ * show how the wind moved since they last aimed.
+ */
+function useLastTurnWind(hud: HudState): number | null {
+  const seen = useRef(new Map<number, number>());
+  const done = useRef('');
+  const [was, setWas] = useState<number | null>(null);
+  const key = `${hud.round}-${hud.turn}-${hud.activePlayer}`;
+  const p = hud.activePlayer;
+  const aiming = hud.phase === 'aim' && p >= 0;
+  const base = hud.windBase;
+  useEffect(() => {
+    if (!aiming || done.current === key) return;
+    done.current = key;
+    setWas(seen.current.get(p) ?? null);
+    seen.current.set(p, base);
+  }, [aiming, key, p, base]);
+  return aiming ? was : null;
+}
+
+/**
+ * A short burst of hard-edged wind streaks across the sky when a turn starts: more and faster in a
+ * stronger wind, blowing the way the wind blows.
+ */
+function Gust({ k }: { k: number }) {
+  const count = Math.round(3 + Math.abs(k) * 9);
+  return (
+    <div
+      className={`gust ${k < 0 ? 'to-left' : 'to-right'}`}
+      aria-hidden="true"
+      style={{ '--gust-speed': `${(1.1 / (0.4 + Math.abs(k))).toFixed(2)}s` } as CSSProperties}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <span
+          key={i}
+          style={{
+            top: `${12 + ((i * 37) % 45)}%`,
+            width: `${20 + ((i * 53) % 50)}px`,
+            animationDelay: `${((i * 0.17) % 0.9).toFixed(2)}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Four corner brackets: go full screen / come back (drawn, so it looks the same everywhere). */
+function FullIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d="M1 6V1h5M12 1h5v5M17 12v5h-5M6 17H1v-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+function ExitFullIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        d="M6 1v5H1M17 6h-5V1M12 17v-5h5M1 12h5v5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onRematch }: Props) {
   const t = hud.tanks[hud.activePlayer];
   const [menu, setMenu] = useState(false);
+  const fs = useFullscreen();
+  const was = useLastTurnWind(hud);
+  const turnKey = `${hud.round}-${hud.turn}-${hud.activePlayer}`;
+  const gust = hud.windMax > 0 ? hud.windBase / hud.windMax : 0;
+  const [fsHint, setFsHint] = useState(false);
+  const fullscreen = () => {
+    if (fs.mode === 'ios-hint') setFsHint(true);
+    else void toggleFullscreen();
+  };
   const aim = (angle: number, power: number) =>
     send({ type: 'aim', ...clampAim({ angle, power }) });
   return (
@@ -187,11 +302,13 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           </span>
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
           <Wind
+            key={turnKey}
             wind={hud.wind}
             base={hud.windBase}
             max={hud.windMax}
             gusty={hud.gusty}
             weather={hud.weather}
+            was={was}
           />
           <Temperature temp={hud.temperature} />
           {hud.phase === 'aim' && hud.seconds >= 0 && (
@@ -211,6 +328,17 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             +
           </button>
         </div>
+        {fs.mode !== 'none' && (
+          <button
+            className="menu-btn fs-btn"
+            onClick={fullscreen}
+            aria-label={fs.on ? 'Leave full screen' : 'Full screen'}
+            aria-pressed={fs.on}
+            data-testid="fullscreen"
+          >
+            {fs.on ? <ExitFullIcon /> : <FullIcon />}
+          </button>
+        )}
         {onExit && (
           <button
             className="menu-btn"
@@ -222,6 +350,8 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           </button>
         )}
       </div>
+
+      {hud.phase === 'aim' && Math.abs(gust) >= 0.15 && <Gust key={turnKey} k={gust} />}
 
       {hud.phase === 'aim' && t && (
         <div
@@ -256,8 +386,39 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             >
               Fit map to screen
             </button>
+            {fs.mode !== 'none' && (
+              <button
+                onClick={() => {
+                  setMenu(false);
+                  fullscreen();
+                }}
+              >
+                {fs.on ? 'Leave full screen' : 'Full screen'}
+              </button>
+            )}
             <button className="danger" onClick={onExit} aria-label="Leave match">
               Leave match
+            </button>
+          </div>
+        </div>
+      )}
+
+      {fsHint && (
+        <div className="sheet-scrim" onClick={() => setFsHint(false)}>
+          <div
+            className="sheet"
+            role="dialog"
+            aria-label="Full screen"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2>Play full screen</h2>
+            <p className="sheet-note">
+              iPhone Safari can't hide its bars for a game. Add Mudders to your Home Screen instead:
+              tap Share, then “Add to Home Screen”, and start it from there. It opens full screen
+              and works offline.
+            </p>
+            <button className="primary" onClick={() => setFsHint(false)}>
+              Got it
             </button>
           </div>
         </div>
