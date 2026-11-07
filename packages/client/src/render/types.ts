@@ -48,6 +48,8 @@ export interface ShellLook {
   trail: boolean;
   /** Scale of a meteor head and streak. */
   size?: number;
+  /** 0xRRGGBB of the trail and the shell's glow, by weapon type; unset = the theme's trail. */
+  trailColor?: number;
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */

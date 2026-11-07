@@ -1,4 +1,5 @@
 import { Shape, type QuadBatch } from './batch';
+import { shade } from './theme';
 
 /**
  * Cosmetic particles (§2a): sparks, dirt chunks, smoke and dust. Purely visual and never fed back
@@ -26,8 +27,17 @@ export const PKind = {
    * strobes on and off as it burns out.
    */
   Glitter: 7,
+  /**
+   * A smoke-column puff: rises steadily, slows and spreads as it ages, and leans further downwind
+   * the older (higher) it gets, so a stream of them reads as a column bending in the wind. Its own
+   * colour is the young tone; it steps lighter in hard bands as it thins out.
+   */
+  Plume: 8,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
+
+/** Plume alpha per life band when drawn dithered (fresh puffs and the thinning top). */
+const PLUME_ALPHA = [0.6, 0.6, 0.6, 0.55, 0.3] as const;
 
 /** Flame particle colour bands over its life. */
 const FLAME_RAMP = [0xfff0a0, 0xffa020, 0xe04a10, 0x3a2a26] as const;
@@ -127,6 +137,11 @@ export class Particles {
       } else if (k === PKind.Smoke) {
         vy = vy * 0.94 - 0.012;
         vx = vx * 0.94 + wind * 4;
+      } else if (k === PKind.Plume) {
+        // buoyant while young, then hangs; the wind takes it harder the higher it climbs
+        const t = a / this.life[i]!;
+        vy = vy * 0.985 - 0.0036 * (1 - t);
+        vx = vx * 0.985 + wind * (0.25 + t * 1.1);
       } else if (k === PKind.Flame) {
         vy = vy * 0.95 - 0.02;
         vx = vx * 0.92 + wind * 3;
@@ -187,6 +202,23 @@ export class Particles {
           s,
           c,
           t < 0.7 ? 1 : (1 - t) / 0.3,
+        );
+      } else if (k === PKind.Plume) {
+        const band = Math.min(4, Math.floor(t * 5));
+        // spreads out as it climbs; whole-cell sizes so the blob edge stays crisp
+        const sz = Math.round(s * (1 + t * 2.4));
+        const col = band < 2 ? c : shade(c, band === 2 ? 1.2 : band === 3 ? 1.4 : 1.55);
+        // dense smoke as opaque cell blobs in flat tones (like the clouds); thinning smoke as a
+        // dithered blob, so the whole column stays hard-edged pixels
+        const solid = band < 3 && this.age[i]! >= 6;
+        normal.push(
+          Math.floor(this.x[i]!) + 0.5,
+          Math.floor(this.y[i]!) + 0.5,
+          sz,
+          sz,
+          col,
+          solid ? 1 : PLUME_ALPHA[band]!,
+          solid ? Shape.Solid : Shape.Pixel,
         );
       } else if (k === PKind.Flame) {
         const band = Math.min(3, Math.floor(t * 4));

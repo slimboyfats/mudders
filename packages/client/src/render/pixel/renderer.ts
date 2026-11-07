@@ -14,11 +14,23 @@ import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
+import {
+  HEAT_NONE,
+  HEAT_RGB,
+  HEAT_STRENGTH,
+  Lights,
+  band,
+  heatFalloff,
+  heatField,
+  lightAt,
+  litColor,
+} from './lighting';
 import { PKind, Particles } from './particles';
 import {
   BG_FS,
   CUT_REACH,
   FULLSCREEN_VS,
+  HAZE_TICKS,
   MAX_RIPPLES,
   POST_FS,
   SCENERY_FS,
@@ -27,12 +39,14 @@ import {
 } from './shaders';
 import {
   DEFAULT_THEME,
+  mix,
   pixelTheme,
   playerColor,
   shade,
   withWeather,
   type PixelTheme,
 } from './theme';
+import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -128,10 +142,20 @@ function spriteColor(code: number, col: number, shieldOn: boolean): number {
 interface Trail {
   id: number;
   turn: number;
-  /** x0,y0,x1,y1,… in map cells. */
-  pts: number[];
+  /** Last position seen (sub-cell), NaN before the first. */
+  lx: number;
+  ly: number;
+  /** Cells the shell passed through, x0,y0,x1,y1,… oldest first, one entry per map cell. */
+  cells: number[];
+  /** 0xRRGGBB, or -1 for the theme's trail colour. */
+  color: number;
   live: boolean;
 }
+
+/** Cells of a live trail behind the head drawn white-hot, then in full colour, then dimmed. */
+const TRAIL_HOT = 3;
+const TRAIL_FULL = 40;
+const TRAIL_DIM = 140;
 
 /** Hard shade bands for flying debris cells. */
 const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
@@ -170,6 +194,8 @@ export class PixelRenderer implements Renderer {
   /** Where each wreck is drawn (by player; NaN = not dead yet): it drops onto the ground left
    * under it, since the sim stops moving dead tanks. */
   private wreckY: number[] = [];
+  /** Death sequences by player (blown-off turret, burning hull, cook-offs). */
+  private wrecks: (Wreck | undefined)[] = [];
   private wreckV: number[] = [];
   /** Shaded terrain colours, one texel per cell, re-shaded only inside dirty rects. */
   private colorTex!: WebGLTexture;
@@ -194,6 +220,7 @@ export class PixelRenderer implements Renderer {
       | 'u_bottom'
       | 'u_letterbox'
       | 'u_flash'
+      | 'u_white'
       | 'u_vignette'
       | 'u_terrain'
       | 'u_coat'
@@ -209,6 +236,11 @@ export class PixelRenderer implements Renderer {
       | 'u_grassMask'
       | 'u_burn'
       | 'u_burnOn'
+      | 'u_lightCount'
+      | 'u_lights'
+      | 'u_lightCol'
+      | 'u_heat'
+      | 'u_heatOn'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -220,6 +252,13 @@ export class PixelRenderer implements Renderer {
    * and low-end phones). */
   private anyCycle = false;
   private anyHot = false;
+  /** This frame's point lights (blasts, fireballs), see lighting.ts. */
+  private readonly lights = new Lights();
+  private readonly lightTmp: [number, number, number] = [0, 0, 0];
+  /** Cells to the nearest hot or burning cell (R8UI), rebuilt with each look scan. */
+  private heat = new Uint8Array(0);
+  private heatTex!: WebGLTexture;
+  private heatOn = false;
   /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
   private readonly flameCells = new Int32Array(FLAME_CAP);
   private flameN = 0;
@@ -369,6 +408,7 @@ export class PixelRenderer implements Renderer {
       'u_bottom',
       'u_letterbox',
       'u_flash',
+      'u_white',
       'u_vignette',
       'u_terrain',
       'u_coat',
@@ -384,6 +424,11 @@ export class PixelRenderer implements Renderer {
       'u_grassMask',
       'u_burn',
       'u_burnOn',
+      'u_lightCount',
+      'u_lights',
+      'u_lightCol',
+      'u_heat',
+      'u_heatOn',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -451,6 +496,19 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_INT,
       this.burn,
+    );
+    this.heat = new Uint8Array(this.mapWidth * this.mapHeight).fill(HEAT_NONE);
+    this.heatTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.heat,
     );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
@@ -678,6 +736,7 @@ export class PixelRenderer implements Renderer {
       this.uploadBurn(0, 0, s.width, s.height);
       this.wreckY = [];
       this.wreckV = [];
+      this.wrecks = [];
     }
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
@@ -704,6 +763,7 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
+      if (e.type === 'tankDeath') this.startWreck(e.params.player ?? -1, e.tick);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
@@ -912,6 +972,46 @@ export class PixelRenderer implements Renderer {
     }
   }
 
+  /** A tank just died: blow its turret off and set the hull burning (see `wreck.ts`). */
+  private startWreck(player: number, tick: number): void {
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || e.player !== player) continue;
+      const look = (e.tank && this.palette.tanks?.[e.tank]) || STANDARD_LOOK;
+      const col = playerColor(player);
+      this.wrecks[player] = makeWreck(
+        look,
+        (code) => spriteColor(code, col, false),
+        player,
+        e.x,
+        e.y,
+        e.angle,
+        tick,
+      );
+    }
+  }
+
+  /** One cosmetic tick of every death sequence; cook-offs become small blasts. */
+  private stepDeaths(): void {
+    const t = this.fxTick;
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || e.alive) continue;
+      const w = this.wrecks[e.player];
+      if (!w) continue;
+      const solid = (x: number, y: number) => this.probe.solid(x, y);
+      const cook = stepWreck(
+        w,
+        t,
+        e.x,
+        this.tankY(e),
+        solid,
+        this.particles,
+        this.fx.mult,
+        this.mapHeight,
+      );
+      if (cook) this.fx.cookOff(cook.x, cook.y, cook.radius, cook.big, t);
+    }
+  }
+
   /** Row a tank is drawn standing on: wrecks use their dropped position. */
   private tankY(e: TankView): number {
     if (e.alive) return e.y;
@@ -928,6 +1028,7 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
+    this.scanHeat((any & 6) !== 0);
     this.flameN = 0;
     if ((any & 4) === 0) return;
     // flaming cells with air above: where the flame tongues lick up from
@@ -935,6 +1036,18 @@ export class PixelRenderer implements Renderer {
     for (let i = w; i < t.length && this.flameN < FLAME_CAP; i++) {
       if ((f[t[i]!]! & 4) !== 0 && t[i - w] === 0) this.flameCells[this.flameN++] = i;
     }
+  }
+
+  /** Rebuild and upload the heat field lava and flames light the ground from. */
+  private scanHeat(any: boolean): void {
+    if (!any && !this.heatOn) return;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    this.heatOn = any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat);
+    if (!this.heatTex) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.heat);
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
@@ -1142,6 +1255,7 @@ export class PixelRenderer implements Renderer {
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
     this.stepWrecks();
+    this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
     this.stepFlames();
@@ -1269,22 +1383,113 @@ export class PixelRenderer implements Renderer {
 
   private updateTrails(s: RenderSnapshot): void {
     for (const t of this.trails) t.live = false;
+    const shells = this.palette.shells;
     for (const e of s.entities) {
       if (e.kind !== 'projectile' || this.fx.lances.owns(e.x, e.y)) continue;
-      if (this.palette.shells?.[e.weapon]?.trail === false) continue;
+      const look = shells?.[e.weapon];
+      if (look?.trail === false) continue;
       let tr = this.trails.find((t) => t.id === e.id);
       if (!tr) {
         // a new shot clears trails from earlier turns (they persist faintly until then, §3.3)
         this.trails = this.trails.filter((t) => t.turn === s.turn);
-        tr = { id: e.id, turn: s.turn, pts: [], live: true };
+        const color = look?.trailColor ?? -1;
+        tr = { id: e.id, turn: s.turn, lx: NaN, ly: NaN, cells: [], color, live: true };
         this.trails.push(tr);
       }
       tr.live = true;
-      const n = tr.pts.length;
       // skip wrap-around jumps
-      if (n >= 2 && Math.abs(tr.pts[n - 2]! - e.x) > s.width / 2) tr.pts.push(NaN, NaN);
-      tr.pts.push(e.x, e.y);
+      if (!Number.isNaN(tr.lx) && Math.abs(tr.lx - e.x) <= s.width / 2) {
+        this.graze(tr, e.id, e.x, e.y, s.tick);
+        rasterTrail(tr.cells, tr.lx, tr.ly, e.x, e.y);
+      } else rasterTrail(tr.cells, e.x, e.y, e.x, e.y);
+      tr.lx = e.x;
+      tr.ly = e.y;
     }
+  }
+
+  /**
+   * A shell skimming the ground (moving along it, not into it) throws sparks off the surface and
+   * kicks a little grit of the local material: hard 1-cell sparks in white, gold and the shell's
+   * trail colour, flying out along the surface normal and forward with the shell.
+   */
+  private graze(tr: Trail, id: number, x: number, y: number, tick: number): void {
+    const vx = x - tr.lx;
+    const vy = y - tr.ly;
+    const sp = Math.hypot(vx, vy);
+    if (sp < 0.5) return;
+    const cx = Math.floor(x);
+    const cy = Math.floor(y);
+    const p = this.probe;
+    if (p.solid(cx, cy)) return; // burrowing (diggers) or already hitting
+    // solid cells within two cells, summed into an outward surface normal
+    let nx = 0;
+    let ny = 0;
+    let hits = 0;
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if ((dx === 0 && dy === 0) || !p.solid(cx + dx, cy + dy)) continue;
+        nx -= dx;
+        ny -= dy;
+        hits++;
+      }
+    }
+    if (hits === 0) return;
+    const nl = Math.hypot(nx, ny);
+    if (nl < 1e-6) return;
+    nx /= nl;
+    ny /= nl;
+    // diving straight in is an impact, not a graze
+    if (-(vx * nx + vy * ny) / sp > 0.75) return;
+    const col = tr.color < 0 ? this.theme.trail : tr.color;
+    const ground = this.palette.materials[this.groundCellNear(cx, cy)] ?? 0x7a5a3a;
+    let r = (Math.imul(tick + 13, 2654435761) ^ Math.imul(id + 5, 40503)) >>> 0;
+    const n = Math.min(6, 2 + hits / 4) * this.fx.mult;
+    for (let i = 0; i < n; i++) {
+      r = (Math.imul(r ^ (r >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
+      const kick = 0.5 + ((r >>> 4) & 15) * 0.06;
+      const fwd = 0.15 + ((r >>> 8) & 15) * 0.03;
+      const side = (((r >>> 12) & 15) - 7.5) * 0.05;
+      const pick = (r >>> 16) & 7;
+      this.particles.add({
+        x: x - nx * 0.5,
+        y: y - ny * 0.5,
+        vx: nx * kick + (vx / sp) * fwd * sp - ny * side,
+        vy: ny * kick + (vy / sp) * fwd * sp + nx * side,
+        life: 6 + ((r >>> 20) & 7),
+        size: 1,
+        color: pick < 2 ? 0xffffff : pick < 5 ? 0xffd860 : col,
+        kind: PKind.Spark,
+      });
+    }
+    if ((r >>> 24) & 1) {
+      this.particles.add({
+        x: x - nx,
+        y: y - ny,
+        vx: nx * 0.6 + (vx / sp) * 0.3,
+        vy: ny * 0.6 - 0.4,
+        life: 14 + ((r >>> 26) & 7),
+        size: 1,
+        color: shade(ground, 0.8 + ((r >>> 28) & 3) * 0.1),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Material of the nearest solid cell around (x, y), or 0. */
+  private groundCellNear(x: number, y: number): number {
+    const W = this.mapWidth;
+    for (let r = 1; r <= 2; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= W || yy >= this.mapHeight) continue;
+          const m = this.terrain[yy * W + xx]!;
+          if (m !== 0) return m;
+        }
+      }
+    }
+    return 0;
   }
 
   // ── drawing ─────────────────────────────────────────────────────────────────────────────
@@ -1355,6 +1560,8 @@ export class PixelRenderer implements Renderer {
       sky[1] + storm * 0.6,
       sky[2] + storm * 0.75,
     );
+    // nuke whiteout; softer for players who asked their system for less motion
+    gl.uniform1f(this.uBg.u_white, fx.whiteout(t) * (this.shakeOn ? 1 : 0.4));
     gl.uniform1f(this.uBg.u_vignette, this.quality === 'low' ? 0 : th.vignette);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
@@ -1370,7 +1577,16 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
     gl.activeTexture(gl.TEXTURE7);
     gl.bindTexture(gl.TEXTURE_2D, this.burnTex);
+    gl.activeTexture(gl.TEXTURE8);
+    gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
     gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_heat, 8);
+    gl.uniform1f(this.uBg.u_heatOn, this.heatOn ? 1 : 0);
+    this.lights.clear();
+    this.fx.collectLights(this.lights, t);
+    gl.uniform1i(this.uBg.u_lightCount, this.lights.count);
+    gl.uniform4fv(this.uBg.u_lights, this.lights.pos);
+    gl.uniform3fv(this.uBg.u_lightCol, this.lights.col);
     gl.uniform1i(this.uBg.u_grassMask, 6);
     gl.uniform1i(this.uBg.u_burn, 7);
     gl.uniform1f(this.uBg.u_burnOn, this.lastBurn >= 0 && t - this.lastBurn < EMBER_TICKS ? 1 : 0);
@@ -1379,7 +1595,9 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(this.uBg.u_look, 3);
     gl.uniform1i(this.uBg.u_palette, 4);
     gl.uniform1f(this.uBg.u_time, t);
-    gl.uniform1f(this.uBg.u_haze, distort && this.anyHot ? 1 : 0);
+    // haze over hot ground, and over fresh craters while they cool
+    const warm = this.lastBurn >= 0 && t - this.lastBurn < HAZE_TICKS;
+    gl.uniform1f(this.uBg.u_haze, distort && (this.anyHot || warm) ? 1 : 0);
     gl.uniform1f(this.uBg.u_anim, this.anyCycle ? 1 : 0);
     gl.uniform1f(
       this.uBg.u_stars,
@@ -1397,6 +1615,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawFunnels(this.normal, this.additive, t);
     this.fx.drawPosts(this.normal, t);
     this.drawDebris();
+    this.fx.drawChunks(this.normal);
     this.drawMines(t);
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
@@ -1530,17 +1749,30 @@ export class PixelRenderer implements Renderer {
     d[2] = 0;
   }
 
+  /**
+   * Shell trails on the pixel grid, in the weapon type's colour (§2a: no smooth lines). A live
+   * trail runs in hard bands back from the shell: a few white-hot cells, full colour, a dimmer
+   * shade, then a checkerboard dither. Trails of finished shots stay as a faint dither until the
+   * next shot.
+   */
   private drawTrails(): void {
     const b = this.normal;
-    const col = this.theme.trail;
     for (const tr of this.trails) {
-      const a = tr.live ? 0.55 : 0.22;
-      const p = tr.pts;
-      for (let i = 2; i < p.length; i += 2) {
-        if (Number.isNaN(p[i]!) || Number.isNaN(p[i - 2]!)) continue;
-        // fade the tail of a live trail
-        const k = tr.live ? Math.max(0.25, 1 - (p.length - i) / 240) : 1;
-        b.line(p[i - 2]!, p[i - 1]!, p[i]!, p[i + 1]!, 0.7, col, a * k);
+      const col = tr.color < 0 ? this.theme.trail : tr.color;
+      const hot = mix(col, 0xffffff, 0.6);
+      const dim = shade(col, 0.7);
+      const c = tr.cells;
+      const n = c.length >> 1;
+      for (let i = 0; i < n; i++) {
+        const x = c[i * 2]!;
+        const y = c[i * 2 + 1]!;
+        const back = n - 1 - i;
+        if (!tr.live) {
+          if (((x + y) & 1) === 0) b.push(x + 0.5, y + 0.5, 1, 1, dim, 0.45);
+        } else if (back < TRAIL_HOT) b.push(x + 0.5, y + 0.5, 1, 1, hot, 0.95);
+        else if (back < TRAIL_FULL) b.push(x + 0.5, y + 0.5, 1, 1, col, 0.8);
+        else if (back < TRAIL_DIM) b.push(x + 0.5, y + 0.5, 1, 1, dim, 0.6);
+        else if (((x + y) & 1) === 0) b.push(x + 0.5, y + 0.5, 1, 1, dim, 0.5);
       }
     }
   }
@@ -1609,9 +1841,24 @@ export class PixelRenderer implements Renderer {
     }
   }
 
+  /** Light on a tank from this frame's blasts and nearby lava or flames, banded like the ground. */
+  private tankLight(x: number, y: number): [number, number, number] {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const l = lightAt(this.lights, xi, yi, this.lightTmp);
+    if (this.heatOn && xi >= 0 && yi >= 0 && xi < this.mapWidth && yi < this.mapHeight) {
+      const q = band(heatFalloff(this.heat[yi * this.mapWidth + xi]!) * HEAT_STRENGTH, xi, yi);
+      l[0] += HEAT_RGB[0] * q;
+      l[1] += HEAT_RGB[1] * q;
+      l[2] += HEAT_RGB[2] * q;
+    }
+    return l;
+  }
+
   private drawTanks(t: number): void {
     const b = this.normal;
     const looks = this.palette.tanks;
+    for (const w of this.wrecks) if (w) drawTurret(b, w, t);
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
@@ -1623,10 +1870,16 @@ export class PixelRenderer implements Renderer {
       const sh = rows.length;
       const x0 = x - (sw >> 1);
       const y0 = y - sh;
+      const lit = this.tankLight(x, y - (sh >> 1));
       if (!e.alive) {
-        // a flattened wreck as wide as the tank
-        b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
-        b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
+        const w = this.wrecks[e.player];
+        if (w) {
+          drawHull(b, w, x, y, t);
+        } else {
+          // a flattened wreck as wide as the tank (died before this renderer saw it)
+          b.rect(x0 + 1, y - 3, sw - 2, 3, litColor(0x2a2426, lit));
+          b.rect(x - 4, y - 5, 7, 2, litColor(0x1d191b, lit));
+        }
         continue;
       }
       // the tank leans with the ground: each sprite column drops by whole cells (a pixel shear)
@@ -1643,7 +1896,13 @@ export class PixelRenderer implements Renderer {
       for (let i = 1; i <= br.length; i++) {
         const cx = Math.round(px + ca * i);
         const cy = Math.round(py - sa * i);
-        b.rect(cx - off, cy - off, br.width, br.width, i === br.length ? 0xa8a298 : 0xd8d2c8);
+        b.rect(
+          cx - off,
+          cy - off,
+          br.width,
+          br.width,
+          litColor(i === br.length ? 0xa8a298 : 0xd8d2c8, lit),
+        );
       }
       const shieldOn = e.shield > 0;
       for (let r = 0; r < sh; r++) {
@@ -1651,7 +1910,7 @@ export class PixelRenderer implements Renderer {
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
-          b.rect(x0 + c, y0 + r + lean(c), 1, 1, spriteColor(code, col, shieldOn));
+          b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(spriteColor(code, col, shieldOn), lit));
         }
       }
       if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
@@ -1956,7 +2215,7 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
         continue;
       }
-      g.push(e.x, e.y, 6, 6, 0xff9a40, 0.6, Shape.Pixel);
+      g.push(e.x, e.y, 6, 6, look?.trailColor ?? 0xff9a40, 0.6, Shape.Pixel);
       g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
     }
   }
@@ -2026,6 +2285,7 @@ export class PixelRenderer implements Renderer {
     this.additive.dispose();
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
+    gl.deleteTexture(this.heatTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);
@@ -2070,5 +2330,21 @@ export function grassMask(terrain: Uint8Array, w: number, h: number, out: Uint8A
       if (y > 0) out[row - w + x] = 1;
       if (y + 1 < h) out[row + w + x] = 1;
     }
+  }
+}
+
+/**
+ * Append the map cells on the segment (x0, y0) → (x1, y1) to `out` (x, y pairs), skipping the
+ * first cell when it repeats the last one stored, so a trail holds each cell it crossed once in a row.
+ */
+export function rasterTrail(out: number[], x0: number, y0: number, x1: number, y1: number): void {
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))));
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const cx = Math.floor(x0 + (x1 - x0) * t);
+    const cy = Math.floor(y0 + (y1 - y0) * t);
+    const n = out.length;
+    if (n >= 2 && out[n - 2] === cx && out[n - 1] === cy) continue;
+    out.push(cx, cy);
   }
 }
