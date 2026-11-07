@@ -1,0 +1,81 @@
+{
+  "id": "showcase.smoke-columns",
+  "schemaVersion": 1,
+  "description": "Smoke columns: a Missile and then a Nuke leave lingering smoke columns that lean and drift downwind and thin out over several seconds.",
+  "subject": "mode.classic",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.nuke": 1
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.007,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.nuke"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 120,
+        "power": 560
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 600
+  }
+}
