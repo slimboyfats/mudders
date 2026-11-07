@@ -2,8 +2,11 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
+import { Chunks } from './chunks';
 import { FxRng } from './gl';
+import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
 import { Lances } from './lance';
+import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Particles } from './particles';
@@ -134,10 +137,55 @@ interface Splat {
   dur: number;
 }
 
+/** Smoke column soot tones: deep, grey, black (fire). */
+const SOOT = [0x3a3436, 0x6a6262, 0x342c2a] as const;
+
 /** Mud tones for geyser columns and splats: deep, body, lit, wet sheen. */
 const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 /** Steam puffs over a geyser. */
 const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
+
+/**
+ * A smoke column left standing over a big impact: a stream of `Plume` puffs fed from the crater,
+ * thinning out over `dur` ticks. The puffs drift with the wind, so the column bends downwind and
+ * its top spreads into a flat pall.
+ */
+interface SmokeColumn {
+  x: number;
+  y: number;
+  /** Blast radius that started it (grows when a blast lands right on top of it). */
+  r: number;
+  start: number;
+  dur: number;
+  /** Young puff tone: black soot for fire, grey for plain blasts, tinted dust for kinetic hits. */
+  color: number;
+  rng: FxRng;
+}
+
+/** Smallest blast radius that leaves a smoke column (a standard missile is 24). */
+export const SMOKE_COLUMN_MIN_R = 18;
+/** Columns kept at once; the oldest goes first. */
+const SMOKE_COLUMN_MAX = 10;
+/** Ticks a nuke's sky whiteout holds at full strength before it starts to fade. */
+export const WHITEOUT_HOLD = 8;
+
+/**
+ * Nuke sky whiteout (day/night flash): the strength of the white sky `age` ticks after the bang.
+ * Holds at `peak` for WHITEOUT_HOLD ticks, then eases back to the normal sky over `fade` ticks
+ * (slow at first, slow at the end). The shader turns it into hard dithered bands.
+ */
+export function whiteoutAt(age: number, peak: number, fade: number): number {
+  if (age < 0 || peak <= 0) return 0;
+  if (age <= WHITEOUT_HOLD) return peak;
+  const k = 1 - (age - WHITEOUT_HOLD) / fade;
+  if (k <= 0) return 0;
+  return peak * k * k * (3 - 2 * k);
+}
+
+/** A nuke's whiteout size: bigger blasts light the sky harder and for longer. */
+export function whiteoutFor(radius: number): { peak: number; fade: number } {
+  return { peak: Math.min(1, 0.45 + radius / 130), fade: Math.round(60 + radius * 3) };
+}
 
 interface Bolt {
   /** Cells of the jagged path, x0,y0,x1,y1,… (main channel then branches). */
@@ -162,6 +210,13 @@ const DT_LOOK: readonly (readonly [number, number, number, number])[] = [
   [0xb8f040, 0.22, 0.5, 0.1],
 ];
 
+/** Debris chunks alive at once (cosmetic; the oldest resting one is replaced when full). */
+const CHUNK_CAP = 192;
+/** Smallest blast radius that throws debris chunks. */
+const CHUNK_MIN_RADIUS = 18;
+/** Gravity for chunks, in cells/tick² (the renderer's particle gravity). */
+const CHUNK_GRAVITY = 0.12;
+
 export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> = {
   low: { cap: 800, mult: 0.35 },
   medium: { cap: 2500, mult: 0.7 },
@@ -174,6 +229,14 @@ export interface TerrainProbe {
   color(material: number): number;
   width: number;
   height: number;
+}
+
+/** Pull a glow colour halfway to a fire orange, for the light it casts on the ground. */
+function warmLight(c: number): number {
+  const r = ((c >> 16) & 255) * 0.5 + 255 * 0.5;
+  const g = ((c >> 8) & 255) * 0.5 + 150 * 0.5;
+  const b = (c & 255) * 0.5 + 60 * 0.5;
+  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
 export class EffectSystem {
@@ -194,11 +257,24 @@ export class EffectSystem {
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
+  /** Lingering smoke columns over big impacts. */
+  readonly columns: SmokeColumn[] = [];
+  /** The shake playing now: peak amplitude in cells, start and length in presentation ticks. */
   private shakeAmp = 0;
   private shakeStart = 0;
+  private shakeDur = SHAKE_MIN;
+  /**
+   * Ticks the picture has been held by hit-stop so far (`HitStop.held`), set by the renderer each
+   * frame. Shakes run on sim time plus this, so they keep moving while the picture is frozen.
+   */
+  held = 0;
   /** Sky tint, additive RGB, decaying every tick. `skyFlash` is its strength. */
   readonly sky: [number, number, number] = [0, 0, 0];
   skyFlash = 0;
+  /** Nuke sky whiteout: bang tick, peak strength and fade length (see whiteoutAt). */
+  private whiteStart = 0;
+  private whitePeak = 0;
+  private whiteFade = 1;
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
@@ -211,12 +287,39 @@ export class EffectSystem {
    */
   ricochetHeat = 0;
   private ricochetLast = -1000;
+  /** Debris chunks big blasts throw: they bounce, settle and crumble away. */
+  readonly chunks: Chunks;
 
   constructor(
     private readonly particles: Particles,
     private readonly probe: TerrainProbe,
   ) {
     this.lances = new Lances(particles);
+    this.chunks = new Chunks(
+      CHUNK_CAP,
+      { solid: (x, y) => probe.material(x, y) !== 0 },
+      (x, y, speed) => this.thud(x, y, speed),
+    );
+  }
+
+  /** A little puff of dust where a chunk lands hard. */
+  private thud(x: number, y: number, speed: number): void {
+    if (this.mult < 0.5) return;
+    const col = shade(this.dustColor(x, y + 1), 1.15);
+    const n = speed > 2.5 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const side = i === 0 ? -1 : 1;
+      this.particles.add({
+        x: x + side,
+        y: y - 1,
+        vx: side * 0.25,
+        vy: -0.12,
+        life: 18 + Math.round(speed * 4),
+        size: 2 + Math.min(2, speed * 0.5),
+        color: col,
+        kind: PKind.Dust,
+      });
+    }
   }
 
   private rngFor(e: EffectEvent, salt: number): FxRng {
@@ -246,6 +349,9 @@ export class EffectSystem {
           strength,
         });
         this.tintSky(look, 0.008 * e.radius * strength);
+        // every blast shakes the screen by its size (manifests can ask for more with `shake`)
+        this.kick(blastShake(e.radius, strength), e.tick);
+        this.smokeColumn(e, e.params.dt ?? 0);
         // the biggest blasts (nukes) bloom white and split the picture's colours
         if (e.radius >= 60) {
           this.glows.push({
@@ -295,8 +401,7 @@ export class EffectSystem {
         this.dirtBurst(e);
         break;
       case 'shake':
-        this.shakeAmp = Math.max(this.shakeAmp, (e.params.strength ?? 1) * 3);
-        this.shakeStart = e.tick;
+        this.kick((e.params.strength ?? 1) * 3, e.tick);
         break;
       case 'ripple':
         this.ripples.push({
@@ -440,8 +545,7 @@ export class EffectSystem {
           });
         }
         if (big) {
-          this.shakeAmp = Math.max(this.shakeAmp, 3);
-          this.shakeStart = e.tick;
+          this.kick(3, e.tick);
         }
         break;
       }
@@ -496,8 +600,7 @@ export class EffectSystem {
           dur: Math.max(10, e.params.ticks ?? 40),
           rng: this.rngFor(e, 131),
         });
-        this.shakeAmp = Math.max(this.shakeAmp, 3);
-        this.shakeStart = e.tick;
+        this.kick(3, e.tick);
         break;
       case 'volcanoErupt':
         this.eruption(e, 0.9);
@@ -578,14 +681,12 @@ export class EffectSystem {
         break;
       }
       case 'iceWall':
-        this.shakeAmp = Math.max(this.shakeAmp, 1.5);
-        this.shakeStart = e.tick;
+        this.kick(1.5, e.tick);
         break;
       case 'quake': {
         // ground shudder: shake plus dust kicked up along the surface around the epicentre
         const strength = e.params.strength ?? 1;
-        this.shakeAmp = Math.max(this.shakeAmp, strength * 2.5);
-        this.shakeStart = e.tick;
+        this.kick(strength * 2.5, e.tick);
         const rng = this.rngFor(e, 13);
         const n = Math.round(Math.min(40, e.radius / 4 + 6) * this.mult) + 2;
         for (let i = 0; i < n; i++) {
@@ -606,15 +707,13 @@ export class EffectSystem {
         break;
       }
       case 'tsunamiRise':
-        this.shakeAmp = Math.max(this.shakeAmp, 5);
-        this.shakeStart = e.tick;
+        this.kick(5, e.tick);
         break;
       case 'tsunami': {
         // the breaking lip of a Dirt Tsunami: dust blown forward off the crest, plus a rumble
         const dir = e.params.dir ?? 1;
         const rng = this.rngFor(e, 17);
-        this.shakeAmp = Math.max(this.shakeAmp, Math.min(3, e.radius / 12));
-        this.shakeStart = e.tick;
+        this.kick(Math.min(3, e.radius / 12), e.tick);
         const n = Math.round(Math.min(14, 3 + e.radius / 4) * this.mult) + 1;
         for (let i = 0; i < n; i++) {
           const x = Math.round(e.x - dir * rng.range(0, 6));
@@ -637,8 +736,7 @@ export class EffectSystem {
         // the wave comes down: a heavy thud and a wall of dust rolling on past the heap
         const dir = e.params.dir ?? 1;
         const rng = this.rngFor(e, 19);
-        this.shakeAmp = Math.max(this.shakeAmp, 9);
-        this.shakeStart = e.tick;
+        this.kick(9, e.tick);
         const n = Math.round(Math.min(60, 12 + e.radius) * this.mult) + 2;
         for (let i = 0; i < n; i++) {
           const x = Math.round(e.x + dir * rng.range(-e.radius, e.radius * 1.5));
@@ -755,8 +853,7 @@ export class EffectSystem {
         break;
       case 'magnetOn':
         // the field kicks in: a jolt and a short drop in the sky's light
-        this.shakeAmp = Math.max(this.shakeAmp, 2);
-        this.shakeStart = e.tick;
+        this.kick(2, e.tick);
         this.tintSky([0, 0.05, 0.2, 0.3], 0.15);
         break;
       case 'magnetClank': {
@@ -775,14 +872,12 @@ export class EffectSystem {
             kind: PKind.Spark,
           });
         }
-        this.shakeAmp = Math.max(this.shakeAmp, 3);
-        this.shakeStart = e.tick;
+        this.kick(3, e.tick);
         break;
       }
       case 'touchdown': {
         // the funnel hits the ground: a jolt and a ring of dust thrown out along the surface
-        this.shakeAmp = Math.max(this.shakeAmp, 3);
-        this.shakeStart = e.tick;
+        this.kick(3, e.tick);
         this.fronts.push({
           x: e.x,
           y: e.y,
@@ -820,8 +915,7 @@ export class EffectSystem {
           });
         }
         if (e.type === 'tornadoGrab') {
-          this.shakeAmp = Math.max(this.shakeAmp, 2);
-          this.shakeStart = e.tick;
+          this.kick(2, e.tick);
         }
         break;
       }
@@ -850,8 +944,7 @@ export class EffectSystem {
           width: 5,
           strength: 0.5,
         });
-        this.shakeAmp = Math.max(this.shakeAmp, 2);
-        this.shakeStart = e.tick;
+        this.kick(2, e.tick);
         break;
       case 'tornadoEnd': {
         // the funnel breaks up: a burst of storm dust where it stood
@@ -894,8 +987,7 @@ export class EffectSystem {
           strength: 1.2,
         });
         this.tintSky(DT_LOOK[2]!, 0.5);
-        this.shakeAmp = Math.max(this.shakeAmp, 7);
-        this.shakeStart = e.tick;
+        this.kick(7, e.tick);
         break;
       default:
         break; // unknown effect: ignored by contract
@@ -910,6 +1002,12 @@ export class EffectSystem {
   private nuke(e: EffectEvent): void {
     const r = e.radius;
     const k = e.params.strength ?? 1;
+    // the whole sky goes white with the bang, then slowly fades back (a second nuke restarts it)
+    const w = whiteoutFor(r * k);
+    const now = this.whiteout(e.tick);
+    this.whiteStart = e.tick;
+    this.whitePeak = Math.max(w.peak, now);
+    this.whiteFade = Math.max(w.fade, now > 0 ? this.whiteFade : 1);
     // the mushroom cloud starts with the bang, together with the shockwave
     this.mushrooms.push(makeMushroom(e.x, e.y, r, e.tick, this.rngFor(e, 31).next() * 4294967296));
     this.ripples.push({
@@ -938,8 +1036,7 @@ export class EffectSystem {
       dur: 46,
       rng: this.rngFor(e, 37),
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 4 + r / 12);
-    this.shakeStart = e.tick;
+    this.kick(4 + r / 12, e.tick);
     const rng = this.rngFor(e, 41);
     const base = this.dustColor(e.x, e.y + r * 0.5);
     const n = Math.round((120 + r * 2) * this.mult);
@@ -1014,8 +1111,7 @@ export class EffectSystem {
       });
     }
     this.tintSky(DT_LOOK[4]!, 0.15);
-    this.shakeAmp = Math.max(this.shakeAmp, 2);
-    this.shakeStart = e.tick;
+    this.kick(2, e.tick);
   }
 
   /**
@@ -1302,8 +1398,7 @@ export class EffectSystem {
       dur: 30,
       rng: this.rngFor(e, 67),
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 3 + (r / 25) * k);
-    this.shakeStart = e.tick;
+    this.kick(3 + (r / 25) * k, e.tick);
     this.tintSky([0, 0.55, 0.6, 0.75], 0.25 * k);
     const rng = this.rngFor(e, 71);
     const base = this.dustColor(e.x, e.y + 4);
@@ -1382,8 +1477,7 @@ export class EffectSystem {
       });
     }
     this.tintSky(DT_LOOK[2]!, 0.35 * k);
-    this.shakeAmp = Math.max(this.shakeAmp, 4 * k);
-    this.shakeStart = e.tick;
+    this.kick(4 * k, e.tick);
   }
 
   /** Singularity cores: a black pixel disc with a violet rim, growing as the hang goes on. */
@@ -1584,8 +1678,7 @@ export class EffectSystem {
       width: 10,
       strength: 0.8 * k,
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 3 + r / 25);
-    this.shakeStart = e.tick;
+    this.kick(3 + r / 25, e.tick);
     const rng = this.rngFor(e, 53);
     // starburst: jagged ice spikes shooting out of the impact, upward-biased (the ground stops the rest)
     const pts: number[] = [];
@@ -1671,8 +1764,7 @@ export class EffectSystem {
     const rng = this.rngFor(e, 53);
     const R = Math.max(8, e.radius);
     const depth = Math.max(8, e.params.depth ?? 40);
-    this.shakeAmp = Math.max(this.shakeAmp, 8);
-    this.shakeStart = e.tick;
+    this.kick(8, e.tick);
     this.ripples.push({
       x: e.x,
       y: e.y + depth * 0.5,
@@ -1753,8 +1845,7 @@ export class EffectSystem {
     const depth = Math.max(8, e.radius);
     const w = Math.max(1, e.params.width ?? 3);
     const hot = (e.params.hot ?? 0) > 0;
-    this.shakeAmp = Math.max(this.shakeAmp, hot ? 9 : 6);
-    this.shakeStart = e.tick;
+    this.kick(hot ? 9 : 6, e.tick);
     this.ripples.push({
       x: e.x,
       y: e.y + depth * 0.4,
@@ -1852,8 +1943,7 @@ export class EffectSystem {
       dur: 30,
       rng: this.rngFor(e, 103),
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 5);
-    this.shakeStart = e.tick;
+    this.kick(5, e.tick);
     this.tintSky([0, 0.34, 0.27, 0.16], 0.45);
     // the first slug of mud: a fat burst straight up out of the vent
     const rng = this.rngFor(e, 107);
@@ -2010,8 +2100,7 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
-    this.shakeAmp = Math.max(this.shakeAmp, 2);
-    this.shakeStart = e.tick;
+    this.kick(2, e.tick);
   }
 
   /** A tank gummed up: goo slaps onto it, and strings stretch from the hull down to the ground. */
@@ -2223,8 +2312,7 @@ export class EffectSystem {
       width: 10,
       strength: 0.9,
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 4);
-    this.shakeStart = e.tick;
+    this.kick(4, e.tick);
     this.stars({ ...e, y: e.y - 12 }, 30, 2.2);
     this.tintSky([0, 0.45, 0.35, 0.1], 0.18);
   }
@@ -2297,14 +2385,18 @@ export class EffectSystem {
       width: 18,
       strength: 1.1,
     });
-    this.shakeAmp = Math.max(this.shakeAmp, 5);
-    this.shakeStart = e.tick;
+    this.kick(5, e.tick);
   }
 
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
     this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t));
+  }
+
+  /** Strength 0..1 of the nuke sky whiteout at tick `t`. */
+  whiteout(t: number): number {
+    return whiteoutAt(t - this.whiteStart, this.whitePeak, this.whiteFade);
   }
 
   /** Add a coloured sky tint (§2a sky reaction); `amount` ~0.5 is a big flash. */
@@ -2548,8 +2640,7 @@ export class EffectSystem {
     }
     // a crackle of short arcs licking along the ground from the bounce, from the third bounce on
     if (heat >= 3) this.arcs({ ...e, radius: 4 + heat }, 0.35);
-    this.shakeAmp = Math.max(this.shakeAmp, 0.6 + heat * 0.25);
-    this.shakeStart = e.tick;
+    this.kick(0.6 + heat * 0.25, e.tick);
   }
 
   /**
@@ -2709,8 +2800,7 @@ export class EffectSystem {
         kind: PKind.Smoke,
       });
     }
-    this.shakeAmp = Math.max(this.shakeAmp, 5);
-    this.shakeStart = e.tick;
+    this.kick(5, e.tick);
   }
 
   private burst(e: EffectEvent, count: number): void {
@@ -2749,6 +2839,7 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
+    if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
     const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
@@ -2764,9 +2855,120 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Leave a smoke column over a big blast. Fire and plain blasts and kinetic hits smoke; cold,
+   * shock, dig and corrosive blasts don't. A blast landing on a fresh column feeds that column
+   * instead of starting a second one, so MIRVs and meteor showers don't stack up dozens.
+   */
+  private smokeColumn(e: EffectEvent, dt: number): void {
+    if (e.radius < SMOKE_COLUMN_MIN_R || dt > 2) return;
+    const dur = Math.round(420 + e.radius * 10);
+    for (const c of this.columns) {
+      if (Math.abs(c.x - e.x) > Math.max(c.r, e.radius) || e.tick - c.start > c.dur * 0.5) continue;
+      c.r = Math.min(120, Math.max(c.r, e.radius) + 4);
+      c.dur = Math.max(c.dur, e.tick - c.start + dur);
+      if (dt === 2) c.color = SOOT[2];
+      return;
+    }
+    if (this.columns.length >= SMOKE_COLUMN_MAX) this.columns.shift();
+    // rise from the crater floor or the ground under an airburst, not from inside the dirt
+    const y = this.craterFloor(Math.round(e.x), e.y, e.radius);
+    const color =
+      dt === 2 ? SOOT[2] : dt === 1 ? shade(this.dustColor(e.x, e.y + 4), 0.45) : SOOT[1];
+    this.columns.push({
+      x: e.x,
+      y,
+      r: e.radius,
+      start: e.tick,
+      dur,
+      color,
+      rng: this.rngFor(e, 53),
+    });
+  }
+
+  /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
+  private craterFloor(x: number, y: number, r: number): number {
+    const p = this.probe;
+    if (x < 0 || x >= p.width) return y;
+    const y1 = Math.min(p.height - 1, Math.round(y + r * 1.3) + 4);
+    for (let yy = Math.max(0, Math.round(y)); yy <= y1; yy++) {
+      if (p.material(x, yy) !== 0) return yy - 1;
+    }
+    return y;
+  }
+
+  /** Feed each smoke column a few puffs: thick at first, thinning to wisps before it stops. */
+  private tickColumns(t: number): void {
+    for (let i = this.columns.length - 1; i >= 0; i--) {
+      const c = this.columns[i]!;
+      const k = (t - c.start) / c.dur;
+      if (k >= 1) {
+        this.columns.splice(i, 1);
+        continue;
+      }
+      if (k < 0) continue;
+      const big = c.r / 24;
+      // puffs per tick, falling off over the column's life
+      let n = (0.35 + big * 0.45) * this.mult * (1 - k) * (1 - k) + c.rng.next();
+      const w = c.r * (0.18 + 0.12 * (1 - k));
+      for (; n >= 1; n--) {
+        const s = c.rng.next();
+        this.particles.add({
+          x: c.x + c.rng.range(-w, w),
+          y: c.y - c.rng.range(0, 3),
+          vx: c.rng.range(-0.05, 0.05),
+          // the first seconds are hot: puffs shoot up fast, later ones only drift
+          vy: -c.rng.range(0.18, 0.3) * (1 + (1 - k) * 0.8) * Math.min(1.8, 0.75 + big * 0.25),
+          life: c.rng.range(200, 320) * Math.min(1.6, 0.8 + big * 0.2),
+          size: Math.round(3 + big * 2 + s * 3),
+          color: s < 0.25 ? shade(c.color, 0.7) : s > 0.8 ? shade(c.color, 1.25) : c.color,
+          kind: PKind.Plume,
+        });
+      }
+    }
+  }
+
+  /**
+   * Debris chunks out of a big blast: blocks of the ground it was in, sampled round the crater
+   * rim (so grass, dirt and rock come out in their own colours), thrown up and out in a cone.
+   * More and bigger chunks the bigger the blast.
+   */
+  private throwChunks(e: EffectEvent, rng: FxRng): void {
+    const r = e.radius;
+    const n = Math.round(Math.min(64, 6 + (r - CHUNK_MIN_RADIUS) * 0.7) * Math.max(0.6, this.mult));
+    const big = r >= 50 ? 1 : 0;
+    const speed = 1.3 + Math.min(2.4, r / 32);
+    for (let i = 0; i < n; i++) {
+      // where on the rim it came from sets its colour and its launch angle
+      const a = rng.range(Math.PI * 0.12, Math.PI * 0.88);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const col = this.dustColor(e.x + ca * (r + 1), e.y + sa * (r * 0.6 + 1));
+      const s = rng.range(0.55, 1) * speed;
+      const w = 2 + Math.floor(rng.next() * (2 + big));
+      const h = Math.max(1, w - Math.floor(rng.next() * 2));
+      this.chunks.add({
+        x: e.x + ca * r * 0.55,
+        y: e.y - sa * r * 0.35,
+        vx: ca * s * 1.15 + rng.range(-0.2, 0.2),
+        vy: -sa * s - rng.range(0.4, 1),
+        w,
+        h,
+        color: shade(col, DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]! * 0.8),
+        rest: rng.range(150, 260),
+      });
+    }
+  }
+
+  drawChunks(batch: QuadBatch): void {
+    this.chunks.draw(batch);
+  }
+
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
+    this.chunks.step(CHUNK_GRAVITY, this.probe.height);
     this.feedJets(t);
+    this.tickColumns(t);
     this.tickStrands(t);
     this.fireworkTick(t);
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
@@ -2846,8 +3048,7 @@ export class EffectSystem {
       // a firing lance keeps the ground rumbling and the sky lit
       const rumble = this.lances.tick(t, this.mult);
       if (rumble > 0) {
-        this.shakeAmp = Math.max(this.shakeAmp * 0.9, rumble);
-        if (t - this.shakeStart > 6) this.shakeStart = t;
+        if (this.shakeLeft(t) < rumble * 0.6) this.kick(rumble, t);
         this.tintSky([0, 0.7, 0.45, 0.2], 0.06);
       }
     }
@@ -2939,12 +3140,54 @@ export class EffectSystem {
     return -1;
   }
 
-  /** Screen shake offset in cells at render time `t`. */
+  /**
+   * A wreck's ammunition cooking off (render-only, see `wreck.ts`): a small blast of sparks and
+   * soot, a hard-banded flash and a jolt of the camera; the last one is bigger.
+   */
+  cookOff(x: number, y: number, radius: number, big: boolean, t: number): void {
+    const e: EffectEvent = { type: 'cookOff', tick: t, x, y, radius, params: {} };
+    this.burst(e, big ? 26 : 12);
+    this.glows.push({
+      x,
+      y,
+      r: radius * 2.2,
+      start: t,
+      dur: big ? 16 : 10,
+      color: 0xffa040,
+      strength: big ? 1.1 : 0.8,
+    });
+    if (big) {
+      this.ripples.push({ x, y, start: t, dur: 18, maxR: 26, width: 6, strength: 0.5 });
+      this.tintSky(DT_LOOK[2]!, 0.15);
+    }
+    this.kick(big ? 4 : 2, t);
+  }
+
+  /** How much of the current shake is left at sim tick `t`, in cells. */
+  shakeLeft(t: number): number {
+    const age = t + this.held - this.shakeStart;
+    if (this.shakeAmp <= 0 || age > this.shakeDur || age < 0) return 0;
+    return this.shakeAmp * (1 - age / this.shakeDur) ** 2;
+  }
+
+  /**
+   * Start a shake of peak `amp` cells at sim tick `tick`, unless the one playing is still
+   * stronger: a small hit never restarts a big shake at full strength, nor cuts it short.
+   */
+  kick(amp: number, tick: number): void {
+    if (amp <= 0 || amp < this.shakeLeft(tick)) return;
+    this.shakeAmp = amp;
+    this.shakeStart = tick + this.held;
+    this.shakeDur = shakeTicks(amp);
+  }
+
+  /** Screen shake offset in cells at render time `t` (sim ticks; hit-stop holds add `held`). */
   shake(t: number): [number, number] {
-    const age = t - this.shakeStart;
-    if (this.shakeAmp <= 0 || age > 18 || age < 0) return [0, 0];
-    const a = this.shakeAmp * (1 - age / 18) ** 2;
-    return [Math.sin(age * 2.1) * a, Math.cos(age * 2.9) * a * 0.6];
+    const a = this.shakeLeft(t);
+    if (a <= 0) return [0, 0];
+    const age = t + this.held - this.shakeStart;
+    // the first beat thumps down, then it rattles off to both sides
+    return [Math.sin(age * 2.1) * a, Math.sin(age * 2.9 + 1.6) * a * 0.6];
   }
 
   /**
@@ -2992,6 +3235,23 @@ export class EffectSystem {
       });
     }
     this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
+  }
+
+  /**
+   * Point lights for the frame (see lighting.ts): every glow lights the ground and tanks around
+   * it, reaching further than the glow itself and fading over a little longer, in whole steps.
+   */
+  collectLights(lights: Lights, t: number): void {
+    for (const g of this.glows) {
+      const dur = g.dur * 4 + 16;
+      const k = (t - g.start) / dur;
+      if (k < 0 || k > 1) continue;
+      // a bright pop, then the light dies down in whole steps, snapping off like the pixels
+      const step = Math.floor(k * 6) / 6;
+      const s = (k < 0.1 ? 1.4 : 1.1 * (1 - step)) * Math.min(1.4, g.strength);
+      // fire light is warmer than the flash that casts it
+      lights.add(g.x, g.y, Math.max(12, g.r * 2.2), s, warmLight(g.color));
+    }
   }
 
   drawGlows(additive: QuadBatch, t: number): void {
@@ -3139,13 +3399,16 @@ export class EffectSystem {
     this.crystals = [];
     this.mushrooms = [];
     this.lances.clear();
+    this.chunks.clear();
     this.vortices = [];
     this.funnels = [];
     this.strands = [];
     this.splats = [];
     this.posts = [];
     this.magnets = [];
+    this.columns.length = 0;
     this.shakeAmp = 0;
+    this.shakeDur = SHAKE_MIN;
     this.skyFlash = 0;
     this.sky[0] = this.sky[1] = this.sky[2] = 0;
     this.split = 0;

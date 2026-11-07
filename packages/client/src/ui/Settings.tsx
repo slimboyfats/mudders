@@ -105,7 +105,7 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             checked={settings.shake}
             onChange={(e) => update({ ...settings, shake: e.target.checked })}
           />
-          Screen shake
+          Screen shake and hit-stop
         </label>
         <label className="check">
           <input

@@ -48,6 +48,8 @@ export interface ShellLook {
   trail: boolean;
   /** Scale of a meteor head and streak. */
   size?: number;
+  /** 0xRRGGBB of the trail and the shell's glow, by weapon type; unset = the theme's trail. */
+  trailColor?: number;
 }
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */
@@ -73,7 +75,7 @@ export interface RendererOptions {
   quality: Quality;
   theme: string;
   palette: RenderPalette;
-  /** Brief automatic zoom-punch/shake on big hits (§2a); can be disabled. */
+  /** Screen shake on hits, scaled to blast size (§2a); off for reduced motion. */
   shake?: boolean;
   /** Keep the drawing buffer so it can be read back (headless capture). */
   preserveDrawingBuffer?: boolean;
@@ -87,9 +89,11 @@ export interface Renderer {
   setQuality(quality: Quality): void;
   /**
    * Draw one frame. `time` is in sim ticks (fractional between ticks); cosmetic animation is a
-   * function of it, never of the wall clock, so a capture replays byte-identically.
+   * function of it, never of the wall clock, so a capture replays byte-identically. `held` is the
+   * ticks hit-stop has held the picture so far (`HitStop.held`): shakes run on `time + held`, so
+   * they keep moving while the sim waits.
    */
-  render(time: number): void;
+  render(time: number, held?: number): void;
   readonly camera: CameraControl;
   /** Screen (CSS px, canvas-relative) → map coordinates. */
   unproject(screen: Vec2): Vec2;
