@@ -33,6 +33,7 @@ import {
   withWeather,
   type PixelTheme,
 } from './theme';
+import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -170,6 +171,8 @@ export class PixelRenderer implements Renderer {
   /** Where each wreck is drawn (by player; NaN = not dead yet): it drops onto the ground left
    * under it, since the sim stops moving dead tanks. */
   private wreckY: number[] = [];
+  /** Death sequences by player (blown-off turret, burning hull, cook-offs). */
+  private wrecks: (Wreck | undefined)[] = [];
   private wreckV: number[] = [];
   /** Shaded terrain colours, one texel per cell, re-shaded only inside dirty rects. */
   private colorTex!: WebGLTexture;
@@ -678,6 +681,7 @@ export class PixelRenderer implements Renderer {
       this.uploadBurn(0, 0, s.width, s.height);
       this.wreckY = [];
       this.wreckV = [];
+      this.wrecks = [];
     }
     if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
@@ -704,6 +708,7 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
+      if (e.type === 'tankDeath') this.startWreck(e.params.player ?? -1, e.tick);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
@@ -909,6 +914,46 @@ export class PixelRenderer implements Renderer {
         this.wreckV[p] = 0;
       }
       this.wreckY[p] = y;
+    }
+  }
+
+  /** A tank just died: blow its turret off and set the hull burning (see `wreck.ts`). */
+  private startWreck(player: number, tick: number): void {
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || e.player !== player) continue;
+      const look = (e.tank && this.palette.tanks?.[e.tank]) || STANDARD_LOOK;
+      const col = playerColor(player);
+      this.wrecks[player] = makeWreck(
+        look,
+        (code) => spriteColor(code, col, false),
+        player,
+        e.x,
+        e.y,
+        e.angle,
+        tick,
+      );
+    }
+  }
+
+  /** One cosmetic tick of every death sequence; cook-offs become small blasts. */
+  private stepDeaths(): void {
+    const t = this.fxTick;
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || e.alive) continue;
+      const w = this.wrecks[e.player];
+      if (!w) continue;
+      const solid = (x: number, y: number) => this.probe.solid(x, y);
+      const cook = stepWreck(
+        w,
+        t,
+        e.x,
+        this.tankY(e),
+        solid,
+        this.particles,
+        this.fx.mult,
+        this.mapHeight,
+      );
+      if (cook) this.fx.cookOff(cook.x, cook.y, cook.radius, cook.big, t);
     }
   }
 
@@ -1142,6 +1187,7 @@ export class PixelRenderer implements Renderer {
   private stepFx(): void {
     this.particles.step(GRAVITY, this.wind);
     this.stepWrecks();
+    this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.fx.tick(this.fxTick);
     this.stepFlames();
@@ -1611,6 +1657,7 @@ export class PixelRenderer implements Renderer {
   private drawTanks(t: number): void {
     const b = this.normal;
     const looks = this.palette.tanks;
+    for (const w of this.wrecks) if (w) drawTurret(b, w, t);
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
@@ -1623,9 +1670,14 @@ export class PixelRenderer implements Renderer {
       const x0 = x - (sw >> 1);
       const y0 = y - sh;
       if (!e.alive) {
-        // a flattened wreck as wide as the tank
-        b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
-        b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
+        const w = this.wrecks[e.player];
+        if (w) {
+          drawHull(b, w, x, y, t);
+        } else {
+          // a flattened wreck as wide as the tank (died before this renderer saw it)
+          b.rect(x0 + 1, y - 3, sw - 2, 3, 0x2a2426);
+          b.rect(x - 4, y - 5, 7, 2, 0x1d191b);
+        }
         continue;
       }
       // the tank leans with the ground: each sprite column drops by whole cells (a pixel shear)

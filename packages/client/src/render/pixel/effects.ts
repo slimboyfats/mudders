@@ -2939,6 +2939,30 @@ export class EffectSystem {
     return -1;
   }
 
+  /**
+   * A wreck's ammunition cooking off (render-only, see `wreck.ts`): a small blast of sparks and
+   * soot, a hard-banded flash and a jolt of the camera; the last one is bigger.
+   */
+  cookOff(x: number, y: number, radius: number, big: boolean, t: number): void {
+    const e: EffectEvent = { type: 'cookOff', tick: t, x, y, radius, params: {} };
+    this.burst(e, big ? 26 : 12);
+    this.glows.push({
+      x,
+      y,
+      r: radius * 2.2,
+      start: t,
+      dur: big ? 16 : 10,
+      color: 0xffa040,
+      strength: big ? 1.1 : 0.8,
+    });
+    if (big) {
+      this.ripples.push({ x, y, start: t, dur: 18, maxR: 26, width: 6, strength: 0.5 });
+      this.tintSky(DT_LOOK[2]!, 0.15);
+    }
+    this.shakeAmp = Math.max(this.shakeAmp, big ? 4 : 2);
+    this.shakeStart = t;
+  }
+
   /** Screen shake offset in cells at render time `t`. */
   shake(t: number): [number, number] {
     const age = t - this.shakeStart;
