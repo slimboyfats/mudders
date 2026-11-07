@@ -1494,8 +1494,9 @@ export class PixelRenderer implements Renderer {
 
   // ── drawing ─────────────────────────────────────────────────────────────────────────────
 
-  render(time: number): void {
+  render(time: number, held = 0): void {
     const gl = this.gl;
+    this.fx.held = held;
     const cam = this.camera;
     const W = cam.vw;
     const H = cam.vh;

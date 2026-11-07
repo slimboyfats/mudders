@@ -6,6 +6,7 @@ import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
+import { HitStop } from '../render/impact';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { PerfMeter, PerfOverlay, type PerfStats } from './Perf';
 import { Hud } from './Hud';
@@ -91,23 +92,27 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     let ro: ResizeObserver | undefined;
     const w = match.world;
     const meter = new PerfMeter();
+    // hit-stop (§2a): big hits hold the picture for a beat; off with screen shake
+    const stop = new HitStop(settings.shake);
+    const unfeed = match.subscribe((s) => stop.feed(s));
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
       const dt = last < 0 ? 0 : now - last;
       last = now;
+      const simDt = stop.take(dt);
       if (perfOn.current) {
         const tick0 = match.world.tick;
         const t0 = performance.now();
-        const at = match.advance(dt);
+        const at = match.advance(simDt);
         const t1 = performance.now();
-        r.render(at);
+        r.render(at, stop.held);
         const t2 = performance.now();
         const stats = meter.frame(now, dt, match.world.tick - tick0, t1 - t0, t2 - t1);
         if (stats) setPerf(stats);
       } else {
-        r.render(match.advance(dt));
+        r.render(match.advance(simDt), stop.held);
       }
       refreshHud();
       const tank = match.world.tanks[match.world.activePlayer];
@@ -147,6 +152,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     document.addEventListener('visibilitychange', vis);
     return () => {
       disposed = true;
+      unfeed();
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', vis);
       ro?.disconnect();
