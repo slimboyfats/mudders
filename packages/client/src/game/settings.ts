@@ -4,6 +4,8 @@ import type { Quality } from '../render/types';
 export interface Settings {
   quality: Quality;
   shake: boolean;
+  /** Play the blow that decides a round in slow motion (presentation only). */
+  slowmo: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -25,6 +27,7 @@ function defaults(): Settings {
     quality: mobile ? 'medium' : 'high',
     // no screen shake for players who asked their system for less motion
     shake: !mq('(prefers-reduced-motion: reduce)'),
+    slowmo: true,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,

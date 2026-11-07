@@ -5,6 +5,7 @@ import { clampAim, slingshotAim } from '../game/aim';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
+import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { HitStop } from '../render/impact';
 import { PLAYER_COLORS } from '../render/pixel/theme';
@@ -47,6 +48,13 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   useEffect(() => {
     perfOn.current = settings.perfHud;
   }, [settings.perfHud]);
+  // slow-mo finisher (presentation only: it scales the time fed to the match, never the sim)
+  const slowmoRef = useRef<SlowMo | null>(null);
+  useEffect(() => {
+    const s = (slowmoRef.current ??= new SlowMo());
+    s.enabled = settings.slowmo;
+    if (!settings.slowmo) s.cancel();
+  }, [settings.slowmo]);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; mid: Vec2 } | null>(null);
   const panDrag = useRef<{ id: number; x: number; y: number } | null>(null);
@@ -92,6 +100,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     let ro: ResizeObserver | undefined;
     const w = match.world;
     const meter = new PerfMeter();
+    const slowmo = (slowmoRef.current ??= new SlowMo());
     // hit-stop (§2a): big hits hold the picture for a beat; off with screen shake
     const stop = new HitStop(settings.shake);
     const unfeed = match.subscribe((s) => stop.feed(s));
@@ -99,9 +108,11 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
-      const dt = last < 0 ? 0 : now - last;
+      const wall = last < 0 ? 0 : now - last;
       last = now;
-      const simDt = stop.take(dt);
+      // a hit-stop hold eats wall time first; the slow-mo finisher then slows what is left
+      const scale = slowmo.next(wall);
+      const simDt = stop.take(wall) * scale;
       if (perfOn.current) {
         const tick0 = match.world.tick;
         const t0 = performance.now();
@@ -109,11 +120,12 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
         const t1 = performance.now();
         r.render(at, stop.held);
         const t2 = performance.now();
-        const stats = meter.frame(now, dt, match.world.tick - tick0, t1 - t0, t2 - t1);
+        const stats = meter.frame(now, wall, match.world.tick - tick0, t1 - t0, t2 - t1);
         if (stats) setPerf(stats);
       } else {
         r.render(match.advance(simDt), stop.held);
       }
+      slowmo.observe(match.world);
       refreshHud();
       const tank = match.world.tanks[match.world.activePlayer];
       if (tank) {

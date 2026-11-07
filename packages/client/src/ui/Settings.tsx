@@ -110,6 +110,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.slowmo}
+            onChange={(e) => update({ ...settings, slowmo: e.target.checked })}
+          />
+          Slow-mo finishing shot
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.perfHud}
             onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
           />

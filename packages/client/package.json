@@ -31,6 +31,7 @@
     "./capture-wire": "./src/capture/wire.ts",
     "./render-types": "./src/render/types.ts",
     "./palette": "./src/game/palette.ts",
+    "./slowmo": "./src/game/slowmo.ts",
     "./impact": "./src/render/impact.ts"
   }
 }
