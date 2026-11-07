@@ -2716,3 +2716,185 @@ a.button {
     padding: 0 4px;
   }
 }
+
+/* ── Landscape phones: the dock floats over the map, so the battlefield gets the full height ── */
+
+@media (max-height: 460px) and (min-aspect-ratio: 1/1) {
+  .controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    align-items: flex-end;
+    background: none;
+    border-top: 0;
+    pointer-events: none;
+  }
+  .controls::before {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 100%;
+    background: linear-gradient(rgb(0 0 0 / 0), rgb(0 0 0 / 0.35));
+    pointer-events: none;
+    z-index: -1;
+  }
+  .controls > *,
+  .controls .weapons > * {
+    pointer-events: auto;
+  }
+  .controls .weapons {
+    pointer-events: none;
+    align-self: flex-end;
+  }
+  .controls .aim .scrub,
+  .controls .weapon-btn,
+  .controls .drive-btn,
+  .controls .gear-chip,
+  .controls .weapons button {
+    background: rgb(24 17 12 / 0.72);
+    backdrop-filter: blur(6px);
+  }
+  .controls .drive-left {
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: rgb(14 10 8 / 0.62);
+    color: var(--fg);
+  }
+  .controls .frost-note,
+  .controls .glue-note {
+    text-shadow: 0 1px 2px #000;
+  }
+}
+
+/* fullscreen toggle sits beside the menu button */
+.fs-btn {
+  display: grid;
+  place-items: center;
+}
+
+/* aim guide over the playfield: the active tank's marker and the drag readout */
+.aim-marker {
+  animation: aim-bob 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes aim-bob {
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aim-marker {
+    animation: none;
+  }
+}
+
+.aim-readout {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -100%);
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgb(14 10 8 / 0.8);
+  border: 1px solid var(--pc, #fff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* wind change: your-last-turn mark, the change, moving streaks, a gust across the sky */
+.wind.changed {
+  animation: wind-flash 0.5s steps(2) 3;
+}
+
+@keyframes wind-flash {
+  50% {
+    background: rgb(159 216 255 / 0.45);
+  }
+}
+
+.wind-fill {
+  background: repeating-linear-gradient(90deg, #9fd8ff 0 6px, #4f9fd8 6px 9px);
+  background-size: 9px 100%;
+  animation: wind-run var(--wind-speed, 2s) linear infinite;
+}
+
+.wind-fill.to-left {
+  animation-direction: reverse;
+}
+
+@keyframes wind-run {
+  to {
+    background-position: 18px 0;
+  }
+}
+
+.wind-was {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  margin-left: -2px;
+  border: 1px solid #fff;
+  border-radius: 1px;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.wind-delta {
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #1a120d;
+  background: #ffd36b;
+}
+
+.wind-delta.same {
+  color: var(--muted);
+  background: rgb(255 255 255 / 0.1);
+}
+
+.gust {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gust span {
+  position: absolute;
+  left: 0;
+  height: 2px;
+  background: rgb(230 244 255 / 0.7);
+  box-shadow: 6px 2px 0 -0px rgb(230 244 255 / 0.35);
+  transform: translateX(-80px);
+  animation: gust-run var(--gust-speed, 1.5s) steps(24) 2 both;
+}
+
+.gust.to-left span {
+  animation-direction: reverse;
+}
+
+@keyframes gust-run {
+  to {
+    transform: translateX(110vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wind.changed,
+  .wind-fill,
+  .gust span {
+    animation: none;
+  }
+  .gust {
+    display: none;
+  }
+}
