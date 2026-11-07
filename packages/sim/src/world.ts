@@ -16,7 +16,13 @@ import {
   type WeatherManifest,
   type WindType,
   DAMAGE_TYPES,
+  TEMP_DRIFT,
+  TEMP_MAX,
+  TEMP_MILD,
+  TEMP_MIN,
   TICK_RATE,
+  tempChill,
+  tempHeat,
 } from '@mudders/shared';
 import {
   AI_FUEL,
@@ -123,6 +129,8 @@ export interface WorldOptions {
   wind?: number | undefined;
   /** Weather (`weather.*` id); unset = clear skies. */
   weather?: string | undefined;
+  /** Force the air temperature (°C) for the whole match: no jitter, no drift. */
+  temperature?: number | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
   turnOrder?: readonly number[] | undefined;
   rules?: MatchRules | undefined;
@@ -221,6 +229,8 @@ export interface Tank extends TankHandle {
   driving: number;
   /** Drive fuel (one unit per cell); a match total, topped up in the shop. */
   fuel: number;
+  /** Fuel owed in thousandths of a unit (hot or freezing air burns more than one per cell). */
+  fuelBurn: number;
   lastHitBy: number;
   kills: number;
   damageDealt: number;
@@ -426,6 +436,10 @@ export class World implements SimApi {
   windBase = 0;
   /** Current gust on top of `windBase` (gusty wind only). */
   gust = 0;
+  /** Air temperature now, whole °C (§3.4): the round's base plus a per-turn drift. */
+  temperature = TEMP_MILD;
+  /** This round's base temperature, which the drift is pulled back towards. */
+  tempBase = TEMP_MILD;
   /** The mode's own numbers between ticks (`ModeApi.memory`). */
   readonly modeMem: number[] = [];
   /** Rounds finished so far (0 during the first round). */
@@ -782,6 +796,7 @@ export class World implements SimApi {
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
+        fuelBurn: 0,
         lastHitBy: -1,
         kills: 0,
         damageDealt: 0,
@@ -844,6 +859,7 @@ export class World implements SimApi {
     const genId = this.options.map?.generator ?? this.mode.map.generator;
     const genItem = this.content.get('gen', genId);
     const gen = this.content.behaviours.getKind(genItem.behaviour, 'gen');
+    this.startTemperature(genItem.temperature);
     const res = gen.generate(
       this,
       gen.params.parse(behaviourParams(genItem, GEN_CORE_KEYS)),
@@ -1176,7 +1192,29 @@ export class World implements SimApi {
 
   /** Per-turn drive allowance for a tank: the mode's cells scaled by its type's `drive` percent. */
   driveCells(t: Tank): number {
-    return Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
+    const cells = Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
+    // cold engines (§3.4): up to 30% fewer cells a turn at the coldest
+    return Math.trunc((cells * (1000 - Math.trunc((tempChill(this.temperature) * 3) / 10))) / 1000);
+  }
+
+  /**
+   * Fuel one cell of driving burns, in thousandths (§3.4): 1000 in mild air, up to 1500 at the
+   * hottest (it boils off) or coldest (stiff engines).
+   */
+  fuelPerCell(): number {
+    const t = this.temperature;
+    return 1000 + (tempHeat(t) >> 1) + (tempChill(t) >> 1);
+  }
+
+  /** Burn one cell's worth of fuel from `fuel`/`burn`; returns the new [fuel, burn]. */
+  private burnFuel(fuel: number, burn: number): [number, number] {
+    let b = burn + this.fuelPerCell();
+    let f = fuel;
+    while (b >= 1000 && f > 0) {
+      f--;
+      b -= 1000;
+    }
+    return [f, f > 0 ? b : 0];
   }
 
   /**
@@ -1241,7 +1279,7 @@ export class World implements SimApi {
     t.y = top;
     for (let d = 0; d < climb && !this.supported(t); d++) t.y++;
     t.driveLeft = Math.max(0, t.driveLeft - cost);
-    t.fuel--;
+    [t.fuel, t.fuelBurn] = this.burnFuel(t.fuel, t.fuelBurn);
     if (t.driveLeft <= 0 || t.fuel <= 0) t.driving = 0;
     this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
   }
@@ -1258,11 +1296,12 @@ export class World implements SimApi {
     const out: AiSpot[] = [];
     let left = t.driveLeft;
     let fuel = t.fuel;
+    let burn = t.fuelBurn;
     let x = t.x;
     let y = t.y;
     while (left > 0 && fuel > 0) {
       left -= this.stickyAt(x, y, t.half);
-      fuel--;
+      [fuel, burn] = this.burnFuel(fuel, burn);
       const nx = x + dir;
       if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) break;
       const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
@@ -2156,7 +2195,7 @@ export class World implements SimApi {
         for (const t of this.tanks) {
           if (!t.alive) continue;
           if (!this.inZone(z, t)) continue;
-          const dmg = this.ownerScaled(z.damage, z.owner);
+          const dmg = this.ownerScaled(this.tempScaled(z.damage, z.dt), z.owner);
           this.emit('zoneHurt', t.x, t.y - (t.h >> 1), t.half, {
             damage: dmg,
             look: z.look,
@@ -2183,6 +2222,20 @@ export class World implements SimApi {
     return k === 100 ? dmg : Math.trunc((dmg * k) / 100);
   }
 
+  /**
+   * Heat and cold damage by air temperature (§3.4): fire hits up to 50% harder at the hottest and
+   * 30% softer at the coldest, frost the other way round. Exact (unchanged) in mild air.
+   */
+  private tempScaled(dmg: number, dt: number): number {
+    const heat = tempHeat(this.temperature);
+    const chill = tempChill(this.temperature);
+    if (heat === 0 && chill === 0) return dmg;
+    let k = 1000;
+    if (dt === DT_HEAT) k += (heat >> 1) - Math.trunc((chill * 3) / 10);
+    else if (dt === DT_COLD) k += (chill >> 1) - Math.trunc((heat * 3) / 10);
+    return k === 1000 ? dmg : Math.trunc((dmg * k) / 1000);
+  }
+
   /** `byWeapon` false for a tank's death blast, which the killer's tank type doesn't scale. */
   private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
@@ -2201,13 +2254,16 @@ export class World implements SimApi {
       if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, cy)) continue;
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
-        const dmg = Math.trunc(base * scale);
+        const dmg = this.tempScaled(Math.trunc(base * scale), e.dt);
         this.damageTank(t, byWeapon ? this.ownerScaled(dmg, owner) : dmg, owner);
       }
       if (e.chill > 0) {
-        // frosted for its next own turns; a tank that frosts itself keeps it past this turn too
+        // frosted for its next own turns; a tank that frosts itself keeps it past this turn too;
+        // in hard frost (§3.4) it stays frosted a turn longer
         const turns =
-          e.chill + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+          e.chill +
+          (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0) +
+          (tempChill(this.temperature) >= 500 ? 1 : 0);
         if (turns > t.chill) t.chill = turns;
         this.emit('frosted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       }
@@ -2413,6 +2469,8 @@ export class World implements SimApi {
           if (d > worst) worst = d;
         }
       }
+      // contact damage is burning (fire, napalm, lava), so the heat scales it too
+      worst = this.tempScaled(worst, DT_HEAT);
       if (worst > 0) {
         this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: worst });
         this.damageTank(t, worst, t.lastHitBy);
@@ -2598,8 +2656,39 @@ export class World implements SimApi {
 
   // ── turns and rounds ────────────────────────────────────────────────────────────────────
 
+  /**
+   * The round's base temperature: the forced one, else the map's (or mild) plus the weather's shift
+   * and a ±4 °C jitter. Drawn from its own seeded PRNG so the match RNG and every golden stay put.
+   */
+  private startTemperature(mapBase: number | undefined): void {
+    const forced = this.options.temperature;
+    if (forced !== undefined) {
+      this.tempBase = this.temperature = clampTemp(Math.round(forced));
+      return;
+    }
+    const r = new Prng((this.options.seed ^ Math.imul(this.round + 1, 0x6c8e9cf5)) >>> 0);
+    const base = (mapBase ?? TEMP_MILD) + (this.weather?.temperature ?? 0) + r.range(-4, 4);
+    this.tempBase = this.temperature = clampTemp(base);
+  }
+
+  /**
+   * Each turn the air warms or cools by up to TEMP_DRIFT °C, leaning back towards the round's base
+   * once it has wandered more than 10 °C away. Own seeded PRNG per turn, like `startTemperature`.
+   */
+  private driftTemperature(): void {
+    if (this.options.temperature !== undefined) return;
+    const k = Math.imul(this.round * 4096 + this.turn + 1, 0x2c1b3c6d);
+    const r = new Prng((this.options.seed ^ k ^ 0x5bd1e995) >>> 0);
+    let step = r.range(-TEMP_DRIFT, TEMP_DRIFT);
+    const off = this.temperature - this.tempBase;
+    if (off > 10) step = Math.min(step, 0) - 1;
+    else if (off < -10) step = Math.max(step, 0) + 1;
+    this.temperature = clampTemp(this.temperature + step);
+  }
+
   private beginTurn(): void {
     this.contactDone = false;
+    if (this.turn > 0) this.driftTemperature();
     this.shooter = -1;
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
@@ -2938,6 +3027,7 @@ export class World implements SimApi {
         material: this.debris.mat,
       },
       wind: this.wind / FP,
+      temperature: this.temperature,
       theme: 'theme.default',
       weather: this.weather
         ? {
@@ -2968,6 +3058,8 @@ export class World implements SimApi {
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
     h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);
     h.num(this.contactDone ? 1 : 0);
+    // temperature (kernel 0.18.0)
+    h.num(this.temperature).num(this.tempBase);
     // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes
     if (this.gust !== 0 || this.modeMem.length > 0) {
       h.num(this.windBase).num(this.gust).num(this.modeMem.length);
@@ -2997,6 +3089,7 @@ export class World implements SimApi {
         .num(t.driveLeft)
         .num(t.driving)
         .num(t.fuel)
+        .num(t.fuelBurn)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
       h.num(t.score)
@@ -3049,6 +3142,13 @@ export class World implements SimApi {
 }
 
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
+const DT_HEAT = damageTypeIndex('heat');
+const DT_COLD = damageTypeIndex('cold');
+
+function clampTemp(t: number): number {
+  return Math.max(TEMP_MIN, Math.min(TEMP_MAX, t));
+}
+
 function puffCells(pf: readonly number[]): number[] {
   const out: number[] = [];
   for (let o = 0; o < pf.length; o += 4) out.push(pf[o]! >> FP_SHIFT, pf[o + 1]! >> FP_SHIFT);

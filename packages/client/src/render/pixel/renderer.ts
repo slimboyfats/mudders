@@ -10,6 +10,7 @@ import type {
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
+import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
@@ -44,6 +45,7 @@ import {
   pixelTheme,
   playerColor,
   shade,
+  withTemperature,
   withWeather,
   type PixelTheme,
 } from './theme';
@@ -175,6 +177,13 @@ export class PixelRenderer implements Renderer {
   /** The chosen theme before the match weather is laid over it. */
   private baseTheme: PixelTheme = DEFAULT_THEME;
   private weather: RenderSnapshot['weather'] = undefined;
+  /** Air temperature (°C) from the sim; drives the snow/sand storm. */
+  private temperature = 15;
+  private stormKind: StormKind = 'snow';
+  /** Storm strength now (0…1), eased per cosmetic tick towards what the temperature calls for. */
+  private stormK = -1;
+  /** Signed, quantised storm strength the current theme was tinted for. */
+  private themeStep = 0;
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
@@ -635,8 +644,7 @@ export class PixelRenderer implements Renderer {
 
   setTheme(id: string): void {
     this.baseTheme = pixelTheme(id, this.palette.themes);
-    this.theme = withWeather(this.baseTheme, this.weather);
-    this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+    this.applyTheme();
   }
 
   resize(cssWidth: number, cssHeight: number, dpr: number): void {
@@ -763,9 +771,16 @@ export class PixelRenderer implements Renderer {
     this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
+    this.temperature = s.temperature ?? 15;
+    if (this.stormK < 0) {
+      const st = stormFor(this.temperature);
+      this.stormKind = st.kind;
+      this.stormK = st.k;
+      this.applyTheme();
+    }
     if ((s.weather?.id ?? '') !== (this.weather?.id ?? '')) {
       this.weather = s.weather;
-      this.theme = withWeather(this.baseTheme, s.weather);
+      this.applyTheme();
       this.dirty = [0, 0, this.mapWidth, this.mapHeight];
     }
     this.lastTick = s.tick;
@@ -1285,7 +1300,34 @@ export class PixelRenderer implements Renderer {
   /** Firework star colours by projectile id (see `tagStars`). */
   private starColor = new Map<number, number>();
 
+  /** Theme + weather + the temperature's tint (in quarter steps of storm strength). */
+  private applyTheme(): void {
+    const q = Math.round(Math.max(0, this.stormK) * 8) / 8;
+    this.themeStep = q * (this.stormKind === 'sand' ? 1 : -1);
+    this.theme = withTemperature(
+      withWeather(this.baseTheme, this.weather),
+      this.stormKind === 'sand' ? q : 0,
+      this.stormKind === 'snow' ? q : 0,
+    );
+    this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+  }
+
+  /** Ease the storm towards the temperature's; a change of kind dies down before it turns. */
+  private stepStorm(): void {
+    const st = stormFor(this.temperature);
+    const k = Math.max(0, this.stormK);
+    if (st.kind !== this.stormKind && k > 0) {
+      this.stormK = Math.max(0, k - 0.01);
+      return;
+    }
+    this.stormKind = st.kind;
+    this.stormK = k < st.k ? Math.min(st.k, k + 0.008) : Math.max(st.k, k - 0.008);
+    const step = (Math.round(this.stormK * 8) / 8) * (this.stormKind === 'sand' ? 1 : -1);
+    if (step !== this.themeStep) this.applyTheme();
+  }
+
   private stepFx(): void {
+    this.stepStorm();
     this.particles.step(GRAVITY, this.wind);
     this.stepWrecks();
     this.stepDeaths();
@@ -1664,6 +1706,7 @@ export class PixelRenderer implements Renderer {
     this.fx.lances.draw(this.additive, t);
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
+    drawStorm(this.normal, this.stormKind, this.stormK, t, this.wind, this.probe, mult);
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
     gl.enable(gl.BLEND);

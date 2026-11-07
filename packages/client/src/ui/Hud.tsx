@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
-import type { Input } from '@mudders/shared';
+import { TEMP_COLD, TEMP_HOT, type Input } from '@mudders/shared';
 import { clampAim } from '../game/aim';
 import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
@@ -99,6 +99,18 @@ function Wind({
         </span>
       )}
     </div>
+  );
+}
+
+/** Air temperature (§3.4): °C plus a word, so cold and hot never rely on colour alone (§8). */
+function Temperature({ temp }: { temp: number }) {
+  const band = temp <= TEMP_COLD ? 'cold' : temp >= TEMP_HOT ? 'hot' : 'mild';
+  const word = band === 'cold' ? 'Freezing' : band === 'hot' ? 'Scorching' : '';
+  return (
+    <span className={`badge temp ${band}`} aria-label={`Temperature ${temp} °C ${word}`.trim()}>
+      {band !== 'mild' && <span aria-hidden="true">{band === 'cold' ? '❄ ' : '☀ '}</span>}
+      {temp}°{word && <span className="temp-word"> {word}</span>}
+    </span>
   );
 }
 
@@ -298,6 +310,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             weather={hud.weather}
             was={was}
           />
+          <Temperature temp={hud.temperature} />
           {hud.phase === 'aim' && hud.seconds >= 0 && (
             <span className={`badge timer${hud.seconds <= 5 ? ' low' : ''}`} aria-label="Time left">
               {hud.seconds}s

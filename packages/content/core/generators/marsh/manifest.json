@@ -15,5 +15,6 @@
   "tarLevel": 0.06,
   "mossDepth": 8,
   "mossBand": 0.06,
-  "gasPockets": [5, 8]
+  "gasPockets": [5, 8],
+  "temperature": 20
 }

@@ -2898,3 +2898,21 @@ a.button {
     display: none;
   }
 }
+
+/* Air temperature badge (§3.4): hot and cold also say so in words. */
+.badge.temp {
+  font-variant-numeric: tabular-nums;
+}
+.badge.temp.cold {
+  color: #bfe6ff;
+  background: rgb(20 60 110 / 0.7);
+}
+.badge.temp.hot {
+  color: #ffd9a0;
+  background: rgb(120 40 10 / 0.7);
+}
+@media (max-width: 520px) {
+  .badge.temp .temp-word {
+    display: none;
+  }
+}

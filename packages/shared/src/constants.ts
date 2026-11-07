@@ -33,3 +33,32 @@ export const DAMAGE_TYPES = [
   'corrosive',
 ] as const;
 export type DamageType = (typeof DAMAGE_TYPES)[number];
+
+/**
+ * Air temperature (§3.4), whole °C. Each round starts at the map's base (plus the weather's offset
+ * and a small seeded jitter) and drifts a few degrees every turn. Between `TEMP_COLD` and `TEMP_HOT`
+ * nothing plays differently; below or above it, content scales fuel, fire, frost and drag by how far
+ * past the band it is (`tempHeat`, `tempChill`).
+ */
+export const TEMP_MIN = -20;
+export const TEMP_MAX = 45;
+/** Base when neither the map nor the setup names one. */
+export const TEMP_MILD = 15;
+/** At or below this it counts as cold. */
+export const TEMP_COLD = 0;
+/** At or above this it counts as hot. */
+export const TEMP_HOT = 30;
+/** Largest per-turn drift step, °C. */
+export const TEMP_DRIFT = 3;
+
+/** How hot it is past the mild band, 0 (≤ TEMP_HOT) … 1000 (TEMP_MAX). Integer thousandths. */
+export function tempHeat(t: number): number {
+  if (t <= TEMP_HOT) return 0;
+  return Math.min(1000, Math.trunc(((t - TEMP_HOT) * 1000) / (TEMP_MAX - TEMP_HOT)));
+}
+
+/** How cold it is past the mild band, 0 (≥ TEMP_COLD) … 1000 (TEMP_MIN). Integer thousandths. */
+export function tempChill(t: number): number {
+  if (t >= TEMP_COLD) return 0;
+  return Math.min(1000, Math.trunc(((TEMP_COLD - t) * 1000) / (TEMP_COLD - TEMP_MIN)));
+}

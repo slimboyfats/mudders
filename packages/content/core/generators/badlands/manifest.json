@@ -32,5 +32,6 @@
     }
   ],
   "seams": [3, 5],
-  "magmaPockets": [1, 2]
+  "magmaPockets": [1, 2],
+  "temperature": 34
 }

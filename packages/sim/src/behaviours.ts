@@ -46,6 +46,8 @@ export interface SimApi extends EffectSink {
   readonly gravity: number;
   /** Air drag from the weather: fixed-point share of a shell's velocity lost per tick (0 = none). */
   readonly drag: number;
+  /** Air temperature now, whole °C (§3.4). Scale with `tempHeat`/`tempChill` from shared. */
+  readonly temperature: number;
   /**
    * Knock a cell loose as a sim debris particle (fixed-point position and velocity). The cell is
    * cleared from the grid and becomes terrain again where the particle lands. Returns false (and

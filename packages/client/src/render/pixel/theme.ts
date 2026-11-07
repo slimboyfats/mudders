@@ -158,3 +158,61 @@ export function withWeather(
     wet: Math.max(th.wet, w.wet),
   };
 }
+
+/** Blend two 0xRRGGBB colours, `k` of the way from `a` to `b`. */
+function mixRgb(a: number, b: number, k: number): number {
+  const ch = (s: number) => {
+    const x = (a >> s) & 0xff;
+    const y = (b >> s) & 0xff;
+    return Math.round(x + (y - x) * k) << s;
+  };
+  return ch(16) | ch(8) | ch(0);
+}
+
+/** Where the land and sky lean in scorching air (dry, dusty) and in freezing air (frosted, pale). */
+const HOT = {
+  skyTop: 0xc89a5a,
+  skyBottom: 0xe8c48a,
+  grass: 0xbfa24e,
+  ground: 0xffe2b0,
+  range: 0xb08858,
+  cloud: 0xf0d8a8,
+  shadow: 0xa8845a,
+};
+const COLD = {
+  skyTop: 0x4a5a6e,
+  skyBottom: 0x8a9cb0,
+  grass: 0xc4d8dc,
+  ground: 0xe4eeff,
+  range: 0x9aa8b8,
+  cloud: 0xc8d2de,
+  shadow: 0x6a7888,
+};
+
+/**
+ * The theme as the air temperature leaves it (§3.4): `heat`/`chill` are 0…1 storm strengths. Heat
+ * dries the grass to straw and fills the sky with dust; frost pales the grass and greys the sky,
+ * so a sandstorm or snowstorm sits in a land that matches it. Quantise k before calling, so the
+ * scenery cache isn't redrawn every tick.
+ */
+export function withTemperature(th: PixelTheme, heat: number, chill: number): PixelTheme {
+  const hot = heat > 0;
+  const k = Math.min(1, hot ? heat : chill);
+  if (k <= 0) return th;
+  const c = hot ? HOT : COLD;
+  const sky = k * 0.75;
+  return {
+    ...th,
+    skyTop: mixRgb(th.skyTop, c.skyTop, sky),
+    skyBottom: mixRgb(th.skyBottom, c.skyBottom, sky),
+    grass: th.grass < 0 ? th.grass : mixRgb(th.grass, c.grass, k * 0.85),
+    ground: mixRgb(th.ground, c.ground, k * 0.6),
+    ranges: th.ranges.map((r) => mixRgb(r, c.range, k * 0.55)),
+    clouds: {
+      ...th.clouds,
+      light: mixRgb(th.clouds.light, c.cloud, k * 0.6),
+      shadow: mixRgb(th.clouds.shadow, c.shadow, k * 0.6),
+    },
+    flowers: th.flowers * (1 - k),
+  };
+}

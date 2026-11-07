@@ -115,6 +115,8 @@ export interface RenderSnapshot {
   debris: { count: number; x: Int32Array; y: Int32Array; vx: Int32Array; material: Uint8Array };
   /** Wind in px/tick² (positive blows right). */
   wind: number;
+  /** Air temperature, whole °C (§3.4). */
+  temperature?: number | undefined;
   theme: string;
   /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
   weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;

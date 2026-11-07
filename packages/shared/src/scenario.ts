@@ -46,6 +46,8 @@ export const ScenarioSchema = z.strictObject({
   wind: z.number().optional(),
   /** Weather (`weather.*`) for the whole scenario; omit for clear skies. */
   weather: ContentIdSchema.optional(),
+  /** Force the air temperature (°C) for the whole scenario: no jitter, no drift. */
+  temperature: z.number().int().min(-20).max(45).optional(),
   /** Team per player (milestone 7); omit for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(7)).optional(),
   /** AI personality per player (`ai.*`, null = scripted by `inputs`). */

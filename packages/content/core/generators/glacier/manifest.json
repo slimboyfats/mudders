@@ -11,5 +11,6 @@
   "sandChance": 0,
   "iceDepth": 10,
   "iceLevel": 0.03,
-  "iceCap": 0.1
+  "iceCap": 0.1,
+  "temperature": -12
 }
