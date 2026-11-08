@@ -117,6 +117,8 @@ export interface RenderSnapshot {
   wind: number;
   /** Air temperature, whole °C (§3.4). */
   temperature?: number | undefined;
+  /** Width in columns of the sudden-death zone at each map edge (0 or unset = none). */
+  deathZone?: number | undefined;
   theme: string;
   /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
   weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;

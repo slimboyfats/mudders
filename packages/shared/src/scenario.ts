@@ -60,6 +60,8 @@ export const ScenarioSchema = z.strictObject({
       shopTimer: z.number().min(1).optional(),
       openingShop: z.boolean().optional(),
       suddenDeath: z.boolean().optional(),
+      /** Each player's turn sudden death starts on (default: the mode's). */
+      suddenDeathFrom: z.number().int().min(1).optional(),
       windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),
       turnCap: z.number().int().min(1).optional(),

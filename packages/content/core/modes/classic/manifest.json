@@ -73,7 +73,8 @@
   "suddenDeath": {
     "fromTurn": 8,
     "damageScale": 1.5,
-    "edgeCells": 24
+    "edgeCells": 24,
+    "zoneDamage": 40
   },
   "scoring": {
     "damage": 1,
