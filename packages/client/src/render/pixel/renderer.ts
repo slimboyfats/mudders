@@ -831,7 +831,7 @@ export class PixelRenderer implements Renderer {
   /** Drop every cosmetic left over from the last round, so a new map starts clean. */
   private clearRoundFx(): void {
     this.trails = [];
-    this.particles.dispose();
+    this.particles.clear();
     this.fx.clear();
     this.water.clear();
     this.meteors.clear();

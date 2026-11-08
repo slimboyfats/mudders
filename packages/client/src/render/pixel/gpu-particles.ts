@@ -33,6 +33,10 @@ export interface KindPhysics {
   maxFall: number;
   /** Sideways sway amplitude (snowflakes). */
   sway: number;
+  /** Pull of the swirling turbulence field (cells per tick), so streams curl instead of marching. */
+  swirl: number;
+  /** Per-particle spread of lift and drag (0 = every particle the same). */
+  spread: number;
   /** Collides with terrain. */
   collide: boolean;
   /** Fraction of speed kept off a bounce; below a small speed it settles. */
@@ -53,6 +57,8 @@ const K = (p: Partial<KindPhysics>): KindPhysics => ({
   windAge: 0,
   maxFall: 0,
   sway: 0,
+  swirl: 0,
+  spread: 0.4,
   collide: false,
   bounce: 0,
   friction: 1,
@@ -71,15 +77,16 @@ export const KINDS: readonly KindPhysics[] = [
     bounce: 0.45,
     friction: 0.75,
     siblings: 3,
+    swirl: 0.006,
   }),
   // Chunk: a clod that thuds, bounces once or twice and settles
   K({ gravity: 1, dragX: 0.99, collide: true, bounce: 0.3, friction: 0.55, siblings: 2 }),
   // Smoke: rises and drifts, flattens under overhangs
-  K({ dragX: 0.94, dragY: 0.94, lift: 0.012, wind: 4, collide: true, friction: 0.9 }),
+  K({ dragX: 0.94, dragY: 0.94, lift: 0.012, wind: 4, collide: true, friction: 0.9, swirl: 0.03 }),
   // Dust: hugs the ground, no collision
-  K({ dragX: 0.9, dragY: 0.9, lift: 0.004 }),
+  K({ dragX: 0.9, dragY: 0.9, lift: 0.004, swirl: 0.03 }),
   // Flame: licks upward and along ceilings
-  K({ dragX: 0.92, dragY: 0.95, lift: 0.02, wind: 3, collide: true, friction: 0.85 }),
+  K({ dragX: 0.92, dragY: 0.95, lift: 0.02, wind: 3, collide: true, friction: 0.85, swirl: 0.05 }),
   // Snow: sways down and lands on the ground
   K({
     gravity: 0.04,
@@ -89,6 +96,7 @@ export const KINDS: readonly KindPhysics[] = [
     sway: 0.012,
     collide: true,
     friction: 0,
+    swirl: 0.01,
   }),
   // Streak: wind gust dash, sails through everything
   K({ dragY: 0.9, wind: 2 }),
@@ -101,6 +109,7 @@ export const KINDS: readonly KindPhysics[] = [
     bounce: 0.3,
     friction: 0.8,
     siblings: 1,
+    swirl: 0.01,
   }),
   // Plume: smoke-column puff, buoyant while young, leans downwind with height
   K({
@@ -112,6 +121,7 @@ export const KINDS: readonly KindPhysics[] = [
     windAge: 1.1,
     collide: true,
     friction: 0.9,
+    swirl: 0.005,
   }),
 ];
 
@@ -133,6 +143,25 @@ uniform float u_wind;
 uniform vec4 u_kA[${NK}]; // gravity, dragX, dragY, lift
 uniform vec4 u_kB[${NK}]; // liftFade, wind, windAge, maxFall
 uniform vec4 u_kC[${NK}]; // sway, collide, bounce, friction
+uniform vec4 u_kD[${NK}]; // swirl, spread
+// value noise and its curl: a divergence-free swirl field drifting with time
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float psi(vec2 p, float t) {
+  return noise(p * 0.07 + vec2(t * 0.004, -t * 0.006)) + 0.5 * noise(p * 0.16 - vec2(t * 0.009, 0.0));
+}
+vec2 curl(vec2 p, float t) {
+  const float e = 0.75;
+  float dx = psi(p + vec2(e, 0.0), t) - psi(p - vec2(e, 0.0), t);
+  float dy = psi(p + vec2(0.0, e), t) - psi(p - vec2(0.0, e), t);
+  return vec2(dy, -dx) / (2.0 * e) * 14.0;
+}
 uniform usampler2D u_terrain;
 uniform ivec2 u_map;
 out vec4 v_dyn;
@@ -149,7 +178,12 @@ void main() {
   vec4 A = u_kA[k];
   vec4 B = u_kB[k];
   vec4 C = u_kC[k];
+  vec4 D = u_kD[k];
   float t = age / a_stat.y;
+  // each particle a little different, so a burst spreads instead of moving as one sheet
+  float h = hash(vec2(float(gl_VertexID), a_stat.x)) - 0.5;
+  A.w *= 1.0 + h * D.y * 2.0;
+  A.yz = 1.0 - (1.0 - A.yz) * (1.0 + h * D.y);
   vec2 p = a_dyn.xy;
   vec2 v = a_dyn.zw;
   v.y += u_gravity * A.x;
@@ -158,6 +192,8 @@ void main() {
   v.x += u_wind * (B.y + B.z * t);
   if (B.w > 0.0) v.y = min(v.y, B.w);
   if (C.x > 0.0) v.x += sin(age * 0.11 + float(gl_VertexID) * 1.7) * C.x;
+  // swirl grows as smoke ages and spreads into bigger eddies
+  if (D.x > 0.0) v += curl(p, u_tick) * D.x * (0.4 + t);
   vec2 q = p + v;
   // terrain: only from open air, so bits spawned inside fresh rubble still fly out
   if (C.y > 0.5 && solid(q) && !solid(p)) {
@@ -382,6 +418,7 @@ export class GpuParticles implements ParticleSink {
       'u_kA',
       'u_kB',
       'u_kC',
+      'u_kD',
       'u_terrain',
       'u_map',
     ]) {
@@ -394,15 +431,18 @@ export class GpuParticles implements ParticleSink {
     const a = new Float32Array(NK * 4);
     const b = new Float32Array(NK * 4);
     const c = new Float32Array(NK * 4);
+    const d = new Float32Array(NK * 4);
     KINDS.forEach((k, i) => {
       a.set([k.gravity, k.dragX, k.dragY, k.lift], i * 4);
       b.set([k.liftFade, k.wind, k.windAge, k.maxFall], i * 4);
       c.set([k.sway, k.collide ? 1 : 0, k.bounce, k.friction], i * 4);
+      d.set([k.swirl, k.spread, 0, 0], i * 4);
     });
     gl.useProgram(this.updProg);
     gl.uniform4fv(this.uUpd.u_kA!, a);
     gl.uniform4fv(this.uUpd.u_kB!, b);
     gl.uniform4fv(this.uUpd.u_kC!, c);
+    gl.uniform4fv(this.uUpd.u_kD!, d);
 
     const mk = (bytes: number, usage: number): WebGLBuffer => {
       const buf = gl.createBuffer();
