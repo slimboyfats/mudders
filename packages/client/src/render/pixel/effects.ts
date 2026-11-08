@@ -10,7 +10,7 @@ import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
-import { PKind, type Particles } from './particles';
+import { PKind, type ParticleSink } from './particles';
 import { shade } from './theme';
 import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
 
@@ -223,9 +223,9 @@ const CHUNK_MIN_RADIUS = 18;
 const CHUNK_GRAVITY = 0.12;
 
 export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> = {
-  low: { cap: 800, mult: 0.35 },
-  medium: { cap: 2500, mult: 0.7 },
-  high: { cap: 6000, mult: 1 },
+  low: { cap: 20000, mult: 0.35 },
+  medium: { cap: 60000, mult: 0.7 },
+  high: { cap: 150000, mult: 1 },
 };
 
 /** Reads terrain for effects (e.g. chunk colour); renderer-provided. */
@@ -298,7 +298,7 @@ export class EffectSystem {
   readonly chunks: Chunks;
 
   constructor(
-    private readonly particles: Particles,
+    private readonly particles: ParticleSink,
     private readonly probe: TerrainProbe,
   ) {
     this.lances = new Lances(particles);

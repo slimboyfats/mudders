@@ -53,7 +53,16 @@ export interface Emit {
   kind: PKind;
 }
 
-export class Particles {
+/** Anything particles can be spawned into: the GPU engine in the renderer, this CPU model in tests. */
+export interface ParticleSink {
+  add(e: Emit): void;
+}
+
+/**
+ * CPU reference model of the particle kinds. The renderer draws with the GPU engine
+ * (`gpu-particles.ts`); this stays for tests and as the readable spec of each kind's look.
+ */
+export class Particles implements ParticleSink {
   readonly cap: number;
   n = 0;
   private readonly x: Float32Array;
