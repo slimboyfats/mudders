@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Superstorm bolt",
-    "description": "One of the huge ion-fat lightning bolts a Superstorm hammers down: it hangs a moment over where it will hit, then blasts a deep crater, glasses the ground and throws arcs along it.",
+    "description": "One of the huge ion-thick lightning bolts a Superstorm hammers down. It hangs a moment over where it will hit, then strikes: the ground around the hit implodes, sucked into a swirling vortex that drags tanks in, and a moment later it all blows out again as a Superstorm blast.",
     "category": "submunition",
     "since": "core@0.38.0"
   },
@@ -19,8 +19,8 @@
     {
       "explosion": {
         "use": "explosion.standard",
-        "radius": 28,
-        "damage": 40,
+        "radius": 12,
+        "damage": 15,
         "damageType": "shock",
         "effects": {
           "bolt": {
@@ -28,33 +28,39 @@
             "storm": 1
           },
           "burst": {
-            "count": 40
+            "count": 24
           },
           "flash": {
-            "strength": 1.0
+            "strength": 0.9
           },
           "shake": {
-            "strength": 4
-          },
-          "arcs": {
-            "strength": 1
+            "strength": 3
           },
           "thunder": {
             "strength": 1
+          },
+          "vortex": {
+            "ticks": 22
           }
         }
       }
     },
     {
       "terrainOp": {
-        "use": "terrainop.convert",
-        "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
-        "into": "material.fulgurite",
-        "core": 0.8,
-        "expandTicks": 6
+        "use": "terrainop.attract",
+        "tankPull": 14,
+        "expandTicks": 6,
+        "flightTicks": 16
       },
-      "radius": 34,
+      "radius": 64,
       "damageType": "shock"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.superstorm-blast",
+        "inherit": 0,
+        "count": 1
+      }
     }
   ],
   "shop": {
