@@ -1,0 +1,57 @@
+{
+  "id": "weapon.ion-cannon",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ion Cannon",
+    "description": "Lob a targeting beacon like a shell. A satellite charges up over it, then a colossal ion beam slams down from the sky: a blast twice the size of a Heavy Nuke, a storm of huge electric bolts instead of a mushroom cloud, and three shockwaves rolling out one after another, each shoving the ground around.",
+    "category": "beam",
+    "since": "core@0.37.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 0,
+        "damageType": "shock",
+        "terrainOp": {
+          "use": "terrainop.carve"
+        },
+        "effects": {
+          "burst": {
+            "count": 4
+          },
+          "flash": {
+            "strength": 0.4
+          },
+          "ionCharge": {
+            "ticks": 70
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.ion-cannon-core",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 40000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 100,
+    "terrainValue": 0.7
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

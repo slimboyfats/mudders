@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -37,6 +37,8 @@
     "audio.howl",
     "audio.ice-wall",
     "audio.implode",
+    "audio.ion-blast",
+    "audio.ion-charge",
     "audio.lance",
     "audio.lance-charge",
     "audio.land",
@@ -237,6 +239,10 @@
     "weapon.ice-wall",
     "weapon.implosion",
     "weapon.incendiary",
+    "weapon.ion-cannon",
+    "weapon.ion-cannon-aftershock",
+    "weapon.ion-cannon-core",
+    "weapon.ion-cannon-wave",
     "weapon.laser",
     "weapon.lightning",
     "weapon.liquid-dirt",

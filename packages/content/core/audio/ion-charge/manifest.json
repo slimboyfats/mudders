@@ -1,0 +1,40 @@
+{
+  "id": "audio.ion-charge",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ion Cannon charge",
+    "description": "An Ion Cannon satellite charging: a deep pulse drone climbing to a scream, with a fast ticking arpeggio over it.",
+    "since": "core@0.37.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 70,
+        "to": 1200,
+        "attack": 1.1,
+        "hold": 0.1,
+        "release": 0.06,
+        "volume": 0.24,
+        "vibrato": { "rate": 18, "depth": 0.7 }
+      },
+      {
+        "wave": "square",
+        "freq": 660,
+        "attack": 0.01,
+        "hold": 1.15,
+        "release": 0.04,
+        "volume": 0.08,
+        "arp": [0, 7, 12, 19, 24, 19, 12, 7],
+        "arpRate": 0.06
+      }
+    ]
+  },
+  "on": [{ "event": "ionCharge" }]
+}

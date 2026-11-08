@@ -1716,6 +1716,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
     this.fx.lances.draw(this.additive, t);
+    this.fx.ions.draw(this.additive, t);
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     drawStorm(this.normal, this.stormKind, this.stormK, t, this.wind, this.probe, mult);
