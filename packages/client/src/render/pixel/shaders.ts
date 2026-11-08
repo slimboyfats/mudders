@@ -808,6 +808,17 @@ void main() {
     else if (k < 0.75) a = 0.6;
     else a = bayer < 0.5 ? 0.35 : 0.0;
     if (a <= 0.0) discard;
+  } else if (v_shape == 6) { // stipple: a cloud of single opaque cells, denser at the core
+    vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
+    vec2 cell = floor((dev - u_origin) / u_scale);
+    float k = length(cell + 0.5 - v_blob.xy) / max(v_blob.z, 0.5);
+    if (k > 1.0) discard;
+    // each cell's own die, re-rolled as the blob moves a cell, so the cloud shimmers
+    float h = fract(sin(dot(cell, vec2(12.9898, 78.233)) + dot(floor(v_blob.xy), vec2(3.1, 7.7))) * 43758.5453);
+    if (h > v_color.a * (1.25 - k * 0.7)) discard;
+    vec3 c = k > 0.6 ? min(vec3(1.0), v_color.rgb * 1.3) : v_color.rgb; // pale fringe, one step
+    o = vec4(c, 1.0);
+    return;
   } else if (v_shape == 5) { // solid pixel blob: opaque cells, one dithered edge band
     vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
     vec2 cell = floor((dev - u_origin) / u_scale);

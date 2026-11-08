@@ -447,7 +447,11 @@ export class GpuParticles implements ParticleSink {
   private passes = 0;
   /** Next ring slot to fill, and the highest slot in use + 1. */
   private head = 0;
-  private used = 0;
+  /** The live window is the ring range [tail, tail + count): older slots have all died. */
+  private tail = 0;
+  private count = 0;
+  /** Tick each slot dies at (CPU copy, to move the tail). */
+  private readonly death: Float32Array;
   /** The tick by which every particle so far has died. */
   private lastDeath = 0;
   /** Slots written since the last upload: a ring range [pendStart, pendStart + pendCount). */
@@ -461,9 +465,10 @@ export class GpuParticles implements ParticleSink {
   private readonly gl: WebGL2RenderingContext;
   private readonly dynBuf: [WebGLBuffer, WebGLBuffer];
   private readonly statBuf: WebGLBuffer;
-  /** Update VAOs read dynBuf[i]; draw VAOs read dynBuf[i]. */
+  /** Update VAO i reads dynBuf[i]. */
   private readonly updVao: [WebGLVertexArrayObject, WebGLVertexArrayObject];
-  private readonly drawVao: [WebGLVertexArrayObject, WebGLVertexArrayObject];
+  /** One draw VAO; its attributes are re-pointed at the live window each draw. */
+  private readonly drawVao: WebGLVertexArrayObject;
   private readonly tf: WebGLTransformFeedback;
   private readonly updProg: WebGLProgram;
   private readonly drawProg: WebGLProgram;
@@ -483,6 +488,7 @@ export class GpuParticles implements ParticleSink {
     this.gl = gl;
     this.cap = cap;
     this.dyn = new Float32Array(cap * 4);
+    this.death = new Float32Array(cap);
     const stat = new ArrayBuffer(cap * STAT_BYTES);
     this.statF = new Float32Array(stat);
     this.statU = new Uint32Array(stat);
@@ -551,13 +557,13 @@ export class GpuParticles implements ParticleSink {
       return v;
     };
     this.updVao = [vao(this.dynBuf[0], 0), vao(this.dynBuf[1], 0)];
-    this.drawVao = [vao(this.dynBuf[0], 1), vao(this.dynBuf[1], 1)];
+    this.drawVao = vao(this.dynBuf[0], 1);
     this.tf = gl.createTransformFeedback();
   }
 
   /** Slots that may hold a live particle (the range each pass touches). */
   get n(): number {
-    return this.used;
+    return this.count;
   }
 
   /** Add a particle in the next ring slot; when full, the oldest is overwritten. */
@@ -598,7 +604,7 @@ export class GpuParticles implements ParticleSink {
     const r = e.size / 2;
     const n = Math.max(
       4,
-      Math.min(96, Math.round(e.size * e.size * 0.9 * Math.max(0.3, this.density))),
+      Math.min(64, Math.round(e.size * e.size * 0.7 * Math.max(0.3, this.density))),
     );
     // radius growth per tick over the puff's life (negative for flames, which shrink)
     const out = (r * grow) / Math.max(1, e.life);
@@ -667,7 +673,10 @@ export class GpuParticles implements ParticleSink {
   ): void {
     const i = this.head;
     this.head = i + 1 === this.cap ? 0 : i + 1;
-    if (i + 1 > this.used) this.used = i + 1;
+    // full: the oldest slot is overwritten and the window slides
+    if (this.count === this.cap) this.tail = this.head;
+    else this.count++;
+    this.death[i] = this.tick + life;
     const o = i * 4;
     this.dyn[o] = x;
     this.dyn[o + 1] = y;
@@ -691,6 +700,12 @@ export class GpuParticles implements ParticleSink {
       // everything has burnt out: rewind the ring so passes stay short
       this.clear();
       return;
+    }
+    // drop the dead prefix of the window, so passes and draws skip it
+    const d = this.death;
+    while (this.count > 0 && d[this.tail]! <= this.tick) {
+      this.tail = this.tail + 1 === this.cap ? 0 : this.tail + 1;
+      this.count--;
     }
     this.passes++;
   }
@@ -723,7 +738,8 @@ export class GpuParticles implements ParticleSink {
     const passes = Math.min(this.passes, MAX_PASSES);
     // a long stall: age the clock without moving (they died off-screen anyway)
     this.passes = 0;
-    if (passes === 0 || this.used === 0) return;
+    if (passes === 0 || this.count === 0) return;
+    const segs = this.segments();
     const gl = this.gl;
     gl.useProgram(this.updProg);
     gl.activeTexture(gl.TEXTURE9);
@@ -740,17 +756,21 @@ export class GpuParticles implements ParticleSink {
       const dst = src === 0 ? 1 : 0;
       gl.uniform1f(this.uUpd.u_tick!, first + p);
       gl.bindVertexArray(this.updVao[src]);
-      gl.bindBufferRange(
-        gl.TRANSFORM_FEEDBACK_BUFFER,
-        0,
-        this.dynBuf[dst],
-        0,
-        this.used * DYN_BYTES,
-      );
-      gl.beginTransformFeedback(gl.POINTS);
-      gl.drawArrays(gl.POINTS, 0, this.used);
-      gl.endTransformFeedback();
-      gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      for (let g = 0; g < segs.length; g += 2) {
+        const start = segs[g]!;
+        const len = segs[g + 1]!;
+        gl.bindBufferRange(
+          gl.TRANSFORM_FEEDBACK_BUFFER,
+          0,
+          this.dynBuf[dst],
+          start * DYN_BYTES,
+          len * DYN_BYTES,
+        );
+        gl.beginTransformFeedback(gl.POINTS);
+        gl.drawArrays(gl.POINTS, start, len);
+        gl.endTransformFeedback();
+        gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null);
+      }
       this.cur = dst;
     }
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
@@ -773,28 +793,52 @@ export class GpuParticles implements ParticleSink {
   ): void {
     this.upload();
     this.update(terrain, mapW, mapH);
-    if (this.used === 0) return;
+    if (this.count === 0) return;
     const gl = this.gl;
+    const segs = this.segments();
     gl.useProgram(this.drawProg);
     gl.uniform2f(this.uDraw.u_view!, view[0], view[1]);
     gl.uniform2f(this.uDraw.u_origin!, origin[0], origin[1]);
     gl.uniform1f(this.uDraw.u_scale!, scale);
     gl.uniform1f(this.uDraw.u_tick!, this.tick);
-    gl.bindVertexArray(this.drawVao[this.cur]);
+    gl.bindVertexArray(this.drawVao);
     gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.uniform1i(this.uDraw.u_pass!, 0);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.used);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.uniform1i(this.uDraw.u_pass!, 1);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.used);
+    for (let pass = 0; pass < 2; pass++) {
+      if (pass === 0) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      else gl.blendFunc(gl.ONE, gl.ONE);
+      gl.uniform1i(this.uDraw.u_pass!, pass);
+      for (let g = 0; g < segs.length; g += 2) {
+        // instanced draws have no first-instance offset: point the attributes at the segment
+        this.pointDraw(this.dynBuf[this.cur], segs[g]!);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, segs[g + 1]!);
+      }
+    }
     gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  /** The live window as [start, len] pairs (two when it wraps the ring). */
+  private segments(): number[] {
+    const end = this.tail + this.count;
+    if (end <= this.cap) return [this.tail, this.count];
+    return [this.tail, this.cap - this.tail, 0, end - this.cap];
+  }
+
+  /** Point the draw VAO's per-instance attributes at slot `start` of the state buffers. */
+  private pointDraw(dyn: WebGLBuffer, start: number): void {
+    const gl = this.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, dyn);
+    gl.vertexAttribPointer(0, 4, gl.FLOAT, false, DYN_BYTES, start * DYN_BYTES);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.statBuf);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, STAT_BYTES, start * STAT_BYTES);
+    gl.vertexAttribIPointer(2, 1, gl.UNSIGNED_INT, STAT_BYTES, start * STAT_BYTES + 12);
   }
 
   clear(): void {
     this.head = 0;
-    this.used = 0;
+    this.tail = 0;
+    this.count = 0;
     this.passes = 0;
     this.pendCount = 0;
     this.lastDeath = this.tick;
@@ -805,7 +849,7 @@ export class GpuParticles implements ParticleSink {
     gl.deleteBuffer(this.dynBuf[0]);
     gl.deleteBuffer(this.dynBuf[1]);
     gl.deleteBuffer(this.statBuf);
-    for (const v of [...this.updVao, ...this.drawVao]) gl.deleteVertexArray(v);
+    for (const v of [...this.updVao, this.drawVao]) gl.deleteVertexArray(v);
     gl.deleteTransformFeedback(this.tf);
     gl.deleteProgram(this.updProg);
     gl.deleteProgram(this.drawProg);

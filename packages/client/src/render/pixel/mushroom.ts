@@ -120,7 +120,7 @@ export function emitMushroom(m: Mushroom, t: number, sink: ParticleSink, density
     const ok = Number.isFinite(px) && Math.abs(x - px) < 3 && Math.abs(y - py) < 3;
     const vx = ok ? x - px : 0;
     const vy = ok ? y - py : 0;
-    const n = Math.max(1, Math.min(16, Math.round(size * size * 0.012 * density * alpha)));
+    const n = Math.max(1, Math.min(10, Math.round(size * size * 0.01 * density * alpha)));
     const r = size / 2;
     for (let j = 0; j < n; j++) {
       const a = rng.next() * 6.283185;
