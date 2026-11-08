@@ -11,6 +11,7 @@ import type {
 } from '../types';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
+import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
 import { QuadBatch, Shape } from './batch';
@@ -333,6 +334,8 @@ export class PixelRenderer implements Renderer {
   private normal!: QuadBatch;
   private additive!: QuadBatch;
   private particles!: GpuParticles;
+  /** The smoke and gas field (off where float render targets are missing). */
+  private fluid!: GpuFluid;
   private fx!: EffectSystem;
   /** Water splashes and ripples (cosmetic, watches the snapshots). */
   private water!: WaterFx;
@@ -640,10 +643,13 @@ export class PixelRenderer implements Renderer {
     const q = QUALITY_PARTICLES[quality];
     const old = this.particles;
     const cap = q.cap;
+    const fq = QUALITY_FLUID[quality];
     if (!old || old.cap !== cap) {
       old?.dispose();
+      this.fluid?.dispose();
       this.particles = new GpuParticles(this.gl, cap, q.mult);
-      this.fx = new EffectSystem(this.particles, {
+      this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
+      this.fx = new EffectSystem(this.particles, this.fluid, {
         width: this.mapWidth,
         height: this.mapHeight,
         material: (x, y) =>
@@ -834,6 +840,7 @@ export class PixelRenderer implements Renderer {
   private clearRoundFx(): void {
     this.trails = [];
     this.particles.clear();
+    this.fluid.clear();
     this.fx.clear();
     this.water.clear();
     this.meteors.clear();
@@ -1121,6 +1128,21 @@ export class PixelRenderer implements Renderer {
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
+  /**
+   * What pours into the smoke field each tick besides the effects' blasts: gas clouds spread
+   * their dye on the wind (burning ground breathes in `stepFlames`). Then the tick itself.
+   */
+  private feedFluid(): void {
+    const f = this.fluid;
+    if (f.ok) {
+      for (const z of this.zones) {
+        if (z.look !== 'gas' && z.look !== 'toxic') continue;
+        f.splat(z.x, z.y, z.radius * 0.8, this.wind * 20, 0, 0, 0, 0.06);
+      }
+    }
+    f.step(this.wind);
+  }
+
   private stepFlames(): void {
     const n = this.flameN;
     if (n === 0) return;
@@ -1180,6 +1202,8 @@ export class PixelRenderer implements Renderer {
         color: 0,
         kind: PKind.Flame,
       });
+      // the fire breathes heat and soot into the smoke field
+      if ((r & 3) === 2) this.fluid.splat(x, y - 2, 5, 0, -0.4, 0.22, 0.5);
       // embers lift off the fire and ride the wind, more in a gust
       if ((r & 3) === 1 && (r >> 2) % 3 < (lick > 1 ? 2 : 1)) {
         this.particles.add({
@@ -1377,6 +1401,7 @@ export class PixelRenderer implements Renderer {
     this.fx.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
     this.stepFlames();
+    this.feedFluid();
     // burning shells shed flames as they fly
     const shells = this.palette.shells;
     if (shells) {
@@ -1685,6 +1710,7 @@ export class PixelRenderer implements Renderer {
 
     this.shadeTerrain();
     this.paintScenery((W / 2 - ox) / scale, (H / 2 - oy) / scale);
+    this.fluid.update(this.terrainTex);
     gl.bindFramebuffer(gl.FRAMEBUFFER, post ? this.sceneFbo : null);
     gl.viewport(0, 0, W, H);
     gl.disable(gl.BLEND);
@@ -1774,6 +1800,8 @@ export class PixelRenderer implements Renderer {
     gl.blendFunc(gl.ONE, gl.ONE);
     this.additive.flush(view, origin, scale);
     gl.disable(gl.BLEND);
+    // the smoke field sits over the ground and under the particles, sparks and shells
+    this.fluid.draw(this.terrainTex, view, origin, scale);
     this.particles.draw(this.terrainTex, this.mapWidth, this.mapHeight, view, origin, scale);
     this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
@@ -2526,6 +2554,7 @@ export class PixelRenderer implements Renderer {
     gl.deleteProgram(this.postProg);
     gl.deleteVertexArray(this.emptyVao);
     this.particles.dispose();
+    this.fluid.dispose();
     this.fx.clear();
     this.water.clear();
   }

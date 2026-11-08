@@ -23,7 +23,7 @@ const flash = (tick: number, x: number, radius: number, dt = 0): EffectEvent => 
 
 function setup(): { fx: EffectSystem; p: Particles } {
   const p = new Particles(6000);
-  return { fx: new EffectSystem(p, probe), p };
+  return { fx: new EffectSystem(p, { splat: () => {} }, probe), p };
 }
 
 /** x positions of every drawn particle. */
