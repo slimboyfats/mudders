@@ -9,7 +9,7 @@ import type {
   TankLook,
   Vec2,
 } from '../types';
-import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
+import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
@@ -73,6 +73,7 @@ const SCENERY_UNIFORMS = [
   'u_top',
   'u_bottom',
   'u_cloud',
+  'u_boil',
   'u_cloudLight',
   'u_cloudShadow',
   'u_ranges',
@@ -650,6 +651,7 @@ export class PixelRenderer implements Renderer {
             ? 0
             : this.terrain[y * this.mapWidth + x]!,
         color: (m) => this.palette.materials[m] ?? 0x7a5a3a,
+        grass: (x, y) => this.grassMask[y * this.mapWidth + x] !== 0,
       });
     }
     this.fx.mult = q.mult;
@@ -1133,6 +1135,11 @@ export class PixelRenderer implements Renderer {
     let by0 = this.mapHeight;
     let by1 = 0;
     let grassBurnt = false;
+    // gusts: the wind comes in slow puffs, so the flames lean and stretch in licks rather than
+    // a steady lean (a few seconds per puff, in hard steps)
+    const puff = (Math.imul((this.fxTick >> 5) + 1, 1597334677) >>> 0) / 4294967296;
+    const lick = 0.4 + puff * 1.2;
+    const lean = this.wind * 50 * lick;
     for (let k = 0; k < tries; k++) {
       s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0;
       const i = this.flameCells[s % n]!;
@@ -1166,13 +1173,26 @@ export class PixelRenderer implements Renderer {
       this.particles.add({
         x,
         y: y - 1,
-        vx: ((r & 15) - 7.5) * 0.02,
-        vy: -0.3 - (r >> 4) * 0.04,
-        life: 8 + (r & 7),
+        vx: ((r & 15) - 7.5) * 0.02 + lean,
+        vy: (-0.3 - (r >> 4) * 0.04) * (0.7 + lick * 0.4),
+        life: 8 + (r & 7) + (lick > 1.2 ? 3 : 0),
         size: 1 + (r & 1) + ((r >> 7) & 1),
         color: 0,
         kind: PKind.Flame,
       });
+      // embers lift off the fire and ride the wind, more in a gust
+      if ((r & 3) === 1 && (r >> 2) % 3 < (lick > 1 ? 2 : 1)) {
+        this.particles.add({
+          x: x + ((r >> 2) & 3) - 1.5,
+          y: y - 3,
+          vx: lean * 0.6 + ((r >> 4) & 3) * 0.1 - 0.15,
+          vy: -0.5 - ((r >> 6) & 3) * 0.2,
+          life: 30 + (r & 31),
+          size: 1,
+          color: (r & 8) === 0 ? 0xffd060 : 0xff7030,
+          kind: PKind.Ember,
+        });
+      }
       if ((r & 7) === 0) {
         this.particles.add({
           x,
@@ -1352,6 +1372,8 @@ export class PixelRenderer implements Renderer {
     this.stepWrecks();
     this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
+    emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
+    this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
     this.stepFlames();
@@ -1418,6 +1440,28 @@ export class PixelRenderer implements Renderer {
               size: 1,
               color: (r >>> 8) % 3 === 0 ? 0xffffff : c,
               kind: PKind.Glitter,
+            });
+          }
+          continue;
+        }
+        if (look === undefined || look === 'spark') {
+          // a plain shell: hot sparks spat out behind it as it flies, in its trail colour
+          const tr = this.trails.find((t) => t.id === e.id);
+          const vx = tr && !Number.isNaN(tr.lx) ? e.x - tr.lx : 0;
+          const vy = tr && !Number.isNaN(tr.ly) ? e.y - tr.ly : 0;
+          const sp = Math.hypot(vx, vy);
+          const n = sp > 2 ? 2 : 1;
+          for (let i = 0; i < n; i++) {
+            const r2 = Math.imul(r + i * 97, 2246822519) >>> 0 || 1;
+            this.particles.add({
+              x: e.x + (((r2 >>> 4) & 3) - 1.5) * 0.5,
+              y: e.y + (((r2 >>> 8) & 3) - 1.5) * 0.5,
+              vx: -vx * 0.12 + (((r2 >>> 12) & 7) - 3.5) * 0.05,
+              vy: -vy * 0.12 + (((r2 >>> 16) & 7) - 3.5) * 0.05,
+              life: 6 + ((r2 >>> 20) & 7),
+              size: 1,
+              color: (r2 >>> 24) % 3 === 0 ? 0xffffff : (shells[e.weapon]?.trailColor ?? 0xffb050),
+              kind: PKind.Spark,
             });
           }
           continue;
@@ -1800,7 +1844,7 @@ export class PixelRenderer implements Renderer {
     const mh = this.mapHeight;
     const dx = camX - mw / 2;
     const dy = camY - mh / 2;
-    let key = `${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)}`;
+    let key = `${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)},${Math.floor(this.fxTick / 10)}`;
     for (const k of [0.9, 0.85, 0.75, 0.55, 0.35]) {
       key += `,${Math.floor((dx * k) / 2)},${Math.floor((dy * k) / 2)}`;
     }
@@ -1818,6 +1862,8 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(u.u_top, rgb(th.skyTop));
     gl.uniform3fv(u.u_bottom, rgb(th.skyBottom));
     gl.uniform2f(u.u_cloud, th.clouds.cover, this.cloudX);
+    // the clouds boil in slow steps: the scenery repaints every ten ticks for it
+    gl.uniform1f(u.u_boil, Math.floor(this.fxTick / 10));
     gl.uniform3fv(u.u_cloudLight, rgb(th.clouds.light));
     gl.uniform3fv(u.u_cloudShadow, rgb(th.clouds.shadow));
     const nr = th.ranges.length;
@@ -2390,8 +2436,16 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
         continue;
       }
+      // a plain shell: a halo, a 2-cell body with a lit cell spinning round it, white-hot heart
+      const x = Math.floor(e.x) + 0.5;
+      const y = Math.floor(e.y) + 0.5;
+      const spin = (this.fxTick + e.id) & 3;
+      const sx = spin === 0 ? 1 : spin === 2 ? -1 : 0;
+      const sy = spin === 1 ? 1 : spin === 3 ? -1 : 0;
       g.push(e.x, e.y, 6, 6, look?.trailColor ?? 0xff9a40, 0.6, Shape.Pixel);
-      g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
+      this.normal.push(x, y, 2, 2, look?.trailColor ?? 0xff9a40, 1);
+      g.push(x + sx, y + sy, 1, 1, 0xffe0a0, 0.9);
+      g.push(x, y, 1, 1, 0xffffff, 1);
     }
   }
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '@mudders/content';
 import { paletteFrom } from '../../game/palette';
-import { drawWeather, drawZones, stormFlash } from './ambient';
+import { drawWeather, drawZones, emitWeather, stormFlash } from './ambient';
+import type { Emit } from './particles';
 import type { QuadBatch } from './batch';
 import { DEFAULT_THEME, pixelTheme } from './theme';
 
@@ -31,8 +32,8 @@ describe('ambient layers', () => {
     expect(pixelTheme('theme.snow', themes).snow).toBeGreaterThan(0);
   });
 
-  it('weather is a pure function of time and never draws inside the ground', () => {
-    for (const id of ['theme.storm', 'theme.snow', 'theme.inferno', 'theme.day']) {
+  it('drawn weather is a pure function of time and never draws inside the ground', () => {
+    for (const id of ['theme.inferno', 'theme.day']) {
       const th = pixelTheme(id, themes);
       const a = recorder();
       const b = recorder();
@@ -44,13 +45,29 @@ describe('ambient layers', () => {
     }
   });
 
-  it('quality scales the particle count', () => {
-    const th = pixelTheme('theme.storm', themes);
-    const hi = recorder();
-    const lo = recorder();
-    drawWeather(hi.batch, hi.batch, th, 50, 0, probe(200), 1);
-    drawWeather(lo.batch, lo.batch, th, 50, 0, probe(200), 0.35);
-    expect(lo.out.length).toBeLessThan(hi.out.length * 0.5);
+  it('rain and snow are spawned as particles above the map, the same for the same tick', () => {
+    for (const id of ['theme.storm', 'theme.snow']) {
+      const th = pixelTheme(id, themes);
+      const spawn = (mult: number) => {
+        const out: Emit[] = [];
+        for (let t = 0; t < 60; t++)
+          emitWeather({ add: (e) => out.push(e) }, th, t, 0.002, probe(150), mult);
+        return out;
+      };
+      const a = spawn(1);
+      expect(a.length).toBeGreaterThan(0);
+      expect(a).toEqual(spawn(1));
+      for (const e of a) {
+        expect(e.y).toBeLessThan(0);
+        expect(e.vy).toBeGreaterThan(0);
+      }
+      // quality scales the count
+      expect(spawn(0.35).length).toBeLessThan(a.length * 0.5);
+    }
+    // a dry theme spawns nothing
+    const out: Emit[] = [];
+    emitWeather({ add: (e) => out.push(e) }, pixelTheme('theme.day', themes), 5, 0, probe(150), 1);
+    expect(out).toEqual([]);
   });
 
   it('draws each zone look', () => {

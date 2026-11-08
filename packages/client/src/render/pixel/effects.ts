@@ -199,7 +199,16 @@ interface Bolt {
   dur: number;
   /** Thickness scale (1 = a normal Lightning bolt; Ion Cannon bolts are fatter). */
   w?: number;
+  /** Seed for this bolt's flicker and the bits it throws. */
+  seed: number;
 }
+
+/**
+ * Brightness of a bolt per tick of age, in hard steps: the dim stepped leader, the white return
+ * stroke, then two restrikes with dark gaps between, each weaker than the last. Past the table
+ * the channel gutters out (see `drawBolts`).
+ */
+const BOLT_FLICK = [0.45, 1, 0.7, 0.95, 0, 0.85, 0.4, 0, 0.9, 0.3, 0.6, 0, 0.5] as const;
 
 /**
  * Flash and sky colours per damage type (index into DAMAGE_TYPES: blast, kinetic, heat, cold,
@@ -232,6 +241,8 @@ export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> =
 export interface TerrainProbe {
   material(x: number, y: number): number;
   color(material: number): number;
+  /** Whether grass grows on this cell (the round-start surface, not yet burnt or dug). */
+  grass?(x: number, y: number): boolean;
   width: number;
   height: number;
 }
@@ -283,6 +294,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** The current wind (cells per tick², the sim's), for what the ground sheds. */
+  wind = 0;
   /** Orbital Lance lock-ons and beams. */
   readonly lances: Lances;
   /** Ion Cannon charges and beams. */
@@ -2549,7 +2562,14 @@ export class EffectSystem {
       if (rng.next() < 0.5)
         walk(end, pts[pts.length - 1]!, pts[pts.length - 1]! + 10, rng.range(-2, 2));
     }
-    this.bolts.push({ cells: Int32Array.from(pts), main, start, dur, w });
+    this.bolts.push({
+      cells: Int32Array.from(pts),
+      main,
+      start,
+      dur,
+      w,
+      seed: rng.next() * 4294967296,
+    });
   }
 
   /**
@@ -2733,6 +2753,7 @@ export class EffectSystem {
         main: pts.length,
         start: e.tick + delay,
         dur: Math.round(rng.range(10, 18)),
+        seed: rng.next() * 4294967296,
       });
     }
   }
@@ -3054,6 +3075,42 @@ export class EffectSystem {
       });
     }
     if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
+    // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
+    // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
+    const nRing = Math.round((24 + r * 1.2) * Math.max(0.5, this.mult));
+    const ringSpeed = 0.9 + r / 10;
+    for (let i = 0; i < nRing; i++) {
+      const a = ((i + rng.next() * 0.6) / nRing) * Math.PI * 2;
+      const s = ringSpeed * rng.range(0.85, 1.1);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rng.range(8, 16),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xffd080,
+        kind: PKind.Spark,
+      });
+    }
+    // flash motes: a cloud of white cells strobing inside the fireball for the first ticks
+    const nFlash = Math.round((10 + r) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nFlash; i++) {
+      const a = rng.next() * Math.PI * 2;
+      const d = Math.sqrt(rng.next()) * r * 0.7;
+      this.particles.add({
+        x: e.x + Math.cos(a) * d,
+        y: e.y + Math.sin(a) * d,
+        vx: Math.cos(a) * 0.3,
+        vy: Math.sin(a) * 0.3,
+        life: rng.range(5, 11),
+        size: 1,
+        color: rng.next() < 0.6 ? 0xffffff : 0xfff0a0,
+        kind: PKind.Glitter,
+      });
+    }
+    // dust kicked along the ground either side of the crater, rolling outward
+    this.groundDust(e, rng, r);
     const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
@@ -3101,6 +3158,42 @@ export class EffectSystem {
   }
 
   /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
+  /** Grains of the local ground lifted along the surface either side of a blast, rolling out. */
+  private groundDust(e: EffectEvent, rng: FxRng, r: number): void {
+    const p = this.probe;
+    const reach = Math.round(r * 2.2);
+    const n = Math.round(reach * 0.5 * Math.max(0.5, this.mult));
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < n; i++) {
+        const dx = r * 0.8 + rng.next() * (reach - r * 0.8);
+        const x = Math.round(e.x + side * dx);
+        if (x < 0 || x >= p.width) continue;
+        // the surface under this column, searched from above the blast down
+        let y = -1;
+        const y0 = Math.max(0, Math.round(e.y - r));
+        const y1 = Math.min(p.height - 1, Math.round(e.y + r * 1.5));
+        for (let yy = y0; yy <= y1; yy++) {
+          if (p.material(x, yy) !== 0) {
+            y = yy;
+            break;
+          }
+        }
+        if (y < 0) continue;
+        const far = dx / reach;
+        this.particles.add({
+          x,
+          y: y - 0.5,
+          vx: side * (0.5 + rng.next() * 0.8) * (1 - far * 0.5),
+          vy: -rng.range(0.1, 0.5) * (1 - far * 0.6),
+          life: rng.range(14, 30) * (1.2 - far * 0.5),
+          size: 1,
+          color: shade(this.dustColor(x, y), rng.range(0.9, 1.3)),
+          kind: PKind.Chunk,
+        });
+      }
+    }
+  }
+
   private craterFloor(x: number, y: number, r: number): number {
     const p = this.probe;
     if (x < 0 || x >= p.width) return y;
@@ -3183,6 +3276,7 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
+    this.groundLife(t);
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
       if (t >= m.start && t <= m.start + m.life) emitMushroom(m, t, this.particles, this.mult);
@@ -3263,6 +3357,7 @@ export class EffectSystem {
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
+    for (const b of this.bolts) this.boltBits(b, t);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
     if (this.ions.active) {
       const rumble = this.ions.tick(t, this.mult);
@@ -3493,20 +3588,222 @@ export class EffectSystem {
     }
   }
 
-  /** Lightning channels: a white core with a cold halo, flickering out in whole steps. */
+  /**
+   * The ground is never quite still: each tick a few random columns of the surface shed what
+   * they're made of. Grass lets go of seeds and pollen that ride the wind; bare dirt, sand and
+   * ash lose grains when the wind picks up; snow blows spindrift off its crests; lava, magma
+   * and cinder throw embers; water lifts a wisp of mist. All single-cell GPU motes.
+   */
+  private groundLife(t: number): void {
+    const p = this.probe;
+    const W = p.width;
+    const H = p.height;
+    const wind = this.wind;
+    const gust = Math.min(1, Math.abs(wind) * 150);
+    const dir = wind < 0 ? -1 : 1;
+    // a handful of columns per tick, more in a wind
+    const want = (W / 160) * (0.6 + gust * 1.6) * Math.max(0.3, this.mult);
+    let n = Math.floor(want);
+    const rng = new FxRng(Math.imul(t + 1, 2246822519) ^ 0x5bd1e995);
+    if (rng.next() < want - n) n++;
+    for (let i = 0; i < n; i++) {
+      const x = Math.floor(rng.next() * W);
+      const y = this.surfaceNear(x, H * 0.5, H * 0.5);
+      if (y < 0) continue;
+      const m = p.material(x, y);
+      if (p.grass?.(x, y) && m !== 52 && m !== 19) {
+        // seeds and pollen off the grass, more when the wind blows
+        if (rng.next() > 0.25 + gust * 0.6) continue;
+        const pollen = rng.next() < 0.6;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.1, 0.5) * (0.4 + gust) + rng.range(-0.1, 0.1),
+          vy: -rng.range(0.08, 0.3),
+          life: Math.round(rng.range(40, 110)),
+          size: 1,
+          color: pollen ? 0xf0e890 : 0xd8d0a0,
+          kind: PKind.Ash,
+        });
+      } else if (m === 1 || m === 2 || m === 6 || m === 43 || m === 23) {
+        // bare ground: grains hop downwind, only when the wind is up
+        if (rng.next() > gust * 0.8 - 0.1) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.4, 1.4) * gust,
+          vy: -rng.range(0.1, 0.45),
+          life: Math.round(rng.range(16, 40)),
+          size: 1,
+          color: shade(p.color(m), rng.range(1, 1.35)),
+          kind: PKind.Chunk,
+        });
+      } else if (m === 52 || m === 41) {
+        // snow and frost: spindrift streams off the surface
+        if (rng.next() > 0.15 + gust * 0.8) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.6, 1.8) * (0.3 + gust),
+          vy: -rng.range(0.05, 0.3),
+          life: Math.round(rng.range(20, 50)),
+          size: 1,
+          color: 0xffffff,
+          kind: PKind.Flake,
+        });
+      } else if (m === 5 || m === 63 || m === 73) {
+        // hot ground spits embers
+        if (rng.next() > 0.5) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: rng.range(-0.3, 0.3) + wind * 40,
+          vy: -rng.range(0.3, 1.1),
+          life: Math.round(rng.range(16, 44)),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffb040 : 0xff6020,
+          kind: PKind.Ember,
+        });
+      } else if (m === 19) {
+        // a wisp of mist off the water
+        if (rng.next() > 0.3) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: wind * 30,
+          vy: -rng.range(0.04, 0.12),
+          life: Math.round(rng.range(20, 40)),
+          size: 1,
+          color: 0xb8c8d8,
+          kind: PKind.Ash,
+        });
+      }
+    }
+  }
+
+  /**
+   * What a bolt throws off as it lives: on the return stroke, sparks fly off the lower channel
+   * and the foot kicks up embers, grit and dust; when the channel finally dies it crumbles into
+   * cold motes that drift off along its path.
+   */
+  private boltBits(b: Bolt, t: number): void {
+    const age = t - b.start;
+    // ground arcs (no thickness set) crawl rather than strike: nothing to throw
+    if (b.w === undefined || (age !== 1 && age !== b.dur)) return;
+    const c = b.cells;
+    const n = b.main;
+    if (n < 4) return;
+    const rng = new FxRng(b.seed + age);
+    const s = b.w ?? 1;
+    const fx = c[n - 2]!;
+    const fy = c[n - 1]!;
+    const top = c[1]!;
+    const span = Math.max(1, fy - top);
+    if (age === 1) {
+      // sparks off the lower half of the channel, more the fatter the bolt
+      const step = Math.max(2, Math.round(6 / s));
+      for (let i = 0; i < n; i += 2 * step) {
+        const k = (c[i + 1]! - top) / span;
+        if (k < 0.45 || rng.next() > 0.7) continue;
+        const dir = rng.next() < 0.5 ? -1 : 1;
+        this.particles.add({
+          x: c[i]! + 0.5,
+          y: c[i + 1]! + 0.5,
+          vx: dir * rng.range(0.6, 2.2),
+          vy: rng.range(-1.2, 0.6),
+          life: Math.round(rng.range(8, 18)),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffffff : 0xc8d8ff,
+          kind: PKind.Spark,
+        });
+      }
+      // the foot: a fan of grit and embers, and a puff of dust
+      const m = Math.max(0.3, this.mult);
+      const grit = Math.round(14 * s * m);
+      for (let i = 0; i < grit; i++) {
+        const a = rng.range(-2.4, -0.7);
+        const sp = rng.range(1, 3.5) * s;
+        this.particles.add({
+          x: fx + rng.range(-2, 2),
+          y: fy - 1,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: Math.round(rng.range(18, 40)),
+          size: 1,
+          color: rng.next() < 0.4 ? 0xffe0a0 : 0x8a6a48,
+          kind: rng.next() < 0.55 ? PKind.Ember : PKind.Chunk,
+        });
+      }
+      const dust = Math.round(3 * s);
+      for (let i = 0; i < dust; i++) {
+        const dir = i % 2 === 0 ? -1 : 1;
+        this.particles.add({
+          x: fx + dir * rng.range(1, 5),
+          y: fy - 2,
+          vx: dir * rng.range(0.3, 1),
+          vy: rng.range(-0.6, -0.1),
+          life: Math.round(rng.range(20, 36)),
+          size: 4 + Math.round(rng.range(0, 3) * s),
+          color: 0x9a8aa8,
+          kind: PKind.Dust,
+        });
+      }
+    } else {
+      // the channel crumbles: cold motes let go along its path and drift off
+      for (let i = 0; i < n; i += 4) {
+        if (rng.next() > 0.6) continue;
+        this.particles.add({
+          x: c[i]! + 0.5,
+          y: c[i + 1]! + 0.5,
+          vx: rng.range(-0.4, 0.4),
+          vy: rng.range(-0.3, 0.3),
+          life: Math.round(rng.range(10, 26)),
+          size: 1,
+          color: rng.next() < 0.3 ? 0xd0e0ff : 0x7090e0,
+          kind: PKind.Glitter,
+        });
+      }
+    }
+  }
+
+  /**
+   * Lightning channels: a stepped leader feels its way down dim, then the white return stroke,
+   * restrikes with dark gaps between, and the channel gutters out in whole steps with branches
+   * dropping out one by one.
+   */
   drawBolts(additive: QuadBatch, t: number): void {
     for (const b of this.bolts) {
       const age = t - b.start;
       if (age < 0 || age > b.dur) continue;
-      // on, off, on, then fading: the classic double strike
-      const on = age < 3 || (age >= 4 && age < 6) || (age >= 8 && age < 10) || age >= 11;
-      if (!on) continue;
-      const fade = age < 11 ? 1 : Math.max(0, 1 - (age - 11) / Math.max(1, b.dur - 11));
+      let fade: number;
+      if (age < BOLT_FLICK.length) fade = BOLT_FLICK[age]!;
+      else {
+        // guttering: a falling level with a per-tick stutter, in hard steps
+        const left = Math.max(
+          0,
+          1 - (age - BOLT_FLICK.length + 1) / Math.max(1, b.dur - BOLT_FLICK.length + 1),
+        );
+        const h = (Math.imul(age + 1, 374761393) ^ (b.seed | 0)) >>> 0;
+        fade = (h & 3) === 0 ? 0 : Math.round(left * 0.6 * 4) / 4;
+      }
+      if (fade <= 0) continue;
       const c = b.cells;
       const s = b.w ?? 1;
       const core = Math.max(1, Math.round(s) * 2 - 1);
+      // the leader (age 0) has only reached partway down and shows no branches yet
+      const leaderEnd = age === 0 ? b.main * 0.7 : Number.POSITIVE_INFINITY;
       for (let i = 0; i < c.length; i += 2) {
         const branch = i >= b.main;
+        if (i >= leaderEnd) break;
+        if (branch && age > 1) {
+          // each flash lights a different set of branches; late in the life most are gone
+          const h =
+            (Math.imul((i >> 4) + 1, 2246822519) ^
+              Math.imul(age + 1, 3266489917) ^
+              (b.seed | 0)) >>>
+            0;
+          if (((h >>> 8) & 255) / 255 > (age < BOLT_FLICK.length ? 0.75 : 0.35)) continue;
+        }
         const x = c[i]! + 0.5;
         const y = c[i + 1]! + 0.5;
         if (branch) {
