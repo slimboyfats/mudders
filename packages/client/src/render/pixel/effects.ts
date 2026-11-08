@@ -2474,20 +2474,21 @@ export class EffectSystem {
    * down to (x, y), with a branch or two.
    */
   private bolt(e: EffectEvent): void {
+    const w = e.params.w ?? 1;
     this.skyBolt(
       e.x,
       e.y,
       e.tick,
       this.rngFor(e, 29),
-      1,
-      20,
+      w,
+      Math.round(20 * Math.min(2, w)),
       e.params.top ?? 0,
       e.params.storm === 1,
     );
     this.glows.push({
       x: e.x,
       y: e.y,
-      r: 26,
+      r: Math.round(26 * w),
       start: e.tick,
       dur: 14,
       color: 0xc8d8ff,

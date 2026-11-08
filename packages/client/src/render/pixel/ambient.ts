@@ -223,6 +223,8 @@ function drawVolcano(
 const STORM = [0x8a92a4, 0x5e6474, 0x434856, 0x2c3039] as const;
 const STORM_RAIN = 0x9aa8c4;
 const STORM_GLOW = 0xd8e0ff;
+/** Ticks a storm's cloud banks take to roll together. */
+const GATHER_TICKS = 90;
 
 /**
  * A thundercloud (Thunderstorm): a heavy anvil of cells hanging at the zone's row, its top rolling
@@ -248,36 +250,55 @@ function drawStorm(
   const slot = Math.floor(t / 7);
   const flick = h01(slot, salt + 11) < 0.12;
   const fx = z.x + Math.round((h01(slot, salt + 12) - 0.5) * half * 1.4);
+  // the clouds gather: separate banks slide in from both sides and merge over the first ticks
+  const wide = R > 150;
+  const g = Math.min(1, (z.age ?? GATHER_TICKS) / GATHER_TICKS);
+  const ease = 1 - (1 - g) * (1 - g) * (1 - g);
+  const banks = wide ? Math.max(4, Math.round(half / 70)) * 2 : 2;
+  const bankW = (half * 2) / banks;
+  const travel = wide ? half * 0.9 + 40 : half * 0.6;
   for (let dx = -half; dx <= half; dx++) {
-    const cx = z.x + dx;
-    if (cx < 0 || cx >= probe.width) continue;
     const u = dx / half;
-    const e = 1 - u * u;
+    // wide storms stay thick right out to the edges of the map
+    const e = wide ? 1 - u * u * u * u * u * u : 1 - u * u;
     if (e <= 0) continue;
-    const se = Math.sqrt(e);
-    // billowing crown: big slow lobes plus small rolling bumps, tallest in the middle
-    const lobes = Math.abs(Math.sin((dx / half) * 3.1 + salt * 0.37));
+    const bank = Math.min(banks - 1, Math.floor((dx + half) / bankW));
+    const mid = -half + (bank + 0.5) * bankW;
+    const ul = (dx - mid) / (bankW * 0.5);
+    const el = Math.max(0, 1 - ul * ul);
+    const env = el * (1 - ease) + e * ease;
+    if (env <= 0.02) continue;
+    const off = Math.round((1 - ease) * travel * (mid / half + (mid < 0 ? -0.35 : 0.35)));
+    const cx = z.x + dx + off;
+    if (cx < 0 || cx >= probe.width) continue;
+    const sx = z.x + dx;
+    const se = Math.sqrt(env);
+    // billowing crown: big slow lobes plus small rolling bumps
+    const lobes = Math.abs(Math.sin(dx / 20 + salt * 0.37));
     const thick =
-      (14 + 12 * lobes + 10 * vnoise(cx / 7 + roll, 0.5, salt)) * se * (0.75 + 0.25 * fade);
-    const sag = Math.round(4 * se * vnoise(cx / 6 - roll, 3.5, salt + 1));
+      (14 + 12 * lobes + 10 * vnoise(sx / 7 + roll, 0.5, salt)) *
+      se *
+      (wide ? 2.4 : 1) *
+      (0.75 + 0.25 * fade);
+    const sag = Math.round(4 * se * vnoise(sx / 6 - roll, 3.5, salt + 1));
     const top = Math.round(base - thick);
     const bot = base + sag;
     const span = Math.max(1, bot - top);
     for (let y = top; y <= bot; y++) {
       if (y < 0 || y >= probe.height) continue;
       // ragged dithered rim at the ends and the crown
-      const rim = e < 0.2 || y - top < 1;
+      const rim = env < 0.2 || y - top < 1;
       if (rim && ((cx + y) & 1) === 0) continue;
       const f = (y - top) / span;
       const band = f < 0.18 ? 0 : f < 0.45 ? 1 : f < 0.8 ? 2 : 3;
-      normal.push(cx + 0.5, y + 0.5, 1, 1, STORM[band]!, (rim ? 0.6 : 0.92) * fade);
+      normal.push(cx + 0.5, y + 0.5, 1, 1, STORM[band]!, rim ? 0.6 * fade : 1);
       if (flick && Math.abs(cx - fx) < 9 && f > 0.25 && ((cx * 3 + y) & 3) !== 0) {
         additive.push(cx + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.45 * (1 - Math.abs(cx - fx) / 9));
       }
     }
   }
   // rain from the cloud base down to the ground under it
-  const drops = Math.round(R * 1.6 * Math.max(0.4, mult) * fade);
+  const drops = Math.round(R * 1.6 * Math.max(0.4, mult) * fade * ease);
   for (let i = 0; i < drops; i++) {
     const r0 = h01(i, salt + 20);
     const r1 = h01(i, salt + 21);

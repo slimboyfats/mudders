@@ -1,0 +1,69 @@
+{
+  "id": "weapon.superstorm-bolt",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Superstorm bolt",
+    "description": "One of the huge ion-fat lightning bolts a Superstorm hammers down: it hangs a moment over where it will hit, then blasts a deep crater, glasses the ground and throws arcs along it.",
+    "category": "submunition",
+    "since": "core@0.38.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 120
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 28,
+        "damage": 40,
+        "damageType": "shock",
+        "effects": {
+          "bolt": {
+            "w": 2.4,
+            "storm": 1
+          },
+          "burst": {
+            "count": 40
+          },
+          "flash": {
+            "strength": 1.0
+          },
+          "shake": {
+            "strength": 4
+          },
+          "arcs": {
+            "strength": 1
+          },
+          "thunder": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.convert",
+        "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+        "into": "material.fulgurite",
+        "core": 0.8,
+        "expandTicks": 6
+      },
+      "radius": 34,
+      "damageType": "shock"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

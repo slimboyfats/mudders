@@ -298,6 +298,15 @@ interface RtSpawn {
   stagger: number;
 }
 
+interface RtStrike {
+  weapon: number;
+  chance: number;
+  spread: number;
+  count: number;
+  lead: number;
+  stagger: number;
+}
+
 interface RtZoneSpec {
   radius: number;
   turns: number;
@@ -313,8 +322,10 @@ interface RtZoneSpec {
   sky: number;
   /** Rust: own turns, health per turn, drive thousandths, wobble degrees (null = none). */
   rust: { turns: number; damage: number; drive: number; wobble: number } | null;
+  /** The sky zone spans the whole map. */
+  wide: boolean;
   /** Strikes: weapon index, chance in thousandths, spread in cells (null = none). */
-  strike: { weapon: number; chance: number; spread: number } | null;
+  strike: RtStrike | null;
 }
 
 type RtImpact =
@@ -376,6 +387,9 @@ export interface Zone {
   strikeWeapon: number;
   strikeChance: number;
   strikeSpread: number;
+  strikeCount: number;
+  strikeLead: number;
+  strikeStagger: number;
 }
 
 /** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
@@ -694,6 +708,7 @@ export class World implements SimApi {
               }
             : null,
           sky: z.sky,
+          wide: z.wide,
           rust: z.rust
             ? {
                 turns: z.rust.turns,
@@ -726,11 +741,25 @@ export class World implements SimApi {
 
   private bindStrike(
     weapon: string,
-    st: { weapon: string; chance: number; spread: number },
-  ): { weapon: number; chance: number; spread: number } {
+    st: {
+      weapon: string;
+      chance: number;
+      spread: number;
+      count: number;
+      lead: number;
+      stagger: number;
+    },
+  ): RtStrike {
     const i = this.weaponByIndex(st.weapon);
     if (i < 0) throw new Error(`${weapon}: zone strike names unknown weapon ${st.weapon}`);
-    return { weapon: i, chance: Math.round(st.chance * 1000), spread: st.spread };
+    return {
+      weapon: i,
+      chance: Math.round(st.chance * 1000),
+      spread: st.spread,
+      count: st.count,
+      lead: st.lead,
+      stagger: st.stagger,
+    };
   }
 
   private bindOp(op: EmbeddedTerrainOp): number {
@@ -2091,12 +2120,18 @@ export class World implements SimApi {
         );
       }
     }
+    let radius = c ? c.puffRadius : z.radius;
+    if (z.sky > 0 && z.wide) {
+      // a storm over the whole map: centred on the middle, reaching both edges
+      x = this.grid.width >> 1;
+      radius = (this.grid.width >> 1) + 1;
+    }
     if (z.sky > 0) {
       // hang the zone over the highest ground under it (a storm cloud)
       const g = this.grid;
       let top = g.height;
-      const x0 = Math.max(0, x - z.radius);
-      const x1 = Math.min(g.width - 1, x + z.radius);
+      const x0 = Math.max(0, x - radius);
+      const x1 = Math.min(g.width - 1, x + radius);
       for (let cx = x0; cx <= x1; cx++) top = Math.min(top, g.surfaceY(cx));
       y = Math.max(4, top - z.sky);
     }
@@ -2105,7 +2140,7 @@ export class World implements SimApi {
     this.zones.push({
       x,
       y,
-      radius: c ? c.puffRadius : z.radius,
+      radius,
       turns: z.turns,
       damage: z.damage,
       amplify: z.amplify,
@@ -2125,11 +2160,14 @@ export class World implements SimApi {
       rustWobble: ru ? ru.wobble : 0,
       strikeWeapon: st ? st.weapon : -1,
       strikeChance: st ? st.chance : 0,
-      strikeSpread: st ? st.spread : 0,
+      strikeSpread: st ? (z.wide ? Math.max(st.spread, radius) : st.spread) : 0,
+      strikeCount: st ? st.count : 0,
+      strikeLead: st ? st.lead : 0,
+      strikeStagger: st ? st.stagger : 0,
     });
-    this.emit('zone', x, y, c ? c.puffRadius * 2 : z.radius, { look: z.look, turns: z.turns });
+    this.emit('zone', x, y, c ? c.puffRadius * 2 : radius, { look: z.look, turns: z.turns });
     // a cloud gathering in the sky rolls a long low rumble
-    if (z.sky > 0) this.emit('thunder', x, y, 48, {});
+    if (z.sky > 0) this.emit('thunder', x, y, z.wide ? 120 : 48, {});
   }
 
   /**
@@ -2146,6 +2184,8 @@ export class World implements SimApi {
     let emptied = false;
     for (const z of this.zones) {
       const pf = z.puffs;
+      // a sky zone keeps time too (renderers gather its clouds by age)
+      if (z.sky > 0) z.age++;
       if (pf.length === 0) continue;
       z.age++;
       // puffs settle about half a radius apart: a thick blanket, not a row of balls
@@ -2302,7 +2342,11 @@ export class World implements SimApi {
       if (z.op >= 0) {
         this.startOp(z.op, z.x, z.y, z.radius, DAMAGE_TYPES[z.dt]!, z.owner);
       }
-      if (z.strikeWeapon >= 0 && this.rng.int(1000) < z.strikeChance) this.strike(z);
+      if (z.strikeWeapon >= 0) {
+        for (let i = 0; i < z.strikeCount; i++) {
+          if (this.rng.int(1000) < z.strikeChance) this.strike(z, i);
+        }
+      }
       z.turns--;
     }
     this.zones = this.zones.filter((z) => z.turns > 0);
@@ -2349,7 +2393,7 @@ export class World implements SimApi {
    * A lightning strike out of a storm zone: a column within the zone's spread, down to the first
    * solid cell or tank top in it; the strike weapon's impacts go off there for the zone's owner.
    */
-  private strike(z: Zone): void {
+  private strike(z: Zone, n: number): void {
     const g = this.grid;
     const x = Math.max(
       0,
@@ -2364,9 +2408,28 @@ export class World implements SimApi {
       if (top < y) y = Math.max(0, top);
     }
     y = Math.min(g.height - 1, y);
+    const w = this.weapons[z.strikeWeapon]!;
+    if (w.onTimer > 0) {
+      // a timed strike hangs where it will hit and goes off later: the barrage rolls
+      if (this.projectiles.length >= MAX_PROJECTILES) return;
+      const st = z.strikeStagger;
+      const delay = z.strikeLead + n * st + (st > 0 ? this.rng.int(st + 1) : 0);
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        weapon: z.strikeWeapon,
+        owner: z.owner,
+        x: x * FP + FP / 2,
+        y: y * FP + FP / 2,
+        vx: 0,
+        vy: 0,
+        age: Math.max(0, w.onTimer - 1 - delay),
+        alive: true,
+        data: [],
+      });
+      return;
+    }
     this.emit('bolt', x, y, 0, { top: z.y, storm: 1 });
     this.emit('thunder', x, z.y, 24, {});
-    const w = this.weapons[z.strikeWeapon]!;
     const p: Projectile = {
       id: 0,
       weapon: z.strikeWeapon,
@@ -3158,6 +3221,7 @@ export class World implements SimApi {
         radius: z.radius,
         look: ZONE_LOOKS[z.look] ?? 'gas',
         turns: z.turns,
+        ...(z.sky > 0 ? { age: z.age } : {}),
         ...(z.puffs.length > 0
           ? {
               puffs: puffCells(z.puffs),
@@ -3301,6 +3365,7 @@ export class World implements SimApi {
       if (z.sky > 0 || z.rustTurns > 0 || z.strikeWeapon >= 0) {
         h.num(z.sky).num(z.rustTurns).num(z.rustDamage).num(z.rustDrive).num(z.rustWobble);
         h.num(z.strikeWeapon).num(z.strikeChance).num(z.strikeSpread);
+        h.num(z.strikeCount).num(z.strikeLead).num(z.strikeStagger);
       }
     }
     // mines: only hashed once one has been laid, so other matches keep their hashes

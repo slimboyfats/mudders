@@ -415,6 +415,16 @@ export const ZoneStrikeSchema = z.strictObject({
   weapon: WeaponIdSchema,
   chance: z.number().min(0).max(1),
   spread: z.number().int().min(0).max(400),
+  /** Bolts per turn end (each in its own random column). */
+  count: z.number().int().min(1).max(16).default(1),
+  /**
+   * A strike weapon with an `onTimer` trigger hangs where it will hit (cast it with
+   * `flight.static`) and goes off `lead` ticks later, the next one `stagger` ticks after that (plus
+   * up to `stagger` more at random), so a barrage rolls instead of landing all at once. A strike
+   * weapon without a timer goes off at once.
+   */
+  lead: z.number().int().min(0).max(300).default(0),
+  stagger: z.number().int().min(0).max(120).default(0),
 });
 export type ZoneStrike = z.infer<typeof ZoneStrikeSchema>;
 
@@ -433,6 +443,8 @@ export const ZoneSchema = z.strictObject({
    * `radius` cells sideways, at any height (under a storm cloud).
    */
   sky: z.number().int().min(0).max(200).default(0),
+  /** A sky zone over the whole map: centred on the middle column, covering every column. */
+  wide: z.boolean().default(false),
   rust: ZoneRustSchema.nullable().default(null),
   strike: ZoneStrikeSchema.nullable().default(null),
 });

@@ -76,7 +76,7 @@ export interface ZoneView {
   puffs?: number[];
   /** Gas clouds: puff radius in cells. */
   puffRadius?: number;
-  /** Gas clouds: ticks since the cloud burst out. */
+  /** Gas clouds and sky zones (storms): ticks since the zone was laid. */
   age?: number;
 }
 
