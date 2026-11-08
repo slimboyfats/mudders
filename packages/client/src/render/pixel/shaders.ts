@@ -130,32 +130,56 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
-const vec3 WASTE_A = vec3(0.075, 0.085, 0.05);
-const vec3 WASTE_B = vec3(0.12, 0.135, 0.07);
+const vec3 FOG = vec3(0.4, 0.5, 0.2);
+const vec3 FOG_DARK = vec3(0.3, 0.37, 0.15);
 const vec3 TOXIC = vec3(0.62, 0.86, 0.2);
-// the nuclear wasteland past the battlefield edge: ash and slag in coarse dithered clumps,
-// radioactive bands crawling diagonally, ash specks falling a cell at a time. All per map cell.
-vec3 wasteland(ivec2 c) {
-  ivec2 k = ivec2(floor(vec2(c) / 2.0));
-  float h = hash(k + ivec2(311, 97));
-  vec3 col = h > 0.55 ? WASTE_B : WASTE_A;
-  if (h > 0.93) col = vec3(0.17, 0.19, 0.09);
-  float st = floor(u_time / 10.0);
-  if (mod(float(c.x + c.y) + st, 40.0) < 3.0 && ((c.x + c.y) & 1) == 0) col = mix(col, TOXIC, 0.22);
-  float fall = floor(u_time / 5.0);
-  if (hash(ivec2(c.x * 3 + 7, c.y - int(fall))) > 0.992) col = vec3(0.42, 0.46, 0.34);
-  return col;
+// Fallout fog at the battlefield's left and right edges (§3.1): from the sudden-death zone's
+// inner edge (the map edge before sudden death) it thickens outward. Its front billows and
+// rolls slowly inward; inside, darker veins drift and ash falls a cell at a time. Returns
+// the fog's opacity in hard dithered steps (0 = clear) and its colour in col. Per map cell.
+float fallout(vec2 m, ivec2 wc, out vec3 col) {
+  bool left = m.x < u_map.x * 0.5;
+  float depth = left ? u_zone - m.x : m.x - (u_map.x - u_zone);
+  // distance travelled inward, for the slow roll
+  float x = left ? m.x : u_map.x - m.x;
+  float t = u_time / 60.0;
+  // a billowing front: cloud heads pushing up to the zone line and falling back, never past it
+  float front = (fbm(vec2(m.y * 0.035, t * 0.05 + (left ? 0.0 : 9.0))) - 1.0) * 20.0;
+  float d = depth + front + 2.0;
+  if (d <= 0.0) { col = FOG; return 0.0; }
+  // puffs inside the bank, rolling inward and up
+  vec2 q = vec2(x * 0.06 - t * 0.12, m.y * 0.06 + t * 0.03) + (left ? vec2(0.0) : vec2(31.0, 7.0));
+  float puff = fbm(q);
+  float a = clamp(d / 40.0, 0.0, 1.0) * (0.25 + 0.75 * puff) * 0.62;
+  // hard steps with an ordered dither between them: no smooth gradient
+  float lv = a * 5.0;
+  float st = (floor(lv) + (fract(lv) > bayer(wc) ? 1.0 : 0.0)) / 5.0;
+  col = puff > 0.5 ? FOG : FOG_DARK;
+  // ash falling through the thick of it
+  ivec2 ac = wc + ivec2(4096, 4096);
+  if (a > 0.3 && hash(ivec2(ac.x * 3 + 7, ac.y - int(floor(u_time / 5.0)))) > 0.985) {
+    col = vec3(0.55, 0.6, 0.42);
+    st = max(st, 0.6);
+  }
+  // the bank glows a little toxic for a moment when the zone grows
+  if (u_zoneFresh > 0.0) col = mix(col, TOXIC, 0.5 * u_zoneFresh);
+  return st;
 }
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
   ivec2 wc = ivec2(floor(m));
-  bool inside = !(m.x < 0.0 || m.y < 0.0 || m.x >= u_map.x || m.y >= u_map.y);
+  // past the left and right edges the battlefield goes on as its own mirror image (under the
+  // fog); above and below the map there is only the plain backdrop
+  bool rows = m.y >= 0.0 && m.y < u_map.y;
   vec3 c;
-  if (!inside) {
-    c = wasteland(wc);
+  if (!rows) {
+    c = m.y < 0.0 ? u_top : u_letterbox;
   } else {
-    ivec2 cell = ivec2(floor(m));
+    ivec2 cell = wc;
+    int W = int(u_map.x);
+    if (cell.x < 0) cell.x = min(-cell.x - 1, W - 1);
+    else if (cell.x >= W) cell.x = max(2 * W - 1 - cell.x, 0);
     // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
     // the cells sideways (and now and then up a cell) by whole cells, strongest near the source
     float heat = 0.0;
@@ -308,20 +332,10 @@ void main() {
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }
-  if (inside) {
-    // the battlefield edge: the sudden-death zone eats in from both sides. Inside it the scene
-    // shows through a sickly tint with the wasteland on a checker; a dashed hazard line marks
-    // where it ends (at the map edge itself before sudden death)
-    float d = min(m.x, u_map.x - m.x);
-    if (d < u_zone) {
-      vec3 tint = c * vec3(0.55, 0.72, 0.35) + vec3(0.03, 0.05, 0.0);
-      c = ((wc.x + wc.y) & 1) == 0 ? mix(tint, wasteland(wc), 0.5) : tint;
-    } else if (d < u_zone + 2.0) {
-      bool dash = mod(float(wc.y) - floor(u_time / 6.0), 6.0) < 3.0;
-      vec3 hot = mix(TOXIC, vec3(1.0, 1.0, 0.8), 0.6 * u_zoneFresh);
-      c = dash ? hot : mix(c, TOXIC * 0.45, 0.5);
-    }
-  }
+  // fallout fog rolling in from the sides, full height of the screen
+  vec3 fc;
+  float fa = fallout(m, wc, fc);
+  if (fa > 0.0) c = mix(c, fc, fa);
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
     c *= 1.0 - u_vignette * dot(q, q) * 1.6;
