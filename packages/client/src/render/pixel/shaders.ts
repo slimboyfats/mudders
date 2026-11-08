@@ -583,6 +583,28 @@ void main() {
   float depth = -0.42 * yb - 0.14 * band;
   vec3 col = base * (1.0 + g + under + depth);
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
+  // openness: how much open air is around the cell (two rings of eight). Cells by a face or in
+  // a thin ledge catch more light and read warmer; cells deep in a crevice or the corner of a
+  // crater go darker and cooler. Stepped into four tones with dither between them.
+  float air = 0.0;
+  for (int i = 0; i < 8; i++) {
+    ivec2 d = ivec2(i == 0 || i == 1 || i == 7 ? 1 : i == 3 || i == 4 || i == 5 ? -1 : 0,
+                    i == 1 || i == 2 || i == 3 ? 1 : i == 5 || i == 6 || i == 7 ? -1 : 0);
+    if (mat(c + d * 2) == 0u) air += 1.0;
+    if (mat(c + d * 5) == 0u) air += 0.6;
+  }
+  float openK = floor(air / 12.8 * 4.0 + narrow(ap) - 0.25) / 3.0;
+  if (sd > 0 && sd <= 12) {
+    col *= mix(vec3(0.76, 0.78, 0.9), vec3(1.2, 1.1, 0.94), clamp(openK, 0.0, 1.0));
+  }
+  // surface-to-depth hue fade: warm, sunlit tones in the first rows under the surface, cooling
+  // through the material's own colour into dusky blue-violet deep down, in six dithered steps
+  if (still) {
+    float sf = floor((sd == 0 ? 1.0 : float(sd - 1) / 31.0) * 6.0 + bayer(ap)) / 6.0;
+    vec3 warm = vec3(1.14, 1.03, 0.86);
+    vec3 cool = vec3(0.8, 0.82, 1.1);
+    col *= sf < 0.5 ? mix(warm, vec3(1.0), sf * 2.0) : mix(vec3(1.0), cool, sf * 2.0 - 1.0);
+  }
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
   uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
@@ -634,6 +656,10 @@ void main() {
     float run = hash(ivec2(ap.x / 9, int(floor(sy / 11.0)) + 300));
     if (run > 0.45 && seam < 1.0 && hash(ap + ivec2(11, 2)) > 0.15) col *= 0.86;
     else if (run > 0.45 && seam < 2.0 && hash(ap + ivec2(12, 2)) > 0.5) col *= 1.07;
+    // fine flecks: single cells a step lighter or darker (grit, roots, mica) under the art pixels
+    float fl = hash(c + ivec2(57, 113));
+    if (fl > 0.93) col *= 1.1;
+    else if (fl < 0.06) col *= 0.88;
     // pebbles: a lit top-left art pixel over a shaded one
     if (sd == 0 || sd > 10) {
       ivec2 pb = ap >> 1;
