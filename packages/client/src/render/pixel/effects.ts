@@ -12,6 +12,7 @@ import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type ParticleSink } from './particles';
 import { shade } from './theme';
+import type { FluidSink } from './fluid';
 import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
 
 /** Hard shade bands for cosmetic dirt clods. */
@@ -312,6 +313,7 @@ export class EffectSystem {
 
   constructor(
     private readonly particles: ParticleSink,
+    private readonly fluid: FluidSink,
     private readonly probe: TerrainProbe,
   ) {
     this.lances = new Lances(particles);
@@ -3041,6 +3043,8 @@ export class EffectSystem {
   private burst(e: EffectEvent, count: number): void {
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
+    // the blast shoves the air outward and leaves hot soot hanging in it
+    this.fluid.splat(e.x, e.y, r * 1.5, 0.3 + r * 0.05, 0, 1 + r / 30, 0.5 + r / 60, 0, true);
     const nSpark = Math.round(count * 1.4 * this.mult);
     const speed = 0.8 + r / 14;
     for (let i = 0; i < nSpark; i++) {
@@ -3280,6 +3284,12 @@ export class EffectSystem {
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
       if (t >= m.start && t <= m.start + m.life) emitMushroom(m, t, this.particles, this.mult);
+      // the fireball's heat pours into the smoke field for the first seconds of the rise
+      const since = t - m.start - m.fuse;
+      if (since >= 0 && since < 90) {
+        const k = 1 - since / 90;
+        this.fluid.splat(m.x, m.y - m.r * 0.3, m.r * 0.9, 0, -2.5 * k, 1.2 * k, 1.5 * k);
+      }
     }
     this.feedJets(t);
     this.tickColumns(t);

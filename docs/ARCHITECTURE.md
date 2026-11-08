@@ -315,6 +315,18 @@ particle caps (800 / 2,500 / 6,000) and turns the distortion pass and vignette o
   `ambient.ts` are stateless too: each particle's position is a function of its index and the
   render time, so nothing is stored and captures replay exactly. Zones (`ZoneView`) are drawn the
   same way: gas puffs, acid haze with drips, resonance rings of single cells.
+- **GPU particles and smoke** (`render/pixel/gpu-particles.ts`, `render/pixel/fluid.ts`, both
+  renderer-only): cosmetic particles live in WebGL2 transform-feedback buffers, one update pass per
+  sim tick with the terrain texture as a collider. Smoke, heat and gas are an Eulerian fluid on a
+  grid over the map (`GpuFluid`, one fluid cell per 1/2/4 map cells by quality) solved in fragment
+  passes: splat, curl and vorticity confinement with buoyancy and wind, divergence, Jacobi
+  pressure, gradient subtract, semi-Lagrangian advection. Solid map cells are walls (velocity and
+  dye are zero in them). Effects pour into it through `FluidSink.splat` (blasts push outward and
+  leave hot soot, burning ground breathes heat, gas zones spread dye); the field draws as hard
+  grey, orange and green bands with a checker seam on the map grid. Both are stepped at draw
+  time in tick order, so captures replay exactly. The solver follows the pass structure of Pavel
+  Dobryakov's "WebGL Fluid Simulation" (MIT); the shaders are ours. The fluid needs
+  `EXT_color_buffer_float` and is simply off without it.
 - More events: `bolt` (jagged Bresenham channel with branches, double-strike flicker), `quake`,
   `resonate`, `zone`, `zoneHurt`, `burn`, `implode`. `flash` carries the damage type (`dt`, added
   by the kernel's `explode`), which picks the glow colour and a coloured sky tint (sky reaction).
