@@ -33,6 +33,11 @@ export const PKind = {
    * colour is the young tone; it steps lighter in hard bands as it thins out.
    */
   Plume: 8,
+  /**
+   * A mushroom-cloud mote: one cell of a big cloud, coloured by the emitter (heat ramp), carried
+   * along by its own velocity and the swirl field, thinning out cell by cell. GPU engine only.
+   */
+  Cloud: 9,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

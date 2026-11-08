@@ -123,9 +123,27 @@ export const KINDS: readonly KindPhysics[] = [
     friction: 0.9,
     swirl: 0.005,
   }),
+  // Cloud: a mushroom-cloud mote, carried by its emitter's motion and the swirl
+  K({ dragX: 0.95, dragY: 0.95, swirl: 0.006, spread: 0.3 }),
 ];
 
 const NK = KINDS.length;
+
+/** Kind flag: a single-cell piece of a broken-up puff or clod. */
+export const MOTE = 0x80;
+
+function shadeRgb(rgb: number, k: number): number {
+  const c = (sh: number): number => Math.min(255, Math.round(((rgb >> sh) & 255) * k));
+  return (c(16) << 16) | (c(8) << 8) | c(0);
+}
+
+/** Puff kinds that break into single-cell motes, with how far the puff grew over its life. */
+const MOTE_KINDS: Readonly<Partial<Record<number, number>>> = {
+  [PKind.Smoke]: 2.2,
+  [PKind.Dust]: 1.4,
+  [PKind.Plume]: 2.4,
+  [PKind.Flame]: -0.3,
+};
 
 /** Most update passes run in one frame; a long stall (hidden tab) drops the rest. */
 const MAX_PASSES = 240;
@@ -174,11 +192,14 @@ bool solid(vec2 p) {
 void main() {
   float age = u_tick - a_stat.x;
   if (age <= 0.0 || age >= a_stat.y) { v_dyn = a_dyn; return; }
-  int k = int(a_ck >> 24u);
+  int k = int((a_ck >> 24u) & 127u);
+  bool mote = (a_ck & 0x80000000u) != 0u;
   vec4 A = u_kA[k];
   vec4 B = u_kB[k];
   vec4 C = u_kC[k];
   vec4 D = u_kD[k];
+  // motes are single cells of a broken-up puff: lighter, so the swirl carries them further
+  if (mote) D.x *= 2.5;
   float t = age / a_stat.y;
   // each particle a little different, so a burst spreads instead of moving as one sheet
   float h = hash(vec2(float(gl_VertexID), a_stat.x)) - 0.5;
@@ -243,28 +264,84 @@ vec3 unpack(uint c) {
   return vec3(float((c >> 16u) & 255u), float((c >> 8u) & 255u), float(c & 255u)) / 255.0;
 }
 vec3 shade(vec3 c, float k) { return min(vec3(1.0), floor(c * 255.0 * k + 0.5) / 255.0); }
+// colour fades: life stepped into n hard tones, each particle crossing a step at a slightly
+// different moment, so a fade shows as pixels flipping colour rather than a smooth blend
+float stepT(float t, float th, float n) {
+  return clamp(floor((t + (th - 0.5) * 0.18) * n) / (n - 1.0), 0.0, 1.0);
+}
+vec3 ramp3(vec3 a, vec3 b, vec3 c, float x) {
+  return floor((x < 0.5 ? mix(a, b, x * 2.0) : mix(b, c, x * 2.0 - 1.0)) * 31.0 + 0.5) / 31.0;
+}
+const vec3 EMBER = vec3(1.0, 0.52, 0.16);
+const vec3 SOOT = vec3(0.21, 0.18, 0.19);
 void main() {
   float age = u_tick - a_stat.x;
   float life = a_stat.y;
   float s = a_stat.z;
-  int k = int(a_ck >> 24u);
+  int k = int((a_ck >> 24u) & 127u);
+  bool mote = (a_ck & 0x80000000u) != 0u;
   uint rgb = a_ck & 0xffffffu;
   vec3 col = unpack(rgb);
   float t = age / life;
+  // a mote's own threshold: as a cloud thins, motes wink out one by one (hard pixels, no alpha)
+  float th = fract(sin(float(gl_InstanceID) * 12.9898 + a_stat.x * 78.233) * 43758.5453);
   vec2 cell = floor(a_dyn.xy) + 0.5;
   vec2 pos = cell;
   vec2 size = vec2(1.0);
   float alpha = 1.0;
   int shape = 0;
   bool show = age >= 0.0 && age < life;
-  if (k == ${PKind.Spark}) {
+  if (mote) {
+    float cover = 1.0;
+    if (k == ${PKind.Plume}) {
+      int band = min(4, int(t * 5.0));
+      if (band >= 2) col = shade(col, band == 2 ? 1.2 : band == 3 ? 1.4 : 1.55);
+      cover = band < 3 ? 1.0 : band == 3 ? 0.55 : 0.3;
+      show = show && u_pass == 0;
+    } else if (k == ${PKind.Flame}) {
+      int band = min(3, int(t * 4.0 + th * 0.6));
+      float x = stepT(t, th, 7.0);
+      // white-hot, yellow, orange, red, ember, soot
+      col = x < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), x * 2.0)
+                    : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), SOOT, x * 2.0 - 1.0);
+      cover = band == 3 ? 0.7 : 1.0;
+      if (u_pass == 1) {
+        show = show && band < 2;
+        col = vec3(1.0, 0.816, 0.376);
+        alpha = 0.35;
+      }
+    } else if (k == ${PKind.Chunk}) {
+      show = show && u_pass == 0;
+      cover = t < 0.7 ? 1.0 : (1.0 - t) / 0.3;
+      // grains leave the blast glowing and cool to their own colour
+      col = mix(mix(EMBER, col, 0.45), col, stepT(min(1.0, t * 6.0), th, 4.0));
+    } else if (k == ${PKind.Cloud}) {
+      show = show && u_pass == 0;
+      cover = t < 0.6 ? 1.0 : (1.0 - t) / 0.4;
+      // each mote cools on its way out of the fireball
+      col = mix(col, SOOT, stepT(t, th, 5.0) * 0.65);
+    } else {
+      show = show && u_pass == 0;
+      bool smoke = k == ${PKind.Smoke};
+      cover = (smoke ? 1.1 : 0.9) * (1.0 - t) * min(1.0, t * 6.0 + 0.2);
+      // smoke: ember-lit at the blast, its own grey, then pale as it thins; dust just pales
+      float x = stepT(t, th, 6.0);
+      col = smoke ? ramp3(mix(col, EMBER, 0.6), col, shade(col, 1.4), min(1.0, x * 1.4))
+                  : mix(col, shade(col, 1.3), x);
+    }
+    show = show && th < cover;
+  } else if (k == ${PKind.Spark}) {
     show = show && u_pass == 1;
     alpha = t < 0.6 ? 1.0 : (1.0 - t) / 0.4;
+    // white-hot, its own colour, then a dull red as it dies
+    col = ramp3(vec3(1.0, 1.0, 0.86), col, vec3(0.62, 0.13, 0.05), stepT(t, th, 6.0));
   } else if (k == ${PKind.Glitter}) {
     show = show && u_pass == 1;
     if (t > 0.55 && ((int(age) + int(rgb & 7u)) & 2) == 0) show = false;
     size = vec2(s);
     alpha = t < 0.55 ? 1.0 : 0.85;
+    // a white flash, its colour, then deeper as it burns out
+    col = ramp3(vec3(1.0), col, col * 0.5, stepT(t, th, 5.0));
   } else if (k == ${PKind.Snow}) {
     show = show && u_pass == 0;
     size = vec2(s);
@@ -279,6 +356,7 @@ void main() {
     show = show && u_pass == 0;
     size = vec2(s);
     alpha = t < 0.7 ? 1.0 : (1.0 - t) / 0.3;
+    col = mix(mix(EMBER, col, 0.45), col, stepT(min(1.0, t * 6.0), th, 4.0));
   } else if (k == ${PKind.Plume}) {
     show = show && u_pass == 0;
     int band = min(4, int(t * 5.0));
@@ -484,6 +562,14 @@ export class GpuParticles implements ParticleSink {
 
   /** Add a particle in the next ring slot; when full, the oldest is overwritten. */
   add(e: Emit): void {
+    if (MOTE_KINDS[e.kind] && e.size >= 2) {
+      this.motes(e);
+      return;
+    }
+    if (e.kind === PKind.Chunk && e.size >= 2) {
+      this.grains(e);
+      return;
+    }
     this.put(e.x, e.y, e.vx, e.vy, e.life, e.size, e.kind, e.color);
     // the GPU budget buys denser blasts: each spark or clod brings a few smaller siblings
     const extra = Math.round((KINDS[e.kind]?.siblings ?? 0) * this.density);
@@ -500,6 +586,63 @@ export class GpuParticles implements ParticleSink {
         e.kind,
         e.color,
       );
+    }
+  }
+
+  /**
+   * Break a puff into single-cell motes filling its disc. Each drifts outward at the rate the
+   * puff used to grow, so the cloud swells, and the swirl field tears it into wisps.
+   */
+  private motes(e: Emit): void {
+    const grow = MOTE_KINDS[e.kind]!;
+    const r = e.size / 2;
+    const n = Math.max(
+      4,
+      Math.min(96, Math.round(e.size * e.size * 0.9 * Math.max(0.3, this.density))),
+    );
+    // radius growth per tick over the puff's life (negative for flames, which shrink)
+    const out = (r * grow) / Math.max(1, e.life);
+    for (let j = 0; j < n; j++) {
+      // uniform in the disc
+      const a = this.rand() * 6.283185;
+      const d = Math.sqrt(this.rand());
+      const ux = Math.cos(a) * d;
+      const uy = Math.sin(a) * d;
+      this.put(
+        e.x + ux * r,
+        e.y + uy * r,
+        e.vx + ux * out + (this.rand() - 0.5) * 0.04,
+        e.vy + uy * out + (this.rand() - 0.5) * 0.04,
+        e.life * (0.7 + this.rand() * 0.3),
+        1,
+        e.kind | MOTE,
+        e.color,
+      );
+    }
+  }
+
+  /**
+   * Break a clod (mud, dirt, grass) into its cells: they leave together, drift apart a little in
+   * flight, and each lands, bounces and settles on its own. Each grain's tone varies a step.
+   */
+  private grains(e: Emit): void {
+    const s = Math.min(6, Math.round(e.size));
+    const h = s / 2;
+    for (let gy = 0; gy < s; gy++) {
+      for (let gx = 0; gx < s; gx++) {
+        const v = this.rand();
+        const tone = v < 0.25 ? 0.82 : v > 0.8 ? 1.16 : 1;
+        this.put(
+          e.x - h + gx + 0.5,
+          e.y - h + gy + 0.5,
+          e.vx + (this.rand() - 0.5) * 0.14,
+          e.vy + (this.rand() - 0.5) * 0.14,
+          e.life * (0.75 + this.rand() * 0.25),
+          1,
+          PKind.Chunk | MOTE,
+          shadeRgb(e.color, tone),
+        );
+      }
     }
   }
 

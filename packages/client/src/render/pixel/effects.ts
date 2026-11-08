@@ -9,7 +9,7 @@ import { IonStrikes } from './ion';
 import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
-import { drawMushroom, makeMushroom, type Mushroom } from './mushroom';
+import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type ParticleSink } from './particles';
 import { shade } from './theme';
 import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
@@ -223,9 +223,9 @@ const CHUNK_MIN_RADIUS = 18;
 const CHUNK_GRAVITY = 0.12;
 
 export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> = {
-  low: { cap: 20000, mult: 0.35 },
-  medium: { cap: 60000, mult: 0.7 },
-  high: { cap: 150000, mult: 1 },
+  low: { cap: 30000, mult: 0.35 },
+  medium: { cap: 100000, mult: 0.7 },
+  high: { cap: 300000, mult: 1 },
 };
 
 /** Reads terrain for effects (e.g. chunk colour); renderer-provided. */
@@ -2418,7 +2418,7 @@ export class EffectSystem {
   /** Mushroom clouds, drawn over particles; finished ones are dropped. */
   drawMushrooms(normal: QuadBatch, additive: QuadBatch, t: number): void {
     if (this.mushrooms.length === 0) return;
-    this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t));
+    this.mushrooms = this.mushrooms.filter((m) => drawMushroom(m, normal, additive, t, false));
   }
 
   /** Strength 0..1 of the nuke sky whiteout at tick `t`. */
@@ -3161,15 +3161,17 @@ export class EffectSystem {
       const s = rng.range(0.55, 1) * speed;
       const w = 2 + Math.floor(rng.next() * (2 + big));
       const h = Math.max(1, w - Math.floor(rng.next() * 2));
-      this.chunks.add({
+      // a clod of loose grains: the GPU engine breaks it into single cells that fly as one,
+      // then scatter, bounce and settle on the ground before they crumble away
+      this.particles.add({
         x: e.x + ca * r * 0.55,
         y: e.y - sa * r * 0.35,
         vx: ca * s * 1.15 + rng.range(-0.2, 0.2),
         vy: -sa * s - rng.range(0.4, 1),
-        w,
-        h,
+        size: Math.max(w, h),
+        life: rng.range(150, 260) + 60,
         color: shade(col, DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]! * 0.8),
-        rest: rng.range(150, 260),
+        kind: PKind.Chunk,
       });
     }
   }
@@ -3181,6 +3183,10 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
+    // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
+    for (const m of this.mushrooms) {
+      if (t >= m.start && t <= m.start + m.life) emitMushroom(m, t, this.particles, this.mult);
+    }
     this.feedJets(t);
     this.tickColumns(t);
     this.tickStrands(t);
