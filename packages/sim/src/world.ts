@@ -2293,7 +2293,7 @@ export class World implements SimApi {
       z.x = Math.trunc(sx / n);
       z.y = Math.trunc(sy / n);
     }
-    if (emptied) this.zones = this.zones.filter((z) => z.turns > 0);
+    if (emptied) this.zones = this.zones.filter((z) => z.turns > 0 || z.sky > 0);
   }
 
   /** True if a tank's centre is inside the zone (any puff, for a cloud). */
@@ -2349,7 +2349,13 @@ export class World implements SimApi {
       }
       z.turns--;
     }
-    this.zones = this.zones.filter((z) => z.turns > 0);
+    // a storm stays in the sky until its last timed bolts have landed: it goes when the turn ends
+    this.zones = this.zones.filter((z) => z.turns > 0 || this.lingers(z));
+  }
+
+  /** A spent sky zone whose strikes hang as timed shells is kept until the next turn begins. */
+  private lingers(z: Zone): boolean {
+    return z.sky > 0 && z.strikeWeapon >= 0 && this.weapons[z.strikeWeapon]!.onTimer > 0;
   }
 
   /** Rust a tank under a rusting zone: refresh its turns (never stack) and take the zone's worst. */
@@ -2922,6 +2928,8 @@ export class World implements SimApi {
 
   private beginTurn(): void {
     this.contactDone = false;
+    // spent storms that lingered for their last bolts are gone now
+    if (this.zones.length > 0) this.zones = this.zones.filter((z) => z.turns > 0);
     if (this.turn > 0) this.driftTemperature();
     this.shooter = -1;
     this.phase = 'aim';

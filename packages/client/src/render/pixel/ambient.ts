@@ -245,58 +245,42 @@ function drawStorm(
   const R = Math.max(8, z.radius);
   const half = Math.round(R + 18);
   const base = z.y;
-  const roll = t * 0.02;
-  // inside flicker: a lit patch for a few ticks, at hashed moments
-  const slot = Math.floor(t / 7);
-  const flick = h01(slot, salt + 11) < 0.12;
-  const fx = z.x + Math.round((h01(slot, salt + 12) - 0.5) * half * 1.4);
-  // the clouds gather: separate banks slide in from both sides and merge over the first ticks
   const wide = R > 150;
-  const g = Math.min(1, (z.age ?? GATHER_TICKS) / GATHER_TICKS);
-  const ease = 1 - (1 - g) * (1 - g) * (1 - g);
-  const banks = wide ? Math.max(4, Math.round(half / 70)) * 2 : 2;
-  const bankW = (half * 2) / banks;
-  const travel = wide ? half * 0.9 + 40 : half * 0.6;
-  for (let dx = -half; dx <= half; dx++) {
-    const u = dx / half;
-    // wide storms stay thick right out to the edges of the map
-    const e = wide ? 1 - u * u * u * u * u * u : 1 - u * u;
-    if (e <= 0) continue;
-    const bank = Math.min(banks - 1, Math.floor((dx + half) / bankW));
-    const mid = -half + (bank + 0.5) * bankW;
-    const ul = (dx - mid) / (bankW * 0.5);
-    const el = Math.max(0, 1 - ul * ul);
-    const env = el * (1 - ease) + e * ease;
-    if (env <= 0.02) continue;
-    const off = Math.round((1 - ease) * travel * (mid / half + (mid < 0 ? -0.35 : 0.35)));
-    const cx = z.x + dx + off;
-    if (cx < 0 || cx >= probe.width) continue;
-    const sx = z.x + dx;
-    const se = Math.sqrt(env);
-    // billowing crown: big slow lobes plus small rolling bumps
-    const lobes = Math.abs(Math.sin(dx / 20 + salt * 0.37));
-    const thick =
-      (14 + 12 * lobes + 10 * vnoise(sx / 7 + roll, 0.5, salt)) *
-      se *
-      (wide ? 2.4 : 1) *
-      (0.75 + 0.25 * fade);
-    const sag = Math.round(4 * se * vnoise(sx / 6 - roll, 3.5, salt + 1));
-    const top = Math.round(base - thick);
-    const bot = base + sag;
-    const span = Math.max(1, bot - top);
-    for (let y = top; y <= bot; y++) {
-      if (y < 0 || y >= probe.height) continue;
-      // ragged dithered rim at the ends and the crown
-      const rim = env < 0.2 || y - top < 1;
-      if (rim && ((cx + y) & 1) === 0) continue;
-      const f = (y - top) / span;
-      const band = f < 0.18 ? 0 : f < 0.45 ? 1 : f < 0.8 ? 2 : 3;
-      normal.push(cx + 0.5, y + 0.5, 1, 1, STORM[band]!, rim ? 0.6 * fade : 1);
-      if (flick && Math.abs(cx - fx) < 9 && f > 0.25 && ((cx * 3 + y) & 3) !== 0) {
-        additive.push(cx + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.45 * (1 - Math.abs(cx - fx) / 9));
-      }
-    }
+  // separate puffy clouds that sail in from both sides and bunch up into one storm
+  const n = wide ? Math.max(6, Math.round((half * 2) / 72)) : 3;
+  const step = (half * 2) / n;
+  const cw = step * 1.7;
+  const lobeR = wide ? 26 : 15;
+  const slot = Math.floor(t / 7);
+  const flickOn = h01(slot, salt + 11) < 0.14;
+  const flickCloud = Math.floor(h01(slot, salt + 12) * n);
+  let gathered = 0;
+  for (let i = 0; i < n; i++) {
+    const fx = z.x - half + step * (i + 0.5) + (h01(i, salt + 30) - 0.5) * step * 0.4;
+    // each cloud arrives at its own time, the ones nearest the middle last
+    const arrive = GATHER_TICKS * (0.55 + 0.45 * h01(i, salt + 31));
+    const g = Math.min(1, (z.age ?? GATHER_TICKS) / arrive);
+    const ease = 1 - (1 - g) * (1 - g) * (1 - g);
+    gathered += ease;
+    const fromLeft = fx < z.x;
+    const sx = fromLeft ? z.x - half - cw : z.x + half + cw;
+    const ccx = Math.round(sx + (fx - sx) * ease + Math.sin(t * 0.01 + i * 1.7) * 2);
+    const cb = base + Math.round((h01(i, salt + 32) - 0.5) * 6);
+    const thin = 0.75 + 0.25 * fade;
+    drawStormCloud(
+      normal,
+      additive,
+      ccx,
+      cb,
+      cw,
+      lobeR * thin * (0.8 + 0.4 * h01(i, salt + 33)),
+      i * 97 + salt,
+      t,
+      probe,
+      flickOn && i === flickCloud,
+    );
   }
+  const ease = gathered / n;
   // rain from the cloud base down to the ground under it
   const drops = Math.round(R * 1.6 * Math.max(0.4, mult) * fade * ease);
   for (let i = 0; i < drops; i++) {
@@ -315,6 +299,62 @@ function drawStorm(
       continue;
     }
     normal.push(x + 0.5, y - 2, 1, 4, STORM_RAIN, 0.55 * fade);
+  }
+}
+
+/**
+ * One storm cloud: a few round lobes over a flat, sagging base, filled per map cell in hard bands
+ * from a lit crown to a near-black underside, with a dithered rim on top. `glow` lights its belly.
+ */
+function drawStormCloud(
+  normal: QuadBatch,
+  additive: QuadBatch,
+  cx: number,
+  base: number,
+  w: number,
+  lobe: number,
+  salt: number,
+  t: number,
+  probe: AmbientProbe,
+  glow: boolean,
+): void {
+  const K = 4;
+  const lx: number[] = [];
+  const ly: number[] = [];
+  const lr: number[] = [];
+  for (let k = 0; k < K; k++) {
+    const r = lobe * (0.6 + 0.45 * h01(k, salt + 1)) * (k === 1 || k === 2 ? 1.15 : 0.8);
+    lx.push((k / (K - 1) - 0.5) * (w - lobe * 1.4) + (h01(k, salt + 2) - 0.5) * lobe * 0.4);
+    ly.push(-r * 0.55 + Math.sin(t * 0.015 + k + salt) * 0.8);
+    lr.push(r);
+  }
+  const x0 = Math.floor(cx - w / 2);
+  const x1 = Math.ceil(cx + w / 2);
+  for (let x = x0; x <= x1; x++) {
+    if (x < 0 || x >= probe.width) continue;
+    const dx = x - cx;
+    let top = Infinity;
+    for (let k = 0; k < K; k++) {
+      const d = dx - lx[k]!;
+      const r = lr[k]!;
+      if (d * d >= r * r) continue;
+      top = Math.min(top, base + ly[k]! - Math.sqrt(r * r - d * d));
+    }
+    if (top === Infinity) continue;
+    const ty = Math.round(top);
+    const by = base + Math.round(1.5 + Math.sin(x * 0.4 + salt) * 1.2);
+    const span = Math.max(1, by - ty);
+    for (let y = ty; y <= by; y++) {
+      if (y < 0 || y >= probe.height) continue;
+      const rim = y === ty || y === by;
+      if (rim && ((x + y) & 1) === 0) continue;
+      const f = (y - ty) / span;
+      const band = f < 0.22 ? 0 : f < 0.5 ? 1 : f < 0.8 ? 2 : 3;
+      normal.push(x + 0.5, y + 0.5, 1, 1, STORM[band]!, rim ? 0.75 : 1);
+      if (glow && f > 0.3 && ((x * 3 + y) & 3) !== 0) {
+        additive.push(x + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.4);
+      }
+    }
   }
 }
 

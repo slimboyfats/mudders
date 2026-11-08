@@ -42,10 +42,30 @@ describe('weapon.superstorm', () => {
     expect(new Set(ticks).size).toBeGreaterThan(2);
   });
 
-  it('clears after three turns', () => {
+  it('stays in the sky until its last bolts have landed, then clears', () => {
     const w = world();
+    // tough tanks, so the round outlasts the storm
+    for (const t of w.tanks) t.health = 5000;
     dropAt(w, 'weapon.superstorm', 100, 4000);
-    passTurns(w, 3);
-    expect(w.zones.length).toBe(0);
+    passTurns(w, 1);
+    expect(w.zones[0]!.turns).toBe(1);
+    // the last turn: the final barrage goes off with the cloud still overhead
+    const idx = w.weaponByIndex('weapon.tracer');
+    const t = w.tanks[w.activePlayer]!;
+    t.inventory[idx] = 1;
+    t.weapon = idx;
+    t.angle = 90;
+    t.power = 0;
+    w.applyInput(w.activePlayer, { type: 'fire' });
+    let boltsUnderCloud = 0;
+    for (let i = 0; i < 4000 && (w.phase === 'resolve' || i === 0); i++) {
+      w.step();
+      for (const e of w.snapshot().effectEvents) {
+        if (e.type === 'bolt' && w.zones.length > 0) boltsUnderCloud++;
+      }
+    }
+    expect(boltsUnderCloud).toBeGreaterThan(0);
+    // spent: nothing left with turns to run (it is dropped when the next turn or round begins)
+    expect(w.zones.every((z) => z.turns === 0)).toBe(true);
   });
 });
