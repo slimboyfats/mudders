@@ -241,6 +241,8 @@ export const QUALITY_PARTICLES: Record<Quality, { cap: number; mult: number }> =
 export interface TerrainProbe {
   material(x: number, y: number): number;
   color(material: number): number;
+  /** Whether grass grows on this cell (the round-start surface, not yet burnt or dug). */
+  grass?(x: number, y: number): boolean;
   width: number;
   height: number;
 }
@@ -292,6 +294,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** The current wind (cells per tick², the sim's), for what the ground sheds. */
+  wind = 0;
   /** Orbital Lance lock-ons and beams. */
   readonly lances: Lances;
   /** Ion Cannon charges and beams. */
@@ -3272,6 +3276,7 @@ export class EffectSystem {
   /** Advance continuing effects by one tick (called once per sim tick, in tick order). */
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
+    this.groundLife(t);
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
       if (t >= m.start && t <= m.start + m.life) emitMushroom(m, t, this.particles, this.mult);
@@ -3580,6 +3585,99 @@ export class EffectSystem {
       const r = g.r * (0.55 + 0.45 * k);
       additive.push(g.x, g.y, r * 2, r * 2, g.color, 0.75 * a, Shape.Pixel);
       additive.push(g.x, g.y, r * 0.8, r * 0.8, 0xfff6e0, 0.9 * a, Shape.Pixel);
+    }
+  }
+
+  /**
+   * The ground is never quite still: each tick a few random columns of the surface shed what
+   * they're made of. Grass lets go of seeds and pollen that ride the wind; bare dirt, sand and
+   * ash lose grains when the wind picks up; snow blows spindrift off its crests; lava, magma
+   * and cinder throw embers; water lifts a wisp of mist. All single-cell GPU motes.
+   */
+  private groundLife(t: number): void {
+    const p = this.probe;
+    const W = p.width;
+    const H = p.height;
+    const wind = this.wind;
+    const gust = Math.min(1, Math.abs(wind) * 150);
+    const dir = wind < 0 ? -1 : 1;
+    // a handful of columns per tick, more in a wind
+    const want = (W / 160) * (0.6 + gust * 1.6) * Math.max(0.3, this.mult);
+    let n = Math.floor(want);
+    const rng = new FxRng(Math.imul(t + 1, 2246822519) ^ 0x5bd1e995);
+    if (rng.next() < want - n) n++;
+    for (let i = 0; i < n; i++) {
+      const x = Math.floor(rng.next() * W);
+      const y = this.surfaceNear(x, H * 0.5, H * 0.5);
+      if (y < 0) continue;
+      const m = p.material(x, y);
+      if (p.grass?.(x, y) && m !== 52 && m !== 19) {
+        // seeds and pollen off the grass, more when the wind blows
+        if (rng.next() > 0.25 + gust * 0.6) continue;
+        const pollen = rng.next() < 0.6;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.1, 0.5) * (0.4 + gust) + rng.range(-0.1, 0.1),
+          vy: -rng.range(0.08, 0.3),
+          life: Math.round(rng.range(40, 110)),
+          size: 1,
+          color: pollen ? 0xf0e890 : 0xd8d0a0,
+          kind: PKind.Ash,
+        });
+      } else if (m === 1 || m === 2 || m === 6 || m === 43 || m === 23) {
+        // bare ground: grains hop downwind, only when the wind is up
+        if (rng.next() > gust * 0.8 - 0.1) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.4, 1.4) * gust,
+          vy: -rng.range(0.1, 0.45),
+          life: Math.round(rng.range(16, 40)),
+          size: 1,
+          color: shade(p.color(m), rng.range(1, 1.35)),
+          kind: PKind.Chunk,
+        });
+      } else if (m === 52 || m === 41) {
+        // snow and frost: spindrift streams off the surface
+        if (rng.next() > 0.15 + gust * 0.8) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: dir * rng.range(0.6, 1.8) * (0.3 + gust),
+          vy: -rng.range(0.05, 0.3),
+          life: Math.round(rng.range(20, 50)),
+          size: 1,
+          color: 0xffffff,
+          kind: PKind.Flake,
+        });
+      } else if (m === 5 || m === 63 || m === 73) {
+        // hot ground spits embers
+        if (rng.next() > 0.5) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: rng.range(-0.3, 0.3) + wind * 40,
+          vy: -rng.range(0.3, 1.1),
+          life: Math.round(rng.range(16, 44)),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffb040 : 0xff6020,
+          kind: PKind.Ember,
+        });
+      } else if (m === 19) {
+        // a wisp of mist off the water
+        if (rng.next() > 0.3) continue;
+        this.particles.add({
+          x: x + 0.5,
+          y: y - 1,
+          vx: wind * 30,
+          vy: -rng.range(0.04, 0.12),
+          life: Math.round(rng.range(20, 40)),
+          size: 1,
+          color: 0xb8c8d8,
+          kind: PKind.Ash,
+        });
+      }
     }
   }
 

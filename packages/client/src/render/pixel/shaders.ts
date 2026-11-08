@@ -334,6 +334,7 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec2 u_cloud;        // cover, drift (cells)
+uniform float u_boil;        // slow phase the billows boil to (steps)
 uniform vec3 u_cloudLight;
 uniform vec3 u_cloudShadow;
 uniform vec3 u_ranges[3];    // far to near
@@ -365,9 +366,14 @@ vec4 cumulus(vec2 p, float slotW, float baseY, float size, int seed) {
       float hr = hash(js + ivec2(i + 1, 4));
       float r = top ? w * (0.13 + 0.09 * hr) * (1.0 - abs(t) * 1.2) : w * (0.11 + 0.07 * hr) * (1.0 - abs(t) * 0.8);
       float lift = top ? w * (0.13 + 0.1 * hash(js + ivec2(i + 1, 7))) * (1.0 - abs(t) * 2.0) : 0.0;
+      // the boil: each billow swells and sinks a little on its own slow beat, and the ragged
+      // rim creeps, so the cloud is never quite the same shape twice
+      float beat = u_boil * (0.17 + 0.05 * hr) + float(i) * 1.3 + float(seed);
+      r *= 1.0 + 0.05 * sin(beat);
+      lift += w * 0.012 * sin(beat * 0.7 + 1.0);
       vec2 c = vec2(cx + t * w, by - r * (0.45 + 0.35 * hash(js + ivec2(i + 1, 5))) - lift);
       vec2 l = (p - c) / r;
-      float rim = 1.0 + (vnoise(p / 6.0 + float(seed)) - 0.5) * 0.3;
+      float rim = 1.0 + (vnoise(p / 6.0 + float(seed) + vec2(u_boil * 0.09, u_boil * 0.06)) - 0.5) * 0.3;
       float k = rim - length(l);
       // the later (front) puff wins where they overlap, so lobes read as separate billows
       if (k > 0.0) best = vec4(l, 1.0, by - p.y);
