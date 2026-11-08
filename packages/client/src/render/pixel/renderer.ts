@@ -179,6 +179,9 @@ export class PixelRenderer implements Renderer {
   private weather: RenderSnapshot['weather'] = undefined;
   /** Air temperature (°C) from the sim; drives the snow/sand storm. */
   private temperature = 15;
+  /** Sudden-death zone width (cells) and the tick it last grew. */
+  private deathZone = 0;
+  private zoneGrewAt = -1e9;
   private stormKind: StormKind = 'snow';
   /** Storm strength now (0…1), eased per cosmetic tick towards what the temperature calls for. */
   private stormK = -1;
@@ -229,6 +232,8 @@ export class PixelRenderer implements Renderer {
       | 'u_top'
       | 'u_bottom'
       | 'u_letterbox'
+      | 'u_zone'
+      | 'u_zoneFresh'
       | 'u_flash'
       | 'u_white'
       | 'u_vignette'
@@ -316,6 +321,7 @@ export class PixelRenderer implements Renderer {
       | 'u_scale'
       | 'u_split'
       | 'u_scan'
+      | 'u_wob'
     >
   >;
   private normal!: QuadBatch;
@@ -428,6 +434,8 @@ export class PixelRenderer implements Renderer {
       'u_top',
       'u_bottom',
       'u_letterbox',
+      'u_zone',
+      'u_zoneFresh',
       'u_flash',
       'u_white',
       'u_vignette',
@@ -466,6 +474,7 @@ export class PixelRenderer implements Renderer {
       'u_scale',
       'u_split',
       'u_scan',
+      'u_wob',
     ]);
     this.emptyVao = gl.createVertexArray();
 
@@ -772,6 +781,9 @@ export class PixelRenderer implements Renderer {
     this.debris = s.debris;
     this.wind = s.wind;
     this.temperature = s.temperature ?? 15;
+    const zone = s.deathZone ?? 0;
+    if (zone > this.deathZone) this.zoneGrewAt = s.tick;
+    this.deathZone = zone;
     if (this.stormK < 0) {
       const st = stormFor(this.temperature);
       this.stormKind = st.kind;
@@ -1596,7 +1608,8 @@ export class PixelRenderer implements Renderer {
         this.rippleBuf[nRipples * 4 + 1] = oy + r.y * scale;
         this.rippleBuf[nRipples * 4 + 2] = r.maxR * Math.sqrt(k) * scale;
         this.rippleBuf[nRipples * 4 + 3] = r.strength * (1 - k);
-        this.rippleW[nRipples] = r.width * scale * (0.7 + 0.6 * k);
+        // a column wave keeps its width and flags itself with a negative one (see POST_FS)
+        this.rippleW[nRipples] = r.column ? -r.width * scale : r.width * scale * (0.7 + 0.6 * k);
         nRipples++;
       }
     }
@@ -1630,6 +1643,8 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uBg.u_top, rgb(th.skyTop));
     gl.uniform3fv(this.uBg.u_bottom, rgb(th.skyBottom));
     gl.uniform3fv(this.uBg.u_letterbox, rgb(th.letterbox));
+    gl.uniform1f(this.uBg.u_zone, this.deathZone);
+    gl.uniform1f(this.uBg.u_zoneFresh, Math.max(0, 1 - (this.lastTick - this.zoneGrewAt) / 45));
     gl.uniform3f(
       this.uBg.u_flash,
       sky[0] + storm * 0.55,
@@ -1734,6 +1749,7 @@ export class PixelRenderer implements Renderer {
       gl.uniform3f(this.uPost.u_tint, sky[0] * 0.36, sky[1] * 0.36, sky[2] * 0.36);
       gl.uniform1f(this.uPost.u_split, split);
       gl.uniform1f(this.uPost.u_scan, scan);
+      gl.uniform1f(this.uPost.u_wob, t * 0.35);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.bindVertexArray(null);

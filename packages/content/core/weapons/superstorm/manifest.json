@@ -5,7 +5,7 @@
     "name": "Superstorm",
     "description": "Thunderstorm and Ion Cannon in one. The beacon calls black clouds rolling in from both edges of the sky until they meet in one storm over the whole map. For three turns it rains everywhere, every tank rusts, and at the end of each turn a barrage of huge ion-fat lightning bolts hammers down all over the map, one after another.",
     "category": "beam",
-    "since": "core@0.38.0"
+    "since": "core@0.39.0"
   },
   "flight": {
     "use": "flight.ballistic"

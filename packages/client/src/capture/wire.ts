@@ -40,6 +40,7 @@ export interface WireSnapshot {
   theme: string;
   weather?: RenderSnapshot['weather'];
   temperature?: number;
+  deathZone?: number;
 }
 
 export interface CaptureApi {

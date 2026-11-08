@@ -596,13 +596,16 @@ export const ModeSchema = z.looseObject({
   shopTimer: z.number().min(1).max(600).default(30),
   /**
    * Sudden death (§3.1): from the player's `fromTurn`-th turn, weapon damage × `damageScale` and
-   * `edgeCells` columns at each map edge collapse into the void at the start of every turn.
+   * the death zone at each map edge grows by `edgeCells` columns at the start of every turn. The
+   * terrain stays; a tank that starts its turn in the zone loses `zoneDamage` hp (shields don't
+   * help).
    */
   suddenDeath: z
     .strictObject({
       fromTurn: z.number().int().min(1),
       damageScale: z.number().min(1).max(10),
       edgeCells: z.number().int().min(0).max(512),
+      zoneDamage: z.number().int().min(0).max(1000).default(40),
     })
     .nullable()
     .default(null),

@@ -72,6 +72,8 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
+uniform float u_zone;        // sudden-death zone width at each side edge, cells (0 = none)
+uniform float u_zoneFresh;   // 1 just after the zone grew, fading to 0
 uniform vec3 u_flash;
 uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
@@ -128,12 +130,30 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
+const vec3 WASTE_A = vec3(0.075, 0.085, 0.05);
+const vec3 WASTE_B = vec3(0.12, 0.135, 0.07);
+const vec3 TOXIC = vec3(0.62, 0.86, 0.2);
+// the nuclear wasteland past the battlefield edge: ash and slag in coarse dithered clumps,
+// radioactive bands crawling diagonally, ash specks falling a cell at a time. All per map cell.
+vec3 wasteland(ivec2 c) {
+  ivec2 k = ivec2(floor(vec2(c) / 2.0));
+  float h = hash(k + ivec2(311, 97));
+  vec3 col = h > 0.55 ? WASTE_B : WASTE_A;
+  if (h > 0.93) col = vec3(0.17, 0.19, 0.09);
+  float st = floor(u_time / 10.0);
+  if (mod(float(c.x + c.y) + st, 40.0) < 3.0 && ((c.x + c.y) & 1) == 0) col = mix(col, TOXIC, 0.22);
+  float fall = floor(u_time / 5.0);
+  if (hash(ivec2(c.x * 3 + 7, c.y - int(fall))) > 0.992) col = vec3(0.42, 0.46, 0.34);
+  return col;
+}
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
+  ivec2 wc = ivec2(floor(m));
+  bool inside = !(m.x < 0.0 || m.y < 0.0 || m.x >= u_map.x || m.y >= u_map.y);
   vec3 c;
-  if (m.x < 0.0 || m.y < 0.0 || m.x >= u_map.x || m.y >= u_map.y) {
-    c = u_letterbox;
+  if (!inside) {
+    c = wasteland(wc);
   } else {
     ivec2 cell = ivec2(floor(m));
     // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
@@ -287,6 +307,20 @@ void main() {
     }
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
+  }
+  if (inside) {
+    // the battlefield edge: the sudden-death zone eats in from both sides. Inside it the scene
+    // shows through a sickly tint with the wasteland on a checker; a dashed hazard line marks
+    // where it ends (at the map edge itself before sudden death)
+    float d = min(m.x, u_map.x - m.x);
+    if (d < u_zone) {
+      vec3 tint = c * vec3(0.55, 0.72, 0.35) + vec3(0.03, 0.05, 0.0);
+      c = ((wc.x + wc.y) & 1) == 0 ? mix(tint, wasteland(wc), 0.5) : tint;
+    } else if (d < u_zone + 2.0) {
+      bool dash = mod(float(wc.y) - floor(u_time / 6.0), 6.0) < 3.0;
+      vec3 hot = mix(TOXIC, vec3(1.0, 1.0, 0.8), 0.6 * u_zoneFresh);
+      c = dash ? hot : mix(c, TOXIC * 0.45, 0.5);
+    }
   }
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
@@ -801,7 +835,9 @@ export const MAX_RIPPLES = 8;
  * Post-process (§2a), only while needed: shockwave distortion (pixels pushed by a moving lens
  * band, evaluated per map cell and displaced by whole cells), impact flash tint, screen shake,
  * chromatic split on nukes and theme scanlines. Ripples: xy = centre (device px, y down), z = radius,
- * w = strength; widths in u_rippleW.
+ * w = strength; widths in u_rippleW. A negative width marks a vertical column wave: a band at
+ * horizontal distance z from x, running from the top of the screen down to y, snaking sideways
+ * with u_wob (the Ion Cannon charging).
  */
 export const POST_FS = `#version 300 es
 precision highp float;
@@ -817,6 +853,7 @@ uniform vec2 u_origin;
 uniform float u_scale;
 uniform float u_split;
 uniform float u_scan;
+uniform float u_wob;
 out vec4 o;
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view + u_shake;
@@ -829,6 +866,19 @@ void main() {
     vec2 d = cellPx - r.xy;
     float dist = length(d);
     float w = u_rippleW[i];
+    if (w < 0.0) {
+      // vertical column wave: pixels on both sides pushed sideways, the column wobbling as it goes
+      w = -w;
+      float cy = (cellPx.y - u_origin.y) / u_scale;
+      float wob = (sin(cy * 0.11 + u_wob) + 0.5 * sin(cy * 0.27 - u_wob * 1.7)) * w * 0.35;
+      float dx = d.x - wob;
+      float ax = abs(dx);
+      float cb = smoothstep(r.z - w, r.z - w * 0.4, ax) * (1.0 - smoothstep(r.z - w * 0.2, r.z, ax));
+      // fade out just below the beacon so the ground under it barely moves
+      cb *= 1.0 - smoothstep(0.0, w, d.y);
+      disp += vec2(sign(dx), 0.0) * cb * r.w * w * 0.9;
+      continue;
+    }
     // a lens band (inner and outer edges eased in) that pulls the image toward the centre, so
     // terrain and sky visibly bulge and slide as the ring passes; no added light
     float band = smoothstep(r.z - w, r.z - w * 0.4, dist) * (1.0 - smoothstep(r.z - w * 0.2, r.z, dist));

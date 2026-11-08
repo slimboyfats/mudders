@@ -4,7 +4,7 @@ import { resolveContent } from './content/resolve';
 import { FP } from './fixed';
 import { makeReplay, playReplay, runInputs } from './replay';
 import { ScenarioDriver } from './scenario';
-import { START_POWER, TANK_H, World, type WorldOptions } from './world';
+import { START_POWER, TANK_H, World, type Tank, type WorldOptions } from './world';
 
 const content = fixtureContent();
 const make = (o: Partial<WorldOptions> = {}) =>
@@ -422,26 +422,39 @@ describe('match loop', () => {
     expect(w.timer).toBe(60);
   });
 
-  it('sudden death doubles damage and collapses the map edges into the void', () => {
+  it('sudden death grows a death zone from the edges that burns tanks inside, terrain intact', () => {
     const w = mk({ rules: { turnTimer: 0 }, tankColumns: [8, 150] });
-    for (const t of w.tanks) t.health = 1000;
+    const [a, b] = w.tanks as [Tank, Tank];
+    a.health = b.health = 1000;
     expect(w.suddenDeathActive).toBe(false);
     shoot(w, 90, 0);
     untilQuiet(w);
+    const a0 = a.health;
     shoot(w, 90, 0);
     untilQuiet(w);
-    // turn 2 of each player: edges collapse
+    // turn 2 of each player: the zone grows and the edge tank starts its turn inside it
     expect(w.suddenDeathActive).toBe(true);
     expect(w.edge).toBe(10);
-    expect(w.grid.get(5, 110)).toBe(0);
-    expect(w.grid.get(w.grid.width - 5, 110)).toBe(0);
-    // one more collapse and the tank at the edge falls out of the map
-    w.run(30);
+    expect(w.grid.get(5, 110)).not.toBe(0);
+    expect(w.grid.get(w.grid.width - 5, 110)).not.toBe(0);
+    expect(w.inDeathZone(a)).toBe(true);
+    expect(w.inDeathZone(b)).toBe(false);
+    // the edge tank burns, but is not killed outright
+    expect(a0 - a.health).toBe(40);
+    expect(a.alive).toBe(true);
+    const b0 = b.health;
+    shoot(w, 90, 0);
+    untilQuiet(w);
+    expect(w.edge).toBe(20);
+    expect(b.health).toBe(b0);
+    // shields don't help
+    a.shield = 100;
+    const a1 = a.health;
     shoot(w, 0, 0);
     untilQuiet(w);
-    for (let i = 0; i < 200 && w.tanks[0]!.alive; i++) w.step();
-    expect(w.edge).toBe(20);
-    expect(w.tanks[0]!.alive).toBe(false);
+    expect(w.edge).toBe(30);
+    expect(a1 - a.health).toBe(40);
+    expect(a.shield).toBe(100);
   });
 
   it('applies the sudden-death damage scale', () => {

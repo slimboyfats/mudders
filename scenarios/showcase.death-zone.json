@@ -1,0 +1,28 @@
+{
+  "id": "showcase.death-zone",
+  "schemaVersion": 1,
+  "description": "Sudden death from the first turn: the wasteland past the map edge eats in from both sides each turn; the tank caught near the edge burns instead of dying outright.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 480,
+    "height": 240,
+    "generator": "gen.hills"
+  },
+  "tanks": [{ "x": 40 }, { "x": 300 }],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "bots": ["ai.shooter", "ai.shooter"],
+  "rules": {
+    "rounds": 1,
+    "suddenDeathFrom": 1,
+    "turnCap": 6
+  },
+  "inputs": [],
+  "capture": {
+    "maxTicks": 3000,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

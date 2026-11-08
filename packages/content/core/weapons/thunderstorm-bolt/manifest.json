@@ -5,7 +5,7 @@
     "name": "Storm bolt",
     "description": "A lightning bolt cracking down out of a Thunderstorm cloud onto whatever stands tallest beneath it. Smaller than a Lightning shot, but it fuses the ground it hits into glass all the same.",
     "category": "submunition",
-    "since": "core@0.38.0"
+    "since": "core@0.39.0"
   },
   "flight": {
     "use": "flight.ballistic"

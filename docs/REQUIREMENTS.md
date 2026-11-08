@@ -205,7 +205,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 - Pacing budget (per 4-player round, must be verified in playtesting): ~8 turns per player × ~10 s per turn ≈ 2–2.5 min of play + ~30 s shop. Everything below serves that budget.
 - Turn order: configurable — simultaneous (all players fire, then resolve), sequential (random order each round), or sequential ordered by previous-round score (lowest first). Default: sequential, random.
 - A round ends when ≤1 player (or team) is alive, or after a turn cap (default 12 turns per player) at which point survivors are ranked by health and points.
-- **Sudden death**: from turn 8 onward, all weapon damage ×1.5 and the map edges start collapsing inward, to prevent stalemates and keep rounds short.
+- **Sudden death**: from turn 8 onward, all weapon damage ×1.5 and a death zone (the nuclear wasteland drawn past the battlefield edge) grows inward from both map edges each turn, to prevent stalemates and keep rounds short. The terrain stays; a tank that starts its turn inside the zone loses a big chunk of health (40 hp in classic, not blocked by shields) rather than dying outright.
 - Before round 1 and between rounds: the shop (§3.6).
 - Match ends after the last round; final scoreboard.
 

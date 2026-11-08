@@ -313,7 +313,8 @@ export interface AiApi {
   /**
    * The spots I can drive to this turn in direction `dir`, nearest first: what driving would do
    * cell by cell (steps up to the mode's climb), limited by `driveLeft` and `fuel`, and ending
-   * before any drop deep enough to hurt (short drops are fine).
+   * before any drop deep enough to hurt (short drops are fine). Spots in the sudden-death zone
+   * are left out.
    */
   reach(dir: -1 | 1): readonly AiSpot[];
   /** Own turns left frosted; while > 0 shells fire at no more than CHILL_POWER. */

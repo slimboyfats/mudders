@@ -5,7 +5,7 @@
     "name": "Superstorm blast",
     "description": "What a Superstorm bolt's implosion turns into: a big shock blast that glasses the crater, and a pressure wave that warps the air and shoves the ground and tanks outward.",
     "category": "submunition",
-    "since": "core@0.38.0"
+    "since": "core@0.39.0"
   },
   "flight": {
     "use": "flight.static"

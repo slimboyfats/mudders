@@ -4,7 +4,7 @@
   "meta": {
     "name": "Rust Creak",
     "description": "A dry, grinding chip squeal like a seized hinge: a wobbling pulse that sags in pitch over a scrape of noise, for tanks rusting, the rust biting, and a rusty barrel juddering as it fires.",
-    "since": "core@0.38.0"
+    "since": "core@0.39.0"
   },
   "bus": "sfx",
   "licence": {
