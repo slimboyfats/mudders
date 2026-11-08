@@ -1422,6 +1422,28 @@ export class PixelRenderer implements Renderer {
           }
           continue;
         }
+        if (look === undefined || look === 'spark') {
+          // a plain shell: hot sparks spat out behind it as it flies, in its trail colour
+          const tr = this.trails.find((t) => t.id === e.id);
+          const vx = tr && !Number.isNaN(tr.lx) ? e.x - tr.lx : 0;
+          const vy = tr && !Number.isNaN(tr.ly) ? e.y - tr.ly : 0;
+          const sp = Math.hypot(vx, vy);
+          const n = sp > 2 ? 2 : 1;
+          for (let i = 0; i < n; i++) {
+            const r2 = Math.imul(r + i * 97, 2246822519) >>> 0 || 1;
+            this.particles.add({
+              x: e.x + (((r2 >>> 4) & 3) - 1.5) * 0.5,
+              y: e.y + (((r2 >>> 8) & 3) - 1.5) * 0.5,
+              vx: -vx * 0.12 + (((r2 >>> 12) & 7) - 3.5) * 0.05,
+              vy: -vy * 0.12 + (((r2 >>> 16) & 7) - 3.5) * 0.05,
+              life: 6 + ((r2 >>> 20) & 7),
+              size: 1,
+              color: (r2 >>> 24) % 3 === 0 ? 0xffffff : (shells[e.weapon]?.trailColor ?? 0xffb050),
+              kind: PKind.Spark,
+            });
+          }
+          continue;
+        }
         if (look !== 'fire') continue;
         this.particles.add({
           x: e.x + ((r >>> 4) & 3) - 1.5,
@@ -2390,8 +2412,16 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
         continue;
       }
+      // a plain shell: a halo, a 2-cell body with a lit cell spinning round it, white-hot heart
+      const x = Math.floor(e.x) + 0.5;
+      const y = Math.floor(e.y) + 0.5;
+      const spin = (this.fxTick + e.id) & 3;
+      const sx = spin === 0 ? 1 : spin === 2 ? -1 : 0;
+      const sy = spin === 1 ? 1 : spin === 3 ? -1 : 0;
       g.push(e.x, e.y, 6, 6, look?.trailColor ?? 0xff9a40, 0.6, Shape.Pixel);
-      g.push(Math.floor(e.x) + 0.5, Math.floor(e.y) + 0.5, 2, 2, 0xffffff, 1);
+      this.normal.push(x, y, 2, 2, look?.trailColor ?? 0xff9a40, 1);
+      g.push(x + sx, y + sy, 1, 1, 0xffe0a0, 0.9);
+      g.push(x, y, 1, 1, 0xffffff, 1);
     }
   }
 

@@ -3054,6 +3054,42 @@ export class EffectSystem {
       });
     }
     if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
+    // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
+    // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
+    const nRing = Math.round((24 + r * 1.2) * Math.max(0.5, this.mult));
+    const ringSpeed = 0.9 + r / 10;
+    for (let i = 0; i < nRing; i++) {
+      const a = ((i + rng.next() * 0.6) / nRing) * Math.PI * 2;
+      const s = ringSpeed * rng.range(0.85, 1.1);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: rng.range(8, 16),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xffd080,
+        kind: PKind.Spark,
+      });
+    }
+    // flash motes: a cloud of white cells strobing inside the fireball for the first ticks
+    const nFlash = Math.round((10 + r) * Math.max(0.5, this.mult));
+    for (let i = 0; i < nFlash; i++) {
+      const a = rng.next() * Math.PI * 2;
+      const d = Math.sqrt(rng.next()) * r * 0.7;
+      this.particles.add({
+        x: e.x + Math.cos(a) * d,
+        y: e.y + Math.sin(a) * d,
+        vx: Math.cos(a) * 0.3,
+        vy: Math.sin(a) * 0.3,
+        life: rng.range(5, 11),
+        size: 1,
+        color: rng.next() < 0.6 ? 0xffffff : 0xfff0a0,
+        kind: PKind.Glitter,
+      });
+    }
+    // dust kicked along the ground either side of the crater, rolling outward
+    this.groundDust(e, rng, r);
     const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
@@ -3101,6 +3137,42 @@ export class EffectSystem {
   }
 
   /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
+  /** Grains of the local ground lifted along the surface either side of a blast, rolling out. */
+  private groundDust(e: EffectEvent, rng: FxRng, r: number): void {
+    const p = this.probe;
+    const reach = Math.round(r * 2.2);
+    const n = Math.round(reach * 0.5 * Math.max(0.5, this.mult));
+    for (let side = -1; side <= 1; side += 2) {
+      for (let i = 0; i < n; i++) {
+        const dx = r * 0.8 + rng.next() * (reach - r * 0.8);
+        const x = Math.round(e.x + side * dx);
+        if (x < 0 || x >= p.width) continue;
+        // the surface under this column, searched from above the blast down
+        let y = -1;
+        const y0 = Math.max(0, Math.round(e.y - r));
+        const y1 = Math.min(p.height - 1, Math.round(e.y + r * 1.5));
+        for (let yy = y0; yy <= y1; yy++) {
+          if (p.material(x, yy) !== 0) {
+            y = yy;
+            break;
+          }
+        }
+        if (y < 0) continue;
+        const far = dx / reach;
+        this.particles.add({
+          x,
+          y: y - 0.5,
+          vx: side * (0.5 + rng.next() * 0.8) * (1 - far * 0.5),
+          vy: -rng.range(0.1, 0.5) * (1 - far * 0.6),
+          life: rng.range(14, 30) * (1.2 - far * 0.5),
+          size: 1,
+          color: shade(this.dustColor(x, y), rng.range(0.9, 1.3)),
+          kind: PKind.Chunk,
+        });
+      }
+    }
+  }
+
   private craterFloor(x: number, y: number, r: number): number {
     const p = this.probe;
     if (x < 0 || x >= p.width) return y;
