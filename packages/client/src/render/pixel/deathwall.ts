@@ -33,6 +33,15 @@ const PUFFS_PER_100 = 260;
 const WISPS_PER_100 = 70;
 /** How deep behind the face the churning puffs reach; deeper is the solid body. */
 const CHURN = 40;
+/** Body lattice: tile size (cells), puffs per tile, pour speed (cells per tick). */
+const DEEP_TILE = 9;
+const DEEP_PER_TILE = 2;
+const DEEP_FALL = 0.03;
+/** Rows per green mote column cell. */
+const MOTE_TILE = 26;
+/** Dull lit shades for the few puffs that catch light. */
+const GLOOM = [0x26312a, 0x2e3b31, 0x37463a] as const;
+const salt0 = (side: number): number => side * 977;
 
 export interface WallView {
   /** Map size in cells. */
@@ -65,18 +74,74 @@ export function drawDeathWall(
     const top = Math.floor(v.y0) - 6;
     const span = Math.ceil(v.y1 - v.y0) + 12;
 
-    // the body right behind the face: hard bands of darkness, thickest furthest out; the
-    // churning puffs on top hide the band edges
+    // a faint shadow under the body so no bright gap opens between puffs
     const bodyIn = zone - 3;
     if (bodyIn > uOut) {
-      const bands = [0.5, 0.68, 0.8, 0.88] as const;
-      const step = Math.min(14, (bodyIn - uOut) / bands.length);
-      for (let b = 0; b < bands.length; b++) {
-        const ua = b === bands.length - 1 ? uOut : bodyIn - step * (b + 1);
-        const ub = bodyIn - step * b;
-        const xa = Math.round(Math.min(toX(ua), toX(ub)));
-        const xb = Math.round(Math.max(toX(ua), toX(ub)));
-        normal.rect(xa, top, Math.max(1, xb - xa), span, BODY[0], bands[b]!);
+      const xa = Math.round(Math.min(toX(uOut), toX(bodyIn)));
+      const xb = Math.round(Math.max(toX(uOut), toX(bodyIn)));
+      normal.rect(xa, top, Math.max(1, xb - xa), span, BODY[0], 0.4);
+    }
+
+    // the body: big puffs on a lattice anchored in the world (so panning doesn't make them
+    // swim), the whole lattice pouring slowly down, each puff swirling in its own small loop,
+    // swelling and thinning. Mostly near-black, a few catching a dull green-grey light.
+    const shift = t * DEEP_FALL;
+    const lift = Math.floor(shift / DEEP_TILE);
+    const off = shift - lift * DEEP_TILE;
+    const j0 = Math.floor((v.y0 - off) / DEEP_TILE) - 2;
+    const j1 = Math.ceil((v.y1 - off) / DEEP_TILE) + 2;
+    const i1 = Math.floor((zone - 4) / DEEP_TILE);
+    // capped: deeper than ~60 tiles the faint shadow alone is fine (it is off most screens)
+    const i0 = Math.max(Math.floor(uOut / DEEP_TILE) - 1, i1 - 60);
+    for (let i = i0; i <= i1; i++) {
+      for (let j = j0; j <= j1; j++) {
+        const id = (i + 4096) * 8192 + (j - lift + 4096);
+        for (let k = 0; k < DEEP_PER_TILE; k++) {
+          const n = id * DEEP_PER_TILE + k;
+          const ha = h01(n, 51 + salt0(side));
+          const hb = h01(n, 52 + salt0(side));
+          const hc = h01(n, 53 + salt0(side));
+          const ph = ha * 6.283;
+          const sw = 2 + hc * 4;
+          const u = i * DEEP_TILE + ha * DEEP_TILE + Math.sin(t * 0.012 + ph) * sw;
+          if (u > zone - 2) continue;
+          const y = j * DEEP_TILE + off + hb * DEEP_TILE + Math.cos(t * 0.01 + ph) * sw * 0.8;
+          const breathe = 0.5 + 0.5 * Math.sin(t * 0.006 + hb * 6.283);
+          const size = Math.round(11 + hc * 12 + breathe * 5);
+          const lit = h01(n, 54 + side) < 0.16;
+          const shade = lit ? GLOOM[Math.floor(hb * GLOOM.length)]! : BODY[Math.floor(hc * 3)]!;
+          normal.push(
+            Math.round(toX(u)),
+            Math.round(y),
+            size,
+            size,
+            shade,
+            lit ? 0.55 : 0.6 + 0.25 * breathe,
+            Shape.Pixel,
+          );
+        }
+      }
+    }
+
+    // motes: green specks rising slowly through the dark and winking out
+    for (let i = i0; i <= i1; i += 1) {
+      for (let j = Math.floor(v.y0 / MOTE_TILE) - 1; j <= Math.ceil(v.y1 / MOTE_TILE); j++) {
+        const n = (i + 4096) * 8192 + (j + 4096);
+        const life = 180 + h01(n, 61) * 240;
+        const p = mod(t / life + h01(n, 62 + side), 1);
+        const u = i * DEEP_TILE + h01(n, 63) * DEEP_TILE;
+        if (u > zone - 3) continue;
+        const y = j * MOTE_TILE + h01(n, 64) * MOTE_TILE - p * 18;
+        const blink = Math.sin(p * Math.PI);
+        if (blink < 0.25) continue;
+        normal.push(
+          Math.round(toX(u)),
+          Math.round(y),
+          1,
+          1,
+          p > 0.5 ? BOLT_HALO : BOLT,
+          0.7 * blink,
+        );
       }
     }
 
@@ -93,7 +158,7 @@ export function drawDeathWall(
       const life = 160 + hs * 220;
       const p = mod(t / life + hp, 1);
       // most puffs near the face, a thinning tail deep into the body
-      const depth = hd * hd * CHURN * 1.6;
+      const depth = hd * hd * CHURN;
       const billow = depth < 10 ? Math.sin((p + hc) * Math.PI * 2) * (10 - depth) * 0.45 : 0;
       const u = zone - depth + billow + 1;
       if (u < uOut - 6) continue;

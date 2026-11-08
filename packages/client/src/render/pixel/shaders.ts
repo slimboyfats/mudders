@@ -132,18 +132,32 @@ void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
   ivec2 wc = ivec2(floor(m));
-  // past the left and right edges the battlefield goes on as its own mirror image (under the
-  // death wall, drawn as particles in deathwall.ts); above and below the map there is only the
-  // plain backdrop
-  bool rows = m.y >= 0.0 && m.y < u_map.y;
+  // the view never runs out of world: past the left and right edges the battlefield goes on as
+  // its own mirror image (under the death wall, drawn as particles in deathwall.ts), above the
+  // map the sky goes on with its stars, and below it the ground goes on (the bottom rows,
+  // reflected back and forth and darkening with depth)
+  int W = int(u_map.x);
+  int Hm = int(u_map.y);
+  int mx = wc.x < 0 ? min(-wc.x - 1, W - 1) : wc.x >= W ? max(2 * W - 1 - wc.x, 0) : wc.x;
+  float below = max(0.0, m.y - u_map.y);
   vec3 c;
-  if (!rows) {
-    c = m.y < 0.0 ? u_top : u_letterbox;
+  if (m.y < 0.0) {
+    // the open sky's top colour (the scenery's top row would stretch its clouds into columns)
+    c = u_top;
+    ivec2 sc = wc + ivec2(4096, 4096);
+    float h = hash(sc + ivec2(31, 17));
+    if (u_stars > 0.0 && h > 1.0 - u_stars) {
+      float tw = hash(sc + ivec2(int(u_time / 23.0 + h * 97.0), 5));
+      c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
+    }
+    c += u_flash;
   } else {
-    ivec2 cell = wc;
-    int W = int(u_map.x);
-    if (cell.x < 0) cell.x = min(-cell.x - 1, W - 1);
-    else if (cell.x >= W) cell.x = max(2 * W - 1 - cell.x, 0);
+    ivec2 cell = ivec2(mx, wc.y);
+    if (cell.y >= Hm) {
+      int k = (cell.y - Hm) % 96;
+      cell.y = Hm - 1 - (k < 48 ? k : 95 - k);
+      cell.y = max(cell.y, 0);
+    }
     // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
     // the cells sideways (and now and then up a cell) by whole cells, strongest near the source
     float heat = 0.0;
@@ -296,6 +310,8 @@ void main() {
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }
+  // the ground below the map darkens with depth in hard steps
+  if (below > 0.0) c *= 1.0 - min(floor(below / 16.0) * 0.07 + 0.05, 0.42);
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
     c *= 1.0 - u_vignette * dot(q, q) * 1.6;
