@@ -1,7 +1,7 @@
 import type { EffectEvent } from '@mudders/shared';
 import type { QuadBatch } from './batch';
 import type { FxRng } from './gl';
-import { PKind, type Particles } from './particles';
+import { PKind, type ParticleSink } from './particles';
 
 /**
  * Ion Cannon visuals (pixel renderer), for the `ionCharge` and `ionBlast` effect events.
@@ -50,7 +50,7 @@ export class IonStrikes {
   private charges: Charge[] = [];
   private beams: Beam[] = [];
 
-  constructor(private readonly particles: Particles) {}
+  constructor(private readonly particles: ParticleSink) {}
 
   get active(): boolean {
     return this.charges.length > 0 || this.beams.length > 0;

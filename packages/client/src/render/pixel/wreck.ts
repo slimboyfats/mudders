@@ -1,6 +1,6 @@
 import type { QuadBatch } from './batch';
 import { FxRng } from './gl';
-import { PKind, type Particles } from './particles';
+import { PKind, type ParticleSink } from './particles';
 import { shade } from './theme';
 
 /**
@@ -185,7 +185,7 @@ export function stepWreck(
   hullX: number,
   hullY: number,
   solid: Solid,
-  particles: Particles,
+  particles: ParticleSink,
   mult: number,
   height: number,
 ): CookOff | undefined {
@@ -239,7 +239,7 @@ function stepTurret(
   w: Wreck,
   age: number,
   solid: Solid,
-  particles: Particles,
+  particles: ParticleSink,
   height: number,
 ): void {
   if (age < 0) return;

@@ -169,7 +169,16 @@ export function drawDeathWall(
       if (alpha < 0.06) continue;
       const shade =
         BODY[Math.min(BODY.length - 1, Math.floor(hc * BODY.length * (1 - depth / CHURN) + 0.6))]!;
-      normal.push(Math.round(toX(u)), Math.round(y), size, size, shade, alpha, Shape.Pixel);
+      // the face churns as loose fallout particles; deeper in, the solid bank
+      normal.push(
+        Math.round(toX(u)),
+        Math.round(y),
+        size,
+        size,
+        shade,
+        alpha,
+        depth < 12 ? Shape.Stipple : Shape.Pixel,
+      );
     }
 
     // wisps: small tendrils torn off the face, drifting out over the battlefield and fading
@@ -191,7 +200,7 @@ export function drawDeathWall(
         size,
         col,
         alpha,
-        Shape.Pixel,
+        Shape.Stipple,
       );
     }
 

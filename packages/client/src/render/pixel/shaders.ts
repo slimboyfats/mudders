@@ -583,6 +583,28 @@ void main() {
   float depth = -0.42 * yb - 0.14 * band;
   vec3 col = base * (1.0 + g + under + depth);
   col = mix(col, col * vec3(0.86, 0.9, 1.08), yb * 0.6);
+  // openness: how much open air is around the cell (two rings of eight). Cells by a face or in
+  // a thin ledge catch more light and read warmer; cells deep in a crevice or the corner of a
+  // crater go darker and cooler. Stepped into four tones with dither between them.
+  float air = 0.0;
+  for (int i = 0; i < 8; i++) {
+    ivec2 d = ivec2(i == 0 || i == 1 || i == 7 ? 1 : i == 3 || i == 4 || i == 5 ? -1 : 0,
+                    i == 1 || i == 2 || i == 3 ? 1 : i == 5 || i == 6 || i == 7 ? -1 : 0);
+    if (mat(c + d * 2) == 0u) air += 1.0;
+    if (mat(c + d * 5) == 0u) air += 0.6;
+  }
+  float openK = floor(air / 12.8 * 4.0 + narrow(ap) - 0.25) / 3.0;
+  if (sd > 0 && sd <= 12) {
+    col *= mix(vec3(0.76, 0.78, 0.9), vec3(1.2, 1.1, 0.94), clamp(openK, 0.0, 1.0));
+  }
+  // surface-to-depth hue fade: warm, sunlit tones in the first rows under the surface, cooling
+  // through the material's own colour into dusky blue-violet deep down, in six dithered steps
+  if (still) {
+    float sf = floor((sd == 0 ? 1.0 : float(sd - 1) / 31.0) * 6.0 + bayer(ap)) / 6.0;
+    vec3 warm = vec3(1.14, 1.03, 0.86);
+    vec3 cool = vec3(0.8, 0.82, 1.1);
+    col *= sf < 0.5 ? mix(warm, vec3(1.0), sf * 2.0) : mix(vec3(1.0), cool, sf * 2.0 - 1.0);
+  }
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
   uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
@@ -634,6 +656,10 @@ void main() {
     float run = hash(ivec2(ap.x / 9, int(floor(sy / 11.0)) + 300));
     if (run > 0.45 && seam < 1.0 && hash(ap + ivec2(11, 2)) > 0.15) col *= 0.86;
     else if (run > 0.45 && seam < 2.0 && hash(ap + ivec2(12, 2)) > 0.5) col *= 1.07;
+    // fine flecks: single cells a step lighter or darker (grit, roots, mica) under the art pixels
+    float fl = hash(c + ivec2(57, 113));
+    if (fl > 0.93) col *= 1.1;
+    else if (fl < 0.06) col *= 0.88;
     // pebbles: a lit top-left art pixel over a shaded one
     if (sd == 0 || sd > 10) {
       ivec2 pb = ap >> 1;
@@ -761,7 +787,9 @@ out vec2 v_local;
 out vec4 v_color;
 flat out int v_shape;
 flat out vec3 v_blob; // centre (map cells) + radius, for pixel blobs
+flat out vec4 v_seg;  // trail head and tail cells (shape 7)
 void main() {
+  v_seg = vec4(0.0);
   int id = gl_VertexID % 6;
   vec2 corner = vec2(id == 1 || id == 2 || id == 4 ? 1.0 : 0.0, id == 2 || id == 4 || id == 5 ? 1.0 : 0.0);
   vec2 l = corner - 0.5;
@@ -782,6 +810,7 @@ in vec2 v_local;
 in vec4 v_color;
 flat in int v_shape;
 flat in vec3 v_blob;
+flat in vec4 v_seg;
 uniform vec2 u_view;
 uniform vec2 u_origin;
 uniform float u_scale;
@@ -808,6 +837,26 @@ void main() {
     else if (k < 0.75) a = 0.6;
     else a = bayer < 0.5 ? 0.35 : 0.0;
     if (a <= 0.0) discard;
+  } else if (v_shape == 7) { // trail: a cell-snapped line from head to tail, dimming in steps
+    vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
+    vec2 cell = floor((dev - u_origin) / u_scale) + 0.5;
+    vec2 ab = v_seg.zw - v_seg.xy;
+    float l2 = max(dot(ab, ab), 1e-4);
+    float f = clamp(dot(cell - v_seg.xy, ab) / l2, 0.0, 1.0);
+    vec2 q = v_seg.xy + ab * f - cell;
+    if (max(abs(q.x), abs(q.y)) > 0.5) discard;
+    a = f < 0.34 ? 1.0 : f < 0.67 ? 0.55 : 0.28;
+  } else if (v_shape == 6) { // stipple: a cloud of single opaque cells, denser at the core
+    vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
+    vec2 cell = floor((dev - u_origin) / u_scale);
+    float k = length(cell + 0.5 - v_blob.xy) / max(v_blob.z, 0.5);
+    if (k > 1.0) discard;
+    // each cell's own die, re-rolled as the blob moves a cell, so the cloud shimmers
+    float h = fract(sin(dot(cell, vec2(12.9898, 78.233)) + dot(floor(v_blob.xy), vec2(3.1, 7.7))) * 43758.5453);
+    if (h > v_color.a * (1.25 - k * 0.7)) discard;
+    vec3 c = k > 0.6 ? min(vec3(1.0), v_color.rgb * 1.3) : v_color.rgb; // pale fringe, one step
+    o = vec4(c, 1.0);
+    return;
   } else if (v_shape == 5) { // solid pixel blob: opaque cells, one dithered edge band
     vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
     vec2 cell = floor((dev - u_origin) / u_scale);

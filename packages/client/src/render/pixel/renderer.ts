@@ -28,7 +28,8 @@ import {
   lightAt,
   litColor,
 } from './lighting';
-import { PKind, Particles } from './particles';
+import { PKind } from './particles';
+import { GpuParticles } from './gpu-particles';
 import {
   BG_FS,
   CUT_REACH,
@@ -330,7 +331,7 @@ export class PixelRenderer implements Renderer {
   >;
   private normal!: QuadBatch;
   private additive!: QuadBatch;
-  private particles!: Particles;
+  private particles!: GpuParticles;
   private fx!: EffectSystem;
   /** Water splashes and ripples (cosmetic, watches the snapshots). */
   private water!: WaterFx;
@@ -637,8 +638,10 @@ export class PixelRenderer implements Renderer {
     this.quality = quality;
     const q = QUALITY_PARTICLES[quality];
     const old = this.particles;
-    if (!old || old.cap !== q.cap) {
-      this.particles = new Particles(q.cap);
+    const cap = q.cap;
+    if (!old || old.cap !== cap) {
+      old?.dispose();
+      this.particles = new GpuParticles(this.gl, cap, q.mult);
       this.fx = new EffectSystem(this.particles, {
         width: this.mapWidth,
         height: this.mapHeight,
@@ -1720,7 +1723,14 @@ export class PixelRenderer implements Renderer {
     this.drawMines(t);
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
-    this.particles.draw(this.normal, this.additive);
+    // everything so far goes under the particles, which draw straight from GPU state
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    this.normal.flush(view, origin, scale);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    this.additive.flush(view, origin, scale);
+    gl.disable(gl.BLEND);
+    this.particles.draw(this.terrainTex, this.mapWidth, this.mapHeight, view, origin, scale);
     this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
@@ -2461,7 +2471,7 @@ export class PixelRenderer implements Renderer {
     gl.deleteProgram(this.terrainProg);
     gl.deleteProgram(this.postProg);
     gl.deleteVertexArray(this.emptyVao);
-    this.particles.clear();
+    this.particles.dispose();
     this.fx.clear();
     this.water.clear();
   }

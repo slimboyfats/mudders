@@ -33,6 +33,15 @@ export const PKind = {
    * colour is the young tone; it steps lighter in hard bands as it thins out.
    */
   Plume: 8,
+  /**
+   * A mushroom-cloud mote: one cell of a big cloud, coloured by the emitter (heat ramp), carried
+   * along by its own velocity and the swirl field, thinning out cell by cell. GPU engine only.
+   */
+  Cloud: 9,
+  /** A glowing ember shed by fire: floats up on the heat, drifts and flickers out. GPU only. */
+  Ember: 10,
+  /** A flake of ash: sails down slowly on the wind, swaying, and settles. GPU only. */
+  Ash: 11,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 
@@ -53,7 +62,16 @@ export interface Emit {
   kind: PKind;
 }
 
-export class Particles {
+/** Anything particles can be spawned into: the GPU engine in the renderer, this CPU model in tests. */
+export interface ParticleSink {
+  add(e: Emit): void;
+}
+
+/**
+ * CPU reference model of the particle kinds. The renderer draws with the GPU engine
+ * (`gpu-particles.ts`); this stays for tests and as the readable spec of each kind's look.
+ */
+export class Particles implements ParticleSink {
   readonly cap: number;
   n = 0;
   private readonly x: Float32Array;

@@ -1,5 +1,6 @@
 import { Shape, type QuadBatch } from './batch';
 import { FxRng } from './gl';
+import { PKind, type ParticleSink } from './particles';
 
 /**
  * Pixel-art mushroom cloud for nuke-class blasts (render-only, §2a): a fireball that climbs on a
@@ -74,12 +75,80 @@ function puff(
   normal.push(x - size * 0.11, y - size * 0.14, s, s, rampColor(heat), alpha, Shape.Solid);
 }
 
-/** Draw one mushroom cloud at render time `t`; returns false once it has fully faded. */
+type PuffFn = (x: number, y: number, size: number, heat: number, alpha: number) => void;
+
+/**
+ * Draw one mushroom cloud at render time `t`; returns false once it has fully faded. With
+ * `puffs` false only the fireball glow is drawn (the body comes from {@link emitMushroom}).
+ */
 export function drawMushroom(
   m: Mushroom,
   normal: QuadBatch,
   additive: QuadBatch,
   t: number,
+  puffs = true,
+): boolean {
+  return shapeMushroom(
+    m,
+    t,
+    additive,
+    puffs ? (x, y, s, h, a) => puff(normal, x, y, s, h, a) : null,
+  );
+}
+
+/** Last tick's puff positions per cloud, so motes inherit the puff's motion. */
+const lastPuffs = new WeakMap<Mushroom, Float32Array>();
+
+/**
+ * Spawn this tick's motes for the cloud body: single cells scattered through each puff, moving
+ * with it, coloured by the heat ramp (lit upper-left, darker underside). Thousands live at once,
+ * and the swirl field tears the edges into wisps.
+ */
+export function emitMushroom(m: Mushroom, t: number, sink: ParticleSink, density: number): void {
+  const prev = lastPuffs.get(m) ?? new Float32Array(N * 2).fill(NaN);
+  const next = new Float32Array(N * 2);
+  const rng = new FxRng((m.start * 7919 + t * 104729) >>> 0);
+  let i = 0;
+  shapeMushroom(m, t, null, (x, y, size, heat, alpha) => {
+    const k = i++;
+    next[k * 2] = x;
+    next[k * 2 + 1] = y;
+    if (size < 1 || alpha <= 0.02) return;
+    const px = prev[k * 2]!;
+    const py = prev[k * 2 + 1]!;
+    // a puff that wrapped round (stem puffs loop back to the ground) has no motion to inherit
+    const ok = Number.isFinite(px) && Math.abs(x - px) < 3 && Math.abs(y - py) < 3;
+    const vx = ok ? x - px : 0;
+    const vy = ok ? y - py : 0;
+    const n = Math.max(1, Math.min(10, Math.round(size * size * 0.01 * density * alpha)));
+    const r = size / 2;
+    for (let j = 0; j < n; j++) {
+      const a = rng.next() * 6.283185;
+      const d = Math.sqrt(rng.next());
+      const ux = Math.cos(a) * d;
+      const uy = Math.sin(a) * d;
+      sink.add({
+        x: x + ux * r,
+        y: y + uy * r,
+        vx: vx + (rng.next() - 0.5) * 0.06,
+        vy: vy + (rng.next() - 0.5) * 0.06,
+        life: 26 + rng.next() * 20,
+        size: 1,
+        // upper-left of each puff lit, the underside a step darker (as the blob shading did)
+        color: rampColor(heat + (uy - ux * 0.4 > 0.1 ? 1.4 : 0)),
+        kind: (PKind.Cloud | 0x80) as PKind,
+      });
+    }
+  });
+  lastPuffs.set(m, next);
+}
+
+/** Walk the cloud's puffs at `t` (and draw the glow into `additive` when given). */
+function shapeMushroom(
+  m: Mushroom,
+  t: number,
+  additive: QuadBatch | null,
+  puff: PuffFn | null,
 ): boolean {
   const age = t - m.start;
   if (age < 0) return true;
@@ -117,7 +186,7 @@ export function drawMushroom(
     const heat = baseHeat - 0.8 + (1 - f) * 0.9 + p[q + 2]! * 0.8;
     // the stem thins out first as it is drawn up into the cap
     const stemFade = fade * (age < life - 110 ? 1 : (life - 30 - age) / 80);
-    puff(normal, px, py, size, heat, Math.min(1, Math.max(0, stemFade)) * 0.95);
+    puff?.(px, py, size, heat, Math.min(1, Math.max(0, stemFade)) * 0.95);
   }
 
   // skirt: a low ring of dust and smoke rolling out along the ground
@@ -126,8 +195,7 @@ export function drawMushroom(
     const side = i % 2 === 0 ? -1 : 1;
     const out = r * (0.3 + 1.3 * ease(Math.min(1, age / 140))) * (0.4 + 0.6 * p[q]!);
     const size = r * (0.16 + 0.14 * p[q + 1]!) * (0.6 + 0.6 * rise);
-    puff(
-      normal,
+    puff?.(
       x + side * out,
       y - size * 0.35 - p[q + 3]! * r * 0.12,
       size,
@@ -150,7 +218,7 @@ export function drawMushroom(
     const size = capH * (0.85 + 0.55 * p[q + 1]!);
     // underside (sa < 0) is hotter, the top cools into smoke first
     const heat = baseHeat + sa * 1.1 + p[q + 2]! * 0.9 - 0.4;
-    puff(normal, px, py, size, heat, fade);
+    puff?.(px, py, size, heat, fade);
   }
 
   // dome: puffs heaped over the centre of the cap
@@ -160,12 +228,12 @@ export function drawMushroom(
     const px = x + drift + u * capW * 0.6;
     const py = capY + capH * 0.3 - capH * (0.2 + 1.0 * (1 - u * u)) * p[q + 3]!;
     const size = capH * (1.0 + 0.5 * p[q + 1]!);
-    puff(normal, px, py, size, baseHeat + p[q + 2]! * 0.9 - 0.6, fade);
+    puff?.(px, py, size, baseHeat + p[q + 2]! * 0.9 - 0.6, fade);
   }
 
   // fireball glow inside the cap and stem while it is still hot (hard bands, additive)
   const hot = boom > 0 ? since : age;
-  if (hot < 120) {
+  if (additive && hot < 120) {
     const k = 1 - hot / 120;
     const g = capW * 0.9;
     additive.push(x + drift, capY + capH * 0.2, g, g * 0.7, 0xff8a30, 0.55 * k * k, Shape.Pixel);
