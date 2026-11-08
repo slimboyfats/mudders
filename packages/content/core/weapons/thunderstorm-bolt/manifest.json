@@ -1,0 +1,58 @@
+{
+  "id": "weapon.thunderstorm-bolt",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Storm bolt",
+    "description": "A lightning bolt cracking down out of a Thunderstorm cloud onto whatever stands tallest beneath it. Smaller than a Lightning shot, but it fuses the ground it hits into glass all the same.",
+    "category": "submunition",
+    "since": "core@0.37.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 25,
+        "damageType": "heat",
+        "effects": {
+          "flash": {
+            "strength": 0.7
+          },
+          "burst": {
+            "count": 24
+          },
+          "shake": {
+            "strength": 3
+          },
+          "arcs": {
+            "strength": 0.8
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.convert",
+        "from": ["material.dirt", "material.sand", "material.mud", "material.packed-mud"],
+        "into": "material.fulgurite",
+        "core": 0.8,
+        "expandTicks": 4
+      },
+      "radius": 13,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

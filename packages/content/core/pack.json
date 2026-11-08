@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.36.0",
+  "version": "0.37.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -53,6 +53,7 @@
     "audio.resonate",
     "audio.rift",
     "audio.round-end",
+    "audio.rust-creak",
     "audio.shield-up",
     "audio.sinkhole",
     "audio.snowfall",
@@ -60,6 +61,7 @@
     "audio.swallow",
     "audio.tank-cookoff",
     "audio.tank-death",
+    "audio.thunder",
     "audio.tsunami",
     "audio.tsunami-crash",
     "audio.turn",
@@ -281,6 +283,8 @@
     "weapon.smart-bomb",
     "weapon.tectonic-charge",
     "weapon.terraformer",
+    "weapon.thunderstorm",
+    "weapon.thunderstorm-bolt",
     "weapon.ton-of-dirt",
     "weapon.tornado",
     "weapon.toxic-gas",

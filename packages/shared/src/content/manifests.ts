@@ -392,6 +392,32 @@ export const ZoneCloudSchema = z.strictObject({
 });
 export type ZoneCloud = z.infer<typeof ZoneCloudSchema>;
 
+/**
+ * Rust (Thunderstorm): a tank inside the zone at the end of any turn is rusted for its next
+ * `turns` own turns (refreshed, never stacked). At the end of each of its own turns a rusted tank
+ * loses `damage` health; it drives only `drive` × its usual cells, and every shot it fires wobbles
+ * by up to ±`wobble` degrees of angle (and a matching share of power), drawn from the match PRNG.
+ */
+export const ZoneRustSchema = z.strictObject({
+  turns: z.number().int().min(1).max(10),
+  damage: z.number().int().min(0).max(100).default(0),
+  drive: z.number().min(0).max(1).default(1),
+  wobble: z.number().int().min(0).max(45).default(0),
+});
+export type ZoneRust = z.infer<typeof ZoneRustSchema>;
+
+/**
+ * Strikes (Thunderstorm): at the end of every turn the zone lives, with probability `chance`, the
+ * named weapon's impacts go off at the first solid cell or tank top under a column picked at random
+ * within ±`spread` cells of the zone, credited to the zone's owner (a lightning bolt from a cloud).
+ */
+export const ZoneStrikeSchema = z.strictObject({
+  weapon: WeaponIdSchema,
+  chance: z.number().min(0).max(1),
+  spread: z.number().int().min(0).max(400),
+});
+export type ZoneStrike = z.infer<typeof ZoneStrikeSchema>;
+
 export const ZoneSchema = z.strictObject({
   radius: z.number().int().min(1).max(400),
   turns: z.number().int().min(1).max(10),
@@ -399,8 +425,16 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance', 'toxic', 'volcano']).default('gas'),
+  look: z.enum(['gas', 'acid', 'resonance', 'toxic', 'volcano', 'storm']).default('gas'),
   cloud: ZoneCloudSchema.nullable().default(null),
+  /**
+   * > 0 hangs the zone in the sky: it sits `sky` cells above the highest ground within `radius`
+   * columns of the impact, and covers whole columns, so a tank is inside when it is within
+   * `radius` cells sideways, at any height (under a storm cloud).
+   */
+  sky: z.number().int().min(0).max(200).default(0),
+  rust: ZoneRustSchema.nullable().default(null),
+  strike: ZoneStrikeSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
 

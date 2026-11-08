@@ -311,6 +311,8 @@ export function resolveContent(source: ContentSource): ResolvedContent {
             if (imp.zone.terrainOp) {
               checkBehaviour(imp.zone.terrainOp, `${at}.zone.terrainOp`, 'terrainop');
             }
+            const sw = imp.zone.strike?.weapon;
+            if (sw && !items[sw]) problems.push(`${at}.zone.strike: weapon "${sw}" is not loaded`);
           } else if ('mine' in imp) {
             const wid = imp.mine.weapon;
             if (!items[wid]) problems.push(`${at}.mine: weapon "${wid}" is not loaded`);

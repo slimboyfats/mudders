@@ -144,6 +144,8 @@ export function drawZones(
       }
     } else if (z.look === 'volcano') {
       drawVolcano(normal, additive, z, t, probe, mult, fade, salt);
+    } else if (z.look === 'storm') {
+      drawStorm(normal, additive, z, t, probe, mult, fade, salt);
     } else {
       // resonance: two rings of single cells expanding from the centre, plus a pulsing core
       for (let k = 0; k < 2; k++) {
@@ -214,6 +216,84 @@ function drawVolcano(
     const y = Math.round(vy - 2 - ph * (20 + h01(i, salt + 8) * 30));
     if (probe.solid(x, y)) continue;
     additive.push(x + 0.5, y + 0.5, 1, 1, EMBER[i % 3]!, (1 - ph) * 0.9 * fade);
+  }
+}
+
+/** Storm cloud bands, lit top to dark underside; rain; the glow of lightning inside the cloud. */
+const STORM = [0x8a92a4, 0x5e6474, 0x434856, 0x2c3039] as const;
+const STORM_RAIN = 0x9aa8c4;
+const STORM_GLOW = 0xd8e0ff;
+
+/**
+ * A thundercloud (Thunderstorm): a heavy anvil of cells hanging at the zone's row, its top rolling
+ * slowly, cut into hard bands from a lit crown to a near-black underside with a dithered rim. Rain
+ * streaks fall from its base to the ground under it, and every so often a patch inside it lights
+ * up white-blue (lightning playing in the cloud). Thins and shrinks as its turns run out.
+ */
+function drawStorm(
+  normal: QuadBatch,
+  additive: QuadBatch,
+  z: ZoneView,
+  t: number,
+  probe: AmbientProbe,
+  mult: number,
+  fade: number,
+  salt: number,
+): void {
+  const R = Math.max(8, z.radius);
+  const half = Math.round(R + 18);
+  const base = z.y;
+  const roll = t * 0.02;
+  // inside flicker: a lit patch for a few ticks, at hashed moments
+  const slot = Math.floor(t / 7);
+  const flick = h01(slot, salt + 11) < 0.12;
+  const fx = z.x + Math.round((h01(slot, salt + 12) - 0.5) * half * 1.4);
+  for (let dx = -half; dx <= half; dx++) {
+    const cx = z.x + dx;
+    if (cx < 0 || cx >= probe.width) continue;
+    const u = dx / half;
+    const e = 1 - u * u;
+    if (e <= 0) continue;
+    const se = Math.sqrt(e);
+    // billowing crown: big slow lobes plus small rolling bumps, tallest in the middle
+    const lobes = Math.abs(Math.sin((dx / half) * 3.1 + salt * 0.37));
+    const thick =
+      (14 + 12 * lobes + 10 * vnoise(cx / 7 + roll, 0.5, salt)) * se * (0.75 + 0.25 * fade);
+    const sag = Math.round(4 * se * vnoise(cx / 6 - roll, 3.5, salt + 1));
+    const top = Math.round(base - thick);
+    const bot = base + sag;
+    const span = Math.max(1, bot - top);
+    for (let y = top; y <= bot; y++) {
+      if (y < 0 || y >= probe.height) continue;
+      // ragged dithered rim at the ends and the crown
+      const rim = e < 0.2 || y - top < 1;
+      if (rim && ((cx + y) & 1) === 0) continue;
+      const f = (y - top) / span;
+      const band = f < 0.18 ? 0 : f < 0.45 ? 1 : f < 0.8 ? 2 : 3;
+      normal.push(cx + 0.5, y + 0.5, 1, 1, STORM[band]!, (rim ? 0.6 : 0.92) * fade);
+      if (flick && Math.abs(cx - fx) < 9 && f > 0.25 && ((cx * 3 + y) & 3) !== 0) {
+        additive.push(cx + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.45 * (1 - Math.abs(cx - fx) / 9));
+      }
+    }
+  }
+  // rain from the cloud base down to the ground under it
+  const drops = Math.round(R * 1.6 * Math.max(0.4, mult) * fade);
+  for (let i = 0; i < drops; i++) {
+    const r0 = h01(i, salt + 20);
+    const r1 = h01(i, salt + 21);
+    const speed = 4 + h01(i, salt + 22) * 2;
+    const fall = probe.height - base + 10;
+    const d = Math.floor(mod(t * speed + r1 * fall, fall));
+    const y = base + 2 + d;
+    const x = Math.round(z.x + (r0 - 0.5) * R * 2 + d * 0.25);
+    if (y >= probe.height || x < 0 || x >= probe.width) continue;
+    if (probe.solid(x, y)) continue;
+    if (probe.solid(x, y + 1)) {
+      normal.push(x - 0.5, y + 0.5, 1, 1, STORM_RAIN, 0.7 * fade);
+      normal.push(x + 1.5, y - 0.5, 1, 1, STORM_RAIN, 0.5 * fade);
+      continue;
+    }
+    normal.push(x + 0.5, y - 2, 1, 4, STORM_RAIN, 0.55 * fade);
   }
 }
 

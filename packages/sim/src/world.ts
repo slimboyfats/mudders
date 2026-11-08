@@ -224,6 +224,16 @@ export interface Tank extends TankHandle {
    * it sideways (blasts, slick ground, terrain ops). It still falls if the ground goes.
    */
   glue: number;
+  /**
+   * Own turns left rusted (Thunderstorm): at the end of each own turn it loses `rustDamage`
+   * health, it drives `rustDrive` thousandths of its cells, and shots wobble by ±`rustWobble`°.
+   */
+  rust: number;
+  rustDamage: number;
+  rustDrive: number;
+  rustWobble: number;
+  /** Who rusted it (the storm's owner, credited for the rust damage), or -1. */
+  rustBy: number;
   /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
   driveLeft: number;
   driving: number;
@@ -299,6 +309,12 @@ interface RtZoneSpec {
   look: number;
   /** Gas cloud (null = fixed zone). Fixed-point speeds. */
   cloud: { puffs: number; puffRadius: number; billow: number; drift: number; sink: number } | null;
+  /** Cells above the ground for a sky zone (0 = on the ground). */
+  sky: number;
+  /** Rust: own turns, health per turn, drive thousandths, wobble degrees (null = none). */
+  rust: { turns: number; damage: number; drive: number; wobble: number } | null;
+  /** Strikes: weapon index, chance in thousandths, spread in cells (null = none). */
+  strike: { weapon: number; chance: number; spread: number } | null;
 }
 
 type RtImpact =
@@ -349,6 +365,17 @@ export interface Zone {
   sink: number;
   /** Ticks since the zone was laid. */
   age: number;
+  /** Sky zone height (0 = none): `y` is the cloud level and the zone covers whole columns. */
+  sky: number;
+  /** Rust it leaves on tanks inside (`rustTurns` 0 = none); see Tank.rust. */
+  rustTurns: number;
+  rustDamage: number;
+  rustDrive: number;
+  rustWobble: number;
+  /** Lightning strikes: weapon index (-1 = none), chance in thousandths, spread in cells. */
+  strikeWeapon: number;
+  strikeChance: number;
+  strikeSpread: number;
 }
 
 /** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
@@ -360,7 +387,7 @@ const PUFF_SLIDE = FP >> 6;
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic', 'volcano'] as const;
+const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic', 'volcano', 'storm'] as const;
 
 interface RtWeapon {
   id: string;
@@ -666,6 +693,16 @@ export class World implements SimApi {
                 sink: toFixed(z.cloud.sink),
               }
             : null,
+          sky: z.sky,
+          rust: z.rust
+            ? {
+                turns: z.rust.turns,
+                damage: z.rust.damage,
+                drive: Math.round(z.rust.drive * 1000),
+                wobble: z.rust.wobble,
+              }
+            : null,
+          strike: z.strike ? this.bindStrike(weapon, z.strike) : null,
         },
       };
     }
@@ -685,6 +722,15 @@ export class World implements SimApi {
       radius: imp.radius,
       damageType: imp.damageType,
     };
+  }
+
+  private bindStrike(
+    weapon: string,
+    st: { weapon: string; chance: number; spread: number },
+  ): { weapon: number; chance: number; spread: number } {
+    const i = this.weaponByIndex(st.weapon);
+    if (i < 0) throw new Error(`${weapon}: zone strike names unknown weapon ${st.weapon}`);
+    return { weapon: i, chance: Math.round(st.chance * 1000), spread: st.spread };
   }
 
   private bindOp(op: EmbeddedTerrainOp): number {
@@ -793,6 +839,11 @@ export class World implements SimApi {
         sunk: 0,
         chill: 0,
         glue: 0,
+        rust: 0,
+        rustDamage: 0,
+        rustDrive: 1000,
+        rustWobble: 0,
+        rustBy: -1,
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
@@ -907,6 +958,7 @@ export class World implements SimApi {
       tank.sunk = 0;
       tank.chill = 0;
       tank.glue = 0;
+      tank.rust = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -1077,6 +1129,7 @@ export class World implements SimApi {
         this.contactDone = true;
         this.applyContact();
         this.applyZones();
+        this.applyRust();
         this.armMines();
       }
       if (this.quiet) this.endTurn();
@@ -1192,7 +1245,9 @@ export class World implements SimApi {
 
   /** Per-turn drive allowance for a tank: the mode's cells scaled by its type's `drive` percent. */
   driveCells(t: Tank): number {
-    const cells = Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
+    let cells = Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
+    // rusted tracks (Thunderstorm) grind along slower
+    if (t.rust > 0) cells = Math.trunc((cells * t.rustDrive) / 1000);
     // cold engines (§3.4): up to 30% fewer cells a turn at the coldest
     return Math.trunc((cells * (1000 - Math.trunc((tempChill(this.temperature) * 3) / 10))) / 1000);
   }
@@ -1353,10 +1408,18 @@ export class World implements SimApi {
     const fired = t.weapon;
     if (t.inventory[fired] === 0) t.weapon = this.firstWeapon(t);
     t.driving = 0;
-    const a = t.angle * 10;
+    let a = t.angle * 10;
+    let power = t.chill > 0 ? Math.min(t.power, CHILL_POWER) : t.power;
+    if (t.rust > 0 && t.rustWobble > 0) {
+      // a rusted barrel shakes: the shot leaves a few degrees off, a little hot or weak
+      const wob = t.rustWobble * 10;
+      a += this.rng.range(-wob, wob);
+      const pw = Math.trunc((power * t.rustWobble) / 90);
+      power = Math.max(0, power + this.rng.range(-pw, pw));
+      this.emit('rustWobble', t.x, t.y - t.h, t.half, { player: t.player });
+    }
     const c = cosDeci(a);
     const s = sinDeci(a);
-    const power = t.chill > 0 ? Math.min(t.power, CHILL_POWER) : t.power;
     const speed = this.muzzleSpeed(t, power);
     const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
     const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
@@ -2028,6 +2091,17 @@ export class World implements SimApi {
         );
       }
     }
+    if (z.sky > 0) {
+      // hang the zone over the highest ground under it (a storm cloud)
+      const g = this.grid;
+      let top = g.height;
+      const x0 = Math.max(0, x - z.radius);
+      const x1 = Math.min(g.width - 1, x + z.radius);
+      for (let cx = x0; cx <= x1; cx++) top = Math.min(top, g.surfaceY(cx));
+      y = Math.max(4, top - z.sky);
+    }
+    const ru = z.rust;
+    const st = z.strike;
     this.zones.push({
       x,
       y,
@@ -2044,8 +2118,18 @@ export class World implements SimApi {
       drift: c ? c.drift : 0,
       sink: c ? c.sink : 0,
       age: 0,
+      sky: z.sky,
+      rustTurns: ru ? ru.turns : 0,
+      rustDamage: ru ? ru.damage : 0,
+      rustDrive: ru ? ru.drive : 1000,
+      rustWobble: ru ? ru.wobble : 0,
+      strikeWeapon: st ? st.weapon : -1,
+      strikeChance: st ? st.chance : 0,
+      strikeSpread: st ? st.spread : 0,
     });
     this.emit('zone', x, y, c ? c.puffRadius * 2 : z.radius, { look: z.look, turns: z.turns });
+    // a cloud gathering in the sky rolls a long low rumble
+    if (z.sky > 0) this.emit('thunder', x, y, 48, {});
   }
 
   /**
@@ -2177,6 +2261,8 @@ export class World implements SimApi {
     const x = t.x;
     const y = t.y - (t.h >> 1);
     const reach = z.radius + t.half;
+    // a sky zone covers whole columns: anything under the cloud is in it
+    if (z.sky > 0) return x - z.x < reach && z.x - x < reach;
     const pf = z.puffs;
     if (pf.length === 0) {
       const dx = x - z.x;
@@ -2207,12 +2293,93 @@ export class World implements SimApi {
           this.damageTank(t, dmg, z.owner);
         }
       }
+      if (z.rustTurns > 0) {
+        for (const t of this.tanks) {
+          if (!t.alive || !this.inZone(z, t)) continue;
+          this.rustTank(t, z);
+        }
+      }
       if (z.op >= 0) {
         this.startOp(z.op, z.x, z.y, z.radius, DAMAGE_TYPES[z.dt]!, z.owner);
       }
+      if (z.strikeWeapon >= 0 && this.rng.int(1000) < z.strikeChance) this.strike(z);
       z.turns--;
     }
     this.zones = this.zones.filter((z) => z.turns > 0);
+  }
+
+  /** Rust a tank under a rusting zone: refresh its turns (never stack) and take the zone's worst. */
+  private rustTank(t: Tank, z: Zone): void {
+    // the active tank's own turn is ending now, so it gets one more to keep the full count
+    const turns =
+      z.rustTurns + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+    const fresh = t.rust === 0;
+    t.rustBy = z.owner;
+    if (fresh) {
+      t.rustDamage = z.rustDamage;
+      t.rustDrive = z.rustDrive;
+      t.rustWobble = z.rustWobble;
+    } else {
+      t.rustDamage = Math.max(t.rustDamage, z.rustDamage);
+      t.rustDrive = Math.min(t.rustDrive, z.rustDrive);
+      t.rustWobble = Math.max(t.rustWobble, z.rustWobble);
+    }
+    if (turns > t.rust) t.rust = turns;
+    if (fresh) this.emit('rusted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+  }
+
+  /** End of a rusted tank's own turn: the rust eats a little more of it, then wears down a turn. */
+  private applyRust(): void {
+    const t = this.tanks[this.activePlayer];
+    if (!t || t.rust <= 0) return;
+    t.rust--;
+    if (!t.alive) return;
+    if (t.rustDamage > 0) {
+      this.emit('rustHurt', t.x, t.y - (t.h >> 1), t.half, {
+        damage: t.rustDamage,
+        player: t.player,
+      });
+      // rust eats through shields like any corrosion
+      this.damageTank(t, t.rustDamage, t.rustBy, true);
+    }
+    if (t.rust === 0) this.emit('unrusted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+  }
+
+  /**
+   * A lightning strike out of a storm zone: a column within the zone's spread, down to the first
+   * solid cell or tank top in it; the strike weapon's impacts go off there for the zone's owner.
+   */
+  private strike(z: Zone): void {
+    const g = this.grid;
+    const x = Math.max(
+      0,
+      Math.min(g.width - 1, z.x + this.rng.range(-z.strikeSpread, z.strikeSpread)),
+    );
+    let y = g.surfaceY(x);
+    // tanks stand tallest: the bolt finds the highest one in the column
+    for (const t of this.tanks) {
+      if (!t.alive) continue;
+      if (x < t.x - t.half || x >= t.x + t.half) continue;
+      const top = t.y - t.h;
+      if (top < y) y = Math.max(0, top);
+    }
+    y = Math.min(g.height - 1, y);
+    this.emit('bolt', x, y, 0, { top: z.y, storm: 1 });
+    this.emit('thunder', x, z.y, 24, {});
+    const w = this.weapons[z.strikeWeapon]!;
+    const p: Projectile = {
+      id: 0,
+      weapon: z.strikeWeapon,
+      owner: z.owner,
+      x: x * FP + FP / 2,
+      y: y * FP + FP / 2,
+      vx: 0,
+      vy: 0,
+      age: 0,
+      alive: false,
+      data: [],
+    };
+    this.runImpacts(w.impacts, p, x, y);
   }
 
   // ── explosions, ops, damage ─────────────────────────────────────────────────────────────
@@ -2970,6 +3137,7 @@ export class World implements SimApi {
         power: t.power,
         chill: t.chill,
         glue: t.glue,
+        ...(t.rust > 0 ? { rust: t.rust } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -3104,6 +3272,9 @@ export class World implements SimApi {
       for (const v of t.inventory) h.num(v);
       h.num(t.botGoal).num(t.aiMem.length);
       for (const v of t.aiMem) h.num(v);
+      // rust (Thunderstorm): only hashed while rusted, so other matches keep their hashes
+      if (t.rust > 0)
+        h.num(t.rust).num(t.rustDamage).num(t.rustDrive).num(t.rustWobble).num(t.rustBy);
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {
@@ -3127,6 +3298,10 @@ export class World implements SimApi {
       h.num(z.op).num(z.dt).num(z.look).num(z.owner);
       h.num(z.puffRadius).num(z.drift).num(z.sink).num(z.age).num(z.puffs.length);
       for (const v of z.puffs) h.num(v);
+      if (z.sky > 0 || z.rustTurns > 0 || z.strikeWeapon >= 0) {
+        h.num(z.sky).num(z.rustTurns).num(z.rustDamage).num(z.rustDrive).num(z.rustWobble);
+        h.num(z.strikeWeapon).num(z.strikeChance).num(z.strikeSpread);
+      }
     }
     // mines: only hashed once one has been laid, so other matches keep their hashes
     if (this.nextMineId > 1) {
