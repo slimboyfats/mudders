@@ -38,6 +38,10 @@ export const PKind = {
    * along by its own velocity and the swirl field, thinning out cell by cell. GPU engine only.
    */
   Cloud: 9,
+  /** A glowing ember shed by fire: floats up on the heat, drifts and flickers out. GPU only. */
+  Ember: 10,
+  /** A flake of ash: sails down slowly on the wind, swaying, and settles. GPU only. */
+  Ash: 11,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

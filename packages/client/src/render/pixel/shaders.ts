@@ -787,7 +787,9 @@ out vec2 v_local;
 out vec4 v_color;
 flat out int v_shape;
 flat out vec3 v_blob; // centre (map cells) + radius, for pixel blobs
+flat out vec4 v_seg;  // trail head and tail cells (shape 7)
 void main() {
+  v_seg = vec4(0.0);
   int id = gl_VertexID % 6;
   vec2 corner = vec2(id == 1 || id == 2 || id == 4 ? 1.0 : 0.0, id == 2 || id == 4 || id == 5 ? 1.0 : 0.0);
   vec2 l = corner - 0.5;
@@ -808,6 +810,7 @@ in vec2 v_local;
 in vec4 v_color;
 flat in int v_shape;
 flat in vec3 v_blob;
+flat in vec4 v_seg;
 uniform vec2 u_view;
 uniform vec2 u_origin;
 uniform float u_scale;
@@ -834,6 +837,15 @@ void main() {
     else if (k < 0.75) a = 0.6;
     else a = bayer < 0.5 ? 0.35 : 0.0;
     if (a <= 0.0) discard;
+  } else if (v_shape == 7) { // trail: a cell-snapped line from head to tail, dimming in steps
+    vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
+    vec2 cell = floor((dev - u_origin) / u_scale) + 0.5;
+    vec2 ab = v_seg.zw - v_seg.xy;
+    float l2 = max(dot(ab, ab), 1e-4);
+    float f = clamp(dot(cell - v_seg.xy, ab) / l2, 0.0, 1.0);
+    vec2 q = v_seg.xy + ab * f - cell;
+    if (max(abs(q.x), abs(q.y)) > 0.5) discard;
+    a = f < 0.34 ? 1.0 : f < 0.67 ? 0.55 : 0.28;
   } else if (v_shape == 6) { // stipple: a cloud of single opaque cells, denser at the core
     vec2 dev = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
     vec2 cell = floor((dev - u_origin) / u_scale);

@@ -125,6 +125,30 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Cloud: a mushroom-cloud mote, carried by its emitter's motion and the swirl
   K({ dragX: 0.95, dragY: 0.95, swirl: 0.006, spread: 0.3 }),
+  // Ember: rides the heat up, wanders on the swirl, pings off the ground
+  K({
+    gravity: 0.02,
+    dragX: 0.97,
+    dragY: 0.97,
+    lift: 0.004,
+    liftFade: 1,
+    wind: 3,
+    swirl: 0.012,
+    collide: true,
+    bounce: 0.2,
+    friction: 0.5,
+  }),
+  // Ash: sails down slowly, swaying, and settles where it lands
+  K({
+    gravity: 0.03,
+    dragX: 0.95,
+    maxFall: 0.12,
+    wind: 3.5,
+    sway: 0.01,
+    swirl: 0.008,
+    collide: true,
+    friction: 0,
+  }),
 ];
 
 const NK = KINDS.length;
@@ -260,6 +284,7 @@ out vec2 v_local;
 out vec4 v_color;
 flat out int v_shape;
 flat out vec3 v_blob;
+flat out vec4 v_seg;
 vec3 unpack(uint c) {
   return vec3(float((c >> 16u) & 255u), float((c >> 8u) & 255u), float(c & 255u)) / 255.0;
 }
@@ -291,6 +316,7 @@ void main() {
   float alpha = 1.0;
   int shape = 0;
   bool show = age >= 0.0 && age < life;
+  v_seg = vec4(0.0);
   if (mote) {
     float cover = 1.0;
     if (k == ${PKind.Plume}) {
@@ -330,11 +356,34 @@ void main() {
                   : mix(col, shade(col, 1.3), x);
     }
     show = show && th < cover;
+  } else if (k == ${PKind.Ember}) {
+    // flickers: each ember blinks off now and then, on its own beat
+    float fl = fract(sin(floor(age / 3.0) * 7.13 + th * 91.7) * 4375.85);
+    show = show && fl > 0.18;
+    col = ramp3(vec3(1.0, 0.92, 0.55), vec3(1.0, 0.55, 0.12), vec3(0.62, 0.12, 0.04), stepT(t, th, 6.0));
+    if (u_pass == 0) {
+      // a dark-red body under the glow, so it reads on bright skies too
+      col *= 0.7;
+      show = show && t < 0.85;
+    } else {
+      alpha = t < 0.7 ? 0.9 : (1.0 - t) / 0.3 * 0.9;
+    }
+  } else if (k == ${PKind.Ash}) {
+    show = show && u_pass == 0 && th < (t < 0.75 ? 1.0 : (1.0 - t) / 0.25);
+    col = mix(col, shade(col, 1.5), stepT(t, th, 4.0));
   } else if (k == ${PKind.Spark}) {
     show = show && u_pass == 1;
     alpha = t < 0.6 ? 1.0 : (1.0 - t) / 0.4;
     // white-hot, its own colour, then a dull red as it dies
     col = ramp3(vec3(1.0, 1.0, 0.86), col, vec3(0.62, 0.13, 0.05), stepT(t, th, 6.0));
+    // a short pixel trail back along its path, longer the faster it flies
+    vec2 tail = floor(a_dyn.xy - a_dyn.zw * 2.5) + 0.5;
+    if (any(greaterThan(abs(tail - cell), vec2(0.5)))) {
+      v_seg = vec4(cell, tail);
+      pos = (cell + tail) * 0.5;
+      size = abs(cell - tail) + 1.0;
+      shape = 7;
+    }
   } else if (k == ${PKind.Glitter}) {
     show = show && u_pass == 1;
     if (t > 0.55 && ((int(age) + int(rgb & 7u)) & 2) == 0) show = false;
@@ -624,6 +673,31 @@ export class GpuParticles implements ParticleSink {
         e.kind | MOTE,
         e.color,
       );
+      // the odd fleck of detail: fire sheds embers, smoke drops ash
+      const roll = this.rand();
+      if (e.kind === PKind.Flame && roll < 0.1) {
+        this.put(
+          e.x + ux * r,
+          e.y + uy * r,
+          e.vx * 0.6 + (this.rand() - 0.5) * 0.5,
+          e.vy * 0.6 - 0.2 - this.rand() * 0.3,
+          80 + this.rand() * 90,
+          1,
+          PKind.Ember,
+          0xffc040,
+        );
+      } else if ((e.kind === PKind.Smoke || e.kind === PKind.Plume) && roll < 0.05) {
+        this.put(
+          e.x + ux * r,
+          e.y + uy * r,
+          e.vx * 0.5 + (this.rand() - 0.5) * 0.2,
+          e.vy * 0.5 - this.rand() * 0.15,
+          200 + this.rand() * 120,
+          1,
+          PKind.Ash,
+          shadeRgb(e.color, 0.62),
+        );
+      }
     }
   }
 
