@@ -72,8 +72,6 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
-uniform float u_zone;        // sudden-death zone width at each side edge, cells (0 = none)
-uniform float u_zoneFresh;   // 1 just after the zone grew, fading to 0
 uniform vec3 u_flash;
 uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
@@ -130,47 +128,13 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
-const vec3 FOG = vec3(0.4, 0.5, 0.2);
-const vec3 FOG_DARK = vec3(0.3, 0.37, 0.15);
-const vec3 TOXIC = vec3(0.62, 0.86, 0.2);
-// Fallout fog at the battlefield's left and right edges (§3.1): from the sudden-death zone's
-// inner edge (the map edge before sudden death) it thickens outward. Its front billows and
-// rolls slowly inward; inside, darker veins drift and ash falls a cell at a time. Returns
-// the fog's opacity in hard dithered steps (0 = clear) and its colour in col. Per map cell.
-float fallout(vec2 m, ivec2 wc, out vec3 col) {
-  bool left = m.x < u_map.x * 0.5;
-  float depth = left ? u_zone - m.x : m.x - (u_map.x - u_zone);
-  // distance travelled inward, for the slow roll
-  float x = left ? m.x : u_map.x - m.x;
-  float t = u_time / 60.0;
-  // a billowing front: cloud heads pushing up to the zone line and falling back, never past it
-  float front = (fbm(vec2(m.y * 0.035, t * 0.05 + (left ? 0.0 : 9.0))) - 1.0) * 20.0;
-  float d = depth + front + 2.0;
-  if (d <= 0.0) { col = FOG; return 0.0; }
-  // puffs inside the bank, rolling inward and up
-  vec2 q = vec2(x * 0.06 - t * 0.12, m.y * 0.06 + t * 0.03) + (left ? vec2(0.0) : vec2(31.0, 7.0));
-  float puff = fbm(q);
-  float a = clamp(d / 40.0, 0.0, 1.0) * (0.25 + 0.75 * puff) * 0.62;
-  // hard steps with an ordered dither between them: no smooth gradient
-  float lv = a * 5.0;
-  float st = (floor(lv) + (fract(lv) > bayer(wc) ? 1.0 : 0.0)) / 5.0;
-  col = puff > 0.5 ? FOG : FOG_DARK;
-  // ash falling through the thick of it
-  ivec2 ac = wc + ivec2(4096, 4096);
-  if (a > 0.3 && hash(ivec2(ac.x * 3 + 7, ac.y - int(floor(u_time / 5.0)))) > 0.985) {
-    col = vec3(0.55, 0.6, 0.42);
-    st = max(st, 0.6);
-  }
-  // the bank glows a little toxic for a moment when the zone grows
-  if (u_zoneFresh > 0.0) col = mix(col, TOXIC, 0.5 * u_zoneFresh);
-  return st;
-}
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
   ivec2 wc = ivec2(floor(m));
   // past the left and right edges the battlefield goes on as its own mirror image (under the
-  // fog); above and below the map there is only the plain backdrop
+  // death wall, drawn as particles in deathwall.ts); above and below the map there is only the
+  // plain backdrop
   bool rows = m.y >= 0.0 && m.y < u_map.y;
   vec3 c;
   if (!rows) {
@@ -332,10 +296,6 @@ void main() {
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }
-  // fallout fog rolling in from the sides, full height of the screen
-  vec3 fc;
-  float fa = fallout(m, wc, fc);
-  if (fa > 0.0) c = mix(c, fc, fa);
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
     c *= 1.0 - u_vignette * dot(q, q) * 1.6;

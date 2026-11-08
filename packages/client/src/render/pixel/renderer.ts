@@ -10,6 +10,7 @@ import type {
   Vec2,
 } from '../types';
 import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
+import { drawDeathWall } from './deathwall';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
 import { QuadBatch, Shape } from './batch';
@@ -168,6 +169,9 @@ const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
  * palette shader, integer scale, nearest-neighbour, dirty-rect sub-uploads) → trails, debris and
  * tanks → cosmetic particles → post-process (shockwave ripple, flash tint, shake, vignette).
  */
+/** Ticks the death-zone wall takes to creep to its new line after sudden death moves it. */
+const ZONE_CREEP_TICKS = 180;
+
 export class PixelRenderer implements Renderer {
   readonly camera: Camera;
   private gl!: WebGL2RenderingContext;
@@ -182,6 +186,8 @@ export class PixelRenderer implements Renderer {
   /** Sudden-death zone width (cells) and the tick it last grew. */
   private deathZone = 0;
   private zoneGrewAt = -1e9;
+  /** Zone width shown when it started moving to `deathZone`; the wall creeps, never jumps. */
+  private zoneFrom = 0;
   private stormKind: StormKind = 'snow';
   /** Storm strength now (0…1), eased per cosmetic tick towards what the temperature calls for. */
   private stormK = -1;
@@ -232,8 +238,6 @@ export class PixelRenderer implements Renderer {
       | 'u_top'
       | 'u_bottom'
       | 'u_letterbox'
-      | 'u_zone'
-      | 'u_zoneFresh'
       | 'u_flash'
       | 'u_white'
       | 'u_vignette'
@@ -434,8 +438,6 @@ export class PixelRenderer implements Renderer {
       'u_top',
       'u_bottom',
       'u_letterbox',
-      'u_zone',
-      'u_zoneFresh',
       'u_flash',
       'u_white',
       'u_vignette',
@@ -782,7 +784,10 @@ export class PixelRenderer implements Renderer {
     this.wind = s.wind;
     this.temperature = s.temperature ?? 15;
     const zone = s.deathZone ?? 0;
-    if (zone > this.deathZone) this.zoneGrewAt = s.tick;
+    if (zone > this.deathZone) {
+      this.zoneFrom = this.shownZone(s.tick);
+      this.zoneGrewAt = s.tick;
+    } else if (zone < this.deathZone) this.zoneFrom = zone; // a new round: clear at once
     this.deathZone = zone;
     if (this.stormK < 0) {
       const st = stormFor(this.temperature);
@@ -1582,6 +1587,13 @@ export class PixelRenderer implements Renderer {
 
   // ── drawing ─────────────────────────────────────────────────────────────────────────────
 
+  /** The death-zone width drawn at tick time `t`: eased from where it was to the sim's. */
+  private shownZone(t: number): number {
+    const k = Math.min(1, Math.max(0, (t - this.zoneGrewAt) / ZONE_CREEP_TICKS));
+    const e = k * k * (3 - 2 * k);
+    return this.zoneFrom + (this.deathZone - this.zoneFrom) * e;
+  }
+
   render(time: number, held = 0): void {
     const gl = this.gl;
     this.fx.held = held;
@@ -1643,8 +1655,6 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uBg.u_top, rgb(th.skyTop));
     gl.uniform3fv(this.uBg.u_bottom, rgb(th.skyBottom));
     gl.uniform3fv(this.uBg.u_letterbox, rgb(th.letterbox));
-    gl.uniform1f(this.uBg.u_zone, this.deathZone);
-    gl.uniform1f(this.uBg.u_zoneFresh, Math.max(0, 1 - (this.lastTick - this.zoneGrewAt) / 45));
     gl.uniform3f(
       this.uBg.u_flash,
       sky[0] + storm * 0.55,
@@ -1723,6 +1733,21 @@ export class PixelRenderer implements Renderer {
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     drawStorm(this.normal, this.stormKind, this.stormK, t, this.wind, this.probe, mult);
+    // the death wall last, over smoke, sparks and weather
+    drawDeathWall(
+      this.normal,
+      this.shownZone(t),
+      t,
+      {
+        width: this.mapWidth,
+        height: this.mapHeight,
+        x0: -ox / scale,
+        x1: (W - ox) / scale,
+        y0: -oy / scale,
+        y1: (H - oy) / scale,
+      },
+      Math.max(0, 1 - (t - this.zoneGrewAt) / ZONE_CREEP_TICKS),
+    );
     if (!distort) this.fx.drawRippleRings(this.additive, t);
 
     gl.enable(gl.BLEND);
