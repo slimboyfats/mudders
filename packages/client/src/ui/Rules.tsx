@@ -119,7 +119,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           value={value.startingCash}
           onChange={(e) => onChange({ startingCash: Number(e.target.value) })}
         >
-          {[0, 3000, 10000, 30000].map((c) => (
+          {[0, 3000, 10000, 30000, 50000].map((c) => (
             <option key={c} value={c}>
               {c.toLocaleString('en')}
             </option>
