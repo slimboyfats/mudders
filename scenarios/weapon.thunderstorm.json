@@ -1,0 +1,161 @@
+{
+  "id": "weapon.thunderstorm",
+  "schemaVersion": 1,
+  "description": "Player 0 lobs a Thunderstorm onto player 1. A black thundercloud gathers over the hit and rains; player 1 rusts, fires a wobbly missile back, and then both pass turns with tracers while lightning cracks down out of the cloud and the rust eats at player 1.",
+  "subject": "weapon.thunderstorm",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.thunderstorm": 1,
+        "weapon.tracer": 4
+      }
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.missile": 1,
+        "weapon.tracer": 4
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.thunderstorm"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 590
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 125,
+        "power": 590
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 120
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 120
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 120
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "rules": {
+    "turnTimer": 0
+  }
+}

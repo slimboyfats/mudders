@@ -14,7 +14,7 @@ import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
-import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT } from './effects';
+import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import {
   HEAT_NONE,
@@ -2015,6 +2015,9 @@ export class PixelRenderer implements Renderer {
       if (charged < BATTERY_TICKS) this.drawCharge(x, y0, charged);
       if (e.chill > 0) this.frostTank(x, y, t);
       if (e.glue > 0) this.glueTank(x, y, sw, y0, t, e.chill > 0);
+      if ((e.rust ?? 0) > 0) {
+        this.rustTank(x, y, sw, sh, y0, lean, t, (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0));
+      }
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
       this.drawDigit(x - 13, top - 7, e.player + 1);
@@ -2149,6 +2152,48 @@ export class PixelRenderer implements Renderer {
     b.rect(sx, sy + 4, 1, 1, 0xbfe4fa);
     b.rect(sx + 4, sy + 4, 1, 1, 0xbfe4fa);
     b.rect(sx + 2, sy + 2, 1, 1, 0xffffff);
+  }
+
+  /**
+   * A rusted tank (Thunderstorm): dithered rust blotches eat over the hull in hard bands (the same
+   * cells every frame, so it reads as a coat, not noise), a flake now and then drops off the hull,
+   * and a rust mark sits beside the health bar (after any frost and glue marks) so the state reads
+   * without colour.
+   */
+  private rustTank(
+    x: number,
+    y: number,
+    sw: number,
+    sh: number,
+    top: number,
+    lean: (c: number) => number,
+    t: number,
+    marks: number,
+  ): void {
+    const b = this.normal;
+    const x0 = x - (sw >> 1);
+    for (let r = 0; r < sh; r++) {
+      for (let c = 0; c < sw; c++) {
+        const k = (c * 7 + r * 13 + ((c * r) % 5)) % 9;
+        if (k > 3) continue;
+        b.rect(x0 + c, top + r + lean(c), 1, 1, RUST[k & 3]!, k === 0 ? 0.95 : 0.75);
+      }
+    }
+    // a flake works loose and drops off the hull, one cell a step
+    const ph = t % 48;
+    if (ph < 12) {
+      const fc = (Math.floor(t / 48) * 5 + x) % sw;
+      b.rect(x0 + fc, top + sh - 1 + lean(fc) + (ph >> 1), 1, 1, RUST[1]!);
+    }
+    // rust mark: a 5×5 pitted plate right of the health bar
+    const sx = x + 10 + marks * 8;
+    const sy = top - 7;
+    b.rect(sx - 1, sy - 1, 7, 7, 0x000000, 0.6);
+    b.rect(sx, sy, 5, 5, RUST[1]!);
+    b.rect(sx, sy, 5, 1, RUST[3]!);
+    b.rect(sx + 1, sy + 2, 1, 1, RUST[0]!);
+    b.rect(sx + 3, sy + 1, 1, 1, RUST[0]!);
+    b.rect(sx + 2, sy + 3, 2, 1, RUST[0]!);
   }
 
   /**

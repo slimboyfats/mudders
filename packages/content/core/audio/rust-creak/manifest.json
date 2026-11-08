@@ -1,0 +1,60 @@
+{
+  "id": "audio.rust-creak",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rust Creak",
+    "description": "A dry, grinding chip squeal like a seized hinge: a wobbling pulse that sags in pitch over a scrape of noise, for tanks rusting, the rust biting, and a rusty barrel juddering as it fires.",
+    "since": "core@0.39.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 620,
+        "to": 410,
+        "hold": 0.12,
+        "release": 0.22,
+        "volume": 0.16,
+        "vibrato": {
+          "rate": 18,
+          "depth": 1.2
+        }
+      },
+      {
+        "wave": "pulse25",
+        "freq": 300,
+        "to": 210,
+        "delay": 0.08,
+        "release": 0.25,
+        "volume": 0.12,
+        "arp": [0, -1, 0, -2],
+        "arpRate": 0.04
+      },
+      {
+        "wave": "noise",
+        "freq": 1400,
+        "to": 700,
+        "release": 0.2,
+        "volume": 0.12
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "rusted"
+    },
+    {
+      "event": "rustHurt"
+    },
+    {
+      "event": "rustWobble"
+    }
+  ],
+  "gap": 0.25
+}

@@ -1,0 +1,75 @@
+{
+  "id": "weapon.superstorm-bolt",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Superstorm bolt",
+    "description": "One of the huge ion-thick lightning bolts a Superstorm hammers down. It hangs a moment over where it will hit, then strikes: the ground around the hit implodes, sucked into a swirling vortex that drags tanks in, and a moment later it all blows out again as a Superstorm blast.",
+    "category": "submunition",
+    "since": "core@0.39.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 120
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 12,
+        "damage": 15,
+        "damageType": "shock",
+        "effects": {
+          "bolt": {
+            "w": 2.4,
+            "storm": 1
+          },
+          "burst": {
+            "count": 24
+          },
+          "flash": {
+            "strength": 0.9
+          },
+          "shake": {
+            "strength": 3
+          },
+          "thunder": {
+            "strength": 1
+          },
+          "vortex": {
+            "ticks": 22
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.attract",
+        "tankPull": 14,
+        "expandTicks": 6,
+        "flightTicks": 16
+      },
+      "radius": 64,
+      "damageType": "shock"
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.superstorm-blast",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

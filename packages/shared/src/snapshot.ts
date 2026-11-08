@@ -48,6 +48,8 @@ export interface TankView {
   chill: number;
   /** Own turns left glued (0 = not): it can't drive and nothing shoves it sideways. */
   glue: number;
+  /** Own turns left rusted (0 = not, Thunderstorm): it bleeds health, drives less, shots wobble. */
+  rust?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }
@@ -67,14 +69,14 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano' | 'storm';
   /** Turns left. */
   turns: number;
   /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */
   puffs?: number[];
   /** Gas clouds: puff radius in cells. */
   puffRadius?: number;
-  /** Gas clouds: ticks since the cloud burst out. */
+  /** Gas clouds and sky zones (storms): ticks since the zone was laid. */
   age?: number;
 }
 

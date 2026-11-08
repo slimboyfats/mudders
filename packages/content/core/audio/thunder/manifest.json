@@ -1,0 +1,70 @@
+{
+  "id": "audio.thunder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Thunder",
+    "description": "A chip thunderclap: a sharp crackle of short noise, then a long low rumble of slow noise that rolls and grumbles away. Bigger clouds rumble lower and longer.",
+    "since": "core@0.39.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 3200,
+        "to": 900,
+        "release": 0.18,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 260,
+        "to": 60,
+        "delay": 0.06,
+        "attack": 0.05,
+        "hold": 0.35,
+        "release": 1.6,
+        "volume": 0.5,
+        "vibrato": {
+          "rate": 5,
+          "depth": 3
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 90,
+        "to": 40,
+        "delay": 0.25,
+        "attack": 0.2,
+        "hold": 0.5,
+        "release": 1.4,
+        "volume": 0.35,
+        "vibrato": {
+          "rate": 3,
+          "depth": 4
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 55,
+        "to": 38,
+        "delay": 0.1,
+        "hold": 0.4,
+        "release": 1.2,
+        "volume": 0.3
+      }
+    ],
+    "radiusRef": 24
+  },
+  "on": [
+    {
+      "event": "thunder"
+    }
+  ],
+  "gap": 0.3
+}

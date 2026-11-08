@@ -144,6 +144,8 @@ export function drawZones(
       }
     } else if (z.look === 'volcano') {
       drawVolcano(normal, additive, z, t, probe, mult, fade, salt);
+    } else if (z.look === 'storm') {
+      drawStorm(normal, additive, z, t, probe, mult, fade, salt);
     } else {
       // resonance: two rings of single cells expanding from the centre, plus a pulsing core
       for (let k = 0; k < 2; k++) {
@@ -214,6 +216,145 @@ function drawVolcano(
     const y = Math.round(vy - 2 - ph * (20 + h01(i, salt + 8) * 30));
     if (probe.solid(x, y)) continue;
     additive.push(x + 0.5, y + 0.5, 1, 1, EMBER[i % 3]!, (1 - ph) * 0.9 * fade);
+  }
+}
+
+/** Storm cloud bands, lit top to dark underside; rain; the glow of lightning inside the cloud. */
+const STORM = [0x8a92a4, 0x5e6474, 0x434856, 0x2c3039] as const;
+const STORM_RAIN = 0x9aa8c4;
+const STORM_GLOW = 0xd8e0ff;
+/** Ticks a storm's cloud banks take to roll together. */
+const GATHER_TICKS = 90;
+
+/**
+ * A thundercloud (Thunderstorm): a heavy anvil of cells hanging at the zone's row, its top rolling
+ * slowly, cut into hard bands from a lit crown to a near-black underside with a dithered rim. Rain
+ * streaks fall from its base to the ground under it, and every so often a patch inside it lights
+ * up white-blue (lightning playing in the cloud). Thins and shrinks as its turns run out.
+ */
+function drawStorm(
+  normal: QuadBatch,
+  additive: QuadBatch,
+  z: ZoneView,
+  t: number,
+  probe: AmbientProbe,
+  mult: number,
+  fade: number,
+  salt: number,
+): void {
+  const R = Math.max(8, z.radius);
+  const half = Math.round(R + 18);
+  const base = z.y;
+  const wide = R > 150;
+  // separate puffy clouds that sail in from both sides and bunch up into one storm
+  const n = wide ? Math.max(6, Math.round((half * 2) / 72)) : 3;
+  const step = (half * 2) / n;
+  const cw = step * 1.7;
+  const lobeR = wide ? 26 : 15;
+  const slot = Math.floor(t / 7);
+  const flickOn = h01(slot, salt + 11) < 0.14;
+  const flickCloud = Math.floor(h01(slot, salt + 12) * n);
+  let gathered = 0;
+  for (let i = 0; i < n; i++) {
+    const fx = z.x - half + step * (i + 0.5) + (h01(i, salt + 30) - 0.5) * step * 0.4;
+    // each cloud arrives at its own time, the ones nearest the middle last
+    const arrive = GATHER_TICKS * (0.55 + 0.45 * h01(i, salt + 31));
+    const g = Math.min(1, (z.age ?? GATHER_TICKS) / arrive);
+    const ease = 1 - (1 - g) * (1 - g) * (1 - g);
+    gathered += ease;
+    const fromLeft = fx < z.x;
+    const sx = fromLeft ? z.x - half - cw : z.x + half + cw;
+    const ccx = Math.round(sx + (fx - sx) * ease + Math.sin(t * 0.01 + i * 1.7) * 2);
+    const cb = base + Math.round((h01(i, salt + 32) - 0.5) * 6);
+    const thin = 0.75 + 0.25 * fade;
+    drawStormCloud(
+      normal,
+      additive,
+      ccx,
+      cb,
+      cw,
+      lobeR * thin * (0.8 + 0.4 * h01(i, salt + 33)),
+      i * 97 + salt,
+      t,
+      probe,
+      flickOn && i === flickCloud,
+    );
+  }
+  const ease = gathered / n;
+  // rain from the cloud base down to the ground under it
+  const drops = Math.round(R * 1.6 * Math.max(0.4, mult) * fade * ease);
+  for (let i = 0; i < drops; i++) {
+    const r0 = h01(i, salt + 20);
+    const r1 = h01(i, salt + 21);
+    const speed = 4 + h01(i, salt + 22) * 2;
+    const fall = probe.height - base + 10;
+    const d = Math.floor(mod(t * speed + r1 * fall, fall));
+    const y = base + 2 + d;
+    const x = Math.round(z.x + (r0 - 0.5) * R * 2 + d * 0.25);
+    if (y >= probe.height || x < 0 || x >= probe.width) continue;
+    if (probe.solid(x, y)) continue;
+    if (probe.solid(x, y + 1)) {
+      normal.push(x - 0.5, y + 0.5, 1, 1, STORM_RAIN, 0.7 * fade);
+      normal.push(x + 1.5, y - 0.5, 1, 1, STORM_RAIN, 0.5 * fade);
+      continue;
+    }
+    normal.push(x + 0.5, y - 2, 1, 4, STORM_RAIN, 0.55 * fade);
+  }
+}
+
+/**
+ * One storm cloud: a few round lobes over a flat, sagging base, filled per map cell in hard bands
+ * from a lit crown to a near-black underside, with a dithered rim on top. `glow` lights its belly.
+ */
+function drawStormCloud(
+  normal: QuadBatch,
+  additive: QuadBatch,
+  cx: number,
+  base: number,
+  w: number,
+  lobe: number,
+  salt: number,
+  t: number,
+  probe: AmbientProbe,
+  glow: boolean,
+): void {
+  const K = 4;
+  const lx: number[] = [];
+  const ly: number[] = [];
+  const lr: number[] = [];
+  for (let k = 0; k < K; k++) {
+    const r = lobe * (0.6 + 0.45 * h01(k, salt + 1)) * (k === 1 || k === 2 ? 1.15 : 0.8);
+    lx.push((k / (K - 1) - 0.5) * (w - lobe * 1.4) + (h01(k, salt + 2) - 0.5) * lobe * 0.4);
+    ly.push(-r * 0.55 + Math.sin(t * 0.015 + k + salt) * 0.8);
+    lr.push(r);
+  }
+  const x0 = Math.floor(cx - w / 2);
+  const x1 = Math.ceil(cx + w / 2);
+  for (let x = x0; x <= x1; x++) {
+    if (x < 0 || x >= probe.width) continue;
+    const dx = x - cx;
+    let top = Infinity;
+    for (let k = 0; k < K; k++) {
+      const d = dx - lx[k]!;
+      const r = lr[k]!;
+      if (d * d >= r * r) continue;
+      top = Math.min(top, base + ly[k]! - Math.sqrt(r * r - d * d));
+    }
+    if (top === Infinity) continue;
+    const ty = Math.round(top);
+    const by = base + Math.round(1.5 + Math.sin(x * 0.4 + salt) * 1.2);
+    const span = Math.max(1, by - ty);
+    for (let y = ty; y <= by; y++) {
+      if (y < 0 || y >= probe.height) continue;
+      const rim = y === ty || y === by;
+      if (rim && ((x + y) & 1) === 0) continue;
+      const f = (y - ty) / span;
+      const band = f < 0.22 ? 0 : f < 0.5 ? 1 : f < 0.8 ? 2 : 3;
+      normal.push(x + 0.5, y + 0.5, 1, 1, STORM[band]!, rim ? 0.75 : 1);
+      if (glow && f > 0.3 && ((x * 3 + y) & 3) !== 0) {
+        additive.push(x + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.4);
+      }
+    }
   }
 }
 

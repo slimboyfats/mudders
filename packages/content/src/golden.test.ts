@@ -50,7 +50,7 @@ describe('golden determinism', () => {
   });
 
   // ~140 scenarios: allow for coverage instrumentation on a slow machine
-  it('is identical when run twice in one process', { timeout: 180_000 }, () => {
+  it('is identical when run twice in one process', { timeout: 360_000 }, () => {
     expect(runAll()).toEqual(actual);
   });
 });

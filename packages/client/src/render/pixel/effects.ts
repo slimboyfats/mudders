@@ -819,6 +819,14 @@ export class EffectSystem {
       case 'zoneHurt':
         this.puff(e, 0xb8f040, 8);
         break;
+      case 'rusted':
+      case 'rustHurt':
+        this.rustFlakes(e, e.type === 'rusted' ? 14 : 8);
+        break;
+      case 'rustWobble':
+        // the rusty barrel judders: a few flakes shaken off the muzzle end
+        this.rustFlakes(e, 4);
+        break;
       case 'burn': {
         const rng = this.rngFor(e, 17);
         const n = Math.round(14 * this.mult) + 3;
@@ -2446,13 +2454,44 @@ export class EffectSystem {
     }
   }
 
-  /** A jagged lightning channel from the top of the map down to (x, y), with a branch or two. */
+  /** Rust flakes (Thunderstorm): little orange-brown chips that flutter off a tank and drop. */
+  private rustFlakes(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 71);
+    const n = Math.round(count * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-e.radius, e.radius),
+        y: e.y + rng.range(-3, 2),
+        vx: rng.range(-0.35, 0.35),
+        vy: -rng.range(0.1, 0.7),
+        life: rng.range(20, 40),
+        size: 1,
+        color: RUST[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * A jagged lightning channel from the top of the map (or a storm cloud's base, `params.top`)
+   * down to (x, y), with a branch or two.
+   */
   private bolt(e: EffectEvent): void {
-    this.skyBolt(e.x, e.y, e.tick, this.rngFor(e, 29), 1, 20);
+    const w = e.params.w ?? 1;
+    this.skyBolt(
+      e.x,
+      e.y,
+      e.tick,
+      this.rngFor(e, 29),
+      w,
+      Math.round(20 * Math.min(2, w)),
+      e.params.top ?? 0,
+      e.params.storm === 1,
+    );
     this.glows.push({
       x: e.x,
       y: e.y,
-      r: 26,
+      r: Math.round(26 * w),
       start: e.tick,
       dur: 14,
       color: 0xc8d8ff,
@@ -2466,7 +2505,16 @@ export class EffectSystem {
    * One jagged channel from the top of the map down to (x, y) with a few branches, starting at
    * tick `start`; `w` scales its thickness.
    */
-  private skyBolt(x: number, y: number, start: number, rng: FxRng, w: number, dur: number): void {
+  private skyBolt(
+    x: number,
+    y: number,
+    start: number,
+    rng: FxRng,
+    w: number,
+    dur: number,
+    from = 0,
+    storm = false,
+  ): void {
     const e = { x: Math.round(x), y: Math.max(1, Math.round(y)) };
     const pts: number[] = [];
     const walk = (x0: number, y0: number, y1: number, drift: number) => {
@@ -2482,10 +2530,12 @@ export class EffectSystem {
       return x;
     };
     // aim the main channel so it lands on the target column
-    walk(e.x + Math.round(rng.range(-18, 18)), 0, e.y, 0);
+    const top = Math.max(0, Math.min(e.y - 1, Math.round(from)));
+    walk(e.x + Math.round(rng.range(storm ? -8 : -18, storm ? 8 : 18)), top, e.y, 0);
+    if (pts.length === 0) return;
     const fixX = e.x - pts[pts.length - 2]!;
     for (let i = 0; i < pts.length; i += 2) {
-      const k = pts[i + 1]! / Math.max(1, e.y);
+      const k = (pts[i + 1]! - top) / Math.max(1, e.y - top);
       pts[i] = pts[i]! + Math.round(fixX * k);
     }
     const main = pts.length;
@@ -3598,10 +3648,13 @@ export const RICOCHET_HEAT = [
 ] as const;
 
 /**
- * Zone looks by index (gas, acid, resonance, toxic, volcano), matching the sim's zone `look`
- * order.
+ * Zone looks by index (gas, acid, resonance, toxic, volcano, storm), matching the sim's zone
+ * `look` order.
  */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425, 0x3a2f2c] as const;
+export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425, 0x3a2f2c, 0x3c4250] as const;
+
+/** Rust bands (Thunderstorm): dark pit, body, orange, lit edge. */
+export const RUST = [0x5a2a14, 0x8e4a1e, 0xb8642a, 0xd88a44] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {
