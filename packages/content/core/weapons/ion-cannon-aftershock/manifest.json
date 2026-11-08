@@ -1,0 +1,52 @@
+{
+  "id": "weapon.ion-cannon-aftershock",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Ion Cannon aftershock",
+    "description": "The third and last shockwave of an Ion Cannon strike: a weaker pulse that ripples out after the second.",
+    "category": "submunition",
+    "since": "core@0.37.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 16
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 240,
+        "damage": 0,
+        "push": 28,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "ionPulse": {
+            "strength": 1
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 20,
+          "lift": 1,
+          "expandTicks": 16,
+          "blobPush": 28
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}
