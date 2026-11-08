@@ -72,8 +72,6 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
-uniform float u_zone;        // sudden-death zone width at each side edge, cells (0 = none)
-uniform float u_zoneFresh;   // 1 just after the zone grew, fading to 0
 uniform vec3 u_flash;
 uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
@@ -130,32 +128,22 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
-const vec3 WASTE_A = vec3(0.075, 0.085, 0.05);
-const vec3 WASTE_B = vec3(0.12, 0.135, 0.07);
-const vec3 TOXIC = vec3(0.62, 0.86, 0.2);
-// the nuclear wasteland past the battlefield edge: ash and slag in coarse dithered clumps,
-// radioactive bands crawling diagonally, ash specks falling a cell at a time. All per map cell.
-vec3 wasteland(ivec2 c) {
-  ivec2 k = ivec2(floor(vec2(c) / 2.0));
-  float h = hash(k + ivec2(311, 97));
-  vec3 col = h > 0.55 ? WASTE_B : WASTE_A;
-  if (h > 0.93) col = vec3(0.17, 0.19, 0.09);
-  float st = floor(u_time / 10.0);
-  if (mod(float(c.x + c.y) + st, 40.0) < 3.0 && ((c.x + c.y) & 1) == 0) col = mix(col, TOXIC, 0.22);
-  float fall = floor(u_time / 5.0);
-  if (hash(ivec2(c.x * 3 + 7, c.y - int(fall))) > 0.992) col = vec3(0.42, 0.46, 0.34);
-  return col;
-}
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
   ivec2 wc = ivec2(floor(m));
-  bool inside = !(m.x < 0.0 || m.y < 0.0 || m.x >= u_map.x || m.y >= u_map.y);
+  // past the left and right edges the battlefield goes on as its own mirror image (under the
+  // death wall, drawn as particles in deathwall.ts); above and below the map there is only the
+  // plain backdrop
+  bool rows = m.y >= 0.0 && m.y < u_map.y;
   vec3 c;
-  if (!inside) {
-    c = wasteland(wc);
+  if (!rows) {
+    c = m.y < 0.0 ? u_top : u_letterbox;
   } else {
-    ivec2 cell = ivec2(floor(m));
+    ivec2 cell = wc;
+    int W = int(u_map.x);
+    if (cell.x < 0) cell.x = min(-cell.x - 1, W - 1);
+    else if (cell.x >= W) cell.x = max(2 * W - 1 - cell.x, 0);
     // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
     // the cells sideways (and now and then up a cell) by whole cells, strongest near the source
     float heat = 0.0;
@@ -307,20 +295,6 @@ void main() {
     }
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
-  }
-  if (inside) {
-    // the battlefield edge: the sudden-death zone eats in from both sides. Inside it the scene
-    // shows through a sickly tint with the wasteland on a checker; a dashed hazard line marks
-    // where it ends (at the map edge itself before sudden death)
-    float d = min(m.x, u_map.x - m.x);
-    if (d < u_zone) {
-      vec3 tint = c * vec3(0.55, 0.72, 0.35) + vec3(0.03, 0.05, 0.0);
-      c = ((wc.x + wc.y) & 1) == 0 ? mix(tint, wasteland(wc), 0.5) : tint;
-    } else if (d < u_zone + 2.0) {
-      bool dash = mod(float(wc.y) - floor(u_time / 6.0), 6.0) < 3.0;
-      vec3 hot = mix(TOXIC, vec3(1.0, 1.0, 0.8), 0.6 * u_zoneFresh);
-      c = dash ? hot : mix(c, TOXIC * 0.45, 0.5);
-    }
   }
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
