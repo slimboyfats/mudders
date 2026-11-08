@@ -42,6 +42,10 @@ export const PKind = {
   Ember: 10,
   /** A flake of ash: sails down slowly on the wind, swaying, and settles. GPU only. */
   Ash: 11,
+  /** A raindrop: a streak falling fast, leaning with the wind, that splashes where it lands. GPU only. */
+  Rain: 12,
+  /** A weather snowflake: heavier than frost, swings in the wind, settles on the ground. GPU only. */
+  Flake: 13,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

@@ -149,6 +149,28 @@ export const KINDS: readonly KindPhysics[] = [
     collide: true,
     friction: 0,
   }),
+  // Rain: falls at its terminal speed, leans with the wind, hops once off the ground and is gone
+  K({
+    gravity: 1,
+    dragX: 0.9,
+    maxFall: 5.5,
+    wind: 12,
+    spread: 0,
+    collide: true,
+    bounce: 0.12,
+    friction: 0,
+  }),
+  // Flake: weather snow, heavier and gustier than frost, swings wide and settles
+  K({
+    gravity: 0.08,
+    dragX: 0.96,
+    wind: 7,
+    maxFall: 0.85,
+    sway: 0.03,
+    collide: true,
+    friction: 0,
+    swirl: 0.02,
+  }),
 ];
 
 const NK = KINDS.length;
@@ -368,6 +390,25 @@ void main() {
     } else {
       alpha = t < 0.7 ? 0.9 : (1.0 - t) / 0.3 * 0.9;
     }
+  } else if (k == ${PKind.Rain}) {
+    show = show && u_pass == 0;
+    float sp = length(a_dyn.zw);
+    if (a_dyn.w > 1.0) {
+      // falling: a streak back along its path. Three depths: far drops are short and faint,
+      // near ones long and bright, so the sheet of rain has some air in it
+      float depth = th < 0.45 ? 0.0 : th < 0.85 ? 1.0 : 2.0;
+      vec2 tail = floor(a_dyn.xy - a_dyn.zw * (0.4 + depth * 0.4)) + 0.5;
+      v_seg = vec4(cell, tail);
+      pos = (cell + tail) * 0.5;
+      size = abs(cell - tail) + 1.0;
+      shape = 7;
+      alpha = depth == 0.0 ? 0.3 : depth == 1.0 ? 0.55 : 0.9;
+      col = depth == 2.0 ? min(vec3(1.0), col * 1.15 + 0.08) : col;
+    } else if (sp > 0.25) {
+      // the splash: a lit droplet hopping back up
+      col = min(vec3(1.0), col * 1.3 + 0.12);
+      alpha = 0.85;
+    } else show = false; // settled: gone
   } else if (k == ${PKind.Ash}) {
     show = show && u_pass == 0 && th < (t < 0.75 ? 1.0 : (1.0 - t) / 0.25);
     col = mix(col, shade(col, 1.5), stepT(t, th, 4.0));
@@ -391,7 +432,7 @@ void main() {
     alpha = t < 0.55 ? 1.0 : 0.85;
     // a white flash, its colour, then deeper as it burns out
     col = ramp3(vec3(1.0), col, col * 0.5, stepT(t, th, 5.0));
-  } else if (k == ${PKind.Snow}) {
+  } else if (k == ${PKind.Snow} || k == ${PKind.Flake}) {
     show = show && u_pass == 0;
     size = vec2(s);
     alpha = t < 0.8 ? 0.95 : (1.0 - t) / 0.2;

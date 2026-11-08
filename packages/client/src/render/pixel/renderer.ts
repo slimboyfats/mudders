@@ -9,7 +9,7 @@ import type {
   TankLook,
   Vec2,
 } from '../types';
-import { drawWeather, drawZones, stormFlash, type AmbientProbe } from './ambient';
+import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
@@ -1352,6 +1352,7 @@ export class PixelRenderer implements Renderer {
     this.stepWrecks();
     this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
+    emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
     this.fx.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
     this.stepFlames();

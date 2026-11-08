@@ -1,5 +1,6 @@
 import type { ZoneView } from '@mudders/shared';
 import { Shape, type QuadBatch } from './batch';
+import { PKind, type ParticleSink } from './particles';
 import { ZONE_COLOR } from './effects';
 import type { PixelTheme } from './theme';
 
@@ -42,6 +43,8 @@ export function drawWeather(
 ): void {
   const a = theme.ambient;
   if (a.kind === 'none' || a.kind === 'stars' || a.density <= 0) return;
+  // rain and snow fall as GPU particles now (see `emitWeather`)
+  if (a.kind === 'rain' || a.kind === 'snow') return;
   const W = probe.width;
   const H = probe.height;
   const n = Math.round((a.density * W * mult) / 1000);
@@ -50,37 +53,7 @@ export function drawWeather(
     const r0 = h01(i, 1);
     const r1 = h01(i, 2);
     const r2 = h01(i, 3);
-    if (a.kind === 'rain') {
-      const speed = 4 + r2 * 2;
-      const span = H + 40;
-      const y = Math.floor(mod(t * speed + r1 * span, span)) - 20;
-      const x = Math.floor(mod(r0 * W + (y + 20) * (0.35 + lean * 0.5), W));
-      if (y < 0) continue;
-      if (probe.solid(x, y)) continue;
-      if (probe.solid(x, y + 1)) {
-        if (probe.liquid?.(x, y + 1)) {
-          // plink into a puddle: a droplet hops up and the surface lights either side
-          normal.push(x + 0.5, y - 0.5, 1, 1, 0xe6f2ff, 0.8);
-          normal.push(x - 0.5, y + 1.5, 1, 1, 0xa8d0f8, 0.7);
-          normal.push(x + 1.5, y + 1.5, 1, 1, 0xa8d0f8, 0.7);
-          continue;
-        }
-        // splash: two droplets either side of where it hits
-        normal.push(x - 0.5, y + 0.5, 1, 1, a.color, 0.7);
-        normal.push(x + 1.5, y - 0.5, 1, 1, a.color, 0.5);
-        continue;
-      }
-      normal.push(x + 0.5, y - 2, 1, 5, a.color, 0.4 + r2 * 0.3);
-    } else if (a.kind === 'snow') {
-      const speed = 0.25 + r2 * 0.3;
-      const span = H + 10;
-      const y = Math.floor(mod(t * speed + r1 * span, span)) - 5;
-      const sway = Math.round(Math.sin(t * 0.03 + r0 * 40) * 2 + y * lean * 0.3);
-      const x = Math.floor(mod(r0 * W + sway, W));
-      if (y < 0 || probe.solid(x, y)) continue;
-      const size = r2 > 0.8 ? 2 : 1;
-      normal.push(x + size / 2, y + size / 2, size, size, a.color, 0.85);
-    } else if (a.kind === 'embers') {
+    if (a.kind === 'embers') {
       const speed = 0.3 + r2 * 0.5;
       const span = H + 10;
       const y = H - Math.floor(mod(t * speed + r1 * span, span));
@@ -96,6 +69,64 @@ export function drawWeather(
       const y = Math.floor(r1 * H * 0.85 + Math.sin(t * 0.02 + r0 * 50) * 4);
       if (y < 0 || probe.solid(x, y)) continue;
       normal.push(x + 0.5, y + 0.5, 1, 1, a.color, 0.3 + r2 * 0.3);
+    }
+  }
+}
+
+/**
+ * This tick's rain or snow, spawned into the GPU engine along the top of the map (and a little
+ * past the sides, so the wind can carry it in): rain as streaks that splash where they land,
+ * snow as swaying flakes that settle. Density is the theme's; the count per tick is set so the
+ * same number is in the air as the old drawn weather had, times the extra the GPU affords.
+ */
+export function emitWeather(
+  sink: ParticleSink,
+  theme: PixelTheme,
+  t: number,
+  wind: number,
+  probe: AmbientProbe,
+  mult: number,
+): void {
+  const a = theme.ambient;
+  if ((a.kind !== 'rain' && a.kind !== 'snow') || a.density <= 0) return;
+  const W = probe.width;
+  const H = probe.height;
+  const rain = a.kind === 'rain';
+  // in the air at once ≈ density × W/1000 × 14 (rain) or × 15 (snow); each lives about H / speed
+  // ticks. Several times the old drawn weather: the GPU can afford a real downpour
+  const speed = rain ? 4.8 : 0.65;
+  const perTick = (((a.density * W * mult) / 1000) * (rain ? 14 : 15)) / (H / speed);
+  let n = Math.floor(perTick);
+  if (h01(t, 977) < perTick - n) n++;
+  const lean = Math.max(-1.5, Math.min(1.5, wind * 120));
+  const margin = Math.abs(lean) * H * 0.4 + 10;
+  for (let i = 0; i < n; i++) {
+    const r0 = h01(t * 131 + i, 1);
+    const r1 = h01(t * 131 + i, 2);
+    const r2 = h01(t * 131 + i, 3);
+    const x = -margin * (lean > 0 ? 1 : 0) + r0 * (W + margin);
+    if (rain) {
+      sink.add({
+        x,
+        y: -2 - r1 * 6,
+        vx: lean * 0.9,
+        vy: 4 + r2 * 2,
+        life: H / 4 + 60,
+        size: 1,
+        color: a.color,
+        kind: PKind.Rain,
+      });
+    } else {
+      sink.add({
+        x,
+        y: -2 - r1 * 6,
+        vx: lean * 0.3 + (r2 - 0.5) * 0.3,
+        vy: 0.45 + r2 * 0.4,
+        life: H / 0.55 + 120 + r1 * 200,
+        size: r2 > 0.7 ? 2 : 1,
+        color: a.color,
+        kind: PKind.Flake,
+      });
     }
   }
 }
