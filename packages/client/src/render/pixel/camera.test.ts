@@ -36,28 +36,14 @@ describe('Camera', () => {
     expect(c.isFit).toBe(true);
   });
 
-  it('stops panning at the map edge, so the map always fills the screen', () => {
+  it('lets the view centre go anywhere on the map, but no further', () => {
     const c = new Camera(800, 400);
     c.setViewport(800, 400, 1);
     c.zoomBy(1);
     c.pan(-100000, -100000);
-    // the map's bottom-right corner sits in the bottom-right corner of the screen
-    expect(c.unproject({ x: 800, y: 400 }).x).toBeCloseTo(800);
-    expect(c.unproject({ x: 800, y: 400 }).y).toBeCloseTo(400);
-    c.pan(100000, 100000);
-    expect(c.unproject({ x: 0, y: 0 }).x).toBeCloseTo(0);
-    expect(c.unproject({ x: 0, y: 0 }).y).toBeCloseTo(0);
-  });
-
-  it('keeps the map centred along an axis where it fits the screen', () => {
-    // 2:1 map on a wider 3:1 screen: the height fills, the width has bars at fit
-    const c = new Camera(800, 400);
-    c.setViewport(1200, 400, 1);
-    c.zoomTo(1.2, { x: 600, y: 200 }, false);
-    c.pan(-100000, -50);
-    // 960 px of map on a 1200 px screen: it stays centred sideways but pans vertically
-    expect(c.unproject({ x: 600, y: 200 }).x).toBeCloseTo(400);
-    expect(c.cy).toBeGreaterThan(200);
+    // the map's bottom-right corner sits in the middle of the screen
+    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(800);
+    expect(c.unproject({ x: 400, y: 200 }).y).toBeCloseTo(400);
   });
 });
 
@@ -118,14 +104,12 @@ describe('Camera touch motion', () => {
     expect(c.cx).toBe(x2);
   });
 
-  it('does not slide the whole-map view off the screen; fit recentres a zoomed view', () => {
+  it('pans at the whole-map view too, so an edge tank can be centred; fit recentres', () => {
     const c = new Camera(800, 400);
     c.setViewport(800, 400, 1);
     c.pan(300, 0);
-    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(400);
-    c.zoomBy(1);
-    c.pan(300, 0);
     expect(c.isFit).toBe(false);
+    expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(100);
     c.fit();
     expect(c.unproject({ x: 400, y: 200 }).x).toBeCloseTo(400);
   });

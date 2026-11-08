@@ -367,11 +367,7 @@ async function pwaOffline(browser: Browser, url: string, out: string): Promise<s
   }
 }
 
-/**
- * Touch: zoom in once, then drag the map to bring the active tank toward mid-screen. The camera
- * stops at the map edges (the map always fills the screen), so an edge tank only gets as far as
- * the edge allows; it must still end up clear of the dock, and no empty space may show.
- */
+/** Touch: drag the map until the active tank is mid-screen. */
 async function centreTank(
   page: Page,
   ctx: BrowserContext,
@@ -389,8 +385,6 @@ async function centreTank(
     // the marker floats just above the hull
     return { x: m.x + m.width / 2, y: m.y + m.height + 12 };
   };
-  await page.getByRole('button', { name: 'Zoom in' }).click();
-  await page.waitForTimeout(400);
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height * 0.45;
   const t0 = await tank();
@@ -408,27 +402,11 @@ async function centreTank(
   await send('touchEnd', []);
   await page.waitForTimeout(200);
   const t1 = await tank();
-  if (t1.y > box.y + box.height * 0.75 || t1.x < box.x + 20 || t1.x > box.x + box.width - 20)
-    throw new Error(`${name}: the tank is still at the screen edge after dragging`);
-  await expectNoEmptyEdge(page, name);
+  if (Math.hypot(t1.x - cx, t1.y - cy) > 40)
+    throw new Error(
+      `${name}: could not drag the tank to mid-screen (${Math.round(t1.x)},${Math.round(t1.y)})`,
+    );
   return t1;
-}
-
-/** Panning never shows past the map edge: `data-view` (visible map rect) stays inside the map. */
-async function expectNoEmptyEdge(page: Page, name: string): Promise<void> {
-  const pf = page.getByTestId('playfield');
-  const [x0, y0, x1, y1] = (await pf.getAttribute('data-view'))!.split(',').map(Number) as [
-    number,
-    number,
-    number,
-    number,
-  ];
-  const [w, h] = (await pf.getAttribute('data-map'))!.split(',').map(Number) as [number, number];
-  // per axis: the view sits inside the map, or (where the whole map fits) the map is centred
-  const ok = (a: number, b: number, size: number) =>
-    b - a >= size ? Math.abs((a + b) / 2 - size / 2) <= 1 : a >= -1 && b <= size + 1;
-  if (!ok(x0, x1, w) || !ok(y0, y1, h))
-    throw new Error(`${name}: empty space past the map edge (view ${x0},${y0}–${x1},${y1})`);
 }
 
 /**
@@ -451,26 +429,6 @@ async function panAndPinch(
     });
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
-  // start from the whole-map view (an earlier step zoomed in); a plain click right after the
-  // emulated touches above is sometimes swallowed, so dispatch it
-  await page.getByRole('button', { name: 'Fit map' }).dispatchEvent('click');
-  // the software renderer draws slowly: wait until the shown view holds the whole map
-  await page
-    .waitForFunction(
-      () => {
-        const pf = document.querySelector('[data-testid=playfield]');
-        const v = (pf?.getAttribute('data-view') ?? '').split(',').map(Number);
-        const m = (pf?.getAttribute('data-map') ?? '').split(',').map(Number);
-        const [x0 = 0, y0 = 0, x1 = 0, y1 = 0] = v;
-        const [w = 1, h = 1] = m;
-        return x0 <= 1 && y0 <= 1 && x1 >= w - 1 && y1 >= h - 1;
-      },
-      undefined,
-      { timeout: 5000 },
-    )
-    .catch(() => {
-      throw new Error(`${name}: Fit map did not show the whole map`);
-    });
   const z0 = await zoom();
   await send('touchStart', [
     { x: cx - 30, y: cy },
@@ -514,7 +472,6 @@ async function panAndPinch(
   const c1 = await centre();
   if (Math.abs(c1 - c0) < 5)
     throw new Error(`${name}: one-finger drag did not pan the map (centre x ${c0} → ${c1})`);
-  await expectNoEmptyEdge(page, name);
   await shot('2c-panned');
   // (the slow software renderer can run the turn clock out mid-test; only compare the same turn)
   const same = (await turnLabel(page)) === turn;
@@ -530,7 +487,7 @@ async function panAndPinch(
       z0.toFixed(2),
       { timeout: 3000 },
     )
-    .catch(async () => {
-      throw new Error(`${name}: Fit map did not fit the map again (${z0} vs ${await zoom()})`);
+    .catch(() => {
+      throw new Error(`${name}: Fit map did not fit the map again`);
     });
 }

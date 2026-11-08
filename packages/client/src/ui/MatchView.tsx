@@ -130,13 +130,6 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       const mid = r.unproject({ x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 });
       const centre = `${Math.round(mid.x)},${Math.round(mid.y)}`;
       if (wrap.dataset['centre'] !== centre) wrap.dataset['centre'] = centre;
-      // visible map rect and map size, so the smoke test can tell no empty space shows
-      const a = r.unproject({ x: 0, y: 0 });
-      const b = r.unproject({ x: wrap.clientWidth, y: wrap.clientHeight });
-      const view = `${Math.round(a.x)},${Math.round(a.y)},${Math.round(b.x)},${Math.round(b.y)}`;
-      if (wrap.dataset['view'] !== view) wrap.dataset['view'] = view;
-      const map = `${r.camera.mapW},${r.camera.mapH}`;
-      if (wrap.dataset['map'] !== map) wrap.dataset['map'] = map;
       // a hit-stop hold eats wall time first; the slow-mo finisher then slows what is left
       const scale = slowmo.next(wall);
       const simDt = stop.take(wall) * scale;
@@ -267,7 +260,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     };
   }, [canAim, active, send]);
 
-  // pointer (§8a): one finger moves the camera (up to the map edges, with a fling on
+  // pointer (§8a): one finger moves the camera (at any zoom, past the map edges, with a fling on
   // release); touch aims with the angle/power pills, never by dragging. Two fingers pinch-zoom
   // smoothly around their midpoint and pan with it. Mouse: left button = slingshot anywhere,
   // right/middle = pan, wheel = zoom.

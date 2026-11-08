@@ -188,13 +188,12 @@ export class Camera implements CameraControl {
   }
 
   /**
-   * Keep the map filling the screen: along an axis where the scaled map is larger than the
-   * viewport, the view stops at the map edge, so no empty space ever shows past it. Along an axis
-   * where the whole map fits (the fit view's short side), the map stays centred.
+   * Free camera: the view centre may go anywhere on the map, so any point (a tank at the very
+   * edge, say) can be brought to the middle of the screen, with letterbox beyond the map edge.
    */
   private clamp(): void {
-    this.cx = clampAxis(this.cx, this.mapW, this.vw / this.s);
-    this.cy = clampAxis(this.cy, this.mapH, this.vh / this.s);
+    this.cx = Math.max(0, Math.min(this.mapW, this.cx));
+    this.cy = Math.max(0, Math.min(this.mapH, this.cy));
   }
 
   unproject(p: Vec2): Vec2 {
@@ -204,11 +203,4 @@ export class Camera implements CameraControl {
   project(p: Vec2): Vec2 {
     return { x: (this.ox + p.x * this.s) / this.dpr, y: (this.oy + p.y * this.s) / this.dpr };
   }
-}
-
-/** Centre `c` of a `view`-long window on a `size`-long map, kept inside the map. */
-function clampAxis(c: number, size: number, view: number): number {
-  if (view >= size) return size / 2;
-  const h = view / 2;
-  return Math.max(h, Math.min(size - h, c));
 }

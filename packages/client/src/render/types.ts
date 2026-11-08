@@ -134,9 +134,6 @@ export interface CameraControl {
   /** Device pixels per map cell. */
   readonly scale: number;
   readonly isFit: boolean;
-  /** Map size in cells. */
-  readonly mapW: number;
-  readonly mapH: number;
 }
 
 export type RendererKind = 'pixel';
