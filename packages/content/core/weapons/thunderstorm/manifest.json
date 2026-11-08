@@ -5,7 +5,7 @@
     "name": "Thunderstorm",
     "description": "A small crackling bomb that brews a black thundercloud over where it lands. The storm hangs there for four turns, raining on everything beneath it. Tanks caught under it rust: they lose a little health every turn for three turns, their tracks grind (half the driving) and their barrels shake (shots wobble a few degrees). Now and then a bolt of lightning cracks down out of the cloud somewhere under it.",
     "category": "weird",
-    "since": "core@0.37.0"
+    "since": "core@0.38.0"
   },
   "flight": {
     "use": "flight.ballistic"

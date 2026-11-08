@@ -4,7 +4,7 @@
   "meta": {
     "name": "Thunder",
     "description": "A chip thunderclap: a sharp crackle of short noise, then a long low rumble of slow noise that rolls and grumbles away. Bigger clouds rumble lower and longer.",
-    "since": "core@0.37.0"
+    "since": "core@0.38.0"
   },
   "bus": "sfx",
   "licence": {

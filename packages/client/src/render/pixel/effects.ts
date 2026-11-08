@@ -5,6 +5,7 @@ import { drawPost, makePost, type Post } from './bumper';
 import { Chunks } from './chunks';
 import { FxRng } from './gl';
 import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
+import { IonStrikes } from './ion';
 import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
@@ -194,6 +195,8 @@ interface Bolt {
   main: number;
   start: number;
   dur: number;
+  /** Thickness scale (1 = a normal Lightning bolt; Ion Cannon bolts are fatter). */
+  w?: number;
 }
 
 /**
@@ -280,6 +283,8 @@ export class EffectSystem {
   mult = 1;
   /** Orbital Lance lock-ons and beams. */
   readonly lances: Lances;
+  /** Ion Cannon charges and beams. */
+  readonly ions: IonStrikes;
   /**
    * Ricochet Ball heat: bounces of the ball in flight (0 = fresh), from its `ricochet` events.
    * Only one shot flies at a time, so a single counter is enough; it resets on the final burst
@@ -295,6 +300,7 @@ export class EffectSystem {
     private readonly probe: TerrainProbe,
   ) {
     this.lances = new Lances(particles);
+    this.ions = new IonStrikes(particles);
     this.chunks = new Chunks(
       CHUNK_CAP,
       { solid: (x, y) => probe.material(x, y) !== 0 },
@@ -561,6 +567,16 @@ export class EffectSystem {
         break;
       case 'pressureWave':
         this.pressureWave(e, e.params.strength ?? 1);
+        break;
+      case 'ionCharge':
+        this.ions.charge(e, this.rngFor(e, 151));
+        this.tintSky([0, 0.15, 0.3, 0.7], 0.15);
+        break;
+      case 'ionBlast':
+        this.ionBlast(e, e.params.strength ?? 1);
+        break;
+      case 'ionPulse':
+        this.ionPulse(e, e.params.strength ?? 1);
         break;
       case 'vortex':
         this.vortices.push({
@@ -2458,7 +2474,44 @@ export class EffectSystem {
    * down to (x, y), with a branch or two.
    */
   private bolt(e: EffectEvent): void {
-    const rng = this.rngFor(e, 29);
+    this.skyBolt(
+      e.x,
+      e.y,
+      e.tick,
+      this.rngFor(e, 29),
+      1,
+      20,
+      e.params.top ?? 0,
+      e.params.storm === 1,
+    );
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 26,
+      start: e.tick,
+      dur: 14,
+      color: 0xc8d8ff,
+      strength: 1.4,
+    });
+    // the whole sky blinks white-blue
+    this.tintSky([0, 0.75, 0.8, 1], 0.5);
+  }
+
+  /**
+   * One jagged channel from the top of the map down to (x, y) with a few branches, starting at
+   * tick `start`; `w` scales its thickness.
+   */
+  private skyBolt(
+    x: number,
+    y: number,
+    start: number,
+    rng: FxRng,
+    w: number,
+    dur: number,
+    from = 0,
+    storm = false,
+  ): void {
+    const e = { x: Math.round(x), y: Math.max(1, Math.round(y)) };
     const pts: number[] = [];
     const walk = (x0: number, y0: number, y1: number, drift: number) => {
       let x = x0;
@@ -2473,8 +2526,7 @@ export class EffectSystem {
       return x;
     };
     // aim the main channel so it lands on the target column
-    const storm = e.params.storm === 1;
-    const top = Math.max(0, Math.min(e.y - 1, Math.round(e.params.top ?? 0)));
+    const top = Math.max(0, Math.min(e.y - 1, Math.round(from)));
     walk(e.x + Math.round(rng.range(storm ? -8 : -18, storm ? 8 : 18)), top, e.y, 0);
     if (pts.length === 0) return;
     const fixX = e.x - pts[pts.length - 2]!;
@@ -2493,18 +2545,122 @@ export class EffectSystem {
       if (rng.next() < 0.5)
         walk(end, pts[pts.length - 1]!, pts[pts.length - 1]! + 10, rng.range(-2, 2));
     }
-    this.bolts.push({ cells: Int32Array.from(pts), main, start: e.tick, dur: 20 });
-    this.glows.push({
+    this.bolts.push({ cells: Int32Array.from(pts), main, start, dur, w });
+  }
+
+  /**
+   * The Ion Cannon strike: the beam itself (ion.ts), the nuke's white sky, then instead of a
+   * mushroom cloud a storm of fat electric bolts hammering the crater for seconds, arcs crawling
+   * out along the ground, and a train of distortion shockwaves rolling out one after another.
+   */
+  private ionBlast(e: EffectEvent, k: number): void {
+    const r = e.radius;
+    const floor = this.craterFloor(Math.round(e.x), e.y, r);
+    this.ions.fire(e, this.rngFor(e, 157), floor);
+    const w = whiteoutFor(r * 0.6 * k);
+    const now = this.whiteout(e.tick);
+    this.whiteStart = e.tick;
+    this.whitePeak = Math.max(w.peak, now);
+    this.whiteFade = Math.max(w.fade, now > 0 ? this.whiteFade : 1);
+    this.tintSky([0, 0.5, 0.7, 1], 0.5);
+    this.split = Math.max(this.split, 4);
+    this.kick(6 + r / 14, e.tick);
+    // shockwaves: four lens rings, each a little later, smaller and weaker than the last
+    for (let i = 0; i < 4; i++) {
+      this.ripples.push({
+        x: e.x,
+        y: e.y,
+        start: e.tick + i * 9,
+        dur: 80 - i * 8,
+        maxR: r * (4.2 - i * 0.7),
+        width: 28 - i * 4,
+        strength: (1.6 - i * 0.25) * k,
+      });
+    }
+    this.fronts.push({
       x: e.x,
       y: e.y,
-      r: 26,
+      maxR: r * 2.2,
       start: e.tick,
-      dur: 14,
-      color: 0xc8d8ff,
-      strength: 1.4,
+      dur: 50,
+      rng: this.rngFor(e, 163),
     });
-    // the whole sky blinks white-blue
-    this.tintSky([0, 0.75, 0.8, 1], 0.5);
+    // the bolt storm: fat strikes all over the crater and its rim, coming thick then thinning
+    const rng = this.rngFor(e, 167);
+    const strikes = Math.round(30 * k);
+    for (let i = 0; i < strikes; i++) {
+      const delay = Math.round(110 * (i / strikes) ** 1.6 + rng.range(0, 4));
+      const bx = Math.round(e.x + rng.range(-1.25, 1.25) * r);
+      const by = this.surfaceNear(bx, e.y, r * 1.4);
+      const fat = i < 6 ? 2.2 : rng.range(1.2, 1.8);
+      this.skyBolt(bx, by < 0 ? e.y : by, e.tick + delay, rng, fat, Math.round(rng.range(14, 24)));
+      if (i % 3 === 0) {
+        this.glows.push({
+          x: bx,
+          y: by < 0 ? e.y : by,
+          r: 18,
+          start: e.tick + delay,
+          dur: 10,
+          color: 0xa8d0ff,
+          strength: 1.2,
+        });
+      }
+    }
+    // arcs crawling out along the ground, in waves
+    for (let i = 0; i < 4; i++) {
+      this.arcs(
+        { ...e, tick: e.tick + i * 18, radius: r * 0.5, x: e.x + rng.range(-0.6, 0.6) * r },
+        1.6,
+      );
+    }
+    // ions and sparks blown out of the strike instead of dirt and smoke
+    const n = Math.round((140 + r) * this.mult);
+    const fast = 3 + r / 25;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(-0.1, 1.1) * Math.PI;
+      const s = rng.range(0.3, 1) * fast;
+      this.particles.add({
+        x: e.x + Math.cos(a) * r * 0.2,
+        y: floor - Math.sin(a) * r * 0.2,
+        vx: Math.cos(a) * s,
+        vy: -Math.sin(a) * s,
+        life: rng.range(40, 90),
+        size: i % 5 === 0 ? 2 : 1,
+        color: i % 3 === 0 ? 0xffffff : i % 3 === 1 ? 0x90d0ff : 0x4a6cff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** A later Ion Cannon shockwave: a lens ring, a dust front, a crackle of arcs and a bolt or two. */
+  private ionPulse(e: EffectEvent, k: number): void {
+    const r = e.radius;
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 60,
+      maxR: r * 2.4,
+      width: 22,
+      strength: 1.2 * k,
+    });
+    this.fronts.push({
+      x: e.x,
+      y: e.y,
+      maxR: r * 1.1,
+      start: e.tick,
+      dur: 36,
+      rng: this.rngFor(e, 173),
+    });
+    this.kick(4 + r / 60, e.tick);
+    this.tintSky([0, 0.4, 0.6, 1], 0.3);
+    this.arcs({ ...e, radius: r * 0.35 }, 1.4);
+    const rng = this.rngFor(e, 179);
+    for (let i = 0; i < 3; i++) {
+      const bx = Math.round(e.x + rng.range(-0.5, 0.5) * r);
+      const by = this.surfaceNear(bx, e.y, r);
+      this.skyBolt(bx, by < 0 ? e.y : by, e.tick + i * 4, rng, 1.6, 18);
+    }
   }
 
   /**
@@ -3076,6 +3232,13 @@ export class EffectSystem {
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
+    if (this.ions.active) {
+      const rumble = this.ions.tick(t, this.mult);
+      if (rumble > 0) {
+        if (this.shakeLeft(t) < rumble * 0.6) this.kick(rumble, t);
+        this.tintSky([0, 0.3, 0.5, 0.9], 0.08);
+      }
+    }
     if (this.lances.active) {
       // a firing lance keeps the ground rumbling and the sky lit
       const rumble = this.lances.tick(t, this.mult);
@@ -3308,18 +3471,20 @@ export class EffectSystem {
       if (!on) continue;
       const fade = age < 11 ? 1 : Math.max(0, 1 - (age - 11) / Math.max(1, b.dur - 11));
       const c = b.cells;
+      const s = b.w ?? 1;
+      const core = Math.max(1, Math.round(s) * 2 - 1);
       for (let i = 0; i < c.length; i += 2) {
         const branch = i >= b.main;
         const x = c[i]! + 0.5;
         const y = c[i + 1]! + 0.5;
         if (branch) {
-          additive.push(x, y, 3, 1, 0x4060c0, 0.4 * fade);
-          additive.push(x, y, 1, 1, 0xb0c8ff, 0.75 * fade);
+          additive.push(x, y, Math.round(3 * s), s > 1.5 ? 2 : 1, 0x4060c0, 0.4 * fade);
+          additive.push(x, y, Math.round(s), 1, 0xb0c8ff, 0.75 * fade);
         } else {
           // the main channel: a 3-cell white core inside a 7-cell blue halo
-          additive.push(x, y, 7, 1, 0x3050c0, 0.45 * fade);
-          additive.push(x, y, 3, 1, 0xd0e0ff, 0.9 * fade);
-          additive.push(x, y, 1, 1, 0xffffff, fade);
+          additive.push(x, y, Math.round(7 * s), s > 1.5 ? 2 : 1, 0x3050c0, 0.45 * fade);
+          additive.push(x, y, Math.round(3 * s), 1, 0xd0e0ff, 0.9 * fade);
+          additive.push(x, y, core, 1, 0xffffff, fade);
         }
       }
     }
@@ -3431,6 +3596,7 @@ export class EffectSystem {
     this.crystals = [];
     this.mushrooms = [];
     this.lances.clear();
+    this.ions.clear();
     this.chunks.clear();
     this.vortices = [];
     this.funnels = [];
