@@ -321,6 +321,7 @@ export class PixelRenderer implements Renderer {
       | 'u_scale'
       | 'u_split'
       | 'u_scan'
+      | 'u_wob'
     >
   >;
   private normal!: QuadBatch;
@@ -473,6 +474,7 @@ export class PixelRenderer implements Renderer {
       'u_scale',
       'u_split',
       'u_scan',
+      'u_wob',
     ]);
     this.emptyVao = gl.createVertexArray();
 
@@ -1606,7 +1608,8 @@ export class PixelRenderer implements Renderer {
         this.rippleBuf[nRipples * 4 + 1] = oy + r.y * scale;
         this.rippleBuf[nRipples * 4 + 2] = r.maxR * Math.sqrt(k) * scale;
         this.rippleBuf[nRipples * 4 + 3] = r.strength * (1 - k);
-        this.rippleW[nRipples] = r.width * scale * (0.7 + 0.6 * k);
+        // a column wave keeps its width and flags itself with a negative one (see POST_FS)
+        this.rippleW[nRipples] = r.column ? -r.width * scale : r.width * scale * (0.7 + 0.6 * k);
         nRipples++;
       }
     }
@@ -1746,6 +1749,7 @@ export class PixelRenderer implements Renderer {
       gl.uniform3f(this.uPost.u_tint, sky[0] * 0.36, sky[1] * 0.36, sky[2] * 0.36);
       gl.uniform1f(this.uPost.u_split, split);
       gl.uniform1f(this.uPost.u_scan, scan);
+      gl.uniform1f(this.uPost.u_wob, t * 0.35);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.bindVertexArray(null);

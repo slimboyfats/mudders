@@ -835,7 +835,9 @@ export const MAX_RIPPLES = 8;
  * Post-process (§2a), only while needed: shockwave distortion (pixels pushed by a moving lens
  * band, evaluated per map cell and displaced by whole cells), impact flash tint, screen shake,
  * chromatic split on nukes and theme scanlines. Ripples: xy = centre (device px, y down), z = radius,
- * w = strength; widths in u_rippleW.
+ * w = strength; widths in u_rippleW. A negative width marks a vertical column wave: a band at
+ * horizontal distance z from x, running from the top of the screen down to y, snaking sideways
+ * with u_wob (the Ion Cannon charging).
  */
 export const POST_FS = `#version 300 es
 precision highp float;
@@ -851,6 +853,7 @@ uniform vec2 u_origin;
 uniform float u_scale;
 uniform float u_split;
 uniform float u_scan;
+uniform float u_wob;
 out vec4 o;
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view + u_shake;
@@ -863,6 +866,19 @@ void main() {
     vec2 d = cellPx - r.xy;
     float dist = length(d);
     float w = u_rippleW[i];
+    if (w < 0.0) {
+      // vertical column wave: pixels on both sides pushed sideways, the column wobbling as it goes
+      w = -w;
+      float cy = (cellPx.y - u_origin.y) / u_scale;
+      float wob = (sin(cy * 0.11 + u_wob) + 0.5 * sin(cy * 0.27 - u_wob * 1.7)) * w * 0.35;
+      float dx = d.x - wob;
+      float ax = abs(dx);
+      float cb = smoothstep(r.z - w, r.z - w * 0.4, ax) * (1.0 - smoothstep(r.z - w * 0.2, r.z, ax));
+      // fade out just below the beacon so the ground under it barely moves
+      cb *= 1.0 - smoothstep(0.0, w, d.y);
+      disp += vec2(sign(dx), 0.0) * cb * r.w * w * 0.9;
+      continue;
+    }
     // a lens band (inner and outer edges eased in) that pulls the image toward the centre, so
     // terrain and sky visibly bulge and slide as the ring passes; no added light
     float band = smoothstep(r.z - w, r.z - w * 0.4, dist) * (1.0 - smoothstep(r.z - w * 0.2, r.z, dist));

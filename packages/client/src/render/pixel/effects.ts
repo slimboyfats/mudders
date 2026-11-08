@@ -31,6 +31,8 @@ export interface Ripple {
   maxR: number;
   width: number;
   strength: number;
+  /** A vertical column wave from the sky down to (x, y), wobbling sideways (Ion Cannon charge). */
+  column?: boolean;
 }
 
 interface Glow {
@@ -570,6 +572,7 @@ export class EffectSystem {
         break;
       case 'ionCharge':
         this.ions.charge(e, this.rngFor(e, 151));
+        this.ionColumnWaves(e);
         this.tintSky([0, 0.15, 0.3, 0.7], 0.15);
         break;
       case 'ionBlast':
@@ -2583,6 +2586,28 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * While an Ion Cannon charges: vertical shockwaves down the sight line, one after another,
+   * each wider and stronger, snaking sideways (the post shader wobbles them).
+   */
+  private ionColumnWaves(e: EffectEvent): void {
+    const dur = e.params.ticks ?? 70;
+    const n = 5;
+    for (let i = 0; i < n; i++) {
+      const k = (i + 1) / n;
+      this.ripples.push({
+        x: e.x + 0.5,
+        y: e.y,
+        start: e.tick + Math.round((dur - 14) * (i / n)),
+        dur: 26,
+        maxR: 18 + 34 * k,
+        width: 8 + 6 * k,
+        strength: 0.7 + 0.7 * k,
+        column: true,
+      });
+    }
+  }
+
   /** A later Ion Cannon shockwave: a lens ring, a dust front, a crackle of arcs and a bolt or two. */
   private ionPulse(e: EffectEvent, k: number): void {
     const r = e.radius;
@@ -3523,7 +3548,7 @@ export class EffectSystem {
   drawRippleRings(additive: QuadBatch, t: number): void {
     for (const r of this.ripples) {
       const k = (t - r.start) / r.dur;
-      if (k < 0 || k > 1) continue;
+      if (k < 0 || k > 1 || r.column) continue;
       const rad = r.maxR * Math.sqrt(k);
       additive.push(
         r.x,
