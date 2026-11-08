@@ -90,6 +90,8 @@ export interface MatchRules {
   /** Open the shop before round 1 too (same timer as between rounds), on round 1's map. */
   openingShop?: boolean | undefined;
   suddenDeath?: boolean | undefined;
+  /** Each player's turn sudden death starts on, instead of the mode's `fromTurn`. */
+  suddenDeathFrom?: number | undefined;
   windType?: WindType | undefined;
   startingCash?: number | undefined;
   turnCap?: number | undefined;
@@ -426,7 +428,12 @@ export class World implements SimApi {
   readonly turnTimerTicks: number;
   readonly shopTimerTicks: number;
   readonly windType: WindType;
-  readonly suddenDeath: { fromTurn: number; damageScale: number; edgeCells: number } | null;
+  readonly suddenDeath: {
+    fromTurn: number;
+    damageScale: number;
+    edgeCells: number;
+    zoneDamage: number;
+  } | null;
 
   tick = 0;
   phase: Phase = 'aim';
@@ -452,7 +459,7 @@ export class World implements SimApi {
   timer = 0;
   /** Bot think countdown while a bot is up. */
   botWait = 0;
-  /** Columns lost to sudden death at each edge. */
+  /** Width in columns of the sudden-death zone at each map edge (terrain stays; tanks in it burn). */
   edge = 0;
   /** Shop price per weapon pack this round. */
   prices: number[] = [];
@@ -529,7 +536,11 @@ export class World implements SimApi {
     this.turnTimerTicks = Math.round((rules.turnTimer ?? mode.turnTimer) * TICK_RATE);
     this.shopTimerTicks = Math.max(1, Math.round((rules.shopTimer ?? mode.shopTimer) * TICK_RATE));
     this.windType = rules.windType ?? mode.wind.type;
-    this.suddenDeath = rules.suddenDeath === false ? null : mode.suddenDeath;
+    const sd = rules.suddenDeath === false ? null : mode.suddenDeath;
+    this.suddenDeath =
+      sd && rules.suddenDeathFrom !== undefined
+        ? { ...sd, fromTurn: Math.max(1, Math.trunc(rules.suddenDeathFrom)) }
+        : sd;
 
     const weaponList = content.list('weapon');
     for (let i = 0; i < weaponList.length; i++) this.weaponIndex[weaponList[i]!.id] = i;
@@ -1249,13 +1260,14 @@ export class World implements SimApi {
   /**
    * One cell of driving (§3.2). The tank climbs a step of up to `drive.climb` cells, rolls down
    * one of the same, and stops at anything steeper (a wall, a prop, ground it is bogged in), at the
-   * map edge (or the sudden-death void) or when its drive runs out. A real drop it simply falls.
+   * map edge or when its drive runs out (it may drive into the sudden-death zone). A real drop it
+   * simply falls.
    */
   private driveStep(t: Tank): void {
     const g = this.grid;
     const dir = t.driving;
     const nx = t.x + dir;
-    if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) {
+    if (nx < t.half || nx >= g.width - t.half) {
       t.driving = 0;
       return;
     }
@@ -1287,7 +1299,8 @@ export class World implements SimApi {
   /**
    * Where driving in `dir` would take this tank this turn, cell by cell (the same rules as
    * `driveStep`), without moving it: up to its drive allowance and fuel, stopping at a wall, the
-   * map edge, or before a drop it would take fall damage from. Read-only, so bots can plan with it.
+   * map edge, or before a drop it would take fall damage from. Spots inside the sudden-death zone
+   * are left out. Read-only, so bots can plan with it.
    */
   reach(t: Tank, dir: -1 | 1): AiSpot[] {
     const g = this.grid;
@@ -1303,7 +1316,7 @@ export class World implements SimApi {
       left -= this.stickyAt(x, y, t.half);
       [fuel, burn] = this.burnFuel(fuel, burn);
       const nx = x + dir;
-      if (nx < t.half + this.edge || nx >= g.width - t.half - this.edge) break;
+      if (nx < t.half || nx >= g.width - t.half) break;
       const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
       let top = y;
       for (let r = Math.max(0, y - t.h); r < Math.min(g.height, y); r++) {
@@ -1322,6 +1335,8 @@ export class World implements SimApi {
       if (this.mines.length > 0 && this.mineAt(nx, ny - (t.h >> 1), t.half)) break;
       x = nx;
       y = ny;
+      // a spot in the sudden-death zone is no place to stop (driving through it is fine)
+      if (nx - t.half < this.edge || nx + t.half > g.width - this.edge) continue;
       out.push({ x, y });
     }
     return out;
@@ -1394,7 +1409,7 @@ export class World implements SimApi {
   private stepAim(): void {
     const t = this.tanks[this.activePlayer];
     if (!t?.alive) {
-      // Died before shooting (fell into the sudden-death void at the start of its turn): pass.
+      // Died before shooting (burnt out in the sudden-death zone at the start of its turn): pass.
       this.phase = 'resolve';
       return;
     }
@@ -1915,14 +1930,14 @@ export class World implements SimApi {
   }
 
   /**
-   * Every tick: mines drop through air one cell a tick (lost off the bottom of the map or into the
-   * sudden-death void), and an armed mine with a tank in reach trips.
+   * Every tick: mines drop through air one cell a tick (lost off the bottom of the map), and an
+   * armed mine with a tank in reach trips.
    */
   private stepMines(): void {
     const g = this.grid;
     let lost = false;
     for (const m of this.mines) {
-      if (m.y + 1 >= g.height || m.x < this.edge || m.x >= g.width - this.edge) {
+      if (m.y + 1 >= g.height) {
         m.armed = false;
         m.weapon = -1;
         lost = true;
@@ -2638,7 +2653,7 @@ export class World implements SimApi {
         const dist = t.y - t.fallFrom;
         const by = this.shooter >= 0 ? this.shooter : t.lastHitBy;
         if (t.y >= this.grid.height) {
-          // Fell out of the map (sudden-death void, or dug to the bottom): lost.
+          // Fell out of the map (dug to the bottom): lost.
           this.emit('land', t.x, this.grid.height - 1, t.half, { distance: dist });
           this.damageTank(t, t.health, by, true);
           continue;
@@ -2697,8 +2712,13 @@ export class World implements SimApi {
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
     this.weatherB?.onTurnStart?.(this, this.weatherParams);
-    if (this.suddenDeathActive) this.collapseEdges();
+    if (this.suddenDeathActive) this.growZone();
     const t = this.tanks[this.activePlayer];
+    if (t?.alive && this.suddenDeath && this.inDeathZone(t)) {
+      // the wasteland eats at a tank that starts its turn inside it; no one gets the credit
+      this.emit('zoneBurn', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+      this.damageTank(t, this.suddenDeath.zoneDamage, -1, true);
+    }
     this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
     this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
     if (t) {
@@ -2708,26 +2728,24 @@ export class World implements SimApi {
     }
   }
 
-  /** Sudden death: the outermost columns crumble into the void (§3.1). */
-  private collapseEdges(): void {
+  /**
+   * Sudden death (§3.1): the death zone at each map edge grows by `edgeCells` columns. The terrain
+   * stays; the zone is a no-go strip that burns any tank starting its turn inside it. A strip of
+   * a couple of tank widths in the middle always stays clear.
+   */
+  private growZone(): void {
     const sd = this.suddenDeath!;
     const g = this.grid;
     const n = Math.min(sd.edgeCells, Math.max(0, (g.width >> 1) - TANK_W - this.edge));
     if (n <= 0) return;
     const from = this.edge;
     this.edge += n;
-    for (let y = 0; y < g.height; y++) {
-      const row = y * g.width;
-      for (let x = from; x < this.edge; x++) {
-        g.clearCell(row + x);
-        g.clearCell(row + g.width - 1 - x);
-      }
-    }
-    // Whole columns go, so nothing above them can fall: only the renderer needs to know.
-    g.addRenderRect(from, 0, n, g.height);
-    g.addRenderRect(g.width - this.edge, 0, n, g.height);
-    this.emit('collapse', from, g.height >> 1, n, { side: -1 });
-    this.emit('collapse', g.width - 1 - from, g.height >> 1, n, { side: 1 });
+    this.emit('zoneGrow', from, g.height >> 1, n, { edge: this.edge });
+  }
+
+  /** True when any part of the tank's hull is inside the sudden-death zone. */
+  inDeathZone(t: Tank): boolean {
+    return t.x - t.half < this.edge || t.x + t.half > this.grid.width - this.edge;
   }
 
   private endTurn(): void {
@@ -3032,6 +3050,7 @@ export class World implements SimApi {
       },
       wind: this.wind / FP,
       temperature: this.temperature,
+      deathZone: this.edge,
       theme: 'theme.default',
       weather: this.weather
         ? {
