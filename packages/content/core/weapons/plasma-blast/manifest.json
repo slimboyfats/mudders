@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 34,
-        "damage": 55,
+        "damage": 75,
         "damageType": "heat",
         "effects": {
           "burst": {
@@ -53,7 +53,7 @@
     "tier": 3
   },
   "ai": {
-    "expectedDamage": 60,
+    "expectedDamage": 75,
     "terrainValue": 0.4
   },
   "audio": {

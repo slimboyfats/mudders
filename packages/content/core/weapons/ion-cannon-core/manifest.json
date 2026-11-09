@@ -20,7 +20,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 200,
-        "damage": 150,
+        "damage": 320,
         "damageType": "shock",
         "effects": {
           "burst": {
@@ -42,7 +42,7 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 320,
-        "damage": 0,
+        "damage": 60,
         "push": 70,
         "effects": {
           "burst": {

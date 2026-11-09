@@ -20,7 +20,7 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 110,
-        "damage": 35,
+        "damage": 45,
         "effects": {
           "pressureWave": {
             "strength": 1.2
@@ -32,10 +32,10 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 34,
-        "damage": 55,
+        "damage": 110,
         "effects": {
           "flash": {
-            "strength": 2.0
+            "strength": 2
           },
           "burst": {
             "count": 80

@@ -32,7 +32,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 60,
+    "expectedDamage": 70,
     "terrainValue": 0.4
   }
 }

@@ -1,5 +1,5 @@
 {
-  "contentHash": "dc88290361c57752",
+  "contentHash": "bc7e13fa13246912",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -7,7 +7,7 @@
     },
     "ai.moron": {
       "ticks": 1316,
-      "hash": "4dca0192bcb92622"
+      "hash": "ab2ac315d78ad697"
     },
     "ai.poolshark": {
       "ticks": 628,
@@ -199,7 +199,7 @@
     },
     "audio.rift": {
       "ticks": 368,
-      "hash": "096143b27871f5a2"
+      "hash": "8810671956f9b380"
     },
     "audio.round-end": {
       "ticks": 158,
@@ -287,7 +287,7 @@
     },
     "explosion.shockwave": {
       "ticks": 314,
-      "hash": "9355d4e6b730c245"
+      "hash": "fd2c4b6f2ac6448f"
     },
     "explosion.standard": {
       "ticks": 163,
@@ -335,7 +335,7 @@
     },
     "flight.static": {
       "ticks": 249,
-      "hash": "f5fa57a8a02577b9"
+      "hash": "534ee5f39ee02837"
     },
     "gear.battery": {
       "ticks": 238,
@@ -343,7 +343,7 @@
     },
     "gear.heavy-shield": {
       "ticks": 494,
-      "hash": "6e399422d0f9324c"
+      "hash": "dac531d7cd72a101"
     },
     "gear.parachute": {
       "ticks": 307,
@@ -499,7 +499,7 @@
     },
     "material.magma": {
       "ticks": 275,
-      "hash": "b33833bd64b1d60f"
+      "hash": "2bec2b50b63dd23e"
     },
     "material.meteorite": {
       "ticks": 98,
@@ -547,7 +547,7 @@
     },
     "material.sand": {
       "ticks": 301,
-      "hash": "8478a73fdad8afc0"
+      "hash": "bcda39e16f54f984"
     },
     "material.scorch": {
       "ticks": 324,
@@ -703,7 +703,7 @@
     },
     "terrainop.attract": {
       "ticks": 214,
-      "hash": "7a2aa3c2d0103373"
+      "hash": "22b71d1d8eaf1405"
     },
     "terrainop.bumper": {
       "ticks": 46,
@@ -719,7 +719,7 @@
     },
     "terrainop.convert": {
       "ticks": 210,
-      "hash": "f78e228f9281e5dc"
+      "hash": "1dd80b78a953b19f"
     },
     "terrainop.dirt-burst": {
       "ticks": 241,
@@ -731,7 +731,7 @@
     },
     "terrainop.displace": {
       "ticks": 314,
-      "hash": "9355d4e6b730c245"
+      "hash": "fd2c4b6f2ac6448f"
     },
     "terrainop.frost": {
       "ticks": 271,
@@ -739,7 +739,7 @@
     },
     "terrainop.harden": {
       "ticks": 210,
-      "hash": "f78e228f9281e5dc"
+      "hash": "1dd80b78a953b19f"
     },
     "terrainop.heave": {
       "ticks": 269,
@@ -767,11 +767,11 @@
     },
     "terrainop.quake": {
       "ticks": 194,
-      "hash": "985acd33bf9f1a73"
+      "hash": "ab36f27f9004ad57"
     },
     "terrainop.rift": {
       "ticks": 368,
-      "hash": "096143b27871f5a2"
+      "hash": "8810671956f9b380"
     },
     "terrainop.sinkhole": {
       "ticks": 46,
@@ -779,7 +779,7 @@
     },
     "terrainop.tectonic": {
       "ticks": 276,
-      "hash": "dd5619133fbc3d71"
+      "hash": "ecb29a0bd53c9af4"
     },
     "terrainop.terraform": {
       "ticks": 173,
@@ -834,12 +834,12 @@
       "hash": "de947b37e79d08c0"
     },
     "weapon.baby-nuke-core": {
-      "ticks": 176,
-      "hash": "85009f1612749e6d"
+      "ticks": 168,
+      "hash": "0c604905f5f13ae5"
     },
     "weapon.baby-nuke": {
       "ticks": 321,
-      "hash": "9a6166d4f74e8657"
+      "hash": "50832936412369ca"
     },
     "weapon.baby-roller": {
       "ticks": 158,
@@ -847,7 +847,7 @@
     },
     "weapon.baby-shockwave": {
       "ticks": 178,
-      "hash": "3e920ebdc964179b"
+      "hash": "0704fe76b193502c"
     },
     "weapon.black-hole-mine-core": {
       "ticks": 115,
@@ -875,7 +875,7 @@
     },
     "weapon.cryo-shell": {
       "ticks": 210,
-      "hash": "f78e228f9281e5dc"
+      "hash": "1dd80b78a953b19f"
     },
     "weapon.digger": {
       "ticks": 158,
@@ -907,11 +907,11 @@
     },
     "weapon.earthquake": {
       "ticks": 194,
-      "hash": "985acd33bf9f1a73"
+      "hash": "ab36f27f9004ad57"
     },
     "weapon.fault-line": {
       "ticks": 368,
-      "hash": "096143b27871f5a2"
+      "hash": "8810671956f9b380"
     },
     "weapon.firework-rocket": {
       "ticks": 200,
@@ -971,7 +971,7 @@
     },
     "weapon.heavy-shockwave": {
       "ticks": 201,
-      "hash": "f395a0d7ea6ff859"
+      "hash": "2b624557f75df106"
     },
     "weapon.hot-napalm": {
       "ticks": 392,
@@ -983,7 +983,7 @@
     },
     "weapon.implosion": {
       "ticks": 214,
-      "hash": "7a2aa3c2d0103373"
+      "hash": "22b71d1d8eaf1405"
     },
     "weapon.incendiary": {
       "ticks": 325,
@@ -991,7 +991,7 @@
     },
     "weapon.ion-cannon-aftershock": {
       "ticks": 162,
-      "hash": "cc717dd6e7cdfa59"
+      "hash": "380db2d0bcd742f6"
     },
     "weapon.ion-cannon-core": {
       "ticks": 229,
@@ -999,7 +999,7 @@
     },
     "weapon.ion-cannon-wave": {
       "ticks": 174,
-      "hash": "62a0ff479777ed48"
+      "hash": "3da83d32f6147a00"
     },
     "weapon.ion-cannon": {
       "ticks": 366,
@@ -1031,7 +1031,7 @@
     },
     "weapon.magnet-mine": {
       "ticks": 328,
-      "hash": "1ffd58464487b86b"
+      "hash": "13d9b0b5594246b7"
     },
     "weapon.meteor-boulder": {
       "ticks": 104,
@@ -1047,11 +1047,11 @@
     },
     "weapon.mirv-warhead": {
       "ticks": 203,
-      "hash": "62bec48edbbee9ee"
+      "hash": "fea8edd93f9c3481"
     },
     "weapon.mirv": {
       "ticks": 264,
-      "hash": "4205ce9681e31d95"
+      "hash": "0621ae5b380a0a61"
     },
     "weapon.missile": {
       "ticks": 163,
@@ -1079,11 +1079,11 @@
     },
     "weapon.nuke-core": {
       "ticks": 211,
-      "hash": "9a49c20662297f38"
+      "hash": "da5d37a8ba3e7208"
     },
     "weapon.nuke": {
       "ticks": 321,
-      "hash": "54eb43eb824306a4"
+      "hash": "66fd34f944c3e281"
     },
     "weapon.oil-slick": {
       "ticks": 357,
@@ -1103,7 +1103,7 @@
     },
     "weapon.plasma-blast": {
       "ticks": 318,
-      "hash": "8b95c520d2f3388f"
+      "hash": "f813cec435a662c2"
     },
     "weapon.quicksand": {
       "ticks": 368,
@@ -1143,15 +1143,15 @@
     },
     "weapon.shockwave": {
       "ticks": 314,
-      "hash": "9355d4e6b730c245"
+      "hash": "fd2c4b6f2ac6448f"
     },
     "weapon.singularity-core": {
       "ticks": 127,
-      "hash": "88a22f08812f3cda"
+      "hash": "f6aeef7f921a1d52"
     },
     "weapon.singularity": {
       "ticks": 249,
-      "hash": "f5fa57a8a02577b9"
+      "hash": "534ee5f39ee02837"
     },
     "weapon.sinkhole": {
       "ticks": 254,
@@ -1187,7 +1187,7 @@
     },
     "weapon.tectonic-charge": {
       "ticks": 276,
-      "hash": "dd5619133fbc3d71"
+      "hash": "ecb29a0bd53c9af4"
     },
     "weapon.terraformer": {
       "ticks": 173,

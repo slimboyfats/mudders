@@ -15,7 +15,8 @@
     {
       "explosion": {
         "use": "explosion.shockwave",
-        "radius": 80
+        "radius": 80,
+        "damage": 25
       }
     }
   ],
@@ -25,7 +26,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 15,
+    "expectedDamage": 22,
     "terrainValue": 0.8
   }
 }

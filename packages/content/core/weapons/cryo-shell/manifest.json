@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 40,
-        "damage": 10,
+        "damage": 20,
         "damageType": "cold",
         "terrainOp": {
           "use": "terrainop.harden"
@@ -38,7 +38,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 10,
+    "expectedDamage": 15,
     "terrainValue": 0.6
   }
 }
