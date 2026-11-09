@@ -1,0 +1,45 @@
+{
+  "id": "audio.plasma-sizzle",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma splash",
+    "description": "A Plasma Cannon bolt bursting: a bright zap falling away, then a long hissing sizzle with a warbling square under it.",
+    "since": "core@0.52.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 1800,
+        "to": 220,
+        "release": 0.18,
+        "volume": 0.3
+      },
+      {
+        "wave": "noise",
+        "freq": 4000,
+        "to": 2200,
+        "attack": 0.02,
+        "hold": 0.4,
+        "release": 0.6,
+        "volume": 0.28
+      },
+      {
+        "wave": "square",
+        "freq": 180,
+        "to": 90,
+        "hold": 0.3,
+        "release": 0.4,
+        "volume": 0.14,
+        "vibrato": { "rate": 14, "depth": 0.5 }
+      }
+    ]
+  },
+  "on": [{ "event": "plasmaSplash" }]
+}
