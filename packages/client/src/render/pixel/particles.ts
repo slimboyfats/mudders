@@ -46,6 +46,12 @@ export const PKind = {
   Rain: 12,
   /** A weather snowflake: heavier than frost, swings in the wind, settles on the ground. GPU only. */
   Flake: 13,
+  /**
+   * Energy plasma (shockwave rings): a puff that breaks into single-cell motes, torn into wisps by
+   * a strong swirl, stepping from a hot cyan-white through its own colour to deep violet and
+   * winking out cell by cell. No gravity. GPU only (the CPU model draws it as dust).
+   */
+  Plasma: 14,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

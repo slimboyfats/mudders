@@ -374,6 +374,12 @@ export class PixelRenderer implements Renderer {
   /** Tick each player last switched a shield on, or used a battery (gear, §5.1). */
   private shieldUpAt: number[] = [];
   private batteryAt: number[] = [];
+  /**
+   * Tanks a shockwave threw, tumbling (cosmetic): spin rate (rad/tick), launch tick, last tick
+   * seen in the air, and the angle it was left at when it landed (eased back to upright).
+   */
+  private tumble: ({ rate: number; at: number; fly: number; land: number; rest: number } | null)[] =
+    [];
 
   constructor(
     readonly mapWidth: number,
@@ -843,6 +849,16 @@ export class PixelRenderer implements Renderer {
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'battery') this.batteryAt[e.params.player ?? -1] = e.tick;
+      else if (e.type === 'shockFling') {
+        // flipped by a blast underneath: tumbles end over end the way it was thrown
+        const pl = e.params.player ?? -1;
+        const dir = e.params.dir ?? 1;
+        const rate = dir * (0.22 + ((e.tick * 7 + pl * 13) % 10) * 0.012);
+        this.tumble[pl] = { rate, at: e.tick, fly: e.tick, land: -1, rest: 0 };
+      } else if (e.type === 'shockFly') {
+        const tb = this.tumble[e.params.player ?? -1];
+        if (tb) tb.fly = e.tick;
+      }
     }
     this.fx.lances.track(s.entities, s.tick);
     this.tagStars();
@@ -864,6 +880,7 @@ export class PixelRenderer implements Renderer {
     this.shieldHitAt = [];
     this.shieldUpAt = [];
     this.batteryAt = [];
+    this.tumble = [];
   }
 
   /**
@@ -2105,6 +2122,11 @@ export class PixelRenderer implements Renderer {
         }
         continue;
       }
+      const spin = e.alive ? this.tumbleAngle(e.player, t) : 0;
+      if (spin !== 0) {
+        this.drawTumbling(e, look, x, y, spin, lit, col, t);
+        continue;
+      }
       // the tank leans with the ground: each sprite column drops by whole cells (a pixel shear)
       const tilt = this.tankTilt(x0, y, sw);
       const lean = (c: number) => Math.round(tilt.slope * (c - tilt.pivot));
@@ -2164,6 +2186,95 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
     }
+  }
+
+  /** A thrown tank's tumble angle now (0 = upright; eases back upright after landing). */
+  private tumbleAngle(player: number, t: number): number {
+    const tb = this.tumble[player];
+    if (!tb) return 0;
+    if (t <= tb.fly + 1) return tb.rate * (t - tb.at);
+    if (tb.land < 0) {
+      tb.land = t;
+      // come to rest on its tracks: finish the turn it's in (or fall back), whichever is nearer
+      const a = tb.rate * (tb.fly + 1 - tb.at);
+      const turn = Math.PI * 2;
+      tb.rest = a - Math.round(a / turn) * turn;
+    }
+    const k = (t - tb.land) / 8;
+    if (k >= 1) {
+      this.tumble[player] = null;
+      return 0;
+    }
+    // a hard settle in whole steps, not a smooth ease
+    return tb.rest * (1 - Math.floor(k * 4) / 4);
+  }
+
+  /**
+   * A tumbling tank: the sprite rotated about its middle by sampling it back from each screen
+   * cell (nearest cell, so it stays crisp pixels with no holes), barrel and all.
+   */
+  private drawTumbling(
+    e: TankView,
+    look: typeof STANDARD_LOOK,
+    x: number,
+    y: number,
+    ang: number,
+    lit: [number, number, number],
+    col: number,
+    t: number,
+  ): void {
+    const b = this.normal;
+    const rows = look.sprite;
+    const sw = rows[0]?.length ?? 0;
+    const sh = rows.length;
+    const cx = x;
+    const cy = y - sh / 2;
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    // barrel: its base and aim turn with the hull
+    const br = look.barrel;
+    const bx = br.x;
+    const by = -br.y + sh / 2;
+    const bpx = cx + bx * ca - by * sa;
+    const bpy = cy + bx * sa + by * ca;
+    const aim = (e.angle * Math.PI) / 180;
+    const dx = Math.cos(aim);
+    const dy = -Math.sin(aim);
+    const rdx = dx * ca - dy * sa;
+    const rdy = dx * sa + dy * ca;
+    const off = br.width >> 1;
+    for (let i = 1; i <= br.length; i++) {
+      b.rect(
+        Math.round(bpx + rdx * i) - off,
+        Math.round(bpy + rdy * i) - off,
+        br.width,
+        br.width,
+        litColor(i === br.length ? 0xa8a298 : 0xd8d2c8, lit),
+      );
+    }
+    const shieldOn = e.shield > 0;
+    const R = Math.ceil(Math.hypot(sw, sh) / 2) + 1;
+    const x0 = Math.floor(cx);
+    const y0 = Math.floor(cy);
+    for (let py = y0 - R; py <= y0 + R; py++) {
+      for (let px = x0 - R; px <= x0 + R; px++) {
+        // screen cell centre back into sprite space
+        const ux = px + 0.5 - cx;
+        const uy = py + 0.5 - cy;
+        const sx = Math.floor(ux * ca + uy * sa + sw / 2);
+        const sy = Math.floor(-ux * sa + uy * ca + sh / 2);
+        if (sx < 0 || sy < 0 || sx >= sw || sy >= sh) continue;
+        const code = rows[sy]!.charCodeAt(sx);
+        if (code === 46) continue;
+        b.rect(px, py, 1, 1, litColor(spriteColor(code, col, shieldOn), lit));
+      }
+    }
+    if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
+    const top = y - sh;
+    this.drawDigit(x - 13, top - 7, e.player + 1);
+    const hp = Math.max(0, Math.min(1, e.health / Math.max(1, e.maxHealth)));
+    b.rect(x - 8, top - 5, 16, 1.6, 0x000000, 0.55);
+    b.rect(x - 8, top - 5, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
   }
 
   /**
