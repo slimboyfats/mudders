@@ -4,7 +4,7 @@
   "meta": {
     "name": "Daisy Cutter",
     "description": "A huge bomb that goes off flat instead of round. Its blast races out sideways along the ground for 140 cells each way and shaves every hill in its path off down to the height where it landed, throwing a low sheet of dirt outward, then the blast wave throws tanks away to the sides. Drop it in a valley to raze the hills around it. Rock and ice hold.",
-    "since": "core@0.55.0",
+    "since": "core@0.56.0",
     "category": "explosive"
   },
   "flight": {

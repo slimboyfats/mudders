@@ -69,6 +69,8 @@ export interface ShopItem {
 export interface HudState {
   phase: 'aim' | 'resolve' | 'shop' | 'over';
   activePlayer: number;
+  /** Player steering the active tank: itself, or its Telepathy caster while mind-linked. */
+  controller: number;
   turn: number;
   /** 1-based round being played (or just finished while shopping). */
   round: number;
@@ -187,6 +189,7 @@ export abstract class SimMatch implements SnapshotStream {
     return {
       phase: w.phase,
       activePlayer: w.activePlayer,
+      controller: w.controller,
       turn: w.turn,
       round: w.phase === 'shop' || w.phase === 'over' ? w.round : w.round + 1,
       rounds: w.rounds,
@@ -290,7 +293,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.phase}|${h.activePlayer}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
+  let k = `${h.phase}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

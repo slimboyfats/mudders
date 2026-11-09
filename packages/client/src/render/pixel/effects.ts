@@ -11,6 +11,7 @@ import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawStar, drawWell, type GravityFx, type StarFx } from './gravity';
 import { drawMagnet, type MagnetFx } from './magnet';
+import { drawPsiWave, PSI, waveLife, type PsiWave } from './psi';
 import { drawPortal, RING_A, RING_B, type PortalFx } from './portal';
 import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Emit, type ParticleSink } from './particles';
@@ -308,6 +309,8 @@ export class EffectSystem {
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
+  /** Telepathy rings of psychic static. */
+  private psiWaves: PsiWave[] = [];
   /** Gravity Wells (weapon.gravity-well), one per resident op. */
   private wells: GravityFx[] = [];
   /** Supernova stars while they burn. */
@@ -855,6 +858,18 @@ export class EffectSystem {
         break;
       case 'unglued':
         this.unglued(e);
+        break;
+      case 'psiWave':
+        this.psiBurst(e, e.params.strength ?? 1);
+        break;
+      case 'mindLink':
+        this.mindLink(e);
+        break;
+      case 'mindTurn':
+        this.mindTurn(e);
+        break;
+      case 'mindFree':
+        this.mindFree(e);
         break;
       case 'frostFront':
         this.fronts.push({
@@ -3473,6 +3488,114 @@ export class EffectSystem {
     for (const k of this.kaijus) drawKaiju(k, normal, additive, t, this.probe);
   }
 
+  /** Telepathy rings. */
+  drawPsiWaves(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    const solid = (x: number, y: number) => this.probe.material(x, y) !== 0;
+    for (const w of this.psiWaves) drawPsiWave(w, normal, additive, t, solid);
+  }
+
+  /** Psi motes: single violet cells, no gravity to speak of. */
+  private psiMotes(x: number, y: number, n: number, rng: FxRng, inward: boolean, r: number): void {
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = inward ? r * rng.range(0.7, 1.1) : rng.range(0, 3);
+      const v = inward ? -rng.range(0.6, 1.1) : rng.range(0.4, 1.6);
+      this.particles.add({
+        x: x + Math.cos(a) * d,
+        y: y + Math.sin(a) * d * 0.85,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v * 0.85 - 0.05,
+        life: inward ? Math.max(6, Math.round(d / -v)) : rng.range(18, 40),
+        size: 1,
+        color: PSI[Math.floor(rng.next() * 4)]!,
+        kind: PKind.Glitter,
+      });
+    }
+  }
+
+  /** A Telepathy burst: three rings of psychic static roll out, and a puff of violet motes. */
+  private psiBurst(e: EffectEvent, k: number): void {
+    const rng = this.rngFor(e, 211);
+    const r = Math.max(12, e.radius * 1.15 * k);
+    this.psiWaves.push({
+      x: e.x,
+      y: e.y - 2,
+      r,
+      start: e.tick,
+      dur: 34,
+      rings: 3,
+      gap: 7,
+      inward: false,
+    });
+    this.psiMotes(e.x, e.y - 2, Math.round(30 * this.mult) + 8, rng, false, r);
+    this.tintSky([0.25, 0.05, 0.35, 0], 0.18);
+    this.kick(1, e.tick);
+  }
+
+  /** A mind taken: rings and motes are sucked into the tank. */
+  private mindLink(e: EffectEvent): void {
+    const rng = this.rngFor(e, 223);
+    const r = Math.max(14, e.radius * 2.4);
+    this.psiWaves.push({
+      x: e.x,
+      y: e.y,
+      r,
+      start: e.tick + 6,
+      dur: 22,
+      rings: 3,
+      gap: 6,
+      inward: true,
+    });
+    this.psiMotes(e.x, e.y, Math.round(26 * this.mult) + 6, rng, true, r);
+  }
+
+  /**
+   * The caster takes the controls: a ring rolls out of the caster's tank (`cx`, `cy`) and a ring
+   * closes on the puppet.
+   */
+  private mindTurn(e: EffectEvent): void {
+    const cx = e.params.cx;
+    const cy = e.params.cy;
+    if (cx !== undefined && cy !== undefined) {
+      this.psiWaves.push({
+        x: cx,
+        y: cy,
+        r: 22,
+        start: e.tick,
+        dur: 26,
+        rings: 2,
+        gap: 8,
+        inward: false,
+      });
+    }
+    this.psiWaves.push({
+      x: e.x,
+      y: e.y,
+      r: Math.max(16, e.radius * 2.6),
+      start: e.tick + 10,
+      dur: 22,
+      rings: 2,
+      gap: 7,
+      inward: true,
+    });
+  }
+
+  /** The link snaps: a quick ring out of the tank and a spray of fading motes. */
+  private mindFree(e: EffectEvent): void {
+    const rng = this.rngFor(e, 227);
+    this.psiWaves.push({
+      x: e.x,
+      y: e.y,
+      r: 18,
+      start: e.tick,
+      dur: 18,
+      rings: 1,
+      gap: 1,
+      inward: false,
+    });
+    this.psiMotes(e.x, e.y, Math.round(16 * this.mult) + 4, rng, false, 0);
+  }
+
   /** Swirl lenses round black holes this frame (the post pass twists the image round them). */
   swirls(t: number): { x: number; y: number; r: number; strength: number; twist: number }[] {
     const out: { x: number; y: number; r: number; strength: number; twist: number }[] = [];
@@ -4696,6 +4819,7 @@ export class EffectSystem {
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
+    this.psiWaves = this.psiWaves.filter((w) => t - w.start <= waveLife(w));
     this.wells = this.wells.filter((w) => t - w.last <= 2);
     this.holes = this.holes.filter((h) => t - h.last <= 3);
     this.novas = this.novas.filter((s) => t - s.last <= 2);
@@ -5637,6 +5761,7 @@ export class EffectSystem {
     this.splats = [];
     this.posts = [];
     this.magnets = [];
+    this.psiWaves = [];
     this.wells = [];
     this.holes = [];
     this.novas = [];

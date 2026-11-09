@@ -1,0 +1,64 @@
+{
+  "id": "audio.mind-link",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mind Link",
+    "description": "A mind taken over (and the caster grabbing the controls): a falling whistle that gets sucked inward, then an eerie two-note minor chime.",
+    "since": "core@0.55.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 1320,
+        "to": 220,
+        "release": 0.4,
+        "volume": 0.28,
+        "vibrato": {
+          "rate": 16,
+          "depth": 0.5
+        }
+      },
+      {
+        "wave": "square",
+        "freq": 440,
+        "delay": 0.25,
+        "release": 0.25,
+        "volume": 0.1
+      },
+      {
+        "wave": "triangle",
+        "freq": 523,
+        "delay": 0.25,
+        "release": 0.5,
+        "volume": 0.18
+      },
+      {
+        "wave": "triangle",
+        "freq": 415,
+        "delay": 0.38,
+        "release": 0.6,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 6,
+          "depth": 0.4
+        }
+      }
+    ],
+    "radiusRef": 20
+  },
+  "on": [
+    {
+      "event": "mindLink"
+    },
+    {
+      "event": "mindTurn"
+    }
+  ]
+}

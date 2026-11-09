@@ -170,6 +170,7 @@ function describeImpact(
       e.push > 0 ? `push ${e.push}` : '',
       e.chill > 0 ? `chills ${e.chill} turn${e.chill > 1 ? 's' : ''}` : '',
       e.glue > 0 ? `glues ${e.glue} turn${e.glue > 1 ? 's' : ''}` : '',
+      e.mind > 0 ? `mind-controls enemies ${e.mind} turn${e.mind > 1 ? 's' : ''}` : '',
       e.strip ? 'strips shields' : '',
       e.drain > 0 ? `destroys ${e.drain} batter${e.drain > 1 ? 'ies' : 'y'}` : '',
       e.jam > 0 ? `jams ${e.jam} turn${e.jam > 1 ? 's' : ''} (no driving, no gear)` : '',

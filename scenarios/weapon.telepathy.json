@@ -1,0 +1,48 @@
+{
+  "id": "weapon.telepathy",
+  "schemaVersion": 1,
+  "description": "weapon.telepathy fired at the middle tank: rings of psychic static take its mind. On its turn player 1 is at its controls: the puppet drives, turns its barrel on its own teammate and fires its own missile at it, then the link snaps.",
+  "subject": "weapon.telepathy",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "teams": [0, 1, 1],
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.telepathy": 1
+      }
+    },
+    {
+      "x": 420,
+      "inventory": {
+        "weapon.missile": 2
+      }
+    },
+    {
+      "x": 640
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.telepathy" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 45, "power": 450 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 160, "player": 0, "action": { "type": "drive", "dir": 1 } },
+    { "t": 200, "player": 0, "action": { "type": "drive", "dir": 0 } },
+    { "t": 205, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 205, "player": 0, "action": { "type": "aim", "angle": 45, "power": 340 } },
+    { "t": 240, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
