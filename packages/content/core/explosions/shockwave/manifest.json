@@ -14,7 +14,7 @@
   "terrainOp": {
     "use": "terrainop.displace",
     "fling": 140,
-    "flingApex": 30,
+    "flingApex": 60,
     "propBoost": 250
   },
   "effects": {

@@ -59,8 +59,10 @@ interface Front {
   portal?: boolean;
 }
 
-/** Portal ring bands, trailing edge to leading edge: deep violet → violet → blue → cyan. */
-const PORTAL = [0x5a30c8, 0x8a5cff, 0xb07cff, 0x6a9cff, 0x8ae4ff] as const;
+/** Shockwave plasma tones: electric blues and violets (each mote ramps hot → this → deep violet). */
+const PORTAL = [0x3a5cff, 0x4a8cff, 0x6a4cff, 0x9a5cff, 0x40b8ff] as const;
+/** How far past its own duration (as a fraction of it) a shockwave's plasma ring keeps going. */
+const PORTAL_COAST = 1.8;
 
 /**
  * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
@@ -522,20 +524,61 @@ export class EffectSystem {
         if (e.radius >= 60) this.tintSky([0, 0.32, 0.22, 0.7], Math.min(0.35, e.radius / 600));
         break;
       case 'shockFling': {
-        // a tank caught by the ring: a burst of portal-coloured sparks where it's ripped off
+        // a tank ripped off its feet: a spray of hot sparks and a puff of plasma
         const rng = this.rngFor(e, 13);
         const dir = e.params.dir ?? 1;
-        const n = Math.round(18 * this.mult) + 4;
+        const n = Math.round(22 * this.mult) + 4;
         for (let i = 0; i < n; i++) {
           this.particles.add({
             x: e.x + rng.range(-e.radius, e.radius),
             y: e.y + rng.range(-2, 3),
-            vx: dir * rng.range(0.4, 2.4),
-            vy: -rng.range(0.2, 1.8),
-            life: rng.range(10, 24),
+            vx: dir * rng.range(0.6, 3.2),
+            vy: -rng.range(0.4, 2.6),
+            life: rng.range(12, 30),
             size: 1,
-            color: PORTAL[1 + Math.floor(rng.next() * 4)]!,
-            kind: PKind.Snow,
+            color: rng.next() < 0.5 ? 0xffc060 : 0xff8a30,
+            kind: PKind.Spark,
+          });
+        }
+        for (let i = 0; i < 4; i++) {
+          this.particles.add({
+            x: e.x - dir * rng.range(0, e.radius),
+            y: e.y + rng.range(-2, 2),
+            vx: dir * rng.range(0.2, 0.6),
+            vy: -rng.range(0, 0.3),
+            life: rng.range(14, 24),
+            size: 4,
+            color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+            kind: PKind.Plasma,
+          });
+        }
+        break;
+      }
+      case 'shockFly': {
+        // sparks and smoke streaming off a tank flying through the air
+        const rng = this.rngFor(e, 19);
+        if (rng.next() < 0.7 * this.mult) {
+          this.particles.add({
+            x: e.x + rng.range(-e.radius, e.radius),
+            y: e.y + rng.range(-2, 2),
+            vx: rng.range(-0.6, 0.6),
+            vy: rng.range(-0.6, 0.4),
+            life: rng.range(8, 18),
+            size: 1,
+            color: 0xffb050,
+            kind: PKind.Spark,
+          });
+        }
+        if (rng.next() < 0.35 * this.mult) {
+          this.particles.add({
+            x: e.x,
+            y: e.y,
+            vx: 0,
+            vy: -0.1,
+            life: rng.range(20, 36),
+            size: 3,
+            color: 0x4a4448,
+            kind: PKind.Smoke,
           });
         }
         break;
@@ -3407,9 +3450,12 @@ export class EffectSystem {
     // shockwave fronts: dust and grit kicked up along the ground as the ring passes
     this.fronts = this.fronts.filter((f) => {
       const k = (t - f.start) / f.dur;
-      if (k > 1) return false;
-      const r = f.maxR * k;
+      // the plasma ring coasts on past the end of the shove, slowing and thinning out
+      if (k > (f.portal ? PORTAL_COAST : 1)) return false;
+      const r =
+        f.maxR * (k <= 1 ? k : 1 + (k - 1) * (1 - (k - 1) / (2 * (PORTAL_COAST - 1))) * 0.5);
       if (f.portal) this.portalRingTick(f, r, k);
+      if (k > 1) return true;
       if (f.cold) {
         this.frostFrontTick(f, r);
         return true;
@@ -3579,35 +3625,90 @@ export class EffectSystem {
   private portalRingTick(f: Front, r: number, k: number): void {
     if (r < 3) return;
     const p = this.probe;
-    // walk the circle a cell at a time so the leading edge reads as one unbroken band
-    const n = Math.min(Math.round(900 * this.mult) + 40, Math.round(2 * Math.PI * r));
-    const fade = 1 - k * 0.4;
-    const a0 = f.rng.range(0, Math.PI * 2);
-    for (let i = 0; i < n; i++) {
-      if (f.rng.next() > fade) continue;
-      const a = a0 + (i * Math.PI * 2) / n;
-      // band: 0 = leading edge, up to 4 cells behind it
-      const band = Math.floor(f.rng.next() * f.rng.next() * 5);
-      const rr = r - band * 1.5;
-      if (rr < 1) continue;
+    const rng = f.rng;
+    // a thick, lumpy band: turbulent wisps of plasma, the hot leading edge, sparkles and arcs
+    const band = Math.max(4, Math.min(22, f.maxR * 0.14));
+    const fade = k <= 1 ? 1 : Math.max(0, (PORTAL_COAST - k) / (PORTAL_COAST - 1));
+    // per-front lumps: a few slow sine lobes around the ring, fixed for this front
+    // the lobes roll round the ring as it goes, so the band wobbles like jelly
+    const ph = f.x * 0.37 + f.y * 0.11 + f.start + (f.rng.next() * 0.1 + k * 6);
+    const lump = (a: number): number =>
+      Math.sin(a * 3 + ph) * 0.5 +
+      Math.sin(a * 7 - ph * 1.3) * 0.3 +
+      Math.sin(a * 13 + ph * 0.7) * 0.2;
+    const air = (x: number, y: number): boolean =>
+      x >= 0 && y >= 0 && x < p.width && y < p.height && p.material(x, y) === 0;
+    const circ = 2 * Math.PI * r;
+    const speed = (f.maxR / f.dur) * (k <= 1 ? 1 : 0.5);
+    // plasma puffs (each breaks into a cloud of motes the swirl tears into wisps)
+    const nPuff = Math.round(Math.min(Math.round(240 * this.mult) + 6, circ / 3) * fade);
+    for (let i = 0; i < nPuff; i++) {
+      const a = rng.range(0, Math.PI * 2);
       const ca = Math.cos(a);
       const sa = Math.sin(a);
+      const l = lump(a);
+      const rr = r * (1 + l * 0.07) - rng.next() * rng.next() * band * (1.2 + l * 0.6);
+      if (rr < 1) continue;
       const x = Math.round(f.x + ca * rr);
       const y = Math.round(f.y + sa * rr);
-      if (x < 0 || y < 0 || x >= p.width || y >= p.height || p.material(x, y) !== 0) continue;
-      const swirl = f.rng.range(0.05, 0.25);
+      if (!air(x, y)) continue;
+      // ride outward with the ring, a little slower, so the band thickens into a trailing torus
+      const out = speed * rng.range(0.55, 0.95) + Math.max(0, l) * 0.25;
+      const tw = rng.range(-0.3, 0.3) + l * 0.35;
       this.particles.add({
         x,
         y,
-        vx: ca * 0.25 - sa * swirl,
-        vy: sa * 0.25 + ca * swirl,
-        life: f.rng.range(6, 12) + band * 3,
-        size: 1,
-        // the odd white glint on the leading edge
-        color: band === 0 && f.rng.next() < 0.1 ? 0xe8f8ff : PORTAL[4 - band]!,
-        // opaque cells in their own flat colour (sparks would burn white-hot, then red)
-        kind: PKind.Snow,
+        vx: ca * out - sa * tw,
+        vy: sa * out + ca * tw,
+        life: rng.range(22, 42),
+        size: Math.round(rng.range(3, 6 + Math.max(0, l) * 3)),
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
       });
+    }
+    // sparkles: tiny bright stars strewn through the band
+    const nStar = Math.min(Math.round(40 * this.mult) + 2, Math.round(circ / 14));
+    for (let i = 0; i < nStar; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = r - rng.next() * band * 1.6;
+      const x = Math.round(f.x + Math.cos(a) * rr);
+      const y = Math.round(f.y + Math.sin(a) * rr);
+      if (rr < 1 || !air(x, y)) continue;
+      this.particles.add({
+        x,
+        y,
+        vx: Math.cos(a) * speed * rng.range(0.5, 0.9),
+        vy: Math.sin(a) * speed * rng.range(0.5, 0.9),
+        life: rng.range(10, 26),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x60c8ff : 0x9a7cff,
+        kind: PKind.Glitter,
+      });
+    }
+    // arcs: short crackling filaments wandering along the ring
+    const nArc = Math.min(Math.round(8 * this.mult) + 1, Math.round(circ / 60) + 1);
+    for (let i = 0; i < nArc; i++) {
+      let a = rng.range(0, Math.PI * 2);
+      let rr = r - rng.next() * band;
+      const len = Math.round(rng.range(6, 16));
+      const da = (rng.next() < 0.5 ? -1 : 1) / Math.max(4, rr);
+      for (let j = 0; j < len; j++) {
+        a += da;
+        rr += rng.range(-1.2, 1.2);
+        const x = Math.round(f.x + Math.cos(a) * rr);
+        const y = Math.round(f.y + Math.sin(a) * rr);
+        if (rr < 1 || !air(x, y)) break;
+        this.particles.add({
+          x,
+          y,
+          vx: 0,
+          vy: 0,
+          life: rng.range(4, 9),
+          size: 1,
+          color: 0x60d8ff,
+          kind: PKind.Plasma,
+        });
+      }
     }
   }
 

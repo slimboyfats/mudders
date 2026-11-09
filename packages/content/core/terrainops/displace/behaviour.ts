@@ -381,6 +381,7 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
   else api.hold(t.player, hx, hy);
   d[b + 6] = t.x;
   d[b + 7] = t.y;
+  if (flying) api.emit('shockFly', hx, hy - (t.h >> 1), t.half, { player: t.player });
   return flying;
 }
 

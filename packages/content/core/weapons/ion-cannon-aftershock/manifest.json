@@ -37,7 +37,7 @@
           "expandTicks": 16,
           "blobPush": 28,
           "fling": 220,
-          "flingApex": 50,
+          "flingApex": 90,
           "propBoost": 220
         }
       }
