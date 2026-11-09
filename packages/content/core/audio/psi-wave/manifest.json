@@ -1,0 +1,61 @@
+{
+  "id": "audio.psi-wave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Psi Wave",
+    "description": "A Telepathy burst: a warbling theremin-like sweep up and down, a hollow pulse-wave chord that shimmers outward, and a soft hiss of static.",
+    "since": "core@0.55.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 330,
+        "to": 990,
+        "hold": 0.12,
+        "release": 0.55,
+        "volume": 0.32,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.8
+        }
+      },
+      {
+        "wave": "pulse25",
+        "freq": 262,
+        "to": 131,
+        "delay": 0.05,
+        "release": 0.6,
+        "volume": 0.16,
+        "arp": [0, 3, 7, 12, 7, 3],
+        "arpRate": 0.05
+      },
+      {
+        "wave": "noise",
+        "freq": 3000,
+        "to": 600,
+        "release": 0.4,
+        "volume": 0.12
+      },
+      {
+        "wave": "triangle",
+        "freq": 110,
+        "to": 55,
+        "release": 0.3,
+        "volume": 0.25
+      }
+    ],
+    "radiusRef": 40
+  },
+  "on": [
+    {
+      "event": "psiWave"
+    }
+  ]
+}

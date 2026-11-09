@@ -72,7 +72,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
   const panDrag = useRef<PanDrag | null>(null);
 
   const active = hud.tanks[hud.activePlayer];
-  const canAim = hud.phase === 'aim' && active !== undefined && controls(hud.activePlayer);
+  // a mind-linked tank (Telepathy) is steered by its caster's client
+  const canAim = hud.phase === 'aim' && active !== undefined && controls(hud.controller);
 
   // sound (§8b): battle music while the match is up, effect sounds from every snapshot, a call
   // when one of this client's players is up, a fanfare when a round ends
@@ -84,7 +85,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       setMusic('audio.music-title');
     };
   }, [match]);
-  const myTurn = hud.phase === 'aim' && hud.activePlayer >= 0 && controls(hud.activePlayer);
+  const myTurn = hud.phase === 'aim' && hud.activePlayer >= 0 && controls(hud.controller);
   useEffect(() => {
     if (myTurn) sfx('audio.turn');
   }, [myTurn, hud.activePlayer, hud.turn]);
@@ -96,9 +97,9 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
 
   const send = useCallback(
     (input: Input) => {
-      if (hud.activePlayer >= 0) match.input(hud.activePlayer, input);
+      if (hud.activePlayer >= 0) match.input(hud.controller, input);
     },
-    [match, hud.activePlayer],
+    [match, hud.activePlayer, hud.controller],
   );
 
   // renderer + frame loop

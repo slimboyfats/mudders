@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.55.0",
+  "version": "0.56.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -54,6 +54,7 @@
     "audio.magnet-clank",
     "audio.magnet-hum",
     "audio.meteor-whistle",
+    "audio.mind-link",
     "audio.mine-arm",
     "audio.mine-trip",
     "audio.mud-splat",
@@ -61,6 +62,7 @@
     "audio.music-title",
     "audio.parachute",
     "audio.plasma-sizzle",
+    "audio.psi-wave",
     "audio.rain",
     "audio.resonate",
     "audio.rift",
@@ -344,6 +346,7 @@
     "weapon.superstorm-bolt",
     "weapon.swap-ray",
     "weapon.tectonic-charge",
+    "weapon.telepathy",
     "weapon.teleport-shell",
     "weapon.terraformer",
     "weapon.thunderstorm",
