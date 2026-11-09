@@ -41,6 +41,15 @@ export class Grid {
   settleMaxX = -1;
   settleMaxY = -1;
 
+  /**
+   * Structure box (inclusive rect): where terrain changed or moved since the last `supportPass`,
+   * which runs over it (and what may hang from it) once the grid is still. Empty if max < min.
+   */
+  structMinX = 0;
+  structMaxX = -1;
+  structMinY = 0;
+  structMaxY = -1;
+
   /** Reaction region (inclusive rect): recently changed cells, checked by `reactStep`. */
   reactMinX = 0;
   reactMaxX = -1;
@@ -187,6 +196,7 @@ export class Grid {
     if (bx < ax || by < ay) return;
     this.extendSettle(ax - 1, bx + 1, by + 1);
     this.extendReact(ax - 1, ay - 1, bx + 1, by + 1);
+    this.extendStruct(ax, ay, bx, by);
     this.addRenderRect(ax, ay, bx - ax + 1, by - ay + 1);
     if (this.watchMaxX < this.watchMinX) {
       this.watchMinX = ax;
@@ -215,6 +225,33 @@ export class Grid {
       this.settleMaxX = x1;
       this.settleMaxY = y;
     }
+  }
+
+  /** Grow the structure box by an inclusive rect (clamped). */
+  extendStruct(x0: number, y0: number, x1: number, y1: number): void {
+    const ax = Math.max(0, x0);
+    const bx = Math.min(this.width - 1, x1);
+    const ay = Math.max(0, y0);
+    const by = Math.min(this.height - 1, y1);
+    if (bx < ax || by < ay) return;
+    if (this.structMaxX < this.structMinX) {
+      this.structMinX = ax;
+      this.structMaxX = bx;
+      this.structMinY = ay;
+      this.structMaxY = by;
+    } else {
+      if (ax < this.structMinX) this.structMinX = ax;
+      if (bx > this.structMaxX) this.structMaxX = bx;
+      if (ay < this.structMinY) this.structMinY = ay;
+      if (by > this.structMaxY) this.structMaxY = by;
+    }
+  }
+
+  clearStruct(): void {
+    this.structMinX = 0;
+    this.structMaxX = -1;
+    this.structMinY = 0;
+    this.structMaxY = -1;
   }
 
   clearSettle(): void {

@@ -33,7 +33,7 @@ describe('material.ice', () => {
   it('never falls and resists a missile far better than dirt', () => {
     const w = iceWorld();
     const ice = w.mats.cellOf('material.ice');
-    for (let y = 100; y < 110; y++) w.grid.set(260, y, ice);
+    for (let y = 140; y < 150; y++) w.grid.set(260, y, ice);
     w.grid.markDirty(150, 100, 260, 199);
     const before = countCells(w);
     dropAt(w, 'weapon.missile', 200);
@@ -42,7 +42,7 @@ describe('material.ice', () => {
     const b2 = countCells(d);
     dropAt(d, 'weapon.missile', 200);
     expect(iceHole).toBeLessThan((b2 - countCells(d)) / 2);
-    expect(w.grid.get(260, 100)).toBe(ice);
+    expect(w.grid.get(260, 140)).toBe(ice);
   });
 
   it('shatters: a blast cracks the crater rim into loose shards that slide into the hole', () => {
@@ -93,5 +93,20 @@ describe('material.ice', () => {
     const x0 = t.x;
     for (let i = 0; i < 900; i++) w.step();
     expect(t.x).toBeGreaterThan(x0 + 40);
+  });
+
+  it('comes down when the ground under a sheet is dug away further than it spans', () => {
+    // a 6-row sheet reaches 18: a 60-wide pit under it is too wide to bridge
+    const w = iceWorld();
+    const ice = w.mats.cellOf('material.ice');
+    for (let y = 156; y < 200; y++) for (let x = 170; x < 230; x++) w.grid.set(x, y, 0);
+    w.grid.markDirty(100, 150, 299, 199);
+    w.run(600);
+    let hanging = 0;
+    for (let x = 190; x < 210; x++)
+      for (let y = 150; y < 156; y++) if (w.grid.material[y * w.grid.width + x] === ice) hanging++;
+    expect(hanging).toBe(0);
+    expect(w.grid.material[150 * w.grid.width + 172]).toBe(ice); // the rim still reaches out
+    expect(w.quiet).toBe(true);
   });
 });
