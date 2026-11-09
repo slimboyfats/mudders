@@ -16,8 +16,14 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 50,
-        "push": 14,
-        "damage": 12
+        "push": 0,
+        "damage": 12,
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "fling": 90,
+          "flingApex": 22,
+          "propBoost": 220
+        }
       }
     }
   ],

@@ -55,7 +55,12 @@ interface Front {
   rng: FxRng;
   /** A frost front: ice glints and cold mist instead of dust and grit. */
   cold?: boolean;
+  /** A shockwave's ring of force: a shimmering violet-to-cyan portal ring in the air as well. */
+  portal?: boolean;
 }
+
+/** Portal ring bands, trailing edge to leading edge: deep violet → violet → blue → cyan. */
+const PORTAL = [0x2a1470, 0x5a2cd0, 0x7a4cff, 0x4a7cff, 0x6ad0ff] as const;
 
 /**
  * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
@@ -512,8 +517,47 @@ export class EffectSystem {
           start: e.tick,
           dur: Math.max(4, e.params.ticks ?? 20),
           rng: this.rngFor(e, 11),
+          portal: true,
         });
+        if (e.radius >= 60) this.tintSky([0, 0.32, 0.22, 0.7], Math.min(0.35, e.radius / 600));
         break;
+      case 'shockFling': {
+        // a tank caught by the ring: a burst of portal-coloured sparks where it's ripped off
+        const rng = this.rngFor(e, 13);
+        const dir = e.params.dir ?? 1;
+        const n = Math.round(18 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-e.radius, e.radius),
+            y: e.y + rng.range(-2, 3),
+            vx: dir * rng.range(0.4, 2.4),
+            vy: -rng.range(0.2, 1.8),
+            life: rng.range(10, 24),
+            size: 1,
+            color: PORTAL[1 + Math.floor(rng.next() * 4)]!,
+            kind: PKind.Spark,
+          });
+        }
+        break;
+      }
+      case 'shockSlam': {
+        const rng = this.rngFor(e, 17);
+        const col = this.dustColor(e.x, e.y + e.radius);
+        const n = Math.round(10 * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-e.radius, e.radius),
+            y: e.y + rng.range(-3, 3),
+            vx: rng.range(-1, 1),
+            vy: -rng.range(0.3, 1.4),
+            life: rng.range(20, 40),
+            size: rng.range(2, 4),
+            color: shade(col, 1.1),
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
       case 'muzzle': {
         const rng = this.rngFor(e, 3);
         const a = ((e.params.angle ?? 90) * Math.PI) / 180;
@@ -3365,6 +3409,7 @@ export class EffectSystem {
       const k = (t - f.start) / f.dur;
       if (k > 1) return false;
       const r = f.maxR * k;
+      if (f.portal) this.portalRingTick(f, r, k);
       if (f.cold) {
         this.frostFrontTick(f, r);
         return true;
@@ -3523,6 +3568,43 @@ export class EffectSystem {
           color: 0xbfe4fa,
           strength: 0.9,
         });
+    }
+  }
+
+  /**
+   * A shockwave's ring of force in the air: single pixels on the expanding circle, snapped to
+   * cells, in hard bands from a white-cyan leading edge back to deep violet, swirling a little
+   * along the ring so it shimmers. Only where there is air (the ground shows the dust front).
+   */
+  private portalRingTick(f: Front, r: number, k: number): void {
+    if (r < 3) return;
+    const p = this.probe;
+    const n = Math.min(420, Math.round(((2 * Math.PI * r) / 2.5) * this.mult) + 8);
+    const fade = 1 - k * 0.5;
+    for (let i = 0; i < n; i++) {
+      const a = f.rng.range(0, Math.PI * 2);
+      // band: 0 = leading edge, up to 4 cells behind it
+      const band = Math.floor(f.rng.next() * f.rng.next() * 5);
+      const rr = r - band * 1.5;
+      if (rr < 1) continue;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const x = Math.round(f.x + ca * rr);
+      const y = Math.round(f.y + sa * rr);
+      if (x < 0 || y < 0 || x >= p.width || y >= p.height || p.material(x, y) !== 0) continue;
+      if (f.rng.next() > fade) continue;
+      const swirl = f.rng.range(0.15, 0.5);
+      this.particles.add({
+        x,
+        y,
+        vx: ca * 0.5 - sa * swirl,
+        vy: sa * 0.5 + ca * swirl,
+        life: f.rng.range(5, 12) + band * 2,
+        size: 1,
+        // the odd white glint on the leading edge
+        color: band === 0 && f.rng.next() < 0.08 ? 0xe8f8ff : PORTAL[4 - band]!,
+        kind: PKind.Spark,
+      });
     }
   }
 

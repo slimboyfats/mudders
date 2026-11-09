@@ -10,9 +10,12 @@
   "damage": 15,
   "damageType": "shock",
   "falloff": "linear",
-  "push": 24,
+  "push": 0,
   "terrainOp": {
-    "use": "terrainop.displace"
+    "use": "terrainop.displace",
+    "fling": 140,
+    "flingApex": 30,
+    "propBoost": 250
   },
   "effects": {
     "ripple": {

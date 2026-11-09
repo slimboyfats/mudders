@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 120,
-        "push": 40,
+        "push": 0,
         "damage": 50,
         "effects": {
           "pressureWave": {
@@ -25,6 +25,12 @@
           "shake": {
             "strength": 5
           }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "fling": 240,
+          "flingApex": 50,
+          "propBoost": 260
         }
       }
     }

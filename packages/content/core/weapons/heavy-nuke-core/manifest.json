@@ -42,7 +42,7 @@
         "use": "explosion.shockwave",
         "radius": 180,
         "damage": 45,
-        "push": 60,
+        "push": 0,
         "effects": {
           "burst": {
             "count": 0
@@ -53,7 +53,10 @@
           "speed": 32,
           "lift": 1.1,
           "expandTicks": 18,
-          "blobPush": 60
+          "blobPush": 60,
+          "fling": 340,
+          "flingApex": 80,
+          "propBoost": 240
         }
       }
     }

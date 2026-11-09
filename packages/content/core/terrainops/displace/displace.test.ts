@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MaterialManifest } from '@mudders/shared';
 import { MaterialTable, behaviourParams } from '@mudders/sim';
 import { loadContent } from '../../../src/index';
-import { countCells, flatten, makeWorld } from '../../../src/testing';
+import { countCells, flatWorld, flatten, makeWorld } from '../../../src/testing';
 import displace from './behaviour';
 
 const call = {
@@ -79,5 +79,41 @@ describe('terrainop.displace', () => {
         }
     expect(n).toBe(100);
     expect(minX).toBeGreaterThan(330);
+  });
+
+  it('throws a tank in an arc when the ring front reaches it, the nearer the farther', () => {
+    const throwFrom = (col: number) => {
+      const w = flatWorld(150, { map: { width: 900, height: 300 }, tankColumns: [40, col] });
+      const t = w.tanks[1]!;
+      const y0 = t.y;
+      let top = y0;
+      let start = -1;
+      const idx = w.weaponByIndex('weapon.heavy-shockwave');
+      w.projectiles.push({
+        id: 999,
+        weapon: idx,
+        owner: 0,
+        x: 300 * 65536 + 32768,
+        y: (w.grid.surfaceY(300) - 6) * 65536,
+        vx: 0,
+        vy: 65536,
+        age: 10,
+        alive: true,
+        data: [],
+      });
+      for (let i = 0; i < 400; i++) {
+        w.step();
+        if (start < 0 && t.y < y0 - 2) start = i;
+        top = Math.min(top, t.y);
+      }
+      return { lift: y0 - top, moved: t.x - col, start };
+    };
+    const near = throwFrom(330);
+    const far = throwFrom(390);
+    // airborne, away from the blast, and only once the ring got there
+    expect(near.lift).toBeGreaterThan(10);
+    expect(near.moved).toBeGreaterThan(20);
+    expect(near.moved).toBeGreaterThan(far.moved);
+    expect(far.start).toBeGreaterThan(near.start);
   });
 });
