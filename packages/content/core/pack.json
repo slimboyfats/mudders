@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -20,6 +20,7 @@
     "audio.crunch",
     "audio.dirt-burst",
     "audio.drill",
+    "audio.emp",
     "audio.fire",
     "audio.fire-beam",
     "audio.fire-dig",
@@ -300,6 +301,7 @@
     "weapon.roller",
     "weapon.scatter-bomb",
     "weapon.scatter-bomblet",
+    "weapon.shield-breaker",
     "weapon.shockwave",
     "weapon.singularity",
     "weapon.singularity-core",
