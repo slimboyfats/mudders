@@ -32,6 +32,8 @@ import {
   type AiSpot,
   type AiShopApi,
   type AiWeaponView,
+  type AiTankView,
+  type Lure,
   type ContactResult,
   type FlightBehaviour,
   type FlightHit,
@@ -454,6 +456,8 @@ const PUFF_SLIDE = FP >> 6;
 export const MAX_ZONES = 32;
 /** Most shells in the air at once (cluster bombs); extra children are dropped. */
 export const MAX_PROJECTILES = 64;
+/** Most decoys (`Lure`) in one round. */
+export const MAX_LURES = 8;
 const ZONE_LOOKS = [
   'gas',
   'acid',
@@ -572,6 +576,8 @@ export class World implements SimApi {
   private idleOps = 0;
   zones: Zone[] = [];
   mines: Mine[] = [];
+  /** Decoys this round (see `Lure`); dead ones stay so indexes hold for the round. */
+  lures: Lure[] = [];
   readonly debris = new DebrisPool();
 
   private readonly opSites: OpSite[] = [];
@@ -1027,6 +1033,7 @@ export class World implements SimApi {
     this.idleOps = 0;
     this.zones = [];
     this.mines = [];
+    this.lures = [];
     this.pendingDeaths = [];
     this.edge = 0;
     this.shooter = -1;
@@ -1283,6 +1290,7 @@ export class World implements SimApi {
       supportPass(this.grid, this.mats, this.scratch, this.debris, this);
     }
     this.stepTanks();
+    if (this.lures.length > 0) this.stepLures();
     if (this.mines.length > 0) this.stepMines();
 
     if (this.phase === 'resolve' && this.quiet) {
@@ -1684,6 +1692,29 @@ export class World implements SimApi {
   }
 
   /** The bot's view of the match on its turn (§3.7). */
+  /** The tanks a bot sees: the real ones, then every decoy dressed as a tank (see `Lure`). */
+  private aiTanks(tanks: readonly AiTankView[]): readonly AiTankView[] {
+    if (this.lures.length === 0) return tanks;
+    const out: AiTankView[] = [...tanks];
+    const n = this.tanks.length;
+    for (let i = 0; i < this.lures.length; i++) {
+      const l = this.lures[i]!;
+      out.push({
+        player: n + i,
+        team: l.team,
+        alive: l.alive,
+        x: l.x,
+        y: l.y,
+        health: Math.max(0, l.hp),
+        shield: 0,
+        maxHealth: l.maxHp,
+        half: l.half,
+        h: l.h,
+      });
+    }
+    return out;
+  }
+
   private aiApi(t: Tank): AiApi {
     const weapons: AiWeaponView[] = [];
     for (let i = 0; i < t.inventory.length; i++) {
@@ -1707,7 +1738,9 @@ export class World implements SimApi {
     return {
       rng: this.rng,
       me: t.player,
-      tanks: charmed ? this.tanks.map((u) => (u === t ? { ...u, team } : u)) : this.tanks,
+      tanks: this.aiTanks(
+        charmed ? this.tanks.map((u) => (u === t ? { ...u, team } : u)) : this.tanks,
+      ),
       weapons,
       gear: this.gearView(t),
       width: this.grid.width,
@@ -2045,7 +2078,11 @@ export class World implements SimApi {
       }
       if (cy < 0) continue;
       const solid = w.onSolid && g.material[cy * g.width + cx] !== 0;
-      const tank = w.onTank ? this.tankAt(cx, cy, p) : -1;
+      let tank = w.onTank ? this.tankAt(cx, cy, p) : -1;
+      if (tank < 0 && w.onTank && this.lures.length > 0) {
+        const l = this.lureAt(cx, cy);
+        if (l >= 0) tank = this.tanks.length + l;
+      }
       if (solid || tank >= 0) {
         hit.x = cx;
         hit.y = cy;
@@ -3040,6 +3077,19 @@ export class World implements SimApi {
     for (const [type, params] of e.effects) {
       this.emit(type, x, y, e.radius, { ...params, dt: e.dt });
     }
+    if (e.damage > 0 && this.lures.length > 0) {
+      for (let i = 0; i < this.lures.length; i++) {
+        const l = this.lures[i]!;
+        if (!l.alive) continue;
+        const dx = l.x - x;
+        const dy = l.y - (l.h >> 1) - y;
+        const d = isqrt(dx * dx + dy * dy);
+        const reach = e.radius + l.half;
+        if (d >= reach) continue;
+        const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        this.hurtLure(i, Math.max(1, base), owner);
+      }
+    }
     if (e.damage > 0 && this.mines.length > 0) this.tripMines(x, y, e.radius);
   }
 
@@ -3367,6 +3417,71 @@ export class World implements SimApi {
     let v = MAX_TANK_FALL;
     for (const g of this.gear) if (g.deploy === 'fall') v = Math.min(v, g.fallSpeed);
     return v;
+  }
+
+  addLure(x: number, y: number, owner: number, hp: number): number {
+    if (this.lures.length >= MAX_LURES) return -1;
+    const o = this.tanks[owner];
+    const g = this.grid;
+    const half = TANK_W >> 1;
+    const cx = Math.max(half, Math.min(g.width - half - 1, x | 0));
+    this.lures.push({
+      owner,
+      team: o ? o.team : owner,
+      x: cx,
+      y: Math.max(TANK_H, Math.min(g.height, y | 0)),
+      hp: Math.max(1, hp | 0),
+      maxHp: Math.max(1, hp | 0),
+      half,
+      h: TANK_H,
+      alive: true,
+    });
+    const i = this.lures.length - 1;
+    const l = this.lures[i]!;
+    this.emit('decoyUp', l.x, l.y, l.half, { index: i, owner });
+    return i;
+  }
+
+  hurtLure(index: number, amount: number, owner: number): void {
+    const l = this.lures[index];
+    if (!l || !l.alive || amount <= 0) return;
+    l.hp -= Math.trunc(amount);
+    this.emit('decoyHit', l.x, l.y - (l.h >> 1), l.half, { index, owner });
+    if (l.hp <= 0) this.popLure(index);
+  }
+
+  private popLure(index: number): void {
+    const l = this.lures[index]!;
+    l.alive = false;
+    l.hp = 0;
+    this.emit('decoyPop', l.x, l.y - (l.h >> 1), l.half + 4, { index, owner: l.owner });
+  }
+
+  /** Decoys drop a cell a tick onto whatever ground is left under them; off the map, they pop. */
+  private stepLures(): void {
+    const g = this.grid;
+    for (let i = 0; i < this.lures.length; i++) {
+      const l = this.lures[i]!;
+      if (!l.alive) continue;
+      let ground = l.y >= g.height;
+      for (let x = l.x - l.half; x < l.x + l.half && !ground; x++) {
+        if (x >= 0 && x < g.width && g.material[l.y * g.width + x] !== 0) ground = true;
+      }
+      if (ground) continue;
+      l.y++;
+      if (l.y >= g.height) this.popLure(i);
+    }
+  }
+
+  /** Index of the live decoy covering cell (cx, cy), or -1. */
+  private lureAt(cx: number, cy: number): number {
+    for (let i = 0; i < this.lures.length; i++) {
+      const l = this.lures[i]!;
+      if (l.alive && cx >= l.x - l.half && cx < l.x + l.half && cy >= l.y - l.h && cy < l.y) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private stepTanks(): void {
@@ -3812,6 +3927,19 @@ export class World implements SimApi {
           : {}),
       });
     }
+    for (let i = 0; i < this.lures.length; i++) {
+      const l = this.lures[i]!;
+      if (!l.alive) continue;
+      entities.push({
+        kind: 'decoy',
+        id: i,
+        x: l.x,
+        y: l.y,
+        owner: l.owner,
+        hp: l.hp,
+        maxHp: l.maxHp,
+      });
+    }
     for (const m of this.mines) {
       entities.push({
         kind: 'mine',
@@ -3967,6 +4095,19 @@ export class World implements SimApi {
           .num(z.shieldDrain)
           .num(z.spikeDamage)
           .num(z.spikeDrag);
+      }
+    }
+    // decoys: only hashed once one has been put down, so other matches keep their hashes
+    if (this.lures.length > 0) {
+      h.num(this.lures.length);
+      for (const l of this.lures) {
+        h.num(l.owner)
+          .num(l.team)
+          .num(l.x)
+          .num(l.y)
+          .num(l.hp)
+          .num(l.maxHp)
+          .num(l.alive ? 1 : 0);
       }
     }
     // mines: only hashed once one has been laid, so other matches keep their hashes

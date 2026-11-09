@@ -1181,6 +1181,15 @@ export class EffectSystem {
       case 'railHit':
         this.railHit(e);
         break;
+      case 'decoyUp':
+        this.puff(e, 0xc8b898, 14);
+        break;
+      case 'decoyHit':
+        this.staticSpit(e, 5, 0xd8c8a8);
+        break;
+      case 'decoyPop':
+        this.decoyPop(e);
+        break;
       case 'spotFlare':
         this.spotFlare(e);
         break;
@@ -4518,6 +4527,41 @@ export class EffectSystem {
         kind: PKind.Spark,
       });
     }
+  }
+
+  /**
+   * A Decoy Tank popping: its canvas and poles blown apart in a burst of scrap (chunks in sand,
+   * grey and the owner's colour), a puff of dust, and a few sparks of the little charge inside.
+   */
+  private decoyPop(e: EffectEvent): void {
+    const rng = this.rngFor(e, 103);
+    const n = Math.round(30 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(-Math.PI, 0);
+      const sp = rng.range(0.6, 2.4);
+      const k = rng.next();
+      this.particles.add({
+        x: e.x + Math.round(rng.range(-4, 4)),
+        y: e.y + Math.round(rng.range(-2, 2)),
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(20, 50),
+        size: rng.next() < 0.3 ? 2 : 1,
+        color: k < 0.4 ? 0xc8b898 : k < 0.7 ? 0x6a6660 : 0x9a8a6a,
+        kind: PKind.Chunk,
+      });
+    }
+    this.staticSpit(e, 10, 0xffd080);
+    this.puff(e, 0xb0a490, 18);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 6,
+      start: e.tick,
+      dur: 5,
+      color: 0xffe0a0,
+      strength: 0.9,
+    });
   }
 
   /**

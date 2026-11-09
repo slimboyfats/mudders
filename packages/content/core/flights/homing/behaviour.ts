@@ -1,6 +1,6 @@
 import { z } from '@mudders/shared';
 import { FP, defineFlight, toFixed } from '@mudders/sim';
-import { ballisticStep } from '../../../src/flight';
+import { ballisticStep, lureNear } from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -23,7 +23,7 @@ const params = z.strictObject({
 export default defineFlight<z.infer<typeof params>>({
   kind: 'flight',
   id: 'flight.homing',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -42,10 +42,23 @@ export default defineFlight<z.infer<typeof params>>({
           best = t.player;
         }
       }
-      if (best >= 0) {
+      // a decoy runs hot: it wins unless a real tank is less than half as far
+      const team = api.tanks[proj.owner]?.team ?? proj.owner;
+      const lure = lureNear(api, team, cx, cy, p.range);
+      let tx = 0;
+      let ty = 0;
+      if (lure && (best < 0 || lure.d2 <= bestD * 4)) {
+        tx = lure.x;
+        ty = lure.y;
+        best = 0;
+      } else if (best >= 0) {
         const t = api.tanks[best]!;
-        const dx = t.x - cx;
-        const dy = t.y - 5 - cy;
+        tx = t.x;
+        ty = t.y - 5;
+      }
+      if (best >= 0) {
+        const dx = tx - cx;
+        const dy = ty - cy;
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len >= 1) {
           const a = toFixed(p.accel);

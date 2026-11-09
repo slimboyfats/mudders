@@ -1,4 +1,11 @@
-import type { EffectEvent, EntityView, RenderSnapshot, TankView, ZoneView } from '@mudders/shared';
+import type {
+  DecoyView,
+  EffectEvent,
+  EntityView,
+  RenderSnapshot,
+  TankView,
+  ZoneView,
+} from '@mudders/shared';
 import type {
   Quality,
   RenderPalette,
@@ -2217,6 +2224,7 @@ export class PixelRenderer implements Renderer {
     const b = this.normal;
     const looks = this.palette.tanks;
     for (const w of this.wrecks) if (w) drawTurret(b, w, t);
+    for (const e of this.entities) if (e.kind === 'decoy') this.drawDecoy(e, t);
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
       const x = e.x;
@@ -2317,6 +2325,48 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
     }
+  }
+
+  /**
+   * A Decoy Tank: the standard hull in its owner's colours, but a cheap fake on a close look. Its
+   * panels are stretched canvas (every third cell dithered darker), the barrel is a stiff pole
+   * cocked at 45° toward the middle of the map, a stake pegs it down at each end, and a bare
+   * health bar with no player number sits over it.
+   */
+  private drawDecoy(e: DecoyView, t: number): void {
+    const b = this.normal;
+    const col = playerColor(e.owner);
+    const rows = STANDARD_LOOK.sprite;
+    const sw = rows[0]?.length ?? 0;
+    const sh = rows.length;
+    const x = e.x;
+    const y = e.y;
+    const x0 = x - (sw >> 1);
+    const y0 = y - sh;
+    const lit = this.tankLight(x, y - (sh >> 1));
+    const dir = x < this.mapWidth >> 1 ? 1 : -1;
+    const br = STANDARD_LOOK.barrel;
+    for (let i = 1; i <= br.length; i++) {
+      b.rect(x + br.x + dir * i, y - br.y - i, 1, 1, litColor(0xb8b0a0, lit));
+    }
+    // the canvas flaps in the wind: one column of cells a step lower, sweeping along
+    const flap = (t >> 3) % (sw + 6);
+    for (let r = 0; r < sh; r++) {
+      const row = rows[r]!;
+      for (let c = 0; c < sw; c++) {
+        const code = row.charCodeAt(c);
+        if (code === 46) continue;
+        let rgb = spriteColor(code, col, false);
+        if ((c + r * 2) % 3 === 0) rgb = shade(rgb, 0.8);
+        b.rect(x0 + c, y0 + r + (c === flap && r < sh - 2 ? 1 : 0), 1, 1, litColor(rgb, lit));
+      }
+    }
+    // tent pegs
+    b.rect(x0 - 1, y - 2, 1, 2, 0x8a7a60);
+    b.rect(x0 + sw, y - 2, 1, 2, 0x8a7a60);
+    const hp = Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp)));
+    b.rect(x - 8, y0 - 5, 16, 1.6, 0x000000, 0.55);
+    b.rect(x - 8, y0 - 5, 16 * hp, 1.6, hp > 0.5 ? 0x5ad35a : hp > 0.25 ? 0xf0c040 : 0xe04040);
   }
 
   /**

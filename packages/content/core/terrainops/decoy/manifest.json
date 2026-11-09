@@ -1,0 +1,11 @@
+{
+  "id": "terrainop.decoy",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Decoy",
+    "description": "Unfolds a dummy tank on the ground at the impact, on the shooter's team: shells hit it, blasts wear it down, homing warheads and bots go for it, and it pops when its hit points run out.",
+    "since": "core@0.59.0"
+  },
+  "behaviour": "terrainop.decoy",
+  "hp": 50
+}
