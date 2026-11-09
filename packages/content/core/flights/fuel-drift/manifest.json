@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel drift",
     "description": "A puff of fuel vapour: billows out, slows in the air, settles and slides along the ground, drifts with the wind.",
-    "since": "core@0.52.0"
+    "since": "core@0.53.0"
   },
   "behaviour": "flight.fuel-drift",
   "drag": 0.93,
