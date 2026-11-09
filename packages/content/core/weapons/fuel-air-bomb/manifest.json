@@ -1,0 +1,66 @@
+{
+  "id": "weapon.fuel-air-bomb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel-Air Bomb",
+    "description": "Bursts open into a cloud of fuel vapour that billows out for over a second, hugging the ground, pouring into dips and drifting with the wind. Then the whole cloud ignites at once: every puff goes up in fire, the crater takes the shape of the cloud, and the blast wave throws tanks and loose ground outward.",
+    "since": "core@0.52.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 5,
+        "effects": {
+          "burst": {
+            "count": 10
+          },
+          "flash": {
+            "strength": 0.3
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.fuel-air-cloud",
+        "count": 12,
+        "inherit": 0,
+        "spread": 3.2,
+        "jitter": 0.5,
+        "up": 1.1
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.fuel-air-cloud",
+        "count": 10,
+        "inherit": 0,
+        "spread": 1.6,
+        "jitter": 0.6,
+        "up": 2
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.fuel-air-core",
+        "inherit": 0
+      }
+    }
+  ],
+  "shop": {
+    "price": 22000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 90,
+    "terrainValue": 0.7
+  }
+}

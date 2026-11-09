@@ -1,0 +1,54 @@
+{
+  "id": "weapon.fuel-air-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel-Air Blast Wave",
+    "description": "The pressure wave of a Fuel-Air Bomb's cloud going up all at once: hangs where the bomb burst and, a tick after the cloud ignites, throws tanks and loose ground outward.",
+    "since": "core@0.52.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [{ "onTimer": 81 }],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 100,
+        "damage": 30,
+        "effects": {
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 4
+          },
+          "pressureWave": {
+            "strength": 1
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 3,
+          "fling": 160,
+          "flingApex": 60,
+          "propBoost": 300
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 20,
+    "terrainValue": 0.4
+  },
+  "look": {
+    "shell": "spark",
+    "trail": false
+  }
+}

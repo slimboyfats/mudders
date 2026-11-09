@@ -2660,6 +2660,10 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 1, 1, 0xe8fcff, 1);
         continue;
       }
+      if (look?.shell === 'vapor') {
+        this.drawVapor(e.x, e.y, e.id);
+        continue;
+      }
       if (look?.shell === 'rail') {
         // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
         const x = Math.floor(e.x) + 0.5;
@@ -2736,6 +2740,32 @@ export class PixelRenderer implements Renderer {
       this.normal.push(x, y, 2, 2, look?.trailColor ?? 0xff9a40, 1);
       g.push(x + sx, y + sy, 1, 1, 0xffe0a0, 0.9);
       g.push(x, y, 1, 1, 0xffffff, 1);
+    }
+  }
+
+  /**
+   * A puff of fuel vapour (Fuel-Air Bomb): a loose clump of single cells in pale ochre and grey,
+   * thinner towards the rim, each cell hopping to a new spot every few ticks so the cloud seethes
+   * instead of sliding. Many puffs overlap into one cloud. Positions come from a hash of the puff
+   * and the tick, so nothing is stored per puff.
+   */
+  private drawVapor(px: number, py: number, id: number): void {
+    const b = this.normal;
+    const step = this.fxTick >> 2;
+    const cx = Math.floor(px);
+    const cy = Math.floor(py);
+    for (let i = 0; i < 40; i++) {
+      let h = Math.imul(id * 9973 + i * 7919 + ((step + i) >> 1) * 104729, 0x9e3779b1);
+      h ^= h >>> 15;
+      h = Math.imul(h, 0x85ebca6b);
+      h ^= h >>> 13;
+      // a ring index: most cells near the middle, a few out at the rim
+      const ring = (h & 7) < 4 ? 2 : (h & 7) < 7 ? 5 : 8;
+      const dx = ((h >>> 4) % (2 * ring + 1)) - ring;
+      const dy = (((h >>> 12) % (2 * ring + 1)) - ring) >> 1;
+      const tone = (h >>> 20) & 3;
+      const c = tone === 0 ? 0xd8c890 : tone === 1 ? 0xb8ae88 : tone === 2 ? 0xe8e0b8 : 0x9a9478;
+      b.push(cx + dx + 0.5, cy + dy + 0.5, 1, 1, c, ring === 8 ? 0.45 : ring === 5 ? 0.6 : 0.75);
     }
   }
 

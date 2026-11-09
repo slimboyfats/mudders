@@ -1,0 +1,57 @@
+{
+  "id": "weapon.fuel-air-cloud",
+  "schemaVersion": 1,
+  "description": "A Fuel-Air Bomb's cloud: the puffs spread over the slope, then all ignite on the same tick.",
+  "subject": "weapon.fuel-air-cloud",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.fuel-air-bomb": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.002,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.fuel-air-bomb"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 720,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
