@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel-Air Cloud",
     "description": "One puff of a Fuel-Air Bomb's fuel cloud. Drifts and hugs the ground, then goes up in a ball of fire together with all the others.",
-    "since": "core@0.53.0",
+    "since": "core@0.54.0",
     "category": "explosive"
   },
   "flight": {

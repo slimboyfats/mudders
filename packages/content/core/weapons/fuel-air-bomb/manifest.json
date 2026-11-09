@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel-Air Bomb",
     "description": "Bursts open into a cloud of fuel vapour that billows out for over a second, hugging the ground, pouring into dips and drifting with the wind. Then the whole cloud ignites at once: every puff goes up in fire, the crater takes the shape of the cloud, and the blast wave throws tanks and loose ground outward.",
-    "since": "core@0.53.0",
+    "since": "core@0.54.0",
     "category": "explosive"
   },
   "flight": {

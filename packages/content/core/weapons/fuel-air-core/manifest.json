@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel-Air Blast Wave",
     "description": "The pressure wave of a Fuel-Air Bomb's cloud going up all at once: hangs where the bomb burst and, a tick after the cloud ignites, throws tanks and loose ground outward.",
-    "since": "core@0.53.0",
+    "since": "core@0.54.0",
     "category": "explosive"
   },
   "flight": {

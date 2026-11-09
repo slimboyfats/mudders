@@ -1,0 +1,50 @@
+{
+  "id": "audio.gravity-gulp",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gravity Gulp",
+    "description": "A deep chip gulp falling away to nothing when a black hole swallows a shell or bites a tank.",
+    "since": "core@0.53.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 520,
+        "to": 40,
+        "hold": 0.05,
+        "release": 0.32,
+        "volume": 0.3
+      },
+      {
+        "wave": "triangle",
+        "freq": 180,
+        "to": 30,
+        "release": 0.4,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 22,
+          "depth": 0.5
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "wellSwallow"
+    },
+    {
+      "event": "holeSwallow"
+    },
+    {
+      "event": "holeBite"
+    }
+  ],
+  "gap": 0.12
+}
