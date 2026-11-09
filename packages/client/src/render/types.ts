@@ -59,6 +59,8 @@ export interface ShellLook {
     | 'glue'
     | 'firework'
     | 'star'
+    | 'rocket'
+    | 'stage'
     | 'plasma'
     | 'psi';
   trail: boolean;

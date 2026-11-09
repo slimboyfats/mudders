@@ -516,9 +516,9 @@ export const WeaponSchema = z.strictObject({
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
    * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue, `firework` a fizzing
-   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling
-   * ball of blue-violet plasma, `psi` a humming violet thought-orb with sparks orbiting it;
-   * `trail: false` leaves no
+   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of
+   * blue-violet plasma, `rocket` a long rocket
+   * body pointed along its flight with a roaring exhaust, `stage` a tumbling spent rocket stage, `psi` a humming violet thought-orb with sparks orbiting it; `trail: false` leaves no
    * trail line.
    */
   look: z
@@ -533,6 +533,8 @@ export const WeaponSchema = z.strictObject({
           'glue',
           'firework',
           'star',
+          'rocket',
+          'stage',
           'plasma',
           'psi',
         ])
