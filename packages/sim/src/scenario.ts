@@ -47,7 +47,8 @@ export class ScenarioDriver {
 
   step(): void {
     const w = this.world;
-    // Apply, in log order, every input whose time has come and whose player is up. Inputs for
+    // Apply, in log order, every input whose time has come and whose player is at the controls
+    // (a Telepathy caster steers the tank it mind-linked). Inputs for
     // other players stay queued (a later player's input never blocks an earlier one).
     for (let i = 0; i < this.queue.length;) {
       const next = this.queue[i]!;
@@ -55,7 +56,7 @@ export class ScenarioDriver {
       const shopInput = next.action.type === 'buy' || next.action.type === 'ready';
       const ready =
         w.phase === 'over' ||
-        (shopInput ? w.phase === 'shop' : w.phase === 'aim' && w.activePlayer === next.player);
+        (shopInput ? w.phase === 'shop' : w.phase === 'aim' && w.controller === next.player);
       if (!ready) {
         i++;
         continue;
@@ -65,7 +66,7 @@ export class ScenarioDriver {
       if (next.action.type === 'fire') break;
     }
     w.step();
-    const botUp = w.phase === 'aim' && (w.tanks[w.activePlayer]?.bot ?? -1) >= 0;
+    const botUp = w.phase === 'aim' && (w.tanks[w.controller]?.bot ?? -1) >= 0;
     const settled =
       ((w.phase !== 'resolve' && w.quiet) || w.phase === 'over' || w.phase === 'shop') && !botUp;
     if (settled && this.queue.length === 0) {

@@ -5,7 +5,7 @@
     "name": "Caltrop Field",
     "description": "Bursts on the ground into a carpet of steel spikes about seventy cells wide. The spikes stay for eight turns. Standing still on them is safe, but every cell a tank drives across them costs 2 health and burns triple fuel and drive: bots won't drive onto them at all. Shell a hill pass with it and nobody gets through cheaply.",
     "category": "mine",
-    "since": "core@0.55.0"
+    "since": "core@0.56.0"
   },
   "flight": {
     "use": "flight.ballistic"

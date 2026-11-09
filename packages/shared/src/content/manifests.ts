@@ -336,6 +336,11 @@ const explosionBody = {
    */
   glue: z.number().int().min(0).max(3).default(0),
   /**
+   * Mind link (Telepathy): enemy tanks in range are steered by the shell's owner for this many of
+   * their own turns (a bot owner turns them on their own side). Never the owner's team. 0 = none.
+   */
+  mind: z.number().int().min(0).max(3).default(0),
+  /**
    * Jams tanks in range for this many of their own turns (an electromagnetic pulse): a jammed
    * tank can't drive or switch on gear. 0 = none.
    */
@@ -564,7 +569,8 @@ export const WeaponSchema = z.strictObject({
    * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of
    * blue-violet plasma, `rocket` a long rocket
    * body pointed along its flight with a roaring exhaust, `stage` a tumbling spent rocket stage, `rail` a white-hot railgun slug, `acid` a falling
-   * yellow-green drop, `vapor` a shimmering puff of fuel vapour; `trail: false` leaves no
+   * yellow-green drop, `psi` a humming violet thought-orb with sparks orbiting it, `vapor` a
+   * shimmering puff of fuel vapour; `trail: false` leaves no
    * trail line.
    */
   look: z
@@ -584,6 +590,7 @@ export const WeaponSchema = z.strictObject({
           'plasma',
           'rail',
           'acid',
+          'psi',
           'vapor',
         ])
         .default('spark'),

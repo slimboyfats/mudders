@@ -31,6 +31,7 @@ import {
   litColor,
 } from './lighting';
 import { PKind } from './particles';
+import { drawPsiAura, drawPsiShell, drawPsiTether } from './psi';
 import { GpuParticles } from './gpu-particles';
 import {
   BG_FS,
@@ -1903,6 +1904,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
     this.fx.drawMagnets(this.normal, this.additive, t);
+    this.fx.drawPsiWaves(this.normal, this.additive, t);
     this.fx.drawGravity(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
@@ -2286,6 +2288,7 @@ export class PixelRenderer implements Renderer {
       if ((e.rust ?? 0) > 0) {
         this.rustTank(x, y, sw, sh, y0, lean, t, (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0));
       }
+      if ((e.mind ?? 0) > 0) this.mindTank(e, x, y, sw, sh, y0, t);
       if ((e.jam ?? 0) > 0) {
         const marks = (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0) + ((e.rust ?? 0) > 0 ? 1 : 0);
         this.jamTank(x, sw, sh, y0, lean, t, e.player, marks);
@@ -2307,6 +2310,56 @@ export class PixelRenderer implements Renderer {
         b.push(x + 0.5, top - 10 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
         b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);
       }
+    }
+  }
+
+  /**
+   * A mind-linked tank (Telepathy): the psychic aura and eye mark, and while its caster is at the
+   * controls, the tether of sparks from the caster's tank.
+   */
+  private mindTank(
+    e: TankView,
+    x: number,
+    y: number,
+    sw: number,
+    sh: number,
+    top: number,
+    t: number,
+  ): void {
+    const by = e.mindBy ?? -1;
+    let caster: TankView | undefined;
+    for (const o of this.entities) {
+      if (o.kind === 'tank' && o.player === by && o.alive) caster = o;
+    }
+    const steered = e.active && caster !== undefined;
+    const marks =
+      (e.chill > 0 ? 1 : 0) +
+      (e.glue > 0 ? 1 : 0) +
+      ((e.rust ?? 0) > 0 ? 1 : 0) +
+      ((e.jam ?? 0) > 0 ? 1 : 0);
+    drawPsiAura(
+      this.normal,
+      this.additive,
+      x,
+      y - (sh >> 1),
+      sw >> 1,
+      top,
+      t,
+      steered,
+      x + 10 + marks * 8,
+    );
+    if (steered && caster) {
+      const solid = (cx: number, cy: number) => this.probe.solid(cx, cy);
+      drawPsiTether(
+        this.normal,
+        this.additive,
+        caster.x,
+        this.tankY(caster) - 9,
+        x,
+        top - 2,
+        t,
+        solid,
+      );
     }
   }
 
@@ -2757,6 +2810,10 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 7, 7, 0xff6a14, 0.55, Shape.Pixel);
         this.normal.push(x, y, 3, 3, 0xff8a20, 1);
         g.push(x, y, 1, 1, 0xfff0a0, 1);
+        continue;
+      }
+      if (look?.shell === 'psi') {
+        drawPsiShell(this.normal, g, e.x, e.y, e.id, this.fxTick);
         continue;
       }
       if (look?.shell === 'glue') {
