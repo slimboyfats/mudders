@@ -71,7 +71,7 @@ describe('ambient layers', () => {
   });
 
   it('draws each zone look', () => {
-    for (const look of ['gas', 'acid', 'resonance'] as const) {
+    for (const look of ['gas', 'acid', 'resonance', 'acid-cloud'] as const) {
       const r = recorder();
       drawZones(
         r.batch,
@@ -83,6 +83,19 @@ describe('ambient layers', () => {
       );
       expect(r.out.length).toBeGreaterThan(5);
     }
+  });
+
+  it('scatters caltrops on the ground under the zone', () => {
+    const r = recorder();
+    drawZones(
+      r.batch,
+      r.batch,
+      [{ kind: 'zone', x: 200, y: 179, radius: 30, look: 'caltrops', turns: 6 }],
+      10,
+      probe(180),
+      1,
+    );
+    expect(r.out.length).toBeGreaterThan(20);
   });
 
   it('storm flicker is occasional and off without a period', () => {

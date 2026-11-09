@@ -338,6 +338,7 @@ interface RtStrike {
   count: number;
   lead: number;
   stagger: number;
+  fall: boolean;
 }
 
 interface RtZoneSpec {
@@ -359,6 +360,11 @@ interface RtZoneSpec {
   wide: boolean;
   /** Strikes: weapon index, chance in thousandths, spread in cells (null = none). */
   strike: RtStrike | null;
+  /** Sky zone wind drift (fixed-point multiplier; 0 = stays put). */
+  drift: number;
+  shieldDrain: number;
+  /** Caltrops: health and extra allowance per cell driven inside (null = none). */
+  spikes: { damage: number; drag: number } | null;
 }
 
 type RtImpact =
@@ -366,7 +372,7 @@ type RtImpact =
   | { kind: 'op'; op: number; radius: number; damageType: DamageType }
   | { kind: 'spawn'; s: RtSpawn }
   | { kind: 'zone'; z: RtZoneSpec }
-  | { kind: 'mine'; weapon: number; radius: number; look: number };
+  | { kind: 'mine'; weapon: number; radius: number; look: number; span: number; height: number };
 
 /** A mine on the map (§4a, Black Hole Mine): plain integers, hashed. */
 export interface Mine {
@@ -380,11 +386,18 @@ export interface Mine {
   owner: number;
   /** Armed once the turn it was laid in has ended. */
   armed: boolean;
+  /**
+   * Tripwire (`wireH` > 0): `x`,`y` is the first post's foot and `x2`,`y2` the second's (x2 > x);
+   * the wire runs between the cells `wireH` above each.
+   */
+  x2: number;
+  y2: number;
+  wireH: number;
 }
 
 /** Most mines on the map at once; the oldest goes first. */
 export const MAX_MINES = 16;
-const MINE_LOOKS = ['black-hole'] as const;
+const MINE_LOOKS = ['black-hole', 'tripwire'] as const;
 
 /** A lingering zone on the map (§4a): plain integers, hashed. */
 export interface Zone {
@@ -423,6 +436,15 @@ export interface Zone {
   strikeCount: number;
   strikeLead: number;
   strikeStagger: number;
+  /** Strikes fall from the cloud as real shells (rain). */
+  strikeFall: boolean;
+  /** Sky drift: fixed-point x (follows `x`), wind multiplier (0 = none). */
+  fx: number;
+  skyDrift: number;
+  shieldDrain: number;
+  spikeDamage: number;
+  /** -1 = no spikes. */
+  spikeDrag: number;
 }
 
 /** Gas cloud puffs, fixed-point cells/tick per tick: apart, upward when on top, downhill. */
@@ -436,7 +458,16 @@ export const MAX_ZONES = 32;
 export const MAX_PROJECTILES = 64;
 /** Most decoys (`Lure`) in one round. */
 export const MAX_LURES = 8;
-const ZONE_LOOKS = ['gas', 'acid', 'resonance', 'toxic', 'volcano', 'storm'] as const;
+const ZONE_LOOKS = [
+  'gas',
+  'acid',
+  'resonance',
+  'toxic',
+  'volcano',
+  'storm',
+  'caltrops',
+  'acid-cloud',
+] as const;
 
 interface RtWeapon {
   id: string;
@@ -766,6 +797,9 @@ export class World implements SimApi {
               }
             : null,
           strike: z.strike ? this.bindStrike(weapon, z.strike) : null,
+          drift: toFixed(z.drift),
+          shieldDrain: z.shieldDrain,
+          spikes: z.spikes ? { damage: z.spikes.damage, drag: z.spikes.drag } : null,
         },
       };
     }
@@ -777,6 +811,8 @@ export class World implements SimApi {
         weapon: mw,
         radius: imp.mine.radius,
         look: MINE_LOOKS.indexOf(imp.mine.look),
+        span: imp.mine.wire ? imp.mine.wire.span : 0,
+        height: imp.mine.wire ? imp.mine.wire.height : 0,
       };
     }
     return {
@@ -796,6 +832,7 @@ export class World implements SimApi {
       count: number;
       lead: number;
       stagger: number;
+      fall: boolean;
     },
   ): RtStrike {
     const i = this.weaponByIndex(st.weapon);
@@ -807,6 +844,7 @@ export class World implements SimApi {
       count: st.count,
       lead: st.lead,
       stagger: st.stagger,
+      fall: st.fall,
     };
   }
 
@@ -1474,9 +1512,22 @@ export class World implements SimApi {
     t.x = nx;
     t.y = top;
     for (let d = 0; d < climb && !this.supported(t); d++) t.y++;
-    t.driveLeft = Math.max(0, t.driveLeft - cost);
-    [t.fuel, t.fuelBurn] = this.burnFuel(t.fuel, t.fuelBurn);
-    if (t.driveLeft <= 0 || t.fuel <= 0) t.driving = 0;
+    let drag = 0;
+    if (this.zones.length > 0) {
+      const zi = this.spikesAt(t.x, t.y, t.half);
+      if (zi >= 0) {
+        // caltrops: they bite the treads and puncture the tank, and every cell drags
+        const z = this.zones[zi]!;
+        drag = z.spikeDrag;
+        this.emit('spiked', t.x, t.y, t.half, { damage: z.spikeDamage, player: t.player });
+        this.damageTank(t, z.spikeDamage, z.owner);
+        // bled out on the spikes: the turn is over
+        if (!t.alive) this.interrupt(z.owner);
+      }
+    }
+    t.driveLeft = Math.max(0, t.driveLeft - cost - drag);
+    for (let i = 0; i <= drag; i++) [t.fuel, t.fuelBurn] = this.burnFuel(t.fuel, t.fuelBurn);
+    if (t.driveLeft <= 0 || t.fuel <= 0 || !t.alive) t.driving = 0;
     this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
   }
 
@@ -1516,7 +1567,15 @@ export class World implements SimApi {
       for (let d = 0; d < safe && !this.supportedAt(nx, ny, t.half); d++) ny++;
       if (!this.supportedAt(nx, ny, t.half)) break;
       // never into an armed mine's reach
-      if (this.mines.length > 0 && this.mineAt(nx, ny - (t.h >> 1), t.half)) break;
+      if (this.mines.length > 0 && this.mineAt(nx, ny, t.half, t.h)) break;
+      // never onto caltrops (driving off them is fine)
+      if (
+        this.zones.length > 0 &&
+        this.spikesAt(nx, ny, t.half) >= 0 &&
+        this.spikesAt(x, y, t.half) < 0
+      ) {
+        break;
+      }
       x = nx;
       y = ny;
       // a spot in the sudden-death zone is no place to stop (driving through it is fine)
@@ -1956,6 +2015,9 @@ export class World implements SimApi {
         }
       }
 
+      // a shell flying through an armed tripwire sets it off and goes off with it
+      if (this.wires > 0 && sig !== 'skip' && this.wireCatch(p, px, py)) continue;
+
       if (sig === 'pulse') {
         const cx = Math.max(0, Math.min(this.grid.width - 1, Math.floor(p.x / FP)));
         const cy = Math.max(0, Math.min(H - 1, Math.floor(p.y / FP)));
@@ -2179,7 +2241,7 @@ export class World implements SimApi {
 
   /** Plant a mine on the first air cell at or above the impact point (§4a). */
   private addMine(
-    m: { weapon: number; radius: number; look: number },
+    m: { weapon: number; radius: number; look: number; span: number; height: number },
     x: number,
     y: number,
     owner: number,
@@ -2189,37 +2251,158 @@ export class World implements SimApi {
     for (let k = 0; k < 32 && my > 0 && g.material[my * g.width + x] !== 0; k++) my--;
     if (this.mines.length >= MAX_MINES) this.mines.shift();
     const id = this.nextMineId++;
+    let x1 = x;
+    let y1 = my;
+    let x2 = x;
+    let y2 = my;
+    if (m.span > 0) [x1, y1, x2, y2] = this.wireSpan(x, my, m.span >> 1, m.height);
     this.mines.push({
       id,
-      x,
-      y: my,
+      x: x1,
+      y: y1,
       radius: m.radius,
       weapon: m.weapon,
       look: m.look,
       owner,
       armed: false,
+      x2,
+      y2,
+      wireH: m.span > 0 ? m.height : 0,
     });
-    this.emit('mineLaid', x, my, m.radius, { look: m.look, id });
+    this.emit('mineLaid', x1, y1, m.radius, {
+      look: m.look,
+      id,
+      ...(m.span > 0 ? { x2, y2 } : {}),
+    });
   }
 
-  /** An armed mine would trip on a tank centred at (cx, cy). */
-  private mineAt(cx: number, cy: number, half: number): boolean {
-    for (const m of this.mines) {
-      if (!m.armed) continue;
+  /**
+   * Posts for a tripwire centred on (x, y): up to `half` cells either side, each on the ground in
+   * its column, pulled in two cells at a time while the ground between would cut the wire.
+   */
+  private wireSpan(
+    x: number,
+    y: number,
+    half: number,
+    h: number,
+  ): [number, number, number, number] {
+    const g = this.grid;
+    const foot = (c: number): number => {
+      // the first air cell above the ground in this column, searched from near the impact row
+      let r = Math.max(0, Math.min(g.height - 1, y - 24));
+      while (r < g.height - 1 && g.material[(r + 1) * g.width + c] === 0) r++;
+      while (r > 0 && g.material[r * g.width + c] !== 0) r--;
+      return r;
+    };
+    let a = half;
+    let b = half;
+    for (;;) {
+      const x1 = Math.max(1, x - a);
+      const x2 = Math.min(g.width - 2, x + b);
+      const y1 = foot(x1);
+      const y2 = foot(x2);
+      if (x2 - x1 < 6) return [x1, y1, x2, y2];
+      // a stake far above or below the impact (a cliff, a pillar) is no anchor
+      let cut = Math.abs(y1 - y) > 12 ? -1 : Math.abs(y2 - y) > 12 ? 1 : 0;
+      for (let c = x1 + 1; c < x2 && cut === 0; c++) {
+        const wy = this.wireY(x1, y1 - h, x2, y2 - h, c);
+        if (wy >= 0 && g.material[wy * g.width + c] !== 0) cut = c < x ? -1 : 1;
+      }
+      if (cut === 0) return [x1, y1, x2, y2];
+      if (cut < 0) a -= 2;
+      else b -= 2;
+      if (a < 3) a = 3;
+      if (b < 3) b = 3;
+      if (a === 3 && b === 3) return [x1, y1, x2, y2];
+    }
+  }
+
+  /** Row of a wire from (x1, y1) to (x2, y2) at column c (integer, rounded). */
+  private wireY(x1: number, y1: number, x2: number, y2: number, c: number): number {
+    const d = x2 - x1;
+    if (d <= 0) return y1;
+    return y1 + Math.trunc(((y2 - y1) * (c - x1) * 2 + d) / (2 * d));
+  }
+
+  /**
+   * Whether a tank box (columns cx ± half, rows bottom − h … bottom) touches mine `m` once armed;
+   * the touch point goes to `tripX`/`tripY`.
+   */
+  private mineHits(m: Mine, cx: number, bottom: number, half: number, h: number): boolean {
+    if (m.wireH === 0) {
       const dx = cx - m.x;
-      const dy = cy - m.y;
+      const dy = bottom - (h >> 1) - m.y;
       const r = m.radius + half;
-      if (dx * dx + dy * dy < r * r) return true;
+      this.tripX = m.x;
+      this.tripY = m.y;
+      return dx * dx + dy * dy < r * r;
+    }
+    if (cx + half <= m.x || cx - half > m.x2) return false;
+    const c = Math.max(m.x, Math.min(m.x2, cx));
+    const wy = this.wireY(m.x, m.y - m.wireH, m.x2, m.y2 - m.wireH, c);
+    this.tripX = c;
+    this.tripY = wy;
+    return wy >= bottom - h - 1 && wy <= bottom;
+  }
+
+  /** Armed tripwires on the map (skips the shell check when there are none). */
+  private get wires(): number {
+    let n = 0;
+    for (const m of this.mines) if (m.armed && m.wireH > 0) n++;
+    return n;
+  }
+
+  /** Where the last mine touch (or shell crossing) was found. */
+  private tripX = 0;
+  private tripY = 0;
+
+  /** An armed mine would trip on a tank of this size standing at (cx, bottom). */
+  private mineAt(cx: number, bottom: number, half: number, h: number): boolean {
+    for (const m of this.mines) {
+      if (m.armed && this.mineHits(m, cx, bottom, half, h)) return true;
     }
     return false;
   }
 
-  /** A live tank's centre is within the mine's reach. */
+  /** A live tank touches the mine (within its reach, or against its wire). */
   private mineTouches(m: Mine, t: Tank): boolean {
-    const dx = t.x - m.x;
-    const dy = t.y - (t.h >> 1) - m.y;
-    const r = m.radius + t.half;
-    return dx * dx + dy * dy < r * r;
+    return this.mineHits(m, t.x, t.y, t.half, t.h);
+  }
+
+  /**
+   * A shell that flew from (x0, y0) to its current spot (fixed-point) through an armed tripwire:
+   * the wire trips where they cross and the shell goes off there. True if it did.
+   */
+  private wireCatch(p: Projectile, x0: number, y0: number): boolean {
+    const ax = x0 >> FP_SHIFT;
+    const ay = y0 >> FP_SHIFT;
+    const bx = p.x >> FP_SHIFT;
+    const by = p.y >> FP_SHIFT;
+    for (let i = 0; i < this.mines.length; i++) {
+      const m = this.mines[i]!;
+      if (!m.armed || m.wireH === 0) continue;
+      const lo = Math.min(ax, bx);
+      const hi = Math.max(ax, bx);
+      if (hi < m.x || lo > m.x2) continue;
+      // which side of the wire each end is on, measured at its own column (clamped onto the wire)
+      const ca = Math.max(m.x, Math.min(m.x2, ax));
+      const cb = Math.max(m.x, Math.min(m.x2, bx));
+      const sa = ay - this.wireY(m.x, m.y - m.wireH, m.x2, m.y2 - m.wireH, ca);
+      const sb = by - this.wireY(m.x, m.y - m.wireH, m.x2, m.y2 - m.wireH, cb);
+      const inA = ax >= m.x && ax <= m.x2;
+      const inB = bx >= m.x && bx <= m.x2;
+      if (!inA && !inB) continue;
+      if (!(sa < 0 && sb >= 0) && !(sa > 0 && sb <= 0) && sb !== 0) continue;
+      const c = inB ? cb : ca;
+      const wy = this.wireY(m.x, m.y - m.wireH, m.x2, m.y2 - m.wireH, c);
+      this.mines.splice(i, 1);
+      this.tripX = c;
+      this.tripY = wy;
+      this.tripMine(m);
+      this.impact(p, c, Math.max(0, Math.min(this.grid.height - 1, wy)));
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -2237,6 +2420,15 @@ export class World implements SimApi {
         continue;
       }
       if (g.material[(m.y + 1) * g.width + m.x] === 0) m.y++;
+      if (m.wireH > 0) {
+        if (m.y2 + 1 >= g.height) {
+          m.armed = false;
+          m.weapon = -1;
+          lost = true;
+          continue;
+        }
+        if (g.material[(m.y2 + 1) * g.width + m.x2] === 0) m.y2++;
+      }
     }
     if (lost) this.mines = this.mines.filter((m) => m.weapon >= 0);
     this.tripMines(-1, -1, 0);
@@ -2269,6 +2461,15 @@ export class World implements SimApi {
           const dx = m.x - x;
           const dy = m.y - y;
           hit = dx * dx + dy * dy < radius * radius;
+          this.tripX = m.x;
+          this.tripY = m.y;
+          if (!hit && m.wireH > 0) {
+            const ex = m.x2 - x;
+            const ey = m.y2 - y;
+            hit = ex * ex + ey * ey < radius * radius;
+            this.tripX = m.x2;
+            this.tripY = m.y2;
+          }
         } else {
           for (const t of this.tanks) {
             if (t.alive && this.mineTouches(m, t)) {
@@ -2289,23 +2490,37 @@ export class World implements SimApi {
     }
   }
 
+  /** Set off a mine at its trip point (`tripX`, `tripY`: the mine itself, or where the wire was hit). */
   private tripMine(m: Mine): void {
+    const x = m.wireH > 0 ? this.tripX : m.x;
+    const y = m.wireH > 0 ? Math.max(0, Math.min(this.grid.height - 1, this.tripY)) : m.y;
     this.interrupt(m.owner);
-    this.emit('mineTrip', m.x, m.y, m.radius, { look: m.look, id: m.id });
+    if (m.wireH > 0) {
+      this.emit('wireTrip', x, y, m.radius, {
+        look: m.look,
+        id: m.id,
+        x1: m.x,
+        y1: m.y - m.wireH,
+        x2: m.x2,
+        y2: m.y2 - m.wireH,
+      });
+    } else {
+      this.emit('mineTrip', m.x, m.y, m.radius, { look: m.look, id: m.id });
+    }
     const w = this.weapons[m.weapon]!;
     const p: Projectile = {
       id: 0,
       weapon: m.weapon,
       owner: m.owner,
-      x: m.x * FP + FP / 2,
-      y: m.y * FP + FP / 2,
+      x: x * FP + FP / 2,
+      y: y * FP + FP / 2,
       vx: 0,
       vy: 0,
       age: 0,
       alive: false,
       data: [],
     };
-    this.runImpacts(w.impacts, p, m.x, m.y);
+    this.runImpacts(w.impacts, p, x, y);
   }
 
   private addZone(z: RtZoneSpec, x: number, y: number, owner: number): void {
@@ -2374,6 +2589,12 @@ export class World implements SimApi {
       strikeCount: st ? st.count : 0,
       strikeLead: st ? st.lead : 0,
       strikeStagger: st ? st.stagger : 0,
+      strikeFall: st ? st.fall : false,
+      fx: x * FP,
+      skyDrift: z.sky > 0 ? z.drift : 0,
+      shieldDrain: z.shieldDrain,
+      spikeDamage: z.spikes ? z.spikes.damage : 0,
+      spikeDrag: z.spikes ? z.spikes.drag : -1,
     });
     this.emit('zone', x, y, c ? c.puffRadius * 2 : radius, { look: z.look, turns: z.turns });
     // a cloud gathering in the sky rolls a long low rumble
@@ -2396,6 +2617,14 @@ export class World implements SimApi {
       const pf = z.puffs;
       // a sky zone keeps time too (renderers gather its clouds by age)
       if (z.sky > 0) z.age++;
+      if (z.skyDrift > 0) {
+        // sailing with the wind, never past the map edges
+        const W = this.grid.width;
+        const lo = Math.min(W >> 1, z.radius) * FP;
+        const hi = Math.max(W >> 1, W - z.radius) * FP;
+        z.fx = Math.max(lo, Math.min(hi, z.fx + Math.trunc((this.wind * z.skyDrift) / FP)));
+        z.x = z.fx >> FP_SHIFT;
+      }
       if (pf.length === 0) continue;
       z.age++;
       // puffs settle about half a radius apart: a thick blanket, not a row of balls
@@ -2513,6 +2742,8 @@ export class World implements SimApi {
     const reach = z.radius + t.half;
     // a sky zone covers whole columns: anything under the cloud is in it
     if (z.sky > 0) return x - z.x < reach && z.x - x < reach;
+    // a spiked strip of ground: a box as high as it is wide
+    if (z.spikeDrag >= 0) return this.onSpikes(z, t.x, t.y, t.half);
     const pf = z.puffs;
     if (pf.length === 0) {
       const dx = x - z.x;
@@ -2527,10 +2758,38 @@ export class World implements SimApi {
     return false;
   }
 
+  /** A tank standing at (x, bottom y) with this half width is on the zone's spikes. */
+  private onSpikes(z: Zone, x: number, y: number, half: number): boolean {
+    const r = z.radius + half;
+    return x - z.x < r && z.x - x < r && y - z.y < z.radius && z.y - y < z.radius;
+  }
+
+  /** The spiked zone a tank at (x, y) stands in, or -1. */
+  private spikesAt(x: number, y: number, half: number): number {
+    for (let i = 0; i < this.zones.length; i++) {
+      const z = this.zones[i]!;
+      if (z.spikeDrag >= 0 && this.onSpikes(z, x, y, half)) return i;
+    }
+    return -1;
+  }
+
   /** End of a turn: zones hurt the tanks inside them and re-run their op, then age (§4a). */
   private applyZones(): void {
     if (this.zones.length === 0) return;
     for (const z of this.zones) {
+      if (z.shieldDrain > 0) {
+        for (const t of this.tanks) {
+          if (!t.alive || t.shield <= 0 || !this.inZone(z, t)) continue;
+          const eaten = Math.min(t.shield, z.shieldDrain);
+          t.shield -= eaten;
+          this.emit('shieldEaten', t.x, t.y - (t.h >> 1), t.half + 2, {
+            eaten,
+            left: t.shield,
+            player: t.player,
+            look: z.look,
+          });
+        }
+      }
       if (z.damage > 0) {
         for (const t of this.tanks) {
           if (!t.alive) continue;
@@ -2615,6 +2874,26 @@ export class World implements SimApi {
       0,
       Math.min(g.width - 1, z.x + this.rng.range(-z.strikeSpread, z.strikeSpread)),
     );
+    const w0 = this.weapons[z.strikeWeapon]!;
+    if (z.strikeFall) {
+      // a drop let go just under the cloud; the higher ones land later
+      if (this.projectiles.length >= MAX_PROJECTILES) return;
+      const st = z.strikeStagger;
+      const lift = st > 0 ? this.rng.int(st + 1) : 0;
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        weapon: z.strikeWeapon,
+        owner: z.owner,
+        x: x * FP + FP / 2,
+        y: (z.y + 4 - lift) * FP,
+        vx: 0,
+        vy: FP >> 2,
+        age: 0,
+        alive: true,
+        data: [],
+      });
+      return;
+    }
     let y = g.surfaceY(x);
     // tanks stand tallest: the bolt finds the highest one in the column
     for (const t of this.tanks) {
@@ -2624,7 +2903,7 @@ export class World implements SimApi {
       if (top < y) y = Math.max(0, top);
     }
     y = Math.min(g.height - 1, y);
-    const w = this.weapons[z.strikeWeapon]!;
+    const w = w0;
     if (w.onTimer > 0) {
       // a timed strike hangs where it will hit and goes off later: the barrage rolls
       if (this.projectiles.length >= MAX_PROJECTILES) return;
@@ -3671,6 +3950,7 @@ export class World implements SimApi {
         look: MINE_LOOKS[m.look] ?? 'black-hole',
         armed: m.armed,
         owner: m.owner,
+        ...(m.wireH > 0 ? { wire: { x2: m.x2, y2: m.y2, height: m.wireH } } : {}),
       });
     }
     const effectEvents = this.effects;
@@ -3807,6 +4087,15 @@ export class World implements SimApi {
         h.num(z.strikeWeapon).num(z.strikeChance).num(z.strikeSpread);
         h.num(z.strikeCount).num(z.strikeLead).num(z.strikeStagger);
       }
+      // newer zone kinds only: other matches keep their hashes
+      if (z.skyDrift > 0 || z.shieldDrain > 0 || z.spikeDrag >= 0 || z.strikeFall) {
+        h.num(z.strikeFall ? 1 : 0)
+          .num(z.fx)
+          .num(z.skyDrift)
+          .num(z.shieldDrain)
+          .num(z.spikeDamage)
+          .num(z.spikeDrag);
+      }
     }
     // decoys: only hashed once one has been put down, so other matches keep their hashes
     if (this.lures.length > 0) {
@@ -3827,6 +4116,7 @@ export class World implements SimApi {
       for (const m of this.mines) {
         h.num(m.id).num(m.x).num(m.y).num(m.radius).num(m.weapon).num(m.look).num(m.owner);
         h.num(m.armed ? 1 : 0);
+        if (m.wireH > 0) h.num(m.x2).num(m.y2).num(m.wireH);
       }
     }
     h.num(this.ops.length);

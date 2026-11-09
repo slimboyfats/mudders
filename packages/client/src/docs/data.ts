@@ -217,9 +217,18 @@ function describeImpact(
       };
     const where = z.cloud
       ? `drifting cloud of ${z.cloud.puffs} puffs`
-      : `${z.look} zone, radius ${z.radius}`;
+      : z.spikes
+        ? `spiked ground ${z.radius * 2} cells wide`
+        : `${z.look} zone, radius ${z.radius}`;
     const parts = [`${z.turns} turn${z.turns > 1 ? 's' : ''}`];
     if (z.damage > 0) parts.unshift(`${z.damage} damage per turn`);
+    if (z.shieldDrain > 0) parts.unshift(`eats ${z.shieldDrain} shield per turn`);
+    if (z.spikes) {
+      parts.push(
+        `${z.spikes.damage} damage per cell driven on it, each cell costs ${z.spikes.drag + 1}× drive and fuel`,
+      );
+    }
+    if (z.drift > 0) parts.push('drifts with the wind');
     if (z.rust) parts.push(`rusts tanks for ${z.rust.turns} turns`);
     const children: EffectLine[] = [];
     if (z.strike && depth < 3 && !seen.includes(z.strike.weapon)) {
@@ -234,8 +243,11 @@ function describeImpact(
   }
   if ('mine' in i) {
     const m = i.mine;
+    const how = m.wire
+      ? `Strings a tripwire up to ${m.wire.span} cells long, ${m.wire.height} cells up, that tanks and shells set off`
+      : `Lays a mine that trips within ${m.radius} cells`;
     return {
-      text: `Lays a mine that trips within ${m.radius} cells: ${nameOf(c, m.weapon)}`,
+      text: `${how}: ${nameOf(c, m.weapon)}`,
       link: m.weapon,
       children: depth < 3 ? weaponLines(c, m.weapon, depth + 1, peak, seen) : [],
     };

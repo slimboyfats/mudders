@@ -308,6 +308,8 @@ export class EffectSystem {
   /** Glue Bomb strings and domes. */
   private strands: Strand[] = [];
   private splats: Splat[] = [];
+  /** Tripwire Net nets draped over the ground. */
+  private nets: Splat[] = [];
   private fireworks: Firework[] = [];
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
@@ -857,6 +859,32 @@ export class EffectSystem {
         break;
       case 'glueSplat':
         this.glueSplat(e);
+        break;
+      case 'caltropScatter':
+        this.caltropScatter(e);
+        break;
+      case 'spiked':
+        this.spiked(e);
+        break;
+      case 'netDrop': {
+        const gy = this.surfaceNear(Math.round(e.x), Math.round(e.y), 24);
+        this.nets.push({
+          x: e.x,
+          y: gy >= 0 ? gy : e.y,
+          r: e.params.radius ?? 20,
+          start: e.tick,
+          dur: 150,
+        });
+        break;
+      }
+      case 'wireTrip':
+        this.wireTrip(e);
+        break;
+      case 'shieldEaten':
+        this.acidFizz(e, 16);
+        break;
+      case 'acidSplash':
+        this.acidFizz(e, e.params.count ?? 8);
         break;
       case 'glued':
         this.glued(e);
@@ -2867,6 +2895,105 @@ export class EffectSystem {
     this.kick(2, e.tick);
   }
 
+  /** Caltrop Field: a fan of steel spikes flung out over the ground (the zone draws them landed). */
+  private caltropScatter(e: EffectEvent): void {
+    const rng = this.rngFor(e, 211);
+    const n = Math.round((e.params.count ?? 30) * this.mult) + 6;
+    const spread = e.params.spread ?? 30;
+    for (let i = 0; i < n; i++) {
+      // a fixed flight time, so the far ones land near the edge of the field
+      const reach = spread * ((i + rng.next()) / n) * (i % 2 === 0 ? -1 : 1);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 2,
+        vx: reach / 32,
+        vy: -rng.range(1.4, 2.4),
+        life: rng.range(26, 40),
+        size: 1,
+        color: rng.next() < 0.25 ? 0xd0d4dc : rng.next() < 0.5 ? 0x8a9098 : 0x5a5e66,
+        kind: PKind.Chunk,
+      });
+    }
+    this.kick(1, e.tick);
+  }
+
+  /** A tank rolling over caltrops: sparks off the treads and a puff of grit. */
+  private spiked(e: EffectEvent): void {
+    const rng = this.rngFor(e, 223);
+    const n = Math.round(3 * this.mult) + 1;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-e.radius, e.radius),
+        y: e.y - 1,
+        vx: rng.range(-0.8, 0.8),
+        vy: -rng.range(0.6, 1.6),
+        life: rng.range(6, 12),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0xffb040,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** A tripwire snapping: both halves whip away from the break, shedding sparks and wire bits. */
+  private wireTrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 227);
+    const x1 = e.params.x1 ?? e.x;
+    const y1 = e.params.y1 ?? e.y;
+    const x2 = e.params.x2 ?? e.x;
+    const y2 = e.params.y2 ?? e.y;
+    const len = Math.max(1, x2 - x1);
+    const n = Math.round(len * 0.6 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const u = (i + rng.next()) / n;
+      const x = x1 + (x2 - x1) * u;
+      const y = y1 + (y2 - y1) * u;
+      const away = x < e.x ? -1 : 1;
+      this.particles.add({
+        x,
+        y,
+        vx: away * rng.range(0.2, 1.2),
+        vy: -rng.range(0.2, 1.4),
+        life: rng.range(10, 24),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xffffff : 0xb8bcc4,
+        kind: PKind.Chunk,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: rng.range(-1.6, 1.6),
+        vy: -rng.range(0.4, 2),
+        life: rng.range(6, 12),
+        size: 1,
+        color: 0xffe080,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** Acid at work: lime beads spitting up and a wisp of yellow fume (shields eaten, drops landing). */
+  private acidFizz(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 229);
+    const n = Math.round(count * this.mult) + 2;
+    const r = Math.max(2, e.radius);
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r),
+        y: e.y + rng.range(-3, 1),
+        vx: rng.range(-0.5, 0.5),
+        vy: -rng.range(0.4, 1.6),
+        life: rng.range(14, 30),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xf0ffa0 : rng.next() < 0.6 ? 0xc8f040 : 0x8cb028,
+        kind: PKind.Chunk,
+      });
+    }
+    this.puff(e, 0xb8c840, 4);
+  }
+
   /** A tank gummed up: goo slaps onto it, and strings stretch from the hull down to the ground. */
   private glued(e: EffectEvent): void {
     const rng = this.rngFor(e, 137);
@@ -2972,6 +3099,7 @@ export class EffectSystem {
     }
     this.strands = keep;
     this.splats = this.splats.filter((s) => t - s.start <= s.dur);
+    this.nets = this.nets.filter((s) => t - s.start <= s.dur);
   }
 
   /** Update (or start) the tornado an event belongs to: one event per tornado per tick. */
@@ -5923,8 +6051,48 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * A Tripwire Net: a rope mesh that drops out of the air in a few ticks and drapes over the ground
+   * and the tank under it like a tent, then frays away in a dither. Rope and knot cells only.
+   */
+  private drawNets(normal: QuadBatch, t: number): void {
+    for (const s of this.nets) {
+      const age = t - s.start;
+      if (age < 0 || age > s.dur) continue;
+      const k = age / s.dur;
+      const lift = age < 10 ? Math.round((1 - age / 10) * 26) : 0;
+      const r = Math.round(s.r);
+      const cx = Math.floor(s.x);
+      for (let dc = -r; dc <= r; dc++) {
+        const c = cx + dc;
+        const gy = this.surfaceNear(c, s.y, 16);
+        if (gy < 0) continue;
+        const u = dc / r;
+        // a tent over the middle (where the tank stood), flat at the edges
+        const tent = Math.round(9 * Math.max(0, 1 - u * u * 2.2));
+        const top = gy - 1 - tent - lift;
+        for (let j = 0; j <= tent + 1; j++) {
+          const row = top + j;
+          if (row >= gy) break;
+          // the mesh: two diagonal strands every third cell, knots where they cross
+          const a = (((c + row) % 3) + 3) % 3 === 0;
+          const b = (((c - row) % 3) + 3) % 3 === 0;
+          // the sides hang down, the top is a full mesh
+          if (j > 0 && Math.abs(u) < 0.25 && j < tent) continue;
+          if (!a && !b) continue;
+          if (k > 0.7) {
+            const h = (Math.imul(c + 7, 2654435761) ^ Math.imul(row + 3, 40503)) >>> 24;
+            if (h / 255 < (k - 0.7) * 3.4) continue;
+          }
+          normal.rect(c, row, 1, 1, a && b ? 0x7a5a30 : 0xc8a468);
+        }
+      }
+    }
+  }
+
   /** Glue domes slumping into puddles, then the strings of glue over them. */
   drawGoo(normal: QuadBatch, t: number): void {
+    if (this.nets.length > 0) this.drawNets(normal, t);
     for (const s of this.splats) {
       const age = t - s.start;
       if (age < 0 || age > s.dur) continue;
@@ -6006,6 +6174,7 @@ export class EffectSystem {
     this.funnels = [];
     this.strands = [];
     this.splats = [];
+    this.nets = [];
     this.posts = [];
     this.magnets = [];
     this.drones = [];
@@ -6036,7 +6205,9 @@ export const RICOCHET_HEAT = [
  * Zone looks by index (gas, acid, resonance, toxic, volcano, storm), matching the sim's zone
  * `look` order.
  */
-export const ZONE_COLOR = [0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425, 0x3a2f2c, 0x3c4250] as const;
+export const ZONE_COLOR = [
+  0x9ab83a, 0xb8f040, 0xb070ff, 0x8cc425, 0x3a2f2c, 0x3c4250, 0x6a6e76, 0xa4b43c,
+] as const;
 
 /** Rust bands (Thunderstorm): dark pit, body, orange, lit edge. */
 export const RUST = [0x5a2a14, 0x8e4a1e, 0xb8642a, 0xd88a44] as const;

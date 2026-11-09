@@ -1,0 +1,68 @@
+{
+  "id": "weapon.caltrop-field",
+  "schemaVersion": 1,
+  "description": "Player 0 scatters a Caltrop Field on the ground in front of player 1, who then drives left across it: sparks fly off the treads, the drive runs out fast and each cell costs health.",
+  "subject": "weapon.caltrop-field",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.caltrop-field": 1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.caltrop-field"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 570
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": -1
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1200,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "rules": {
+    "turnTimer": 0
+  }
+}

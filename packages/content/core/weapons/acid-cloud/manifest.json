@@ -1,0 +1,61 @@
+{
+  "id": "weapon.acid-cloud",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid Cloud",
+    "description": "Pops open into a sickly yellow-green cloud that hangs over the hit for six turns and sails slowly with the wind, so it can drift onto someone else. At the end of every turn it rains corrosive drops that pit the ground, and every tank under it loses 30 shield points and then 4 health. Unlike Acid Rain it doesn't fall in one go: it keeps raining wherever the wind takes it.",
+    "category": "weird",
+    "since": "core@0.60.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 7,
+        "damage": 10,
+        "damageType": "corrosive",
+        "effects": {
+          "burst": {
+            "count": 10
+          },
+          "gasBurst": {
+            "count": 14
+          }
+        }
+      }
+    },
+    {
+      "zone": {
+        "radius": 40,
+        "turns": 6,
+        "damage": 4,
+        "damageType": "corrosive",
+        "look": "acid-cloud",
+        "sky": 64,
+        "drift": 2.5,
+        "shieldDrain": 30,
+        "strike": {
+          "weapon": "weapon.acid-cloud-drop",
+          "chance": 1,
+          "spread": 40,
+          "count": 6,
+          "stagger": 60,
+          "fall": true
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 7500,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 30,
+    "terrainValue": 0.3
+  }
+}

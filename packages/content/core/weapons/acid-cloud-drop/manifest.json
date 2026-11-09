@@ -1,0 +1,52 @@
+{
+  "id": "weapon.acid-cloud-drop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid cloud drop",
+    "description": "One fat corrosive drop out of an Acid Cloud. It pits whatever it lands on, dirt and rock included, and stings a tank it hits.",
+    "category": "submunition",
+    "since": "core@0.60.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 5,
+        "damageType": "corrosive",
+        "effects": {
+          "burst": {
+            "count": 6
+          },
+          "acidSplash": {
+            "count": 8
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 4,
+      "damageType": "blast"
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "acid",
+    "trail": false
+  }
+}

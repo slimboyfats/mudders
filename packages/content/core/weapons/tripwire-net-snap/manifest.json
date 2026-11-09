@@ -1,0 +1,47 @@
+{
+  "id": "weapon.tripwire-net-snap",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tripwire snap",
+    "description": "What a Tripwire Net does when something hits the wire: a charge bangs where it was touched and a weighted net drops over everything close by, pinning tanks in place for two of their turns.",
+    "category": "submunition",
+    "since": "core@0.60.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 32,
+        "glue": 2,
+        "effects": {
+          "flash": {
+            "strength": 0.6
+          },
+          "burst": {
+            "count": 18
+          },
+          "netDrop": {
+            "radius": 22
+          },
+          "shake": {
+            "strength": 2
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

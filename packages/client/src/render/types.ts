@@ -63,6 +63,7 @@ export interface ShellLook {
     | 'stage'
     | 'plasma'
     | 'rail'
+    | 'acid'
     | 'psi'
     | 'vapor';
   trail: boolean;

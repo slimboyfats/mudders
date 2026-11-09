@@ -1,0 +1,51 @@
+{
+  "id": "audio.wire-twang",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Wire twang",
+    "description": "A taut wire snapping with a bright twang, then the thump of the charge and the net coming down (Tripwire Net).",
+    "since": "core@0.60.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 1760,
+        "to": 660,
+        "hold": 0.04,
+        "release": 0.4,
+        "volume": 0.2,
+        "vibrato": {
+          "rate": 28,
+          "depth": 2
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 110,
+        "to": 45,
+        "hold": 0.08,
+        "release": 0.35,
+        "volume": 0.45
+      },
+      {
+        "wave": "noise",
+        "freq": 1800,
+        "to": 400,
+        "release": 0.3,
+        "volume": 0.16
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "wireTrip"
+    }
+  ]
+}
