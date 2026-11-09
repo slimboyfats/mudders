@@ -1,0 +1,55 @@
+{
+  "id": "audio.warp-out",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Warp Out",
+    "description": "A shimmering chip arpeggio that sweeps up and away as a tank breaks apart into pixels.",
+    "since": "core@0.46.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 330,
+        "to": 1760,
+        "hold": 0.3,
+        "release": 0.2,
+        "volume": 0.3,
+        "arp": [0, 7, 12, 19],
+        "arpRate": 0.025
+      },
+      {
+        "wave": "square",
+        "freq": 110,
+        "to": 880,
+        "hold": 0.25,
+        "release": 0.15,
+        "volume": 0.18,
+        "vibrato": {
+          "rate": 22,
+          "depth": 6
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 3000,
+        "to": 8000,
+        "hold": 0.2,
+        "release": 0.2,
+        "volume": 0.08
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "warpOut"
+    }
+  ],
+  "gap": 0.15
+}

@@ -1,0 +1,36 @@
+{
+  "id": "weapon.teleport-shell",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Teleport Shell",
+    "description": "Harmless on its own: wherever the shell lands, your tank breaks apart into pixels, streaks across the sky and pulls itself back together right there, standing on the ground. Hop out of a pit, onto the high ground, or right next to an enemy for a point-blank shot next turn. Land it on a tank and you come out beside it.",
+    "since": "core@0.46.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.warp",
+        "mode": "self"
+      },
+      "radius": 6,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 6000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "audio": {
+    "fire": "audio.fire"
+  }
+}
