@@ -36,6 +36,7 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm --filter @mudders/content music`: Rebuild the music modules from `packages/content/scripts/make-music.ts`
 - `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; PWA manifest + offline reload; screenshots
 - `pnpm play:net`: Built client + real signal server, two headless browsers: P2P, relay, copy-paste and public (browse, hidden host, AI takeover, rejoin) matches, reconnect, reload, 0 desyncs; screenshots (`PLAY_NET_RUNS=public` runs one; `PLAY_NET_LIVE=https://slimboyfats.github.io/mudders/` plays the deployed site against the live Render lobby)
+- Field manual (player docs): `packages/client/docs/index.html` + `src/docs/`, built with the client to `/mudders/docs/` from the resolved content (no hand-written numbers); new manifest fields show up once `src/docs/data.ts` reads them
 - `pnpm sim:preview [ids]`: CPU debug render of scenarios (sim-only sanity check; not the game's look)
 - `pnpm verify`: check + bench + build + smoke + audio:preview + play:smoke + play:net + determinism:browsers (~15 min): only on special occasions, see rule 11
 
