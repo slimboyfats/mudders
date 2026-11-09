@@ -1,0 +1,98 @@
+{
+  "id": "weapon.portal-pair",
+  "schemaVersion": 1,
+  "description": "Player 0 opens a Portal Pair beside player 1 (a cyan ring there, a violet one just in front of its own tank). Player 1 shoots wide, then player 0 lobs a missile short into its own violet ring: it drops out of the cyan ring onto player 1.",
+  "subject": "weapon.portal-pair",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.portal-pair": 1,
+        "weapon.missile": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.portal-pair"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 590
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 30,
+        "power": 420
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 140
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 90
+  }
+}

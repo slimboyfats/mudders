@@ -12,7 +12,8 @@ describe('weapon.swap-ray', () => {
     // a hill between them that the ray passes through untouched
     const g = w.grid;
     const dirt = w.mats.cellOf('material.dirt');
-    for (let y = 100; y < 150; y++) for (let x = 180; x < 220; x++) g.material[y * g.width + x] = dirt;
+    for (let y = 100; y < 150; y++)
+      for (let x = 180; x < 220; x++) g.material[y * g.width + x] = dirt;
     const before = g.material.slice();
     launchAt(w, 'weapon.swap-ray', 72, 146, 4, 0);
     expect(w.tanks[0]!.x).toBe(320);

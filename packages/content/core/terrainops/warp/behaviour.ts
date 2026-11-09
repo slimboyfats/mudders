@@ -51,7 +51,7 @@ function hitTank(api: SimApi, x: number, y: number, owner: number, reach: number
  * of a hill), set down on the first ground below, inside the map, and not on top of another tank
  * (it steps aside, towards `from`).
  */
-function landing(
+export function landing(
   api: SimApi,
   t: TankHandle,
   x: number,

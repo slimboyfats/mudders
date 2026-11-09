@@ -61,7 +61,8 @@ describe('terrainop.warp swap mode', () => {
     const g = w.grid;
     const dirt = w.mats.cellOf('material.dirt');
     // tank 0 stands on a 20-cell plateau
-    for (let y = 130; y < 150; y++) for (let x = 40; x < 80; x++) g.material[y * g.width + x] = dirt;
+    for (let y = 130; y < 150; y++)
+      for (let x = 40; x < 80; x++) g.material[y * g.width + x] = dirt;
     w.tanks[0]!.y = 130;
     launchAt(w, 'weapon.swap-ray', 72, 126, 4, 0.32);
     expect(w.tanks[1]!.x).toBe(60);

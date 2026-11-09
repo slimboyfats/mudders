@@ -4,7 +4,7 @@
   "meta": {
     "name": "Swap Ray",
     "description": "A straight beam along your aim that passes through hills without a scratch. When it reaches a tank, you and that tank both break apart into pixels and trade places. Harmless, but it puts an enemy on your crumbling cliff, in your pit, or right next to someone else's nuke. If it reaches no tank, nothing happens.",
-    "since": "core@0.47.0",
+    "since": "core@0.49.0",
     "category": "beam"
   },
   "flight": {
