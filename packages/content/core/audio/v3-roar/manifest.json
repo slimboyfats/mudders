@@ -1,0 +1,46 @@
+{
+  "id": "audio.v3-roar",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "V3 booster roar",
+    "description": "A V3 Rocket stage lighting: a crack, then a long falling noise roar over a low rumbling square that climbs as it pushes.",
+    "since": "core@0.47.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 3000,
+        "to": 600,
+        "release": 0.08,
+        "volume": 0.4
+      },
+      {
+        "wave": "noise",
+        "freq": 500,
+        "to": 1400,
+        "attack": 0.05,
+        "hold": 0.6,
+        "release": 0.5,
+        "volume": 0.35
+      },
+      {
+        "wave": "square",
+        "freq": 55,
+        "to": 110,
+        "attack": 0.04,
+        "hold": 0.6,
+        "release": 0.45,
+        "volume": 0.22,
+        "vibrato": { "rate": 22, "depth": 0.4 }
+      }
+    ]
+  },
+  "on": [{ "event": "v3Burn" }]
+}

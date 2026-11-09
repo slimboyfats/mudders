@@ -5,7 +5,7 @@
     "name": "Acid cloud drop",
     "description": "One fat corrosive drop out of an Acid Cloud. It pits whatever it lands on, dirt and rock included, and stings a tank it hits.",
     "category": "submunition",
-    "since": "core@0.46.0"
+    "since": "core@0.51.0"
   },
   "flight": {
     "use": "flight.ballistic"

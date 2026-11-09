@@ -46,6 +46,28 @@ describe('match setup', () => {
     expect(o.tanks).toEqual(['tank.scout', 'auto', 'random']);
     expect(toWorldOptions({ ...base, teams: null }, 1).mode).toBe('mode.classic');
   });
+
+  it("passes the player's sudden-death start turn to the match rules", () => {
+    const base = {
+      slots: ['human', 'ai.shooter'],
+      size: 'small' as const,
+      scenery: 'none' as const,
+      rounds: 1,
+      turnTimer: 0,
+      wind: 'none' as const,
+      startingCash: 0,
+      teams: null,
+      tanks: ['auto', 'auto'],
+    };
+    const on = toWorldOptions({ ...base, suddenDeath: true, suddenDeathFrom: 3 }, 1);
+    expect(on.rules).toMatchObject({ suddenDeath: true, suddenDeathFrom: 3 });
+    // off wins over a remembered start turn; unset leaves the mode's default
+    const off = toWorldOptions({ ...base, suddenDeath: false, suddenDeathFrom: 3 }, 1);
+    expect(off.rules?.suddenDeathFrom).toBeUndefined();
+    expect(
+      toWorldOptions({ ...base, suddenDeath: true }, 1).rules?.suddenDeathFrom,
+    ).toBeUndefined();
+  });
 });
 
 describe('weather pick', () => {

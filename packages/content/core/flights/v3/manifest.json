@@ -1,0 +1,21 @@
+{
+  "id": "flight.v3",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "V3",
+    "description": "A three-stage rocket: a ballistic launch, a booster that climbs straight up into the high sky, then a warhead that turns over, locks on to the nearest enemy and dives onto it.",
+    "since": "core@0.47.0"
+  },
+  "behaviour": "flight.v3",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 900,
+  "igniteTicks": 30,
+  "climbAccel": 0.35,
+  "climbSpeed": 6,
+  "climbTo": 14,
+  "climbTicks": 140,
+  "turnAccel": 0.55,
+  "diveSpeed": 9,
+  "range": 600
+}

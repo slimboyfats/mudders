@@ -54,6 +54,8 @@ import {
   type PixelTheme,
 } from './theme';
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
+import { drawWarp, type WarpFx } from './warp';
+import { Rockets } from './rocket';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -349,6 +351,10 @@ export class PixelRenderer implements Renderer {
   private entities: EntityView[] = [];
   /** Meteor shells: last position and per-tick motion by projectile id (for streaks and trails). */
   private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
+  /** V3 rockets and their spent stages (`rocket` / `stage` shell looks). */
+  private readonly rockets = new Rockets({ add: (e) => this.particles.add(e) }, () =>
+    this.fluid?.ok ? this.fluid : null,
+  );
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
   private debris: RenderSnapshot['debris'] = {
@@ -380,6 +386,8 @@ export class PixelRenderer implements Renderer {
    */
   private tumble: ({ rate: number; at: number; fly: number; land: number; rest: number } | null)[] =
     [];
+  /** Tanks warping (Teleport Shell, Swap Ray): broken into pixels, streaking, pulling together. */
+  private warps: (WarpFx | null)[] = [];
 
   constructor(
     readonly mapWidth: number,
@@ -845,6 +853,7 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
+      if (e.type === 'v3Burn') this.rockets.burn(e.params.id ?? -1, e.params.stage ?? 2, e.tick);
       if (e.type === 'tankDeath') this.startWreck(e.params.player ?? -1, e.tick);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
@@ -855,6 +864,26 @@ export class PixelRenderer implements Renderer {
         const dir = e.params.dir ?? 1;
         const rate = dir * (0.22 + ((e.tick * 7 + pl * 13) % 10) * 0.012);
         this.tumble[pl] = { rate, at: e.tick, fly: e.tick, land: -1, rest: 0 };
+      } else if (e.type === 'warpOut') {
+        const pr = e.params;
+        this.warps[pr.player ?? -1] = {
+          out: e.tick,
+          outDur: Math.max(1, pr.ticks ?? 26),
+          in: -1,
+          inDur: 26,
+          fx: e.x,
+          fy: e.y,
+          tx: pr.tx ?? e.x,
+          ty: pr.ty ?? e.y,
+        };
+      } else if (e.type === 'warpIn') {
+        const w = this.warps[e.params.player ?? -1];
+        if (w) {
+          w.in = e.tick;
+          w.inDur = Math.max(1, e.params.ticks ?? 26);
+          w.tx = e.x;
+          w.ty = e.y;
+        }
       } else if (e.type === 'shockFly') {
         const tb = this.tumble[e.params.player ?? -1];
         if (tb) tb.fly = e.tick;
@@ -876,11 +905,13 @@ export class PixelRenderer implements Renderer {
     this.water.clear();
     this.liquid.clear();
     this.meteors.clear();
+    this.rockets.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
     this.batteryAt = [];
     this.tumble = [];
+    this.warps = [];
   }
 
   /**
@@ -1440,6 +1471,7 @@ export class PixelRenderer implements Renderer {
     const shells = this.palette.shells;
     if (shells) {
       this.stepMeteors(shells);
+      this.rockets.prune(this.fxTick);
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -1458,6 +1490,17 @@ export class PixelRenderer implements Renderer {
               kind: PKind.Chunk,
             });
           }
+          continue;
+        }
+        if (look === 'rocket' || look === 'stage') {
+          this.rockets.step(
+            e.id,
+            e.x,
+            e.y,
+            look === 'stage',
+            this.fxTick,
+            QUALITY_PARTICLES[this.quality].mult,
+          );
           continue;
         }
         if (look === 'firework') {
@@ -1823,6 +1866,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawFunnels(this.normal, this.additive, t);
     this.fx.drawPosts(this.normal, t);
     this.fx.drawKaijus(this.normal, this.additive, t);
+    this.fx.drawPortals(this.normal, t);
     this.drawDebris();
     this.fx.drawChunks(this.normal);
     this.drawMines(t);
@@ -2170,6 +2214,13 @@ export class PixelRenderer implements Renderer {
           b.rect(x - 4, y - 5, 7, 2, litColor(0x1d191b, lit));
         }
         continue;
+      }
+      const wp = this.warps[e.player];
+      if (wp) {
+        const shielded = e.shield > 0;
+        const paint = (code: number) => litColor(spriteColor(code, col, shielded), lit);
+        if (drawWarp(b, wp, rows, x, y, e.player, t, paint)) continue;
+        this.warps[e.player] = null;
       }
       const spin = e.alive ? this.tumbleAngle(e.player, t) : 0;
       if (spin !== 0) {
@@ -2612,6 +2663,16 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 1, 1, 0xe8fcff, 1);
         continue;
       }
+      if (look?.shell === 'rail') {
+        // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const k = (this.fxTick + e.id) & 1;
+        g.push(x, y, k === 0 ? 5 : 1, k === 0 ? 1 : 5, 0x60e0ff, 0.9);
+        g.push(x, y, 3, 3, 0x60e0ff, 0.5, Shape.Pixel);
+        g.push(x, y, 1, 1, 0xffffff, 1);
+        continue;
+      }
       if (look?.shell === 'acid') {
         // a falling bead of acid: a pale lit cell on a lime body, a short drip above
         const x = Math.floor(e.x) + 0.5;
@@ -2638,6 +2699,14 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x, y, 4 - wob, 3 + wob, GLUE[2], 1);
         this.normal.push(x, y + 1, 2, 1, GLUE[3], 1);
         this.normal.push(x - 0.5, y - 1, 1, 1, GLUE[0], 1);
+        continue;
+      }
+      if (look?.shell === 'rocket') {
+        this.rockets.drawRocket(e.id, e.x, e.y, this.fxTick, g, this.normal);
+        continue;
+      }
+      if (look?.shell === 'stage') {
+        this.rockets.drawStage(e.id, e.x, e.y, this.fxTick, this.normal);
         continue;
       }
       if (look?.shell === 'firework') {

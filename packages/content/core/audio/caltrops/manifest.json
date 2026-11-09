@@ -4,7 +4,7 @@
   "meta": {
     "name": "Caltrops",
     "description": "A tinny clatter of steel spikes scattering, and a short metal scrape each time a tank grinds over them (Caltrop Field).",
-    "since": "core@0.46.0"
+    "since": "core@0.51.0"
   },
   "bus": "sfx",
   "licence": {

@@ -59,7 +59,10 @@ export interface ShellLook {
     | 'glue'
     | 'firework'
     | 'star'
+    | 'rocket'
+    | 'stage'
     | 'plasma'
+    | 'rail'
     | 'acid';
   trail: boolean;
   /** Scale of a meteor head and streak. */

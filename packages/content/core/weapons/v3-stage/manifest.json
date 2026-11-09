@@ -1,0 +1,43 @@
+{
+  "id": "weapon.v3-stage",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "V3 spent stage",
+    "description": "A burnt-out stage of a V3 Rocket: it tumbles back down trailing smoke and goes off with a small pop where it lands.",
+    "category": "submunition",
+    "since": "core@0.47.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 9,
+        "damage": 12,
+        "effects": {
+          "burst": {
+            "count": 14
+          },
+          "flash": {
+            "strength": 0.6
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "stage"
+  }
+}

@@ -5,7 +5,7 @@
     "name": "Acid Cloud",
     "description": "Pops open into a sickly yellow-green cloud that hangs over the hit for six turns and sails slowly with the wind, so it can drift onto someone else. At the end of every turn it rains corrosive drops that pit the ground, and every tank under it loses 30 shield points and then 4 health. Unlike Acid Rain it doesn't fall in one go: it keeps raining wherever the wind takes it.",
     "category": "weird",
-    "since": "core@0.46.0"
+    "since": "core@0.51.0"
   },
   "flight": {
     "use": "flight.ballistic"
