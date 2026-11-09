@@ -5,7 +5,7 @@
     "name": "Bunker Buster",
     "description": "A hardened, heavy shell that doesn't go off on contact. It punches straight on through the ground along its flight line, through rock, ice and roofs alike, and goes off the moment it breaks into open air beneath: inside the cave, the ice cage or under the ledge a tank is hiding in. Through solid ground with no hollow it goes off deep once its punch runs out (about 60 cells of dirt, or 24 of rock).",
     "category": "digger",
-    "since": "core@0.57.0"
+    "since": "core@0.58.0"
   },
   "flight": {
     "use": "flight.penetrator"

@@ -192,6 +192,8 @@ export class PixelRenderer implements Renderer {
   private temperature = 15;
   /** Sudden-death zone width (cells) and the tick it last grew. */
   private deathZone = 0;
+  /** The Spotter Flare aim preview from the last snapshot (flat x, y pairs), or null. */
+  private preview: number[] | null = null;
   private zoneGrewAt = -1e9;
   /** Zone width shown when it started moving to `deathZone`; the wall creeps, never jumps. */
   private zoneFrom = 0;
@@ -827,6 +829,7 @@ export class PixelRenderer implements Renderer {
     this.debris = s.debris;
     this.wind = s.wind;
     this.temperature = s.temperature ?? 15;
+    this.preview = s.preview ?? null;
     const zone = s.deathZone ?? 0;
     if (zone > this.deathZone) {
       this.zoneFrom = this.shownZone(s.tick);
@@ -1908,6 +1911,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawPsiWaves(this.normal, this.additive, t);
     this.fx.drawGravity(this.normal, this.additive, t);
     this.drawProjectiles();
+    this.drawPreview(t);
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
     this.fx.lances.draw(this.additive, t);
@@ -2245,6 +2249,7 @@ export class PixelRenderer implements Renderer {
         const marks = (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0) + ((e.rust ?? 0) > 0 ? 1 : 0);
         this.jamTank(x, sw, sh, y0, lean, t, e.player, marks);
       }
+      if ((e.mark ?? 0) > 0) this.markTank(x, y, sw, sh, t, playerColor(e.markBy ?? 0));
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
       this.drawDigit(x - 13, top - 7, e.player + 1);
@@ -2560,6 +2565,69 @@ export class PixelRenderer implements Renderer {
     b.rect(sx + 1, sy + 2, 1, 1, RUST[0]!);
     b.rect(sx + 3, sy + 1, 1, 1, RUST[0]!);
     b.rect(sx + 2, sy + 3, 2, 1, RUST[0]!);
+  }
+
+  /**
+   * A spotted tank (Spotter Flare): a reticle of four hard corner brackets in the marker's colour
+   * that tightens in on the hull in whole-cell steps and snaps back, with a red dot on the hull.
+   */
+  private markTank(x: number, y: number, sw: number, sh: number, t: number, color: number): void {
+    const b = this.additive;
+    const k = (t >> 3) % 4;
+    const gap = 5 - k;
+    const x0 = x - (sw >> 1) - gap;
+    const x1 = x + (sw >> 1) + gap - 1;
+    const y0 = y - sh - gap;
+    const y1 = y + gap - 1;
+    for (const [cx, cy, dx, dy] of [
+      [x0, y0, 1, 1],
+      [x1, y0, -1, 1],
+      [x0, y1, 1, -1],
+      [x1, y1, -1, -1],
+    ] as const) {
+      b.push(cx + 0.5, cy + 0.5, 1, 1, 0xffffff, 1);
+      b.push(cx + dx + 0.5, cy + 0.5, 1, 1, color, 1);
+      b.push(cx + 2 * dx + 0.5, cy + 0.5, 1, 1, color, 1);
+      b.push(cx + 0.5, cy + dy + 0.5, 1, 1, color, 1);
+      b.push(cx + 0.5, cy + 2 * dy + 0.5, 1, 1, color, 1);
+    }
+    if (((t >> 2) & 1) === 0) b.push(x + 0.5, y - (sh >> 1) + 0.5, 1, 1, 0xff3030, 1);
+  }
+
+  /**
+   * The Spotter Flare aim preview: the whole flight path as aimed, a dashed line of cells in
+   * the team colour with white beads marching along it, and a cross where it lands.
+   */
+  private drawPreview(t: number): void {
+    const p = this.preview;
+    if (!p || p.length < 4) return;
+    const b = this.additive;
+    const active = this.entities.find((e) => e.kind === 'tank' && e.active);
+    const color = active?.kind === 'tank' ? playerColor(active.player) : 0xffffff;
+    const n = p.length >> 1;
+    // a dashed line through every cell the shell crosses (two on, one off), with white 2×2 beads
+    // every twelfth cell marching along it
+    const phase = (t >> 1) % 12;
+    let k = 0;
+    for (let i = 1; i < n; i++) {
+      const x0 = p[i * 2 - 2]!;
+      const y0 = p[i * 2 - 1]!;
+      const dx = p[i * 2]! - x0;
+      const dy = p[i * 2 + 1]! - y0;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+      for (let j = 0; j < steps; j++, k++) {
+        const px = x0 + Math.round((dx * j) / steps);
+        const py = y0 + Math.round((dy * j) / steps);
+        if (py < 0) continue;
+        if (k % 12 === phase) b.push(px + 1, py + 1, 2, 2, 0xffffff, 0.95);
+        else if (k % 3 !== 2) b.push(px + 0.5, py + 0.5, 1, 1, color, 0.7);
+      }
+    }
+    const ex = p[(n - 1) * 2]! + 0.5;
+    const ey = p[(n - 1) * 2 + 1]! + 0.5;
+    b.push(ex, ey, 5, 1, 0xffffff, 0.9);
+    b.push(ex, ey, 1, 5, 0xffffff, 0.9);
+    b.push(ex, ey, 1, 1, color, 1);
   }
 
   /**

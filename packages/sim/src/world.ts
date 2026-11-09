@@ -237,6 +237,15 @@ export interface Tank extends TankHandle {
    * switch on gear. Only hashed while > 0.
    */
   jam: number;
+  /**
+   * Marker's turns left marked (Spotter Flare): hits from the marker's team do `markBonus`
+   * percent more damage. Counted down at the end of each turn of `markBy`. Hashed only while > 0.
+   */
+  mark: number;
+  markBy: number;
+  markBonus: number;
+  /** Own turns left with a full-arc aim preview (Spotter Flare). Hashed only while > 0. */
+  scope: number;
   rustDamage: number;
   rustDrive: number;
   rustWobble: number;
@@ -300,6 +309,9 @@ interface RtExplosion {
   jam: number;
   strip: boolean;
   drain: number;
+  mark: number;
+  markBonus: number;
+  scope: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -813,6 +825,9 @@ export class World implements SimApi {
       jam: e.jam,
       strip: e.strip,
       drain: e.drain,
+      mark: e.mark,
+      markBonus: e.markBonus,
+      scope: e.scope,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -904,6 +919,10 @@ export class World implements SimApi {
         glue: 0,
         rust: 0,
         jam: 0,
+        mark: 0,
+        markBy: -1,
+        markBonus: 0,
+        scope: 0,
         rustDamage: 0,
         rustDrive: 1000,
         rustWobble: 0,
@@ -1038,6 +1057,10 @@ export class World implements SimApi {
       tank.mindBy = -1;
       tank.rust = 0;
       tank.jam = 0;
+      tank.mark = 0;
+      tank.markBy = -1;
+      tank.markBonus = 0;
+      tank.scope = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -1710,12 +1733,26 @@ export class World implements SimApi {
     }
   }
 
+  /**
+   * The flight path of the active tank's shot as aimed now, in this exact wind (gust included),
+   * as flat cell x, y pairs: the Spotter Flare's aim preview. Null unless a tank with `scope` is
+   * aiming. Read-only: it changes nothing in the world.
+   */
+  previewPath(): number[] | null {
+    const t = this.tanks[this.activePlayer];
+    if (!t || !t.alive || t.scope <= 0 || this.phase !== 'aim') return null;
+    const path: number[] = [];
+    this.predictNow(t, t.weapon, t.angle, t.power, undefined, path);
+    return path;
+  }
+
   private predictNow(
     t: Tank,
     weapon: number,
     angle: number,
     power: number,
     from?: AiSpot,
+    path?: number[],
   ): ShotPrediction {
     const w = this.weapons[weapon] ?? this.weapons[0]!;
     const a = Math.max(0, Math.min(180, Math.round(angle))) * 10;
@@ -1744,6 +1781,7 @@ export class World implements SimApi {
       const py = p.y;
       const sig = w.flight.step(this, p, w.flightParams);
       p.age++;
+      if (path) path.push(Math.floor(p.x / FP), Math.floor(p.y / FP));
       if (sig === 'die') break;
       if (sig === 'impact') {
         const x = Math.max(0, Math.min(this.grid.width - 1, Math.floor(p.x / FP)));
@@ -2617,6 +2655,17 @@ export class World implements SimApi {
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
+    const shooter = owner >= 0 ? this.tanks[owner] : undefined;
+    const mine = shooter !== undefined && owner === this.activePlayer && this.phase === 'resolve';
+    if (e.scope > 0 && shooter) {
+      // the flare lights the field for the shooter's whole team: a full aim preview next turn
+      for (const u of this.tanks) {
+        if (!u.alive || u.team !== shooter.team) continue;
+        const turns = e.scope + (u.player === owner && mine ? 1 : 0);
+        if (turns > u.scope) u.scope = turns;
+      }
+      this.emit('scoped', x, y, e.radius, { player: owner });
+    }
     for (const t of this.tanks) {
       if (!t.alive) continue;
       const dx = t.x - x;
@@ -2683,6 +2732,13 @@ export class World implements SimApi {
         }
         if (lost > 0)
           this.emit('drained', t.x, t.y - (t.h >> 1), t.half, { player: t.player, lost });
+      }
+      if (e.mark > 0 && shooter && t.team !== shooter.team) {
+        // marked through the marker's next turns (a self-mark-turn counts one extra)
+        t.mark = e.mark + (mine ? 1 : 0);
+        t.markBy = owner;
+        t.markBonus = e.markBonus;
+        this.emit('marked', t.x, t.y - (t.h >> 1), t.half, { player: t.player, by: owner });
       }
       if (e.jam > 0) {
         // jammed for its next own turns; a tank that jams itself stays jammed past this turn too
@@ -2841,6 +2897,14 @@ export class World implements SimApi {
   private damageTank(t: Tank, dmg0: number, by: number, pierce = false): void {
     if (dmg0 <= 0 || !t.alive) return;
     let dmg = dmg0;
+    if (t.mark > 0 && by >= 0) {
+      // a spotted tank: the marker's team hits it harder
+      const src = this.tanks[by];
+      const marker = this.tanks[t.markBy];
+      if (src && marker && src.team === marker.team) {
+        dmg = Math.trunc((dmg * (100 + t.markBonus)) / 100);
+      }
+    }
     if (t.shield > 0 && !pierce) {
       const soak = Math.min(dmg, t.shield);
       t.shield -= soak;
@@ -3187,6 +3251,17 @@ export class World implements SimApi {
     }
     this.turn++;
     turnDecay(this.grid, this.mats);
+    if (active) {
+      for (const u of this.tanks) {
+        if (u.mark <= 0 || u.markBy !== active.player) continue;
+        u.mark--;
+        if (u.mark === 0) {
+          u.markBy = -1;
+          if (u.alive) this.emit('unmarked', u.x, u.y - (u.h >> 1), u.half, { player: u.player });
+        }
+      }
+      if (active.scope > 0) active.scope--;
+    }
     if (active && active.jam > 0) {
       active.jam--;
       if (active.jam === 0 && active.alive) {
@@ -3426,6 +3501,8 @@ export class World implements SimApi {
         ...(t.rust > 0 ? { rust: t.rust } : {}),
         ...(t.mind > 0 ? { mind: t.mind, mindBy: t.mindBy } : {}),
         ...(t.jam > 0 ? { jam: t.jam } : {}),
+        ...(t.mark > 0 ? { mark: t.mark, markBy: t.markBy } : {}),
+        ...(t.scope > 0 ? { scope: t.scope } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -3490,6 +3567,7 @@ export class World implements SimApi {
       wind: this.wind / FP,
       temperature: this.temperature,
       deathZone: this.edge,
+      preview: this.previewPath() ?? undefined,
       theme: 'theme.default',
       weather: this.weather
         ? {
@@ -3570,6 +3648,9 @@ export class World implements SimApi {
       if (t.mind > 0) h.num(t.mind).num(t.mindBy);
       // jam (Shield Breaker EMP): likewise only while jammed
       if (t.jam > 0) h.num(t.jam);
+      // mark and scope (Spotter Flare): likewise only while set
+      if (t.mark > 0) h.num(t.mark).num(t.markBy).num(t.markBonus);
+      if (t.scope > 0) h.num(t.scope);
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {

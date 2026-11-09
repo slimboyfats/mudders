@@ -103,6 +103,7 @@ const api: CaptureApi = {
         weather: w.weather,
         temperature: w.temperature,
         deathZone: w.deathZone,
+        preview: w.preview,
       };
       for (const l of listeners) l(snap);
     }
