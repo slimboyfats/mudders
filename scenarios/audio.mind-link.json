@@ -1,0 +1,104 @@
+{
+  "id": "audio.mind-link",
+  "schemaVersion": 1,
+  "description": "A Telepathy shot and the mind-controlled turn after it, so audio.mind-link plays in context (audio is client-only).",
+  "subject": "audio.mind-link",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.telepathy": 1
+      }
+    },
+    {
+      "x": 420,
+      "inventory": {
+        "weapon.missile": 2
+      }
+    },
+    {
+      "x": 640
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.telepathy"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 450
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 160,
+      "player": 0,
+      "action": {
+        "type": "drive",
+        "dir": 1
+      }
+    },
+    {
+      "t": 200,
+      "player": 0,
+      "action": {
+        "type": "drive",
+        "dir": 0
+      }
+    },
+    {
+      "t": 205,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 205,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 340
+      }
+    },
+    {
+      "t": 240,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "teams": [0, 1, 1]
+}

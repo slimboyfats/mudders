@@ -187,6 +187,16 @@ function useLastTurnWind(hud: HudState): number | null {
   return aiming ? was : null;
 }
 
+/** Who is at the controls this turn: a bot, the player, or a Telepathy caster (mind link). */
+function bannerSub(hud: HudState, bot: string): string {
+  const c = hud.controller;
+  if (c >= 0 && c !== hud.activePlayer) {
+    const by = hud.tanks[c]?.bot;
+    return by ? `Mind-controlled: ${by} at the controls…` : `Mind-controlled by Player ${c + 1}`;
+  }
+  return bot ? `${bot} is aiming…` : 'Your shot';
+}
+
 /**
  * A short burst of hard-edged wind streaks across the sky when a turn starts: more and faster in a
  * stronger wind, blowing the way the wind blows.
@@ -361,7 +371,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           aria-live="polite"
         >
           <span className="turn-banner-name">Player {t.player + 1}</span>
-          <span className="turn-banner-sub">{t.bot ? `${t.bot} is aiming…` : 'Your shot'}</span>
+          <span className="turn-banner-sub">{bannerSub(hud, t.bot)}</span>
         </div>
       )}
 
