@@ -1,0 +1,67 @@
+{
+  "id": "weapon.plasma-orb",
+  "schemaVersion": 1,
+  "description": "A Plasma Orb lands short of the far tank by a house: the orb climbs, creeps toward the tank zapping it, then bursts and throws the tank and the house.",
+  "subject": "weapon.plasma-orb",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.plasma-orb": 3
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.plasma-orb"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "props": [
+    {
+      "prop": "prop.house",
+      "x": 545
+    },
+    {
+      "prop": "prop.tree",
+      "x": 690
+    }
+  ]
+}

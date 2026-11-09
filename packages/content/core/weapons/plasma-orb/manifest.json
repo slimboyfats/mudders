@@ -1,0 +1,46 @@
+{
+  "id": "weapon.plasma-orb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma Orb",
+    "description": "Lands and lets loose a crackling ball of plasma. It climbs into the air, creeps toward the nearest enemy and lashes anyone in reach with arcs, then bursts in a plasma shockwave that throws tanks and buildings.",
+    "category": "weird",
+    "since": "core@0.45.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 10,
+        "damageType": "shock"
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.plasma-orb-core",
+        "inherit": 0,
+        "count": 1
+      }
+    }
+  ],
+  "shop": {
+    "price": 14000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 70,
+    "terrainValue": 0.3
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  },
+  "look": {
+    "shell": "plasma"
+  }
+}

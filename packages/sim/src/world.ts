@@ -1741,6 +1741,11 @@ export class World implements SimApi {
     return true;
   }
 
+  hurt(player: number, amount: number, owner: number): void {
+    const t = this.tanks[player];
+    if (t) this.damageTank(t, Math.trunc(amount), owner);
+  }
+
   throwShell(weapon: number, owner: number, x: number, y: number, vx: number, vy: number): number {
     if (this.projectiles.length >= MAX_PROJECTILES || !this.weapons[weapon]) return -1;
     const id = this.nextProjectileId++;

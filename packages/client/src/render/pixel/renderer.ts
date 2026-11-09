@@ -2546,6 +2546,23 @@ export class PixelRenderer implements Renderer {
         this.drawMeteor(e.id, e.x, e.y, look.size ?? 1);
         continue;
       }
+      if (look?.shell === 'plasma') {
+        // a small ball of plasma: violet body, blue ring cells flickering round, a white heart
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        this.normal.push(x, y, 3, 3, 0x6a4cff, 1);
+        const k = (this.fxTick + e.id) % 4;
+        this.normal.push(
+          x + (k === 0 ? 2 : k === 2 ? -2 : 0),
+          y + (k === 1 ? 2 : k === 3 ? -2 : 0),
+          1,
+          1,
+          0x4ac0ff,
+          1,
+        );
+        g.push(x, y, 1, 1, 0xe8fcff, 1);
+        continue;
+      }
       if (look?.shell === 'fire') {
         // a burning gob: orange body, yellow-white heart
         const x = Math.floor(e.x) + 0.5;
