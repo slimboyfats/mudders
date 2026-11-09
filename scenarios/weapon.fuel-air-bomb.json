@@ -1,0 +1,57 @@
+{
+  "id": "weapon.fuel-air-bomb",
+  "schemaVersion": 1,
+  "description": "Player 0 lobs a Fuel-Air Bomb onto the slope by player 1. A cloud of fuel billows over the ground and drifts with the breeze, then the whole cloud goes up at once and the blast wave throws the tank.",
+  "subject": "weapon.fuel-air-bomb",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.fuel-air-bomb": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.002,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.fuel-air-bomb"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 720,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
