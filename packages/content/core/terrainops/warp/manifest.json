@@ -1,0 +1,15 @@
+{
+  "id": "terrainop.warp",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Warp",
+    "description": "Tanks break apart into a swarm of pixels where they stand and pull back together somewhere else. In self mode the shooter jumps to where the shell went off; in swap mode the shooter and the tank the shot hit trade places (a miss fizzles). They come out standing on the ground, step aside from any tank already there, and take no fall damage. A glued tank can't be warped.",
+    "since": "core@0.46.0"
+  },
+  "behaviour": "terrainop.warp",
+  "out": 30,
+  "in": 30,
+  "mode": "self",
+  "hitReach": 6,
+  "gap": 3
+}

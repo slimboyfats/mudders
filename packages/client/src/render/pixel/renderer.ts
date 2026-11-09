@@ -54,6 +54,7 @@ import {
   type PixelTheme,
 } from './theme';
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
+import { drawWarp, type WarpFx } from './warp';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -380,6 +381,8 @@ export class PixelRenderer implements Renderer {
    */
   private tumble: ({ rate: number; at: number; fly: number; land: number; rest: number } | null)[] =
     [];
+  /** Tanks warping (Teleport Shell, Swap Ray): broken into pixels, streaking, pulling together. */
+  private warps: (WarpFx | null)[] = [];
 
   constructor(
     readonly mapWidth: number,
@@ -855,6 +858,26 @@ export class PixelRenderer implements Renderer {
         const dir = e.params.dir ?? 1;
         const rate = dir * (0.22 + ((e.tick * 7 + pl * 13) % 10) * 0.012);
         this.tumble[pl] = { rate, at: e.tick, fly: e.tick, land: -1, rest: 0 };
+      } else if (e.type === 'warpOut') {
+        const pr = e.params;
+        this.warps[pr.player ?? -1] = {
+          out: e.tick,
+          outDur: Math.max(1, pr.ticks ?? 26),
+          in: -1,
+          inDur: 26,
+          fx: e.x,
+          fy: e.y,
+          tx: pr.tx ?? e.x,
+          ty: pr.ty ?? e.y,
+        };
+      } else if (e.type === 'warpIn') {
+        const w = this.warps[e.params.player ?? -1];
+        if (w) {
+          w.in = e.tick;
+          w.inDur = Math.max(1, e.params.ticks ?? 26);
+          w.tx = e.x;
+          w.ty = e.y;
+        }
       } else if (e.type === 'shockFly') {
         const tb = this.tumble[e.params.player ?? -1];
         if (tb) tb.fly = e.tick;
@@ -881,6 +904,7 @@ export class PixelRenderer implements Renderer {
     this.shieldUpAt = [];
     this.batteryAt = [];
     this.tumble = [];
+    this.warps = [];
   }
 
   /**
@@ -2121,6 +2145,13 @@ export class PixelRenderer implements Renderer {
           b.rect(x - 4, y - 5, 7, 2, litColor(0x1d191b, lit));
         }
         continue;
+      }
+      const wp = this.warps[e.player];
+      if (wp) {
+        const shielded = e.shield > 0;
+        const paint = (code: number) => litColor(spriteColor(code, col, shielded), lit);
+        if (drawWarp(b, wp, rows, x, y, e.player, t, paint)) continue;
+        this.warps[e.player] = null;
       }
       const spin = e.alive ? this.tumbleAngle(e.player, t) : 0;
       if (spin !== 0) {
