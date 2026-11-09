@@ -185,7 +185,20 @@ function describeImpact(
   if ('terrainOp' in i) {
     peak.radius = Math.max(peak.radius, i.radius);
     const name = i.terrainOp.ref ? nameOf(c, i.terrainOp.ref) : i.terrainOp.behaviour;
-    return { text: `${name}: radius ${i.radius}`, children: [] };
+    // resident ops (a summoned monster): how long they stay and what they reach for
+    const op: Record<string, unknown> = i.terrainOp;
+    const num = (k: string): number | undefined => (typeof op[k] === 'number' ? op[k] : undefined);
+    const extra: string[] = [];
+    const rounds = num('rounds');
+    if (rounds !== undefined) extra.push(`stays ${rounds} full rounds of turns`);
+    const grab = num('grabReach');
+    if (grab !== undefined) extra.push(`grabs tanks within ${grab} cells`);
+    const katch = num('catchReach');
+    if (katch !== undefined) extra.push(`catches shells within ${katch} cells`);
+    const topple = num('toppleDrop');
+    if (topple !== undefined) extra.push(`topples and bursts if dug out ${topple} cells`);
+    const more = extra.length ? ` (${extra.join(', ')})` : '';
+    return { text: `${name}: radius ${i.radius}${more}`, children: [] };
   }
   if ('zone' in i) {
     const z = i.zone;

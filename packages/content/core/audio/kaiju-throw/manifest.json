@@ -1,0 +1,46 @@
+{
+  "id": "audio.kaiju-throw",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kaiju Throw",
+    "description": "A heavy chip whoosh when the Kaiju hurls a tank, a shell or a chunk of house.",
+    "since": "core@0.44.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 300,
+        "to": 1600,
+        "hold": 0.12,
+        "release": 0.3,
+        "volume": 0.36
+      },
+      {
+        "wave": "square",
+        "freq": 120,
+        "to": 260,
+        "release": 0.25,
+        "volume": 0.18
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "kaijuThrow"
+    },
+    {
+      "event": "kaijuToss"
+    },
+    {
+      "event": "kaijuRip"
+    }
+  ],
+  "gap": 0.15
+}

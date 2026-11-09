@@ -1,0 +1,48 @@
+{
+  "id": "audio.kaiju-rumble",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kaiju Rumble",
+    "description": "A low chip rumble of ground giving way while the Kaiju claws up out of it or sinks back.",
+    "since": "core@0.44.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 160,
+        "to": 60,
+        "hold": 1.0,
+        "release": 0.8,
+        "volume": 0.42
+      },
+      {
+        "wave": "triangle",
+        "freq": 55,
+        "to": 40,
+        "hold": 1.0,
+        "release": 0.8,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 7,
+          "depth": 2
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "kaijuRise"
+    },
+    {
+      "event": "kaijuSink"
+    }
+  ],
+  "gap": 0.6
+}

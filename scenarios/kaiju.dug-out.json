@@ -1,0 +1,42 @@
+{
+  "id": "kaiju.dug-out",
+  "schemaVersion": 1,
+  "description": "Player 0 summons a Kaiju; player 1 fires a Burrower that tunnels in beside it and hollows the ground out from under its feet: it topples over and bursts.",
+  "subject": "weapon.kaiju",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 120,
+      "inventory": {
+        "weapon.kaiju": 1
+      }
+    },
+    {
+      "x": 660,
+      "inventory": {
+        "weapon.burrower": 1
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.kaiju" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 440 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.burrower" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 125, "power": 480 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

@@ -33,6 +33,11 @@ const params = z.strictObject({
   restitution: z.number().int().min(10).max(100),
 });
 type Params = z.infer<typeof params>;
+/** What a thrown tank's flight needs (shared with other throwing ops, such as the Kaiju). */
+export type FlingParams = Pick<
+  Params,
+  'landFall' | 'chuteFall' | 'chuteDrag' | 'bounces' | 'restitution'
+>;
 
 // data: [age, ...per tank: state, x (fixed), y (fixed), vx, vy, bounces]
 const AGE = 0;
@@ -44,7 +49,7 @@ const FLY = 2;
 const DONE = 3;
 
 /** Is any of a tank's body (bottom row `y`-1 and its middle row) in the ground at column x? */
-function blocked(api: SimApi, t: TankHandle, x: number, y: number): boolean {
+export function blocked(api: SimApi, t: TankHandle, x: number, y: number): boolean {
   const g = api.grid;
   for (const row of [y - 1, y - (t.h >> 1)]) {
     if (row < 0) continue;
@@ -58,7 +63,7 @@ function blocked(api: SimApi, t: TankHandle, x: number, y: number): boolean {
 }
 
 /** Is there ground under the tank's tracks (row `y`) anywhere across its hull? */
-function footing(api: SimApi, t: TankHandle, x: number, y: number): boolean {
+export function footing(api: SimApi, t: TankHandle, x: number, y: number): boolean {
   const g = api.grid;
   if (y >= g.height) return false;
   for (let xx = Math.max(0, x - t.half); xx < Math.min(g.width, x + t.half); xx++) {
@@ -102,13 +107,23 @@ function launch(api: SimApi, p: Params, c: OpCall, d: number[]): void {
 }
 
 /** A thrown tank bounces off something (fixed-point position). */
-function bonk(api: SimApi, t: TankHandle, x: number, y: number): void {
+function bonk(api: SimApi, t: TankHandle, x: number, y: number, fx: string): void {
   const cy = Math.floor(y / FP) - (t.h >> 1);
-  api.emit('bumpBounce', Math.floor(x / FP), cy, t.half, { player: t.player });
+  api.emit(`${fx}Bounce`, Math.floor(x / FP), cy, t.half, { player: t.player });
 }
 
-/** One tick of a thrown tank's flight. Returns true while it is still in the air. */
-function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boolean {
+/**
+ * One tick of a thrown tank's flight. Returns true while it is still in the air. Slot layout at
+ * `d[b]`: state, x, y (fixed), vx, vy, bounces. Effect events are named `<fx>Fly`, `<fx>Bounce`.
+ */
+export function fly(
+  api: SimApi,
+  p: FlingParams,
+  t: TankHandle,
+  d: number[],
+  b: number,
+  fx = 'bump',
+): boolean {
   const g = api.grid;
   let x = d[b + 1]!;
   let y = d[b + 2]!;
@@ -134,7 +149,7 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
     if (cx < t.half || cx > g.width - 1 - t.half) {
       vx = -Math.trunc((vx * p.restitution) / 100);
       bounces++;
-      bonk(api, t, x, y);
+      bonk(api, t, x, y, fx);
       nx = x;
       cx = Math.floor(nx / FP);
     }
@@ -155,7 +170,7 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
         // a hillside or a wall: bounce off it sideways
         vx = -Math.trunc((vx * p.restitution) / 100);
         bounces++;
-        bonk(api, t, x, y);
+        bonk(api, t, x, y, fx);
         nx = x;
       } else if (vy < 0 && !blocked(api, t, cx, oy)) {
         // a roof: stop rising
@@ -186,7 +201,7 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
   const hy = Math.floor(y / FP);
   if (landed) api.hold(t.player, hx, hy, hy - p.landFall);
   else api.hold(t.player, hx, hy);
-  if (flying) api.emit('bumpFly', hx, hy - (t.h >> 1), t.half, { player: t.player });
+  if (flying) api.emit(`${fx}Fly`, hx, hy - (t.h >> 1), t.half, { player: t.player });
   return flying;
 }
 

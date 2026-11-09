@@ -28,6 +28,8 @@ export interface TankHandle {
   readonly h: number;
   /** A parachute is open for the current fall (it drifts down and lands unhurt). */
   readonly chute: boolean;
+  /** Own turns left glued (Glue Bomb): `hold` can't pick it up. */
+  readonly glue: number;
   x: number;
   y: number;
 }
@@ -66,6 +68,23 @@ export interface SimApi extends EffectSink {
    * row fall damage counts from instead (a behaviour that caps how hard its tanks land).
    */
   hold(player: number, x: number, y: number, fallFrom?: number): void;
+  /** Turns taken this round (a resident op counts its lifetime in them). */
+  readonly turn: number;
+  /** Shells in flight. Read-only: `catchShell` and `throwShell` are the only ways to change them. */
+  readonly projectiles: readonly Readonly<Projectile>[];
+  /** Take a live shell out of the air without it going off. Returns false if there is none. */
+  catchShell(id: number): boolean;
+  /**
+   * Put a shell of weapon index `weapon` in the air at (x, y), fixed-point cells and velocity,
+   * credited to `owner`; it starts its flight afresh (age 0). Returns its id, or -1 if the sky is
+   * full.
+   */
+  throwShell(weapon: number, owner: number, x: number, y: number, vx: number, vy: number): number;
+  /**
+   * If someone is aiming, their turn ends now as if they had fired, credited to `owner` (a
+   * resident op grabbing a tank that drove up to it). Does nothing while a shot resolves.
+   */
+  interrupt(owner: number): void;
 }
 
 interface BehaviourBase<P> {
@@ -178,8 +197,13 @@ export interface TerrainOpBehaviour<P = unknown> extends BehaviourBase<P> {
   readonly kind: 'terrainop';
   /** Apply the op. Return state to continue over later ticks, or null if finished. */
   start(api: SimApi, params: P, call: OpCall): number[] | null;
-  /** Continue a multi-tick op. Return false when finished. */
-  step?(api: SimApi, params: P, inst: OpInstance): boolean;
+  /**
+   * Continue a multi-tick op. Return false when finished, true while it is busy (the turn waits
+   * for it), or `'idle'` to stay on the map without holding up the turn: a resident op (a
+   * summoned monster) that keeps stepping through later turns, aiming included, until it
+   * returns false or the round ends.
+   */
+  step?(api: SimApi, params: P, inst: OpInstance): boolean | 'idle';
 }
 
 // ── modes ───────────────────────────────────────────────────────────────────────────────────

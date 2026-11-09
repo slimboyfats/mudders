@@ -24,6 +24,14 @@ describe('docs data', () => {
     expect(nuke?.effects.some((e) => e.children.length > 0)).toBe(true);
   });
 
+  it('says how long a summoned Kaiju stays and what it reaches for', () => {
+    const kaiju = data.weapons.find((w) => w.id === 'weapon.kaiju');
+    const text = kaiju?.effects.map((e) => e.text).join(' ') ?? '';
+    expect(text).toContain('stays 3 full rounds of turns');
+    expect(text).toContain('topples and bursts if dug out 40 cells');
+    expect(text).toContain('catches shells within');
+  });
+
   it('carries material structure and prop pictures', () => {
     const brick = data.materials.find((m) => m.id === 'material.brick');
     expect(brick?.span).toBe(4);

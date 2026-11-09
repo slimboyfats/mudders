@@ -509,6 +509,8 @@ export class World implements SimApi {
   readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
+  /** Ops whose last step was `'idle'` (resident: they don't hold up the turn). */
+  private idleOps = 0;
   zones: Zone[] = [];
   mines: Mine[] = [];
   readonly debris = new DebrisPool();
@@ -942,6 +944,7 @@ export class World implements SimApi {
     this.debris.count = 0;
     this.projectiles = [];
     this.ops = [];
+    this.idleOps = 0;
     this.zones = [];
     this.mines = [];
     this.pendingDeaths = [];
@@ -1068,7 +1071,7 @@ export class World implements SimApi {
   get quiet(): boolean {
     return (
       this.projectiles.length === 0 &&
-      this.ops.length === 0 &&
+      this.ops.length === this.idleOps &&
       this.debris.count === 0 &&
       !this.grid.settling &&
       !this.grid.reacting &&
@@ -1730,6 +1733,30 @@ export class World implements SimApi {
 
   // ── projectiles ─────────────────────────────────────────────────────────────────────────
 
+  catchShell(id: number): boolean {
+    const i = this.projectiles.findIndex((p) => p.id === id && p.alive);
+    if (i < 0) return false;
+    this.projectiles[i]!.alive = false;
+    this.projectiles.splice(i, 1);
+    return true;
+  }
+
+  throwShell(weapon: number, owner: number, x: number, y: number, vx: number, vy: number): number {
+    if (this.projectiles.length >= MAX_PROJECTILES || !this.weapons[weapon]) return -1;
+    const id = this.nextProjectileId++;
+    this.projectiles.push({ id, weapon, owner, x, y, vx, vy, age: 0, alive: true, data: [] });
+    return id;
+  }
+
+  interrupt(owner: number): void {
+    if (this.phase !== 'aim') return;
+    const t = this.tanks[this.activePlayer];
+    if (t) t.driving = 0;
+    this.phase = 'resolve';
+    this.timer = 0;
+    this.shooter = owner;
+  }
+
   private stepProjectiles(): void {
     const W = this.grid.width * FP;
     const H = this.grid.height;
@@ -2104,13 +2131,7 @@ export class World implements SimApi {
   }
 
   private tripMine(m: Mine): void {
-    if (this.phase === 'aim') {
-      const t = this.tanks[this.activePlayer];
-      if (t) t.driving = 0;
-      this.phase = 'resolve';
-      this.timer = 0;
-      this.shooter = m.owner;
-    }
+    this.interrupt(m.owner);
     this.emit('mineTrip', m.x, m.y, m.radius, { look: m.look, id: m.id });
     const w = this.weapons[m.weapon]!;
     const p: Projectile = {
@@ -2663,6 +2684,7 @@ export class World implements SimApi {
     const pin = this.glueX;
     for (let i = 0; i < this.tanks.length; i++) pin[i] = this.tanks[i]!.x;
     const next: OpInstance[] = [];
+    let idle = 0;
     for (const inst of this.ops) {
       inst.t++;
       const site = this.opSites[inst.op]!;
@@ -2673,8 +2695,10 @@ export class World implements SimApi {
       if (shielded) this.groups.shieldEnd(this.grid);
       if (this.groups.any) this.groups.guard(this.grid, c.damageTypeIndex, this);
       if (more) next.push(inst);
+      if (more === 'idle') idle++;
     }
     this.ops = next;
+    this.idleOps = idle;
     for (let i = 0; i < this.tanks.length; i++) {
       const t = this.tanks[i]!;
       if (t.glue > 0) t.x = pin[i]!;
@@ -3420,6 +3444,8 @@ export class World implements SimApi {
       }
     }
     h.num(this.ops.length);
+    // resident ops only: other matches keep their hashes
+    if (this.idleOps > 0) h.num(this.idleOps);
     for (const o of this.ops) {
       h.num(o.op).num(o.t).num(o.call.x).num(o.call.y).num(o.call.radius).num(o.call.owner);
       for (const v of o.data) h.num(v);

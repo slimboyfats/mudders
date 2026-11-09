@@ -1,0 +1,47 @@
+{
+  "id": "weapon.kaiju",
+  "schemaVersion": 1,
+  "description": "Player 0 summons a Kaiju next to player 1: it claws up out of the ground, grabs player 1 and hurls it across the map. Player 2 then fires at player 0 over the monster, which snatches the shell out of the air and throws it somewhere else.",
+  "subject": "weapon.kaiju",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 120,
+      "inventory": {
+        "weapon.kaiju": 1
+      }
+    },
+    {
+      "x": 400
+    },
+    {
+      "x": 640,
+      "inventory": {
+        "weapon.missile": 2
+      }
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.kaiju" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 440 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 125, "power": 520 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } },
+    { "t": 0, "player": 2, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 0, "player": 2, "action": { "type": "aim", "angle": 140, "power": 600 } },
+    { "t": 0, "player": 2, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
