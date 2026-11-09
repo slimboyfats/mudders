@@ -1,0 +1,98 @@
+{
+  "id": "weapon.supernova-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Supernova core",
+    "description": "The collapsing heart of a Supernova: a white-hot blast, a huge ring of force that throws tanks, and a crater glazed in glowing slag.",
+    "category": "submunition",
+    "since": "core@0.47.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 150
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 46,
+        "damage": 120,
+        "damageType": "heat",
+        "effects": {
+          "flash": {
+            "strength": 3
+          },
+          "burst": {
+            "count": 140
+          },
+          "shake": {
+            "strength": 7
+          },
+          "geyser": {
+            "strength": 1.5
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 170,
+        "damage": 45,
+        "effects": {
+          "pressureWave": {
+            "strength": 1.6
+          },
+          "shake": {
+            "strength": 6
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "fling": 260,
+          "flingApex": 110,
+          "propBoost": 280
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 62,
+        "damage": 0,
+        "damageType": "heat",
+        "terrainOp": {
+          "use": "terrainop.convert",
+          "from": [
+            "material.dirt",
+            "material.sand",
+            "material.mud",
+            "material.packed-mud",
+            "material.clay",
+            "material.rock",
+            "material.scorch",
+            "material.snow",
+            "material.ash"
+          ],
+          "into": "material.lance-slag",
+          "core": 0.55,
+          "expandTicks": 12
+        },
+        "effects": {}
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

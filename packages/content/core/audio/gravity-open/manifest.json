@@ -1,0 +1,55 @@
+{
+  "id": "audio.gravity-open",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gravity Open",
+    "description": "A warbling chip swell, sucked inward, as space folds open into a black hole or snaps shut.",
+    "since": "core@0.47.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 60,
+        "to": 300,
+        "attack": 0.25,
+        "hold": 0.15,
+        "release": 0.3,
+        "volume": 0.22,
+        "vibrato": {
+          "rate": 9,
+          "depth": 0.6
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 200,
+        "attack": 0.2,
+        "release": 0.3,
+        "volume": 0.12
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "wellOpen"
+    },
+    {
+      "event": "holeOpen"
+    },
+    {
+      "event": "wellClose"
+    },
+    {
+      "event": "holeClose"
+    }
+  ],
+  "gap": 0.3
+}

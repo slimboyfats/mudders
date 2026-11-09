@@ -86,6 +86,13 @@ export interface SimApi extends EffectSink {
    */
   throwShell(weapon: number, owner: number, x: number, y: number, vx: number, vy: number): number;
   /**
+   * Set a live shell's velocity (fixed-point cells/tick): a field that bends shells' paths, e.g. a
+   * gravity well. Its flight state, age and position are kept. Returns false if there is none.
+   */
+  steerShell(id: number, vx: number, vy: number): boolean;
+  /** Index of the weapon with content id `id` (for `throwShell`), or -1 if it isn't loaded. */
+  weaponByIndex(id: string): number;
+  /**
    * If someone is aiming, their turn ends now as if they had fired, credited to `owner` (a
    * resident op grabbing a tank that drove up to it). Does nothing while a shot resolves.
    */
