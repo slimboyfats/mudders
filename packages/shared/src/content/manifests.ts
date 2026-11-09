@@ -335,6 +335,15 @@ const explosionBody = {
    * slick ground and terrain ops can't move it sideways. 0 = none.
    */
   glue: z.number().int().min(0).max(3).default(0),
+  /**
+   * Jams tanks in range for this many of their own turns (an electromagnetic pulse): a jammed
+   * tank can't drive or switch on gear. 0 = none.
+   */
+  jam: z.number().int().min(0).max(3).default(0),
+  /** Knocks the shields of tanks in range down to nothing, however strong. */
+  strip: z.boolean().default(false),
+  /** Destroys up to this many spare batteries (gear that heals) carried by each tank in range. */
+  drain: z.number().int().min(0).max(9).default(0),
   terrainOp: EmbeddedTerrainOpSchema.nullable(),
   effects: EffectProfileSchema,
 };

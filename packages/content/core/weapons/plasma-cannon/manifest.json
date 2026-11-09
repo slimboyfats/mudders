@@ -1,0 +1,86 @@
+{
+  "id": "weapon.plasma-cannon",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma Cannon",
+    "description": "Fires a hot bolt of blue-violet plasma on a flat, fast arc: it drops less than half as much as a shell and the wind can't touch it. Where it hits it bursts in a plasma ring that throws tanks and splashes a glowing pool of plasma that runs downhill, burns tanks sitting in it and eats its way down into the ground before it cools to glass.",
+    "category": "incendiary",
+    "since": "core@0.52.0"
+  },
+  "flight": {
+    "use": "flight.ballistic",
+    "gravityScale": 0.4,
+    "windScale": 0
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 22,
+        "damage": 80,
+        "damageType": "shock",
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 1.4
+          },
+          "plasmaSplash": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 50,
+        "damage": 15,
+        "push": 0,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "ripple": {
+            "strength": 0.9
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 10,
+          "lift": 0.9,
+          "expandTicks": 8,
+          "blobPush": 10,
+          "fling": 90,
+          "flingApex": 35,
+          "propBoost": 200
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.plasma"
+      },
+      "radius": 14,
+      "damageType": "heat"
+    }
+  ],
+  "shop": {
+    "price": 12000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 85,
+    "terrainValue": 0.4
+  },
+  "audio": {
+    "fire": "audio.fire-zap"
+  },
+  "look": {
+    "shell": "plasma"
+  }
+}

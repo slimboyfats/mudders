@@ -546,6 +546,9 @@ export class EffectSystem {
       case 'plasmaBurst':
         this.plasmaBurst(e);
         break;
+      case 'plasmaSplash':
+        this.plasmaSplash(e);
+        break;
       case 'shockFling': {
         // a tank ripped off its feet: a spray of hot sparks and a puff of plasma
         const rng = this.rngFor(e, 13);
@@ -1050,6 +1053,19 @@ export class EffectSystem {
         break;
       case 'railHit':
         this.railHit(e);
+        break;
+      case 'empBlast':
+        this.empBlast(e);
+        break;
+      case 'shieldStrip':
+        this.shieldStrip(e);
+        break;
+      case 'drained':
+      case 'jammed':
+        this.staticSpit(e, e.type === 'drained' ? 14 : 8);
+        break;
+      case 'unjammed':
+        this.staticSpit(e, 4);
         break;
       case 'pocketBurst':
         this.pocketBurst(e);
@@ -3696,6 +3712,97 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * Shield Breaker EMP: a hard ring of blue-white static racing out to the blast radius (every
+   * cell at the same speed, so it holds its shape), a second fainter ring behind it, forks of
+   * lightning out to the edge and a blue flicker over the sky.
+   */
+  private empBlast(e: EffectEvent): void {
+    const rng = this.rngFor(e, 83);
+    const r = Math.max(12, e.radius);
+    const life = 16;
+    for (let ring = 0; ring < 2; ring++) {
+      const n = Math.round((r * 3 * this.mult) / (ring + 1)) + 12;
+      const reach = ring === 0 ? r : r * 0.6;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const sp = reach / life;
+        this.particles.add({
+          x: e.x + 0.5,
+          y: e.y + 0.5,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: life + (i & 1),
+          size: 1,
+          color: ring === 0 ? ((i & 3) === 0 ? 0xffffff : 0x70d0ff) : 0x3a78ff,
+          kind: PKind.Spark,
+        });
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + rng.range(-0.4, 0.4);
+      const len = r * rng.range(0.6, 1);
+      this.arc(
+        e.x,
+        e.y,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len,
+        e.tick + (i % 3),
+        rng,
+        8,
+      );
+    }
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 8,
+      start: e.tick,
+      dur: 6,
+      color: 0xc8f0ff,
+      strength: 1.2,
+    });
+    this.tintSky([0, 0.2, 0.45, 0.9], 0.3);
+    this.kick(2, e.tick);
+  }
+
+  /** A shield collapsing under an EMP: its bubble breaks into blue shards that fall away. */
+  private shieldStrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 89);
+    const r = Math.max(6, e.radius);
+    const n = Math.round(30 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(Math.PI, Math.PI * 2);
+      this.particles.add({
+        x: e.x + Math.round(Math.cos(a) * r),
+        y: e.y + Math.round(Math.sin(a) * r),
+        vx: Math.cos(a) * rng.range(0.3, 1),
+        vy: rng.range(-0.6, 0.2),
+        life: rng.range(14, 30),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xffffff : 0x58b8ff,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Static spat off a tank whose electrics fry (jammed, batteries cooked) or come back. */
+  private staticSpit(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 97);
+    const n = Math.round(count * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + Math.round(rng.range(-e.radius, e.radius)),
+        y: e.y + Math.round(rng.range(-3, 2)),
+        vx: rng.range(-1.2, 1.2),
+        vy: -rng.range(0.4, 1.6),
+        life: rng.range(5, 12),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0x70d0ff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
   /** An uncovered gas pocket going up: tongues of fire licking out of the hollow, then soot. */
   private pocketBurst(e: EffectEvent): void {
     const rng = this.rngFor(e, 73);
@@ -4575,6 +4682,77 @@ export class EffectSystem {
     }
     this.tintSky([0, 0.3, 0.32, 0.85], 0.35 * k);
     this.kick(4 * k, e.tick);
+  }
+
+  /**
+   * A Plasma Cannon bolt bursting into its pool: a crown of glowing droplets thrown up and
+   * raining back down, a puff of plasma motes, glitter, a few short arcs licking out over the
+   * ground, and a blue-violet flicker in the sky.
+   */
+  private plasmaSplash(e: EffectEvent): void {
+    const rng = this.rngFor(e, 37);
+    const k = e.params.strength ?? 1;
+    const DROP = [0xffffff, 0xc8f4ff, 0x9ae8ff, 0xb090ff, 0x8a6aff] as const;
+    const n = Math.round(70 * k * this.mult) + 12;
+    for (let i = 0; i < n; i++) {
+      // a crown: mostly up and out, a few low and wide
+      const a = -Math.PI / 2 + rng.range(-1.25, 1.25);
+      const sp = rng.range(1.2, 3.6);
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y - 1,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(18, 40),
+        size: 1,
+        color: DROP[Math.floor(rng.next() * DROP.length)]!,
+        kind: PKind.Spark,
+      });
+    }
+    const m = Math.round(40 * k * this.mult) + 6;
+    for (let i = 0; i < m; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const sp = rng.range(0.4, 1.6);
+      this.particles.add({
+        x: e.x + Math.cos(a) * 3,
+        y: e.y - 2 + Math.sin(a) * 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp * 0.6 - 0.3,
+        life: rng.range(16, 30),
+        size: Math.round(rng.range(2, 5)),
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
+      });
+    }
+    const g = Math.round(24 * k * this.mult) + 4;
+    for (let i = 0; i < g; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-8, 8),
+        y: e.y - rng.range(0, 6),
+        vx: rng.range(-0.6, 0.6),
+        vy: -rng.range(0.2, 1.4),
+        life: rng.range(16, 32),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x9ae8ff : 0xc8a8ff,
+        kind: PKind.Glitter,
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const len = e.radius * rng.range(0.8, 1.6);
+      this.arc(e.x, e.y - 2, e.x + side * len, e.y - rng.range(-2, 10), e.tick + i, rng, 8);
+    }
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 10,
+      start: e.tick,
+      dur: 6,
+      color: 0xc8f4ff,
+      strength: 1.3,
+    });
+    this.tintSky([0, 0.3, 0.32, 0.85], 0.2 * k);
+    this.kick(2.5 * k, e.tick);
   }
 
   /** A Plasma Orb lashing a tank: a jagged arc from the ball to it, sparks and plasma where it lands. */
