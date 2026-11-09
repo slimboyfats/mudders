@@ -327,6 +327,12 @@ particle caps (800 / 2,500 / 6,000) and turns the distortion pass and vignette o
   time in tick order, so captures replay exactly. The solver follows the pass structure of Pavel
   Dobryakov's "WebGL Fluid Simulation" (MIT); the shaders are ours. The fluid needs
   `EXT_color_buffer_float` and is simply off without it.
+- **Liquid surfaces** (`render/pixel/liquid.ts`, renderer-only): every pool of water, lava or tar
+  on the map carries a one-dimensional wave field along its surface (one height and velocity per
+  column, a Jacobi wave step per sim tick, level-preserving kicks so a pool never rises). Splashes
+  (`WaterFx`), blasts and the wind feed it; waves run, meet and bounce off the banks. The surface
+  also has a sheen: glints sliding along water, lava's crust glowing and bubbling into embers, tar
+  blowing bubbles that plop. Crests, troughs, glints and bubble domes draw as whole map cells.
 - More events: `bolt` (jagged Bresenham channel with branches, double-strike flicker), `quake`,
   `resonate`, `zone`, `zoneHurt`, `burn`, `implode`. `flash` carries the damage type (`dt`, added
   by the kernel's `explode`), which picks the glow colour and a coloured sky tint (sky reaction).

@@ -14,6 +14,7 @@ import { drawDeathWall } from './deathwall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { WaterFx } from './splash';
+import { LiquidSurface } from './liquid';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -336,6 +337,8 @@ export class PixelRenderer implements Renderer {
   private particles!: GpuParticles;
   /** The smoke and gas field (off where float render targets are missing). */
   private fluid!: GpuFluid;
+  /** Waves, glints and bubbles along every liquid surface. */
+  private liquid!: LiquidSurface;
   private fx!: EffectSystem;
   /** Water splashes and ripples (cosmetic, watches the snapshots). */
   private water!: WaterFx;
@@ -413,6 +416,15 @@ export class PixelRenderer implements Renderer {
       options.palette.liquids ?? [],
       options.palette.materials,
     );
+    this.liquid = new LiquidSurface(
+      this.mapWidth,
+      this.mapHeight,
+      options.palette.liquids ?? [],
+      options.palette.hotLiquids ?? [],
+      options.palette.heavyLiquids ?? [],
+      options.palette.materials,
+    );
+    this.water.listener = this.liquid;
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
     this.uTer = uniforms(gl, this.terrainProg, [
@@ -662,6 +674,7 @@ export class PixelRenderer implements Renderer {
     }
     this.fx.mult = q.mult;
     this.water.mult = q.mult;
+    this.liquid.mult = q.mult;
   }
 
   setTheme(id: string): void {
@@ -751,6 +764,7 @@ export class PixelRenderer implements Renderer {
     }
     this.terrain = s.terrain;
     this.water.setTerrain(s.terrain);
+    this.liquid.setTerrain(s.terrain);
     this.coating = s.coating;
     // grass belongs to the ground a round starts with: craters dug later stay bare. The round
     // number goes up when a round ends; the next map arrives later as one whole-map rect.
@@ -819,6 +833,7 @@ export class PixelRenderer implements Renderer {
       this.fx.handle(e);
       if (e.type === 'flash') {
         this.water.blast(e);
+        this.liquid.blast(e.x, e.y, e.radius);
         if ((e.params.strength ?? 1) > 0) this.scorch(e.x, e.y, e.radius, e.tick);
       }
       // dirt geysers throw the char wider than the crater
@@ -843,6 +858,7 @@ export class PixelRenderer implements Renderer {
     this.fluid.clear();
     this.fx.clear();
     this.water.clear();
+    this.liquid.clear();
     this.meteors.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
@@ -1400,6 +1416,7 @@ export class PixelRenderer implements Renderer {
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
+    this.liquid.tick(this.fxTick, this.wind, this.particles);
     this.stepFlames();
     this.feedFluid();
     // burning shells shed flames as they fly
@@ -1803,6 +1820,7 @@ export class PixelRenderer implements Renderer {
     // the smoke field sits over the ground and under the particles, sparks and shells
     this.fluid.draw(this.terrainTex, view, origin, scale);
     this.particles.draw(this.terrainTex, this.mapWidth, this.mapHeight, view, origin, scale);
+    this.liquid.draw(this.normal, this.additive, t);
     this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
@@ -2557,6 +2575,7 @@ export class PixelRenderer implements Renderer {
     this.fluid.dispose();
     this.fx.clear();
     this.water.clear();
+    this.liquid.clear();
   }
 }
 
