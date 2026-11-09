@@ -67,51 +67,53 @@ export function supportPass(
   const q = scratch.queue;
   let tail = 0;
   let hanging = 0;
+  // one pass up each column: grounded or hanging, and the thickness of every hanging run
   for (let x = rx0; x <= rx1; x++) {
     let below = 1;
-    for (let y = H - 1, i = y * W + x; y >= 0; y--, i -= W) {
-      const m = mat[i]!;
-      dist[i] = 255;
-      thick[i] = 0;
+    let run = -1; // bottom row of the hanging run being climbed, or -1
+    for (let y = H - 1, i = y * W + x; y >= -1; y--, i -= W) {
+      const m = y < 0 ? 0 : mat[i]!;
+      let g = 0;
       if (m === 0) {
-        grounded[i] = 0;
         below = 0;
-        continue;
+      } else {
+        g =
+          below !== 0 || group[i] !== 0 || (settle[m] === SETTLE_STATIC && spanOf[m] === 255)
+            ? 1
+            : 0;
+        below = g;
+        if (g === 0) {
+          hanging++;
+          dist[i] = 255;
+          if (run < 0) run = y;
+        }
       }
-      const g =
-        below !== 0 || group[i] !== 0 || (settle[m] === SETTLE_STATIC && spanOf[m] === 255) ? 1 : 0;
-      grounded[i] = g;
-      below = g;
-      if (g === 0) hanging++;
-    }
-    // hanging runs: their thickness, and the grounded cells next to them seed the search
-    for (let y = 0, i = x; y < H; y++, i += W) {
-      if (mat[i] === 0 || grounded[i] !== 0) continue;
-      let end = y;
-      let j = i;
-      while (end < H && mat[j] !== 0 && grounded[j] === 0) {
-        end++;
-        j += W;
+      if (y >= 0) grounded[i] = m === 0 ? 0 : g;
+      if (run >= 0 && (m === 0 || g !== 0)) {
+        const t = Math.min(255, run - y);
+        for (let k = y + 1, kk = i + W; k <= run; k++, kk += W) thick[kk] = t;
+        run = -1;
       }
-      const t = Math.min(255, end - y);
-      for (let k = y, kk = i; k < end; k++, kk += W) thick[kk] = t;
-      y = end - 1;
-      i = j - W;
     }
   }
   // nothing hangs (the usual case on soft ground): done after the one column pass
   if (hanging === 0) return 0;
+  // grounded cells next to a hanging one seed the search
+  const seeded = scratch.nextMarkGen();
+  const mark = scratch.mark;
   for (let x = rx0; x <= rx1; x++) {
     for (let y = 0, i = x; y < H; y++, i += W) {
-      if (mat[i] === 0 || grounded[i] === 0) continue;
-      const hangs =
-        (y > 0 && mat[i - W] !== 0 && grounded[i - W] === 0) ||
-        (y < H - 1 && mat[i + W] !== 0 && grounded[i + W] === 0) ||
-        (x > rx0 && mat[i - 1] !== 0 && grounded[i - 1] === 0) ||
-        (x < rx1 && mat[i + 1] !== 0 && grounded[i + 1] === 0);
-      if (!hangs) continue;
-      dist[i] = 0;
-      q[tail++] = i;
+      if (mat[i] === 0 || grounded[i] !== 0) continue;
+      for (let n = 0; n < 4; n++) {
+        const nx = n === 0 ? x - 1 : n === 1 ? x + 1 : x;
+        const ny = n === 2 ? y - 1 : n === 3 ? y + 1 : y;
+        if (nx < rx0 || nx > rx1 || ny < 0 || ny >= H) continue;
+        const j = ny * W + nx;
+        if (mat[j] === 0 || grounded[j] === 0 || mark[j] === seeded) continue;
+        mark[j] = seeded;
+        dist[j] = 0;
+        q[tail++] = j;
+      }
     }
   }
   // breadth-first through hanging cells, out to MAX_REACH
