@@ -237,6 +237,13 @@ export interface Tank extends TankHandle {
   rustWobble: number;
   /** Who rusted it (the storm's owner, credited for the rust damage), or -1. */
   rustBy: number;
+  /**
+   * Own turns left mind-controlled (Telepathy): on its turn the player `mindBy` steers it (aim,
+   * weapon from its own inventory, drive, fire), and a bot caster turns it on its own side. The
+   * link breaks if the caster dies.
+   */
+  mind: number;
+  mindBy: number;
   /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
   driveLeft: number;
   driving: number;
@@ -284,6 +291,7 @@ interface RtExplosion {
   push: number;
   chill: number;
   glue: number;
+  mind: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -793,6 +801,7 @@ export class World implements SimApi {
       push: e.push,
       chill: e.chill,
       glue: e.glue,
+      mind: e.mind,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -824,7 +833,7 @@ export class World implements SimApi {
     t.bot = next;
     t.driving = 0;
     t.botGoal = -1;
-    if (this.phase === 'aim' && t.player === this.activePlayer) {
+    if (this.phase === 'aim' && t.player === this.controller) {
       this.botWait = next >= 0 ? BOT_THINK_TICKS : 0;
       this.timer = next >= 0 ? 0 : this.turnTimerTicks;
     } else if (this.phase === 'shop' && next >= 0 && !t.ready) {
@@ -887,6 +896,8 @@ export class World implements SimApi {
         rustDrive: 1000,
         rustWobble: 0,
         rustBy: -1,
+        mind: 0,
+        mindBy: -1,
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
@@ -1011,6 +1022,8 @@ export class World implements SimApi {
       tank.sunk = 0;
       tank.chill = 0;
       tank.glue = 0;
+      tank.mind = 0;
+      tank.mindBy = -1;
       tank.rust = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
@@ -1059,6 +1072,23 @@ export class World implements SimApi {
 
   get activePlayer(): number {
     return this.order[this.turnPos] ?? -1;
+  }
+
+  /**
+   * The player who steers the active tank this turn: its own player, or the caster of a mind link
+   * (Telepathy) while the link holds (caster still alive). Inputs from this player move the active
+   * tank, and the caster's bot plays it when the caster is a bot.
+   */
+  get controller(): number {
+    const p = this.activePlayer;
+    const t = this.tanks[p];
+    if (!t || t.mind <= 0 || t.mindBy < 0 || t.mindBy === p) return p;
+    return this.tanks[t.mindBy]?.alive ? t.mindBy : p;
+  }
+
+  /** Bot index that plays the active turn (the controller's bot), or -1 for a human. */
+  private get driverBot(): number {
+    return this.tanks[this.controller]?.bot ?? -1;
   }
 
   /** True when sudden death rules apply this turn (§3.1). */
@@ -1212,7 +1242,14 @@ export class World implements SimApi {
       else this.buy(t, input.item, input.packs);
       return;
     }
-    if (!t.alive || this.phase !== 'aim' || player !== this.activePlayer || t.bot >= 0) return;
+    if (this.phase !== 'aim' || player !== this.controller || t.bot >= 0) return;
+    // a mind-controlled tank takes its caster's inputs
+    const c = player === this.activePlayer ? t : this.tanks[this.activePlayer];
+    if (!c?.alive) return;
+    this.steer(c, input);
+  }
+
+  private steer(t: Tank, input: Input): void {
     switch (input.type) {
       case 'aim':
         t.angle = Math.max(0, Math.min(180, input.angle | 0));
@@ -1488,7 +1525,8 @@ export class World implements SimApi {
     this.projectiles.push({
       id: this.nextProjectileId++,
       weapon: fired,
-      owner: t.player,
+      // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
+      owner: this.controller === t.player ? t.player : this.controller,
       x,
       y,
       vx: Math.trunc((speed * c) / FP),
@@ -1523,7 +1561,8 @@ export class World implements SimApi {
       this.phase = 'resolve';
       return;
     }
-    if (t.bot >= 0) {
+    const bot = this.driverBot;
+    if (bot >= 0) {
       if (t.driving !== 0) {
         if (!t.falling && this.tick % this.driveTicks(t) === 0) {
           this.driveStep(t);
@@ -1533,8 +1572,8 @@ export class World implements SimApi {
       }
       if (t.falling) return;
       this.botWait--;
-      if (this.botWait === BOT_MOVE_TICK) this.botMove(t);
-      if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t);
+      if (this.botWait === BOT_MOVE_TICK) this.botMove(t, bot);
+      if (this.botWait === BOT_THINK_TICKS >> 1) this.botAim(t, bot);
       if (this.botWait <= 0) this.fire(t);
       return;
     }
@@ -1563,10 +1602,16 @@ export class World implements SimApi {
         terrainValue: w.terrainValue,
       });
     }
+    // a mind-controlled tank plays for its caster: it counts itself on the caster's team (so the
+    // caster's enemies are its targets, its own side included) and leaves its own memory alone
+    const by =
+      t.mind > 0 && t.mindBy >= 0 && t.mindBy !== t.player ? this.tanks[t.mindBy] : undefined;
+    const charmed = by !== undefined && by.alive;
+    const team = charmed ? by.team : t.team;
     return {
       rng: this.rng,
       me: t.player,
-      tanks: this.tanks,
+      tanks: charmed ? this.tanks.map((u) => (u === t ? { ...u, team } : u)) : this.tanks,
       weapons,
       gear: this.gearView(t),
       width: this.grid.width,
@@ -1582,10 +1627,10 @@ export class World implements SimApi {
       chill: t.chill,
       glue: t.glue,
       lastShot:
-        t.lastShotX >= 0
+        t.lastShotX >= 0 && !charmed
           ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
           : null,
-      memory: t.aiMem,
+      memory: charmed ? [] : t.aiMem,
       angle: t.angle,
       power: t.power,
     };
@@ -1605,8 +1650,8 @@ export class World implements SimApi {
   }
 
   /** A bot that drives picks a reachable column and starts rolling there. */
-  private botMove(t: Tank): void {
-    const bot = this.bots[t.bot]!;
+  private botMove(t: Tank, b: number): void {
+    const bot = this.bots[b]!;
     t.driving = 0;
     t.botGoal = -1;
     if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0 || t.glue > 0) return;
@@ -1618,8 +1663,8 @@ export class World implements SimApi {
     t.driving = dir;
   }
 
-  private botAim(t: Tank): void {
-    const bot = this.bots[t.bot]!;
+  private botAim(t: Tank, b: number): void {
+    const bot = this.bots[b]!;
     if (bot.b.gear) {
       // gear first (a shield up before the shot), each use validated like a human's
       for (const g of bot.b.gear(this.aiApi(t), bot.params)) {
@@ -2570,6 +2615,18 @@ export class World implements SimApi {
         t.driving = 0;
         this.emit('glued', t.x, t.y, t.half, { player: t.player });
       }
+      if (e.mind > 0 && owner >= 0 && owner !== t.player) {
+        // a mind link (Telepathy): the caster steers this tank on its next own turns; never a
+        // tank of the caster's own team
+        const caster = this.tanks[owner];
+        if (caster?.alive && caster.team !== t.team) {
+          const turns =
+            e.mind + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+          if (turns > t.mind || t.mindBy !== owner) t.mind = turns;
+          t.mindBy = owner;
+          this.emit('mindLink', t.x, t.y - (t.h >> 1), t.half, { player: t.player, by: owner });
+        }
+      }
       // a glued tank holds fast: blasts don't shove it
       if (e.push > 0 && dx !== 0 && t.glue === 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
@@ -3001,8 +3058,20 @@ export class World implements SimApi {
       this.emit('zoneBurn', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       this.damageTank(t, this.suddenDeath.zoneDamage, -1, true);
     }
-    this.botWait = t && t.bot >= 0 ? BOT_THINK_TICKS : 0;
-    this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
+    const bot = t ? this.driverBot : -1;
+    this.botWait = t && bot >= 0 ? BOT_THINK_TICKS : 0;
+    this.timer = t && bot < 0 ? this.turnTimerTicks : 0;
+    const by = this.controller;
+    if (t?.alive && by !== t.player) {
+      // its caster takes the controls for this turn
+      const c = this.tanks[by]!;
+      this.emit('mindTurn', t.x, t.y - (t.h >> 1), t.half, {
+        player: t.player,
+        by,
+        cx: c.x,
+        cy: c.y - (c.h >> 1),
+      });
+    }
     if (t) {
       // a glued tank can't drive this turn
       t.driveLeft = t.glue > 0 ? 0 : this.driveCells(t);
@@ -3033,6 +3102,18 @@ export class World implements SimApi {
   private endTurn(): void {
     const active = this.tanks[this.activePlayer];
     if (active && active.chill > 0) active.chill--;
+    if (active && active.mind > 0) {
+      active.mind--;
+      if (active.mind === 0) {
+        if (active.alive) {
+          this.emit('mindFree', active.x, active.y - (active.h >> 1), active.half, {
+            player: active.player,
+            by: active.mindBy,
+          });
+        }
+        active.mindBy = -1;
+      }
+    }
     if (active && active.glue > 0) {
       active.glue--;
       // the glue gives: a little tear of goo as it lets go
@@ -3271,6 +3352,7 @@ export class World implements SimApi {
         chill: t.chill,
         glue: t.glue,
         ...(t.rust > 0 ? { rust: t.rust } : {}),
+        ...(t.mind > 0 ? { mind: t.mind, mindBy: t.mindBy } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -3411,6 +3493,8 @@ export class World implements SimApi {
       // rust (Thunderstorm): only hashed while rusted, so other matches keep their hashes
       if (t.rust > 0)
         h.num(t.rust).num(t.rustDamage).num(t.rustDrive).num(t.rustWobble).num(t.rustBy);
+      // mind link (Telepathy): likewise only while linked
+      if (t.mind > 0) h.num(t.mind).num(t.mindBy);
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {
