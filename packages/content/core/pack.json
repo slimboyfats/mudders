@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.52.0",
+  "version": "0.53.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -58,6 +58,7 @@
     "audio.music-battle",
     "audio.music-title",
     "audio.parachute",
+    "audio.plasma-sizzle",
     "audio.rain",
     "audio.resonate",
     "audio.rift",
@@ -151,6 +152,7 @@
     "material.obsidian",
     "material.oil",
     "material.packed-mud",
+    "material.plasma",
     "material.reactor-core",
     "material.reactor-lit",
     "material.rock",
@@ -296,6 +298,7 @@
     "weapon.orbital-lance-beam",
     "weapon.plague",
     "weapon.plasma-blast",
+    "weapon.plasma-cannon",
     "weapon.plasma-orb",
     "weapon.plasma-orb-core",
     "weapon.portal-pair",

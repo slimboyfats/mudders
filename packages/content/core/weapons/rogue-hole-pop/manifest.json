@@ -5,7 +5,7 @@
     "name": "Rogue Black Hole pop",
     "description": "A Rogue Black Hole evaporating: a sharp ring of force that shoves tanks and ground outward.",
     "category": "submunition",
-    "since": "core@0.52.0"
+    "since": "core@0.53.0"
   },
   "flight": {
     "use": "flight.static"

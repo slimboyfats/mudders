@@ -4,7 +4,7 @@
   "meta": {
     "name": "Rogue Black Hole",
     "description": "A black hole opens where the shell lands and roams the map for a few full turn rotations, drifting along the ground at the start of every turn. It eats everything inside it, ground, objects and any shell that falls in, tears loose ground in round its rim, bends nearby shells into it, drags tanks toward it and bites any tank it touches. When its time is up it evaporates with a pop.",
-    "since": "core@0.52.0"
+    "since": "core@0.53.0"
   },
   "behaviour": "terrainop.rogue-hole",
   "rise": 30,
