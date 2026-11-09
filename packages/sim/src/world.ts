@@ -56,6 +56,7 @@ import { Hasher } from './hash';
 import { MaterialTable, damageTypeIndex } from './materials';
 import { Prng } from './prng';
 import { Scratch } from './scratch';
+import { supportPass } from './support';
 import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
 import { KEEP, SETTLE_FLOW } from './materials';
@@ -968,6 +969,15 @@ export class World implements SimApi {
     // Pre-settle anything loose the generator left, so a round starts still.
     g.markDirty(0, 0, g.width - 1, g.height - 1);
     for (let i = 0; i < 2000 && g.settling; i++) settleStep(g, this.mats, i, g.size);
+    // and anything the generator left hanging further than its material holds
+    for (let pass = 0; pass < 8; pass++) {
+      if (supportPass(g, this.mats, this.scratch, this.debris, this) === 0) break;
+      for (let i = 0; i < 2000 && (this.debris.count > 0 || g.settling); i++) {
+        this.debris.step(g, this.gravity, this.mats);
+        settleStep(g, this.mats, i, g.size);
+      }
+    }
+    g.clearStruct();
     g.clearSettle();
     g.takeRenderRects();
     g.addRenderRect(0, 0, g.width, g.height);
@@ -1159,6 +1169,11 @@ export class World implements SimApi {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
       else this.groups.settled();
+    }
+    // everything has come to rest after a change: what hangs too far for its material comes
+    // down (§4b); never while an op is still shaping the ground (a growing ice wall)
+    if (this.grid.structMaxX >= 0 && this.quiet) {
+      supportPass(this.grid, this.mats, this.scratch, this.debris, this);
     }
     this.stepTanks();
     if (this.mines.length > 0) this.stepMines();
@@ -3318,6 +3333,7 @@ export class World implements SimApi {
     h.bytes(g.group).bytes(g.groupMat);
     this.groups.hash(h);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);
+    h.num(g.structMinX).num(g.structMaxX).num(g.structMinY).num(g.structMaxY);
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
     h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);
     h.num(this.contactDone ? 1 : 0);

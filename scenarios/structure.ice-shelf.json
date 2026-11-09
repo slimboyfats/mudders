@@ -1,0 +1,58 @@
+{
+  "id": "structure.ice-shelf",
+  "schemaVersion": 1,
+  "description": "A Heavy Nuke on a frozen lake: the ice sheet over the crater breaks off along its reach and drops in, the rim still juts out over the hole.",
+  "subject": "gen.glacier",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.glacier"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.heavy-nuke": 3
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.heavy-nuke"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1000,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

@@ -150,6 +150,14 @@ runs `structure` (§4c): footing columns that stand vs hang, a reach from the ba
 `span` shortened by weight per column, and a `tear` that releases what sticks out too far (plus
 what rests on it) along a ragged line, or a whole break when the weight centre leaves the footing.
 
+Terrain structure (§4b, `sim/src/support.ts`): the grid keeps a _structure box_ of everything that
+changed or moved (`markDirty`, settle moves). Once the world is quiet, `supportPass` runs over that
+box plus `MAX_REACH` either side: a column pass marks grounded cells (a solid stack to the floor,
+prop groups, static materials without `span`), a breadth-first search through hanging cells gives
+each its distance to support, and static cells with a `span` further away than their reach (span ×
+thickness / 8, capped) are spawned as zero-velocity debris of their own material. World creation
+repeats the pass over the whole map until nothing is left hanging.
+
 `placement.roughen` wears a copy's outline (outline cells chip off, bumps grow on flat tops, then
 needles are trimmed) and `mirror` flips it, both from the match PRNG, so rock formations differ per
 map; with neither set no PRNG is drawn. A `shelter` prop (`rock-arch`, `rock-ledge`) may stand over

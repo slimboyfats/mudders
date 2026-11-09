@@ -164,6 +164,7 @@ export function settleStep(
   }
   if (moved > 0) {
     grid.addRenderRect(nMinX, nMinY, nMaxX - nMinX + 1, nMaxY - nMinY + 1);
+    grid.extendStruct(nMinX, nMinY, nMaxX, nMaxY);
   }
   return moved;
 }
