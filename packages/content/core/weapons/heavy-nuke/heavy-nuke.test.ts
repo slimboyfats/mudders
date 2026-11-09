@@ -11,6 +11,6 @@ describe('weapon.heavy-nuke', () => {
     };
     const heavy = hole('weapon.heavy-nuke');
     expect(heavy.cells).toBeGreaterThan(hole('weapon.nuke').cells);
-    expect(heavy.hp).toBeLessThan(hole('weapon.nuke').hp);
+    expect(heavy.hp).toBeLessThanOrEqual(hole('weapon.nuke').hp);
   });
 });

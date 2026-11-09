@@ -1,13 +1,13 @@
 {
-  "contentHash": "6603e1bd360d34ea",
+  "contentHash": "5c9609bc3d897b90",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
       "hash": "1acd617ab5f207cd"
     },
     "ai.moron": {
-      "ticks": 1316,
-      "hash": "951d149a3601d682"
+      "ticks": 1265,
+      "hash": "368ab21c39de7a4b"
     },
     "ai.poolshark": {
       "ticks": 628,
@@ -287,7 +287,7 @@
     },
     "explosion.shockwave": {
       "ticks": 314,
-      "hash": "18d6fdcaa19c2e8d"
+      "hash": "e1a6cdaaedb51734"
     },
     "explosion.standard": {
       "ticks": 163,
@@ -335,7 +335,7 @@
     },
     "flight.static": {
       "ticks": 249,
-      "hash": "7faa183599295bde"
+      "hash": "e5e91548bb3fd969"
     },
     "gear.battery": {
       "ticks": 238,
@@ -343,7 +343,7 @@
     },
     "gear.heavy-shield": {
       "ticks": 494,
-      "hash": "16fe7636f3e0aeb6"
+      "hash": "94f7cd19fb9193ad"
     },
     "gear.parachute": {
       "ticks": 336,
@@ -498,8 +498,8 @@
       "hash": "3c2210246599fe8a"
     },
     "material.magma": {
-      "ticks": 378,
-      "hash": "c36b42b41cdc44f8"
+      "ticks": 387,
+      "hash": "4faa9b55365abfbb"
     },
     "material.meteorite": {
       "ticks": 98,
@@ -547,7 +547,7 @@
     },
     "material.sand": {
       "ticks": 301,
-      "hash": "9a760cc09a7de411"
+      "hash": "7d51fe33da73096a"
     },
     "material.scorch": {
       "ticks": 324,
@@ -632,6 +632,14 @@
     "prop.tree": {
       "ticks": 325,
       "hash": "046207fdd0d568ed"
+    },
+    "shockwave.fling-nuke": {
+      "ticks": 577,
+      "hash": "28237682050279c3"
+    },
+    "shockwave.fling": {
+      "ticks": 240,
+      "hash": "93e3bfea0aa1a6fd"
     },
     "showcase.bot-drive": {
       "ticks": 883,
@@ -739,7 +747,7 @@
     },
     "terrainop.displace": {
       "ticks": 314,
-      "hash": "18d6fdcaa19c2e8d"
+      "hash": "e1a6cdaaedb51734"
     },
     "terrainop.frost": {
       "ticks": 271,
@@ -842,8 +850,8 @@
       "hash": "371a7bc95393022e"
     },
     "weapon.baby-nuke-core": {
-      "ticks": 168,
-      "hash": "b1988ab0358adc7d"
+      "ticks": 176,
+      "hash": "6aa49a2381e35690"
     },
     "weapon.baby-nuke": {
       "ticks": 321,
@@ -854,8 +862,8 @@
       "hash": "525bb6d929132fd4"
     },
     "weapon.baby-shockwave": {
-      "ticks": 178,
-      "hash": "efebd8cf4db2adf9"
+      "ticks": 190,
+      "hash": "db1ce402773c87c6"
     },
     "weapon.black-hole-mine-core": {
       "ticks": 115,
@@ -978,8 +986,8 @@
       "hash": "318a65a9aa6e295a"
     },
     "weapon.heavy-shockwave": {
-      "ticks": 201,
-      "hash": "b98a428d5e28c70c"
+      "ticks": 221,
+      "hash": "bc63c9c7a1031a26"
     },
     "weapon.hot-napalm": {
       "ticks": 392,
@@ -999,7 +1007,7 @@
     },
     "weapon.ion-cannon-aftershock": {
       "ticks": 181,
-      "hash": "ff9e8165da78b160"
+      "hash": "93878c49f6b9a2b1"
     },
     "weapon.ion-cannon-core": {
       "ticks": 270,
@@ -1007,7 +1015,7 @@
     },
     "weapon.ion-cannon-wave": {
       "ticks": 202,
-      "hash": "df63378e52b22b8c"
+      "hash": "6d9b0cb61aef4ce7"
     },
     "weapon.ion-cannon": {
       "ticks": 398,
@@ -1055,11 +1063,11 @@
     },
     "weapon.mirv-warhead": {
       "ticks": 203,
-      "hash": "b98333b336470bee"
+      "hash": "8aeb07b6a2f2499d"
     },
     "weapon.mirv": {
       "ticks": 264,
-      "hash": "1231c2de7fcfba22"
+      "hash": "c2e8783cd635b827"
     },
     "weapon.missile": {
       "ticks": 163,
@@ -1151,15 +1159,15 @@
     },
     "weapon.shockwave": {
       "ticks": 314,
-      "hash": "18d6fdcaa19c2e8d"
+      "hash": "e1a6cdaaedb51734"
     },
     "weapon.singularity-core": {
       "ticks": 127,
-      "hash": "8cd7219da0b3a9d7"
+      "hash": "f006b18c8556fe13"
     },
     "weapon.singularity": {
       "ticks": 249,
-      "hash": "7faa183599295bde"
+      "hash": "e5e91548bb3fd969"
     },
     "weapon.sinkhole": {
       "ticks": 254,
@@ -1190,8 +1198,8 @@
       "hash": "d9bb282eb34332c5"
     },
     "weapon.superstorm": {
-      "ticks": 1015,
-      "hash": "613927e952bcef30"
+      "ticks": 1013,
+      "hash": "6a042853f6a68617"
     },
     "weapon.tectonic-charge": {
       "ticks": 276,

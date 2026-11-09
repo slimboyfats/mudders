@@ -1,0 +1,67 @@
+{
+  "id": "shockwave.fling",
+  "schemaVersion": 1,
+  "description": "weapon.heavy-shockwave lands among a house, a tree and a tank: the shockwave ring throws the tank and blows the house and tree apart outward.",
+  "subject": "terrainop.displace",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.heavy-shockwave": 5
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.heavy-shockwave"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "props": [
+    {
+      "prop": "prop.house",
+      "x": 545
+    },
+    {
+      "prop": "prop.tree",
+      "x": 690
+    }
+  ]
+}

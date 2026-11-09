@@ -171,6 +171,8 @@ export const KINDS: readonly KindPhysics[] = [
     friction: 0,
     swirl: 0.02,
   }),
+  // Plasma: energy wisps, no weight, torn into filaments by a strong swirl
+  K({ dragX: 0.975, dragY: 0.975, swirl: 0.11, sway: 0.035, spread: 0.6 }),
 ];
 
 const NK = KINDS.length;
@@ -189,6 +191,7 @@ const MOTE_KINDS: Readonly<Partial<Record<number, number>>> = {
   [PKind.Dust]: 1.4,
   [PKind.Plume]: 2.4,
   [PKind.Flame]: -0.3,
+  [PKind.Plasma]: 1.6,
 };
 
 /** Most update passes run in one frame; a long stall (hidden tab) drops the rest. */
@@ -321,6 +324,7 @@ vec3 ramp3(vec3 a, vec3 b, vec3 c, float x) {
 }
 const vec3 EMBER = vec3(1.0, 0.52, 0.16);
 const vec3 SOOT = vec3(0.21, 0.18, 0.19);
+const vec3 PLASMA_DEEP = vec3(0.17, 0.07, 0.4);
 void main() {
   float age = u_tick - a_stat.x;
   float life = a_stat.y;
@@ -363,6 +367,15 @@ void main() {
       cover = t < 0.7 ? 1.0 : (1.0 - t) / 0.3;
       // grains leave the blast glowing and cool to their own colour
       col = mix(mix(EMBER, col, 0.45), col, stepT(min(1.0, t * 6.0), th, 4.0));
+    } else if (k == ${PKind.Plasma}) {
+      // hot cyan-white, its own blue or violet, then deep violet as it thins out cell by cell
+      col = ramp3(mix(col, vec3(0.75, 0.95, 1.0), 0.4), col, PLASMA_DEEP, stepT(t, th, 6.0));
+      cover = t < 0.45 ? 1.0 : (1.0 - t) / 0.55;
+      if (u_pass == 1) {
+        // the young, hot cells also light up: one hard additive cell each
+        show = show && t < 0.2;
+        alpha = 0.35;
+      }
     } else if (k == ${PKind.Cloud}) {
       show = show && u_pass == 0;
       cover = t < 0.6 ? 1.0 : (1.0 - t) / 0.4;
@@ -447,6 +460,14 @@ void main() {
     size = vec2(s);
     alpha = t < 0.7 ? 1.0 : (1.0 - t) / 0.3;
     col = mix(mix(EMBER, col, 0.45), col, stepT(min(1.0, t * 6.0), th, 4.0));
+  } else if (k == ${PKind.Plasma}) {
+    // a lone plasma cell (a filament): same ramp as its motes
+    col = ramp3(mix(col, vec3(0.75, 0.95, 1.0), 0.4), col, PLASMA_DEEP, stepT(t, th, 6.0));
+    show = show && th < (t < 0.5 ? 1.0 : (1.0 - t) / 0.5);
+    if (u_pass == 1) {
+      show = show && t < 0.4;
+      alpha = 0.5;
+    }
   } else if (k == ${PKind.Plume}) {
     show = show && u_pass == 0;
     int band = min(4, int(t * 5.0));
