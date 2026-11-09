@@ -326,6 +326,7 @@ export class PixelRenderer implements Renderer {
       | 'u_rippleCount'
       | 'u_ripple'
       | 'u_rippleW'
+      | 'u_swirl'
       | 'u_tint'
       | 'u_origin'
       | 'u_scale'
@@ -375,6 +376,8 @@ export class PixelRenderer implements Renderer {
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
+  /** Per ripple slot: twist in radians at the centre for a swirl lens (0 = a ring wave). */
+  private swirl = new Float32Array(MAX_RIPPLES);
   /** Tick each player's shield last soaked a hit (for the flash). */
   private shieldHitAt: number[] = [];
   /** Tick each player last switched a shield on, or used a battery (gear, §5.1). */
@@ -502,6 +505,7 @@ export class PixelRenderer implements Renderer {
       'u_rippleCount',
       'u_ripple',
       'u_rippleW',
+      'u_swirl',
       'u_tint',
       'u_origin',
       'u_scale',
@@ -1760,7 +1764,19 @@ export class PixelRenderer implements Renderer {
     // ripples, shake and the flash tint need a post pass; most frames draw straight to the canvas
     const distort = this.quality !== 'low';
     let nRipples = 0;
+    this.swirl.fill(0);
     if (distort) {
+      // black holes first: a standing swirl lens round each one
+      for (const s of this.fx.swirls(t)) {
+        if (nRipples >= MAX_RIPPLES) break;
+        this.rippleBuf[nRipples * 4] = ox + s.x * scale;
+        this.rippleBuf[nRipples * 4 + 1] = oy + s.y * scale;
+        this.rippleBuf[nRipples * 4 + 2] = s.r * scale;
+        this.rippleBuf[nRipples * 4 + 3] = s.strength;
+        this.rippleW[nRipples] = 1;
+        this.swirl[nRipples] = s.twist;
+        nRipples++;
+      }
       for (const r of this.fx.ripples) {
         if (nRipples >= MAX_RIPPLES) break;
         const k = (t - r.start) / r.dur;
@@ -1887,6 +1903,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
     this.fx.drawMagnets(this.normal, this.additive, t);
+    this.fx.drawGravity(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
@@ -1933,6 +1950,7 @@ export class PixelRenderer implements Renderer {
       gl.uniform1i(this.uPost.u_rippleCount, nRipples);
       gl.uniform4fv(this.uPost.u_ripple, this.rippleBuf);
       gl.uniform1fv(this.uPost.u_rippleW, this.rippleW);
+      gl.uniform1fv(this.uPost.u_swirl, this.swirl);
       gl.uniform3f(this.uPost.u_tint, sky[0] * 0.36, sky[1] * 0.36, sky[2] * 0.36);
       gl.uniform1f(this.uPost.u_split, split);
       gl.uniform1f(this.uPost.u_scan, scan);

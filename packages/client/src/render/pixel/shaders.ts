@@ -893,6 +893,7 @@ uniform vec2 u_shake;
 uniform int u_rippleCount;
 uniform vec4 u_ripple[${MAX_RIPPLES}];
 uniform float u_rippleW[${MAX_RIPPLES}];
+uniform float u_swirl[${MAX_RIPPLES}];
 uniform vec3 u_tint;
 uniform vec2 u_origin;
 uniform float u_scale;
@@ -911,6 +912,21 @@ void main() {
     vec2 d = cellPx - r.xy;
     float dist = length(d);
     float w = u_rippleW[i];
+    float sw = u_swirl[i];
+    if (sw != 0.0) {
+      // a swirling lens round a black hole: the image is twisted round the centre, hardest at
+      // the core and easing out to nothing at radius z, the twist wobbling in and out over time
+      // and with distance so it churns; w is the strength (0..1 while it opens or closes)
+      float f = 1.0 - clamp(dist / max(r.z, 1.0), 0.0, 1.0);
+      float cell = dist / u_scale;
+      float ang = sw * r.w * f * f * (1.0 + 0.35 * sin(u_wob * 2.3 - cell * 0.45));
+      float cs = cos(ang);
+      float sn = sin(ang);
+      vec2 rd = vec2(d.x * cs - d.y * sn, d.x * sn + d.y * cs);
+      // and pulled a little inward, so the sky around it looks sucked toward the hole
+      disp += (d - rd) - d * f * f * f * 0.1 * r.w;
+      continue;
+    }
     if (w < 0.0) {
       // vertical column wave: pixels on both sides pushed sideways, the column wobbling as it goes
       w = -w;
