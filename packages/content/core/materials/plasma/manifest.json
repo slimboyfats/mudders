@@ -1,0 +1,57 @@
+{
+  "id": "material.plasma",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma",
+    "description": "A glowing blue-violet pool of plasma. It runs downhill, eats its way down through dirt, sand, mud and snow, sets wood alight, burns any tank sitting in it at the end of the turn, and fuses into glass when it cools.",
+    "since": "core@0.52.0",
+    "color": "#8a6aff"
+  },
+  "cell": 90,
+  "settle": "flow",
+  "density": 60,
+  "strength": {
+    "blast": 0.25,
+    "kinetic": 0.3,
+    "heat": 8,
+    "shock": 0.3,
+    "dig": 0.3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "spread": 30,
+  "decay": {
+    "into": "material.glass",
+    "ticks": 220
+  },
+  "contact": {
+    "damage": 25
+  },
+  "reactions": [
+    {
+      "with": "material.dirt",
+      "other": "air",
+      "chance": 0.02
+    },
+    {
+      "with": "material.sand",
+      "other": "material.glass",
+      "chance": 0.04
+    },
+    {
+      "with": "material.snow",
+      "other": "air",
+      "chance": 0.1
+    },
+    {
+      "with": "material.wood",
+      "other": "material.fire",
+      "chance": 0.09
+    }
+  ],
+  "look": {
+    "cycle": ["#8a6aff", "#5ad8ff", "#c8b0ff", "#6a4ae8", "#e8f4ff", "#7a5aff"],
+    "cycleTicks": 3,
+    "hot": true
+  }
+}
