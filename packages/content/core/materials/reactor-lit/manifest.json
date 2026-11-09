@@ -1,0 +1,67 @@
+{
+  "id": "material.reactor-lit",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Critical reactor core",
+    "description": "Reactor core going critical. The white-hot reaction creeps from cell to cell through the fuel around it, every cell it leaves behind burns down to cinder, and every so often one goes off in a blast that sets the core around it critical too.",
+    "since": "core@0.50.0",
+    "color": "#e8ffd0"
+  },
+  "cell": 202,
+  "settle": "static",
+  "density": 120,
+  "strength": {
+    "blast": 0.5,
+    "kinetic": 0.5,
+    "heat": 0.5,
+    "shock": 0.5,
+    "dig": 0.5,
+    "corrosive": 0.5
+  },
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "material.cinder",
+    "ticks": 24
+  },
+  "detonate": {
+    "explosion": {
+      "use": "explosion.standard",
+      "radius": 9,
+      "damage": 28,
+      "push": 8,
+      "effects": {
+        "burst": {
+          "count": 18
+        },
+        "flash": {
+          "strength": 0.7
+        },
+        "shake": {
+          "strength": 1.2
+        },
+        "arcs": {
+          "strength": 0.5
+        }
+      }
+    },
+    "chance": 0.02
+  },
+  "reactions": [
+    {
+      "with": "material.reactor-core",
+      "other": "material.reactor-lit",
+      "chance": 0.06
+    },
+    {
+      "with": "air",
+      "spawn": "material.fire",
+      "chance": 0.01
+    }
+  ],
+  "look": {
+    "cycle": ["#e8ffd0", "#8af06a", "#ffffff", "#40e0c0"],
+    "cycleTicks": 2,
+    "hot": true
+  }
+}

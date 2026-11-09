@@ -5,7 +5,7 @@
     "name": "Supernova",
     "description": "Lights a small star over where it lands. For five long seconds the star burns and pulls: the ground around it is torn up and sucked in, and every tank nearby is dragged toward it. Then it collapses and goes off in a huge ring that flings tanks across the map, and leaves the crater glazed in glowing slag.",
     "category": "explosive",
-    "since": "core@0.50.0"
+    "since": "core@0.51.0"
   },
   "flight": {
     "use": "flight.ballistic"
