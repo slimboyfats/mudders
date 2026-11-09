@@ -59,3 +59,32 @@ export function stickyAt(api: SimApi, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= g.width || y >= g.height) return false;
   return api.mats.sticky[g.material[y * g.width + x]!] !== 0;
 }
+
+/**
+ * The live enemy decoy (`api.lures`, not on `team`) nearest (x, y) within `range` cells: its
+ * centre and squared distance, or null. Homing warheads go for a decoy over a real tank unless the
+ * tank is less than half as far (a decoy runs hot on purpose).
+ */
+export function lureNear(
+  api: SimApi,
+  team: number,
+  x: number,
+  y: number,
+  range: number,
+): { x: number; y: number; d2: number; index: number } | null {
+  let best: { x: number; y: number; d2: number; index: number } | null = null;
+  let bd = range * range;
+  for (let i = 0; i < api.lures.length; i++) {
+    const l = api.lures[i]!;
+    if (!l.alive || l.team === team) continue;
+    const cy = l.y - (l.h >> 1);
+    const dx = l.x - x;
+    const dy = cy - y;
+    const d = dx * dx + dy * dy;
+    if (d < bd) {
+      bd = d;
+      best = { x: l.x, y: cy, d2: d, index: i };
+    }
+  }
+  return best;
+}

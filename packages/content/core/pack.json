@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -200,6 +200,7 @@
     "terrainop.carve",
     "terrainop.coat",
     "terrainop.convert",
+    "terrainop.decoy",
     "terrainop.dirt-burst",
     "terrainop.dirt-tsunami",
     "terrainop.displace",
@@ -251,6 +252,7 @@
     "weapon.cluster-fireworks",
     "weapon.cryo-shell",
     "weapon.daisy-cutter",
+    "weapon.decoy-tank",
     "weapon.digger",
     "weapon.dirt-ball",
     "weapon.dirt-bomb",

@@ -1,5 +1,6 @@
 import { FP, z } from '@mudders/shared';
-import { defineFlight } from '@mudders/sim';
+import { defineFlight, type SimApi } from '@mudders/sim';
+import { lureNear } from '../../../src/flight';
 
 const params = z.strictObject({
   maxTicks: z.number().int().min(1),
@@ -51,6 +52,14 @@ function nearest(
   return best;
 }
 
+/** Squared distance from (x, y) to tank `i`'s centre. */
+function d2(api: SimApi, i: number, x: number, y: number): number {
+  const t = api.tanks[i]!;
+  const dx = t.x - x;
+  const dy = t.y - (t.h >> 1) - y;
+  return dx * dx + dy * dy;
+}
+
 /**
  * Plasma Orb (weapon.plasma-orb-core): the orb climbs out of the impact, then hangs in the air,
  * bobbing and creeping toward the nearest enemy, and every `zapEvery` ticks lashes the nearest
@@ -60,7 +69,7 @@ function nearest(
 export default defineFlight<Params>({
   kind: 'flight',
   id: 'flight.plasma-orb',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -84,9 +93,12 @@ export default defineFlight<Params>({
       const cx = Math.floor(proj.x / FP);
       const cy = Math.floor(proj.y / FP);
       const tgt = nearest(api.tanks, team, cx, cy, g.width);
-      if (p.drift > 0 && tgt >= 0) {
-        const t = api.tanks[tgt]!;
-        const dir = t.x > cx + 2 ? 1 : t.x < cx - 2 ? -1 : 0;
+      // a decoy draws it unless a real tank is less than half as far
+      const lure = lureNear(api, team, cx, cy, g.width);
+      const goLure = lure !== null && (tgt < 0 || lure.d2 <= d2(api, tgt, cx, cy) * 4);
+      const gx = goLure ? lure.x : tgt >= 0 ? api.tanks[tgt]!.x : -1;
+      if (p.drift > 0 && gx >= 0) {
+        const dir = gx > cx + 2 ? 1 : gx < cx - 2 ? -1 : 0;
         const nx16 = d[DX]! + dir * p.drift;
         const nx = nx16 >> 4;
         // creeps through the air only: a hillside in the way stops it
@@ -103,7 +115,11 @@ export default defineFlight<Params>({
       }
       if ((age - p.riseTicks) % p.zapEvery === 0) {
         const hit = nearest(api.tanks, team, cx, cy, p.reach);
-        if (hit >= 0) {
+        const bait = lureNear(api, team, cx, cy, p.reach);
+        if (bait && (hit < 0 || bait.d2 <= d2(api, hit, cx, cy) * 4)) {
+          api.hurtLure(bait.index, p.zapDamage, proj.owner);
+          api.emit('plasmaZap', cx, cy, p.reach, { tx: bait.x, ty: bait.y, player: -1 });
+        } else if (hit >= 0) {
           const t = api.tanks[hit]!;
           api.hurt(hit, p.zapDamage, proj.owner);
           api.emit('plasmaZap', cx, cy, p.reach, { tx: t.x, ty: t.y - (t.h >> 1), player: hit });

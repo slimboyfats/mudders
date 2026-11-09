@@ -34,6 +34,25 @@ export interface TankHandle {
   y: number;
 }
 
+/**
+ * A decoy (lure): a dummy tank on the ground that shells hit, blasts hurt, homing weapons and bots
+ * take for a real tank, and that pops when its `hp` runs out. Indexes into `SimApi.lures` are
+ * stable for the round (dead lures stay, `alive` false). A flight hit on lure `i` reports
+ * `tank` = `tanks.length + i`, the same index bots see it under.
+ */
+export interface Lure {
+  owner: number;
+  team: number;
+  x: number;
+  /** Bottom row (it stands on row `y`, like a tank). */
+  y: number;
+  hp: number;
+  maxHp: number;
+  half: number;
+  h: number;
+  alive: boolean;
+}
+
 /** Everything a behaviour may touch. No time, no DOM, no renderer. */
 export interface SimApi extends EffectSink {
   readonly grid: Grid;
@@ -70,6 +89,15 @@ export interface SimApi extends EffectSink {
   hold(player: number, x: number, y: number, fallFrom?: number): void;
   /** Turns taken this round (a resident op counts its lifetime in them). */
   readonly turn: number;
+  /** Decoys on the map this round (see `Lure`). Read-only: `addLure` and `hurtLure` change them. */
+  readonly lures: readonly Readonly<Lure>[];
+  /**
+   * Put a decoy standing on row `y` at column `x`, owned by `owner` (on its team), with `hp` hit
+   * points. Returns its index, or -1 when the round already has the most decoys.
+   */
+  addLure(x: number, y: number, owner: number, hp: number): number;
+  /** Hurt decoy `index` by `amount` (an arc, a zap); it pops at 0. */
+  hurtLure(index: number, amount: number, owner: number): void;
   /** Shells in flight. Read-only: `catchShell` and `throwShell` are the only ways to change them. */
   readonly projectiles: readonly Readonly<Projectile>[];
   /** Take a live shell out of the air without it going off. Returns false if there is none. */
@@ -163,7 +191,8 @@ export type FlightSignal = 'impact' | 'pulse' | 'skip' | 'die' | undefined;
 
 /**
  * A hit the kernel's tracer found between the shell's old and new position. `x`,`y` is the first
- * cell hit; `freeX`,`freeY` the last free cell before it; `tank` the player hit (or -1).
+ * cell hit; `freeX`,`freeY` the last free cell before it; `tank` the player hit, or
+ * `tanks.length + i` for decoy `i` (see `Lure`), or -1.
  */
 export interface FlightHit {
   x: number;
@@ -263,6 +292,10 @@ export interface ModeBehaviour<P = unknown> extends BehaviourBase<P> {
 
 // ── AI personalities ────────────────────────────────────────────────────────────────────────
 
+/**
+ * A tank as a bot sees it. Decoys (`SimApi.lures`) are listed after the real tanks, at index
+ * `tanks.length + i`, and look like any other tank: bots can't tell them apart.
+ */
 export interface AiTankView {
   readonly player: number;
   /** Team (milestone 7); the player number in a free-for-all. Bots never aim at their own team. */
