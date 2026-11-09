@@ -33,6 +33,8 @@ export function damageTypeIndex(t: DamageType): number {
 export class MaterialTable {
   readonly settle = new Uint8Array(256);
   readonly density = new Uint8Array(256);
+  /** Structural reach in cells (`span`); 255 = unlimited. */
+  readonly span = new Uint8Array(256).fill(255);
   /** Cohesion ×256, in [-256, 256]. */
   readonly cohesion = new Int16Array(256);
   /** strength[cell * NUM_DAMAGE_TYPES + damageType], ×256. */
@@ -110,6 +112,7 @@ export class MaterialTable {
               ? SETTLE_SLIDE
               : SETTLE_FLOW;
       this.density[c] = m.density;
+      if (m.span !== undefined) this.span[c] = m.span;
       this.cohesion[c] = Math.round(m.cohesion * 256);
       this.isCoating[c] = m.coating ? 1 : 0;
       for (let t = 0; t < NUM_DAMAGE_TYPES; t++) {

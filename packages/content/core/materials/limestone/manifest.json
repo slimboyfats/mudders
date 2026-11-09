@@ -19,5 +19,6 @@
     "corrosive": 2
   },
   "cohesion": 0,
+  "span": 12,
   "coating": false
 }

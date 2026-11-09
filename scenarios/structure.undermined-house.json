@@ -1,0 +1,64 @@
+{
+  "id": "structure.undermined-house",
+  "schemaVersion": 1,
+  "description": "A missile digs out the ground beside the house: with too little left under it, the house gives way and comes down as rubble instead of floating.",
+  "subject": "prop.house",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.missile": 5,
+        "weapon.heavy-shockwave": 5
+      }
+    },
+    {
+      "x": 740
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "props": [
+    {
+      "prop": "prop.house",
+      "x": 610
+    }
+  ],
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 585
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

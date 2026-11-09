@@ -21,4 +21,17 @@ describe('prop.tree', () => {
     expect(countCells(w, 'material.ash')).toBeGreaterThan(100);
     expect(w.quiet).toBe(true);
   });
+
+  it('falls once half its trunk hangs over a hole, but not for a one-cell nick', () => {
+    // trunk columns 199..202, ground at row 150
+    const dug = (a: number, b: number): number => {
+      const w = propWorld('prop.tree', 200);
+      for (let x = a; x <= b; x++) for (let y = 150; y < 175; y++) w.grid.set(x, y, 0);
+      w.grid.markDirty(180, 120, 220, 175);
+      w.run(300);
+      return groupCells(w);
+    };
+    expect(dug(199, 199)).toBeGreaterThan(250);
+    expect(dug(199, 200)).toBe(0);
+  });
 });
