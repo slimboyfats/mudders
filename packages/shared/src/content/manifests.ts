@@ -432,8 +432,25 @@ export const ZoneStrikeSchema = z.strictObject({
    */
   lead: z.number().int().min(0).max(300).default(0),
   stagger: z.number().int().min(0).max(120).default(0),
+  /**
+   * Rain instead of lightning: each strike weapon is let go as a real shell from just under the
+   * cloud in its column and falls (gravity and wind) to whatever it hits. `stagger` then lifts
+   * each drop up to that many cells higher, so they land one after another.
+   */
+  fall: z.boolean().default(false),
 });
 export type ZoneStrike = z.infer<typeof ZoneStrikeSchema>;
+
+/**
+ * Spikes (Caltrop Field): the zone is a box of ground `radius` cells around the impact both ways.
+ * Every cell a tank drives inside it costs `damage` health and `drag` more cells of its turn's
+ * allowance and fuel (punctured tracks); standing still in it is safe.
+ */
+export const ZoneSpikesSchema = z.strictObject({
+  damage: z.number().int().min(0).max(20),
+  drag: z.number().int().min(0).max(8).default(0),
+});
+export type ZoneSpikes = z.infer<typeof ZoneSpikesSchema>;
 
 export const ZoneSchema = z.strictObject({
   radius: z.number().int().min(1).max(400),
@@ -442,7 +459,9 @@ export const ZoneSchema = z.strictObject({
   amplify: z.number().min(1).max(4).default(1),
   terrainOp: EmbeddedTerrainOpSchema.nullable().default(null),
   damageType: DamageTypeSchema.default('blast'),
-  look: z.enum(['gas', 'acid', 'resonance', 'toxic', 'volcano', 'storm']).default('gas'),
+  look: z
+    .enum(['gas', 'acid', 'resonance', 'toxic', 'volcano', 'storm', 'caltrops', 'acid-cloud'])
+    .default('gas'),
   cloud: ZoneCloudSchema.nullable().default(null),
   /**
    * > 0 hangs the zone in the sky: it sits `sky` cells above the highest ground within `radius`
@@ -454,6 +473,14 @@ export const ZoneSchema = z.strictObject({
   wide: z.boolean().default(false),
   rust: ZoneRustSchema.nullable().default(null),
   strike: ZoneStrikeSchema.nullable().default(null),
+  /**
+   * A sky zone that sails with the wind: every tick it moves `drift` × the wind's acceleration
+   * (cells/tick), so it crosses the map slowly and keeps raining wherever it goes. 0 = it stays.
+   */
+  drift: z.number().min(0).max(40).default(0),
+  /** Shield points eaten off every tank inside at the end of each turn, before `damage`. */
+  shieldDrain: z.number().int().min(0).max(200).default(0),
+  spikes: ZoneSpikesSchema.nullable().default(null),
 });
 export type ZoneSpec = z.infer<typeof ZoneSchema>;
 
@@ -468,7 +495,21 @@ export type ZoneSpec = z.infer<typeof ZoneSchema>;
 export const MineSchema = z.strictObject({
   weapon: WeaponIdSchema,
   radius: z.number().int().min(2).max(120),
-  look: z.enum(['black-hole']).default('black-hole'),
+  look: z.enum(['black-hole', 'tripwire']).default('black-hole'),
+  /**
+   * A tripwire instead of a round trigger (Tripwire Net): two posts `span` cells apart, centred on
+   * the impact (pulled in where the ground would cut the wire), with a wire strung `height` cells
+   * above the ground between their tops. It trips where a live tank's hull touches the wire or a
+   * shell flies through it (the shell goes off there too); a blast that reaches a post also trips
+   * it. `radius` only sizes the blast check then.
+   */
+  wire: z
+    .strictObject({
+      span: z.number().int().min(8).max(240),
+      height: z.number().int().min(1).max(24),
+    })
+    .nullable()
+    .default(null),
 });
 export type MineSpec = z.infer<typeof MineSchema>;
 
@@ -511,13 +552,24 @@ export const WeaponSchema = z.strictObject({
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
    * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue, `firework` a fizzing
-   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of blue-violet plasma; `trail: false` leaves no
+   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of blue-violet plasma, `acid` a falling yellow-green drop; `trail: false` leaves no
    * trail line.
    */
   look: z
     .strictObject({
       shell: z
-        .enum(['spark', 'fire', 'ricochet', 'meteor', 'mud', 'glue', 'firework', 'star', 'plasma'])
+        .enum([
+          'spark',
+          'fire',
+          'ricochet',
+          'meteor',
+          'mud',
+          'glue',
+          'firework',
+          'star',
+          'plasma',
+          'acid',
+        ])
         .default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */

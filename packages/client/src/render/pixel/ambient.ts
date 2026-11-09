@@ -177,6 +177,10 @@ export function drawZones(
       drawVolcano(normal, additive, z, t, probe, mult, fade, salt);
     } else if (z.look === 'storm') {
       drawStorm(normal, additive, z, t, probe, mult, fade, salt);
+    } else if (z.look === 'acid-cloud') {
+      drawStorm(normal, additive, z, t, probe, mult, fade, salt, ACID_STORM);
+    } else if (z.look === 'caltrops') {
+      drawCaltrops(normal, z, t, probe, fade);
     } else {
       // resonance: two rings of single cells expanding from the centre, plus a pulsing core
       for (let k = 0; k < 2; k++) {
@@ -254,6 +258,68 @@ function drawVolcano(
 const STORM = [0x8a92a4, 0x5e6474, 0x434856, 0x2c3039] as const;
 const STORM_RAIN = 0x9aa8c4;
 const STORM_GLOW = 0xd8e0ff;
+
+interface StormPalette {
+  bands: readonly [number, number, number, number];
+  rain: number;
+  /** Lightning playing in the cloud (null = none). */
+  glow: number | null;
+  /** Rain drops are fat beads instead of streaks. */
+  beads: boolean;
+}
+const GREY_STORM: StormPalette = { bands: STORM, rain: STORM_RAIN, glow: STORM_GLOW, beads: false };
+/** Acid Cloud: a bilious yellow-green crown over a murky olive belly, dripping lime beads. */
+const ACID_STORM: StormPalette = {
+  bands: [0xd6e070, 0xa4b43c, 0x6e7c28, 0x434a1c],
+  rain: 0xc8f040,
+  glow: null,
+  beads: true,
+};
+
+/** Caltrop steel: shadow, body, lit edge, and the odd glint. */
+const CALTROP = [0x30333a, 0x9aa0aa, 0xe0e4ec, 0xffffff] as const;
+
+/**
+ * Caltrop Field: little four-pointed spikes scattered on the ground across the zone, each sitting
+ * on the first solid cell of its column, snapped to whole cells. A spike now and then catches the
+ * light. Thins out as the zone's turns run out.
+ */
+function drawCaltrops(
+  normal: QuadBatch,
+  z: ZoneView,
+  t: number,
+  probe: AmbientProbe,
+  fade: number,
+): void {
+  const R = Math.max(4, z.radius);
+  const salt = z.x * 31 + z.y * 17;
+  const keep = Math.min(1, 0.4 + z.turns * 0.1);
+  for (let x = z.x - R; x <= z.x + R; x++) {
+    if (x < 1 || x >= probe.width - 1) continue;
+    // about one spike every three columns, never two side by side
+    const r = h01(x, salt);
+    if (r > 0.42 * keep || h01(x - 1, salt) <= 0.42 * keep) continue;
+    // the ground: the first solid cell searched down from above the zone
+    let y = z.y - R;
+    const bottom = Math.min(probe.height - 1, z.y + R);
+    if (y < 0) y = 0;
+    while (y <= bottom && !probe.solid(x, y)) y++;
+    if (y > bottom || y === 0) continue;
+    const top = y - 1;
+    const flip = h01(x, salt + 1) < 0.5;
+    // a squat tetrapod: dark feet either side, a steel body, a point sticking up and one leaning
+    normal.push(x - 0.5, top + 0.5, 1, 1, CALTROP[0]!, fade);
+    normal.push(x + 1.5, top + 0.5, 1, 1, CALTROP[0]!, fade);
+    normal.push(x + 0.5, top + 0.5, 1, 1, CALTROP[1]!, fade);
+    normal.push(x + 0.5, top - 0.5, 1, 1, CALTROP[1]!, fade);
+    normal.push(x + 0.5, top - 1.5, 1, 1, CALTROP[2]!, fade);
+    normal.push(x + (flip ? 1.5 : -0.5), top - 0.5, 1, 1, CALTROP[2]!, fade);
+    // glint: a single white cell for a few ticks, now and then
+    if (mod(t + Math.floor(h01(x, salt + 3) * 240), 240) < 4) {
+      normal.push(x + 0.5, top - 1.5, 1, 1, CALTROP[3]!, fade);
+    }
+  }
+}
 /** Ticks a storm's cloud banks take to roll together. */
 const GATHER_TICKS = 90;
 
@@ -272,6 +338,7 @@ function drawStorm(
   mult: number,
   fade: number,
   salt: number,
+  pal: StormPalette = GREY_STORM,
 ): void {
   const R = Math.max(8, z.radius);
   const half = Math.round(R + 18);
@@ -283,7 +350,7 @@ function drawStorm(
   const cw = step * 1.7;
   const lobeR = wide ? 26 : 15;
   const slot = Math.floor(t / 7);
-  const flickOn = h01(slot, salt + 11) < 0.14;
+  const flickOn = pal.glow !== null && h01(slot, salt + 11) < 0.14;
   const flickCloud = Math.floor(h01(slot, salt + 12) * n);
   let gathered = 0;
   for (let i = 0; i < n; i++) {
@@ -309,6 +376,7 @@ function drawStorm(
       t,
       probe,
       flickOn && i === flickCloud,
+      pal,
     );
   }
   const ease = gathered / n;
@@ -325,11 +393,17 @@ function drawStorm(
     if (y >= probe.height || x < 0 || x >= probe.width) continue;
     if (probe.solid(x, y)) continue;
     if (probe.solid(x, y + 1)) {
-      normal.push(x - 0.5, y + 0.5, 1, 1, STORM_RAIN, 0.7 * fade);
-      normal.push(x + 1.5, y - 0.5, 1, 1, STORM_RAIN, 0.5 * fade);
+      normal.push(x - 0.5, y + 0.5, 1, 1, pal.rain, 0.7 * fade);
+      normal.push(x + 1.5, y - 0.5, 1, 1, pal.rain, 0.5 * fade);
       continue;
     }
-    normal.push(x + 0.5, y - 2, 1, 4, STORM_RAIN, 0.55 * fade);
+    if (pal.beads) {
+      // fat beads: a lit cell over a body cell
+      normal.push(x + 0.5, y - 0.5, 1, 1, 0xf0ffa0, 0.8 * fade);
+      normal.push(x + 0.5, y + 0.5, 1, 1, pal.rain, 0.8 * fade);
+      continue;
+    }
+    normal.push(x + 0.5, y - 2, 1, 4, pal.rain, 0.55 * fade);
   }
 }
 
@@ -348,6 +422,7 @@ function drawStormCloud(
   t: number,
   probe: AmbientProbe,
   glow: boolean,
+  pal: StormPalette = GREY_STORM,
 ): void {
   const K = 4;
   const lx: number[] = [];
@@ -381,9 +456,9 @@ function drawStormCloud(
       if (rim && ((x + y) & 1) === 0) continue;
       const f = (y - ty) / span;
       const band = f < 0.22 ? 0 : f < 0.5 ? 1 : f < 0.8 ? 2 : 3;
-      normal.push(x + 0.5, y + 0.5, 1, 1, STORM[band]!, rim ? 0.75 : 1);
-      if (glow && f > 0.3 && ((x * 3 + y) & 3) !== 0) {
-        additive.push(x + 0.5, y + 0.5, 1, 1, STORM_GLOW, 0.4);
+      normal.push(x + 0.5, y + 0.5, 1, 1, pal.bands[band]!, rim ? 0.75 : 1);
+      if (glow && pal.glow !== null && f > 0.3 && ((x * 3 + y) & 3) !== 0) {
+        additive.push(x + 0.5, y + 0.5, 1, 1, pal.glow, 0.4);
       }
     }
   }

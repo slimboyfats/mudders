@@ -1,0 +1,68 @@
+{
+  "id": "weapon.tripwire-net",
+  "schemaVersion": 1,
+  "description": "Player 0 strings a Tripwire Net in front of player 1, who drives left into the wire: it snaps, a charge bangs and a net drops over the tank, pinning it.",
+  "subject": "weapon.tripwire-net",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.tripwire-net": 1
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tripwire-net"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 575
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": -1
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "rules": {
+    "turnTimer": 0
+  }
+}

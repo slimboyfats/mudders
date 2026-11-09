@@ -69,7 +69,7 @@ export interface ZoneView {
   x: number;
   y: number;
   radius: number;
-  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano' | 'storm';
+  look: 'gas' | 'acid' | 'resonance' | 'toxic' | 'volcano' | 'storm' | 'caltrops' | 'acid-cloud';
   /** Turns left. */
   turns: number;
   /** Gas clouds: each puff's centre in cells, flattened x, y (empty for a fixed zone). */
@@ -89,9 +89,11 @@ export interface MineView {
   y: number;
   /** Trip radius in cells. */
   radius: number;
-  look: 'black-hole';
+  look: 'black-hole' | 'tripwire';
   armed: boolean;
   owner: number;
+  /** Tripwire: the second post's foot (the first is `x`, `y`) and the wire's height above both. */
+  wire?: { x2: number; y2: number; height: number };
 }
 
 export type EntityView = TankView | ProjectileView | ZoneView | MineView;

@@ -2042,6 +2042,10 @@ export class PixelRenderer implements Renderer {
     const a = this.additive;
     for (const e of this.entities) {
       if (e.kind !== 'mine') continue;
+      if (e.wire) {
+        this.drawTripwire(e.x, e.y, e.wire.x2, e.wire.y2, e.wire.height, e.armed, e.id, t);
+        continue;
+      }
       const x = e.x + 0.5;
       const y = e.y + 0.5;
       // dome: 7 wide at the ground, 5 above, 3 on top; lit cells top-left
@@ -2078,6 +2082,51 @@ export class PixelRenderer implements Renderer {
         if (this.probe.solid(rx, ry)) continue;
         a.push(rx + 0.5, ry + 0.5, 1, 1, 0x9058ff, 0.45);
       }
+    }
+  }
+
+  /**
+   * Tripwire Net: two short stakes and a wire strung between their tops, one cell per column, so
+   * thin it barely shows: a dull grey line with every other cell left out. Once armed a glint runs
+   * along it every couple of seconds, and the stake heads blink red now and then.
+   */
+  private drawTripwire(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    h: number,
+    armed: boolean,
+    id: number,
+    t: number,
+  ): void {
+    const n = this.normal;
+    const a = this.additive;
+    for (const [sx, sy] of [
+      [x1, y1],
+      [x2, y2],
+    ] as const) {
+      // a stake: dark wood, a lit edge, a steel cap
+      n.push(sx + 0.5, sy + 0.5 - h / 2, 1, h + 1, 0x4a3420, 1);
+      n.push(sx - 0.5, sy + 0.5 - h / 2 + 1, 1, h - 1, 0x2e2014, 1);
+      n.push(sx + 0.5, sy - h + 0.5, 1, 1, 0x9aa0aa, 1);
+      if (armed && (t + id * 13) % 90 < 4) a.push(sx + 0.5, sy - h + 0.5, 1, 1, 0xff4030, 1);
+    }
+    const ta = y1 - h;
+    const tb = y2 - h;
+    const d = Math.max(1, x2 - x1);
+    // the glint: a bright cell running along the wire, then a pause
+    const run = d + 40;
+    const g = armed ? ((t * 2 + id * 37) % (run * 2)) >> 1 : -99;
+    for (let c = x1 + 1; c < x2; c++) {
+      const wy = ta + Math.trunc(((tb - ta) * (c - x1) * 2 + d) / (2 * d));
+      const k = c - x1 - g;
+      if (k >= -1 && k <= 1) {
+        a.push(c + 0.5, wy + 0.5, 1, 1, 0xffffff, k === 0 ? 0.9 : 0.5);
+        continue;
+      }
+      if (((c + id) & 1) === 1) continue;
+      n.push(c + 0.5, wy + 0.5, 1, 1, armed ? 0xb8bcc4 : 0x8a8e96, armed ? 0.45 : 0.6);
     }
   }
 
@@ -2561,6 +2610,15 @@ export class PixelRenderer implements Renderer {
           1,
         );
         g.push(x, y, 1, 1, 0xe8fcff, 1);
+        continue;
+      }
+      if (look?.shell === 'acid') {
+        // a falling bead of acid: a pale lit cell on a lime body, a short drip above
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        this.normal.push(x, y, 1, 2, 0xa8d838, 1);
+        this.normal.push(x, y - 1.5, 1, 1, 0x6e8c20, 0.7);
+        g.push(x, y - 0.5, 1, 1, 0xf0ffa0, 0.9);
         continue;
       }
       if (look?.shell === 'fire') {
