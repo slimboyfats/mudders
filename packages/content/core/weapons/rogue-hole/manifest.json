@@ -5,7 +5,7 @@
     "name": "Rogue Black Hole",
     "description": "Opens a black hole that roams the map for two full rounds of turns. At the start of every turn it drifts along the ground, away from you at first and bouncing off the map edges, eating a tunnel through everything in its way. Shells that fly near it, yours too, are bent in and eaten. Tanks nearby are dragged toward it, and any tank it touches gets bitten. It evaporates with a pop when its time is up.",
     "category": "weird",
-    "since": "core@0.51.0"
+    "since": "core@0.52.0"
   },
   "flight": {
     "use": "flight.ballistic"

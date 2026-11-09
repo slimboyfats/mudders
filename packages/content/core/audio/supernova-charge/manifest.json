@@ -4,7 +4,7 @@
   "meta": {
     "name": "Supernova Charge",
     "description": "A long rising chip drone with a climbing arpeggio while the Supernova star burns.",
-    "since": "core@0.51.0"
+    "since": "core@0.52.0"
   },
   "bus": "sfx",
   "licence": {

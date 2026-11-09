@@ -4,7 +4,7 @@
   "meta": {
     "name": "Gravity Well",
     "description": "A pocket of collapsed space floats over the impact point for a few full turn rotations. Enemy shells that fly into its field bend toward it, slow down as they fall deeper and are swallowed whole without going off. Its owner's side's shells pass straight through, and it never touches the ground or tanks.",
-    "since": "core@0.51.0"
+    "since": "core@0.52.0"
   },
   "behaviour": "terrainop.gravity-well",
   "rise": 30,

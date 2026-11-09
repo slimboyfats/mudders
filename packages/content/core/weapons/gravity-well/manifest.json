@@ -5,7 +5,7 @@
     "name": "Gravity Well",
     "description": "A defensive weapon. Opens a pocket of collapsed space that floats over where the shell lands and stays for two full rounds of turns. Enemy shells that fly anywhere near it curve in, slow down, spiral and get swallowed without going off. Your own side's shells fly straight through. Lob it just in front of yourself and let them come.",
     "category": "weird",
-    "since": "core@0.51.0"
+    "since": "core@0.52.0"
   },
   "flight": {
     "use": "flight.ballistic"

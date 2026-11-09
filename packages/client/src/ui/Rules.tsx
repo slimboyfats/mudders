@@ -1,6 +1,8 @@
 import {
   PRESETS,
   PRESET_NAMES,
+  SUDDEN_DEATH_DEFAULT,
+  SUDDEN_DEATH_TURNS,
   estimateMinutes,
   type MapSize,
   type MatchSetup,
@@ -126,13 +128,25 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           ))}
         </select>
       </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={value.suddenDeath}
-          onChange={(e) => onChange({ suddenDeath: e.target.checked })}
-        />
-        Sudden death from turn 8
+      <label>
+        Sudden death
+        <select
+          value={value.suddenDeath ? String(value.suddenDeathFrom ?? SUDDEN_DEATH_DEFAULT) : 'off'}
+          onChange={(e) =>
+            onChange(
+              e.target.value === 'off'
+                ? { suddenDeath: false }
+                : { suddenDeath: true, suddenDeathFrom: Number(e.target.value) },
+            )
+          }
+        >
+          <option value="off">Off</option>
+          {SUDDEN_DEATH_TURNS.map((t) => (
+            <option key={t} value={t}>
+              From turn {t}
+            </option>
+          ))}
+        </select>
       </label>
     </section>
   );
