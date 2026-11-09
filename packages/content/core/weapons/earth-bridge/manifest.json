@@ -5,7 +5,7 @@
     "name": "Earth Bridge",
     "description": "Lands with a thump and grows a causeway of rammed earth back towards you, from where it hit to where you stand, never too steep to drive. Bridge a valley, ramp up a cliff to a better firing spot, or lay a road across a crater to drive over to a ledge. Piers drop to the ground under it where they can reach; a long span with nothing below may break off. Does no damage.",
     "category": "earthmover",
-    "since": "core@0.56.0"
+    "since": "core@0.57.0"
   },
   "flight": {
     "use": "flight.ballistic"

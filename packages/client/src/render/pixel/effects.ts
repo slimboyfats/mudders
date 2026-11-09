@@ -1117,6 +1117,9 @@ export class EffectSystem {
       case 'sinkholeDust':
         this.sinkholeDust(e);
         break;
+      case 'shaveFront':
+        this.shaveFront(e);
+        break;
       case 'resonate':
         this.ripples.push({
           x: e.x,
@@ -2538,6 +2541,49 @@ export class EffectSystem {
         life: rng.range(plume ? 40 : 18, plume ? 90 : 36),
         size: rng.range(plume ? 3 : 1, plume ? 6 : 3),
         color: shade(this.dustColor(x, y + 1), rng.range(0.85, 1.15)),
+        kind: PKind.Dust,
+      });
+    }
+  }
+
+  /**
+   * The Daisy Cutter's flat blast front passing a column: a sheet of white speed dashes and
+   * ground-coloured dust racing outward along the cut, plus a few hot sparks at its foot.
+   */
+  private shaveFront(e: EffectEvent): void {
+    const rng = this.rngFor(e, 61);
+    const dir = (e.params.dir ?? 1) < 0 ? -1 : 1;
+    const sp = e.params.speed ?? 4;
+    const h = Math.max(2, e.radius);
+    const top = e.y - h / 2;
+    const nd = Math.round((4 + h * 0.25) * this.mult) + 1;
+    for (let i = 0; i < nd; i++) {
+      const y = top + rng.range(0, h);
+      this.particles.add({
+        x: e.x + rng.range(-2, 2),
+        y,
+        vx: dir * rng.range(0.6, 1.2) * sp,
+        vy: rng.range(-0.15, 0.05),
+        life: rng.range(14, 30),
+        size: Math.round(rng.range(4, 12)),
+        color: rng.next() < 0.5 ? 0xfff4d8 : 0xffd27a,
+        kind: PKind.Streak,
+      });
+    }
+    const nu = Math.round((3 + h * 0.2) * this.mult) + 1;
+    for (let i = 0; i < nu; i++) {
+      const y = top + rng.range(h * 0.3, h);
+      this.particles.add({
+        x: e.x,
+        y,
+        vx: dir * rng.range(0.4, 0.9) * sp * 0.5,
+        vy: -rng.range(0, 0.25),
+        life: rng.range(30, 60),
+        size: rng.range(2, 5),
+        color: shade(
+          this.dustColor(Math.round(e.x), Math.round(e.y + h / 2)),
+          rng.range(0.85, 1.1),
+        ),
         kind: PKind.Dust,
       });
     }

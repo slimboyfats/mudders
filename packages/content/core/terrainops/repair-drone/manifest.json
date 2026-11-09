@@ -4,7 +4,7 @@
   "meta": {
     "name": "Repair Drone",
     "description": "Lets loose a little drone that flies to the nearest friendly tank, hovers over it and patches its armour: 15 HP on arrival, then 10 more at the start of every turn for two rounds, never above its round-start health. It stays on the map while the turns go on, and a shell passing within 4 cells or going off within 24 knocks it out of the sky.",
-    "since": "core@0.56.0"
+    "since": "core@0.57.0"
   },
   "behaviour": "terrainop.repair-drone",
   "speed": 1.5,

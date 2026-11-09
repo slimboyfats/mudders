@@ -4,7 +4,7 @@
   "meta": {
     "name": "Earth Bridge",
     "description": "Ground being built: a low grinding rumble under a march of stepping square-wave thunks, one per course of rammed earth, climbing as the causeway grows.",
-    "since": "core@0.56.0"
+    "since": "core@0.57.0"
   },
   "bus": "sfx",
   "licence": {
