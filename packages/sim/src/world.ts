@@ -232,6 +232,11 @@ export interface Tank extends TankHandle {
    * health, it drives `rustDrive` thousandths of its cells, and shots wobble by ±`rustWobble`°.
    */
   rust: number;
+  /**
+   * Own turns left jammed (Shield Breaker EMP): its electrics are fried, so it can't drive or
+   * switch on gear. Only hashed while > 0.
+   */
+  jam: number;
   rustDamage: number;
   rustDrive: number;
   rustWobble: number;
@@ -284,6 +289,9 @@ interface RtExplosion {
   push: number;
   chill: number;
   glue: number;
+  jam: number;
+  strip: boolean;
+  drain: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -793,6 +801,9 @@ export class World implements SimApi {
       push: e.push,
       chill: e.chill,
       glue: e.glue,
+      jam: e.jam,
+      strip: e.strip,
+      drain: e.drain,
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -883,6 +894,7 @@ export class World implements SimApi {
         chill: 0,
         glue: 0,
         rust: 0,
+        jam: 0,
         rustDamage: 0,
         rustDrive: 1000,
         rustWobble: 0,
@@ -1012,6 +1024,7 @@ export class World implements SimApi {
       tank.chill = 0;
       tank.glue = 0;
       tank.rust = 0;
+      tank.jam = 0;
       tank.lastHitBy = -1;
       tank.kills = 0;
       tank.damageDealt = 0;
@@ -1229,7 +1242,7 @@ export class World implements SimApi {
         this.fire(t);
         break;
       case 'drive':
-        t.driving = t.driveLeft > 0 && t.fuel > 0 && t.glue === 0 ? input.dir : 0;
+        t.driving = t.driveLeft > 0 && t.fuel > 0 && t.glue === 0 && t.jam === 0 ? input.dir : 0;
         break;
       case 'useGear': {
         const g = Object.hasOwn(this.gearIndex, input.gear)
@@ -1244,7 +1257,8 @@ export class World implements SimApi {
   /** Whether switching on gear `g` now would change anything for this tank. */
   gearUseful(t: Tank, g: number): boolean {
     const gear = this.gear[g];
-    if (!gear || gear.deploy !== 'manual' || !t.alive) return false;
+    // a jammed tank's electrics are dead: no shield, no battery until it wears off
+    if (!gear || gear.deploy !== 'manual' || !t.alive || t.jam > 0) return false;
     return (gear.shield > 0 && t.shield < gear.shield) || (gear.heal > 0 && t.health < t.maxHealth);
   }
 
@@ -1581,6 +1595,7 @@ export class World implements SimApi {
       reach: (dir) => this.reach(t, dir),
       chill: t.chill,
       glue: t.glue,
+      jam: t.jam,
       lastShot:
         t.lastShotX >= 0
           ? { x: t.lastShotX, y: t.lastShotY, angle: t.lastShotAngle, power: t.lastShotPower }
@@ -1609,7 +1624,7 @@ export class World implements SimApi {
     const bot = this.bots[t.bot]!;
     t.driving = 0;
     t.botGoal = -1;
-    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0 || t.glue > 0) return;
+    if (!bot.b.move || t.driveLeft <= 0 || t.fuel <= 0 || t.glue > 0 || t.jam > 0) return;
     const goal = bot.b.move(this.aiApi(t), bot.params);
     if (!Number.isInteger(goal) || goal === t.x) return;
     const dir = goal > t.x ? 1 : -1;
@@ -2570,6 +2585,36 @@ export class World implements SimApi {
         t.driving = 0;
         this.emit('glued', t.x, t.y, t.half, { player: t.player });
       }
+      if (e.strip && t.shield > 0) {
+        // the pulse collapses the shield outright, whatever is left of it
+        this.emit('shieldStrip', t.x, t.y - (t.h >> 1), t.half + 2, {
+          player: t.player,
+          lost: t.shield,
+        });
+        t.shield = 0;
+      }
+      if (e.drain > 0) {
+        // the pulse cooks spare batteries (gear that heals) in the hold, up to `drain` of them
+        let left = e.drain;
+        let lost = 0;
+        for (let g = 0; g < this.gear.length && left > 0; g++) {
+          if (this.gear[g]!.heal <= 0) continue;
+          const n = Math.min(left, t.gear[g] ?? 0);
+          if (n <= 0) continue;
+          t.gear[g] = t.gear[g]! - n;
+          left -= n;
+          lost += n;
+        }
+        if (lost > 0)
+          this.emit('drained', t.x, t.y - (t.h >> 1), t.half, { player: t.player, lost });
+      }
+      if (e.jam > 0) {
+        // jammed for its next own turns; a tank that jams itself stays jammed past this turn too
+        const turns = e.jam + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        if (turns > t.jam) t.jam = turns;
+        t.driving = 0;
+        this.emit('jammed', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+      }
       // a glued tank holds fast: blasts don't shove it
       if (e.push > 0 && dx !== 0 && t.glue === 0) {
         const shove = Math.trunc((e.push * (reach - d)) / reach);
@@ -3005,7 +3050,7 @@ export class World implements SimApi {
     this.timer = t && t.bot < 0 ? this.turnTimerTicks : 0;
     if (t) {
       // a glued tank can't drive this turn
-      t.driveLeft = t.glue > 0 ? 0 : this.driveCells(t);
+      t.driveLeft = t.glue > 0 || t.jam > 0 ? 0 : this.driveCells(t);
       t.driving = 0;
     }
   }
@@ -3042,6 +3087,14 @@ export class World implements SimApi {
     }
     this.turn++;
     turnDecay(this.grid, this.mats);
+    if (active && active.jam > 0) {
+      active.jam--;
+      if (active.jam === 0 && active.alive) {
+        this.emit('unjammed', active.x, active.y - (active.h >> 1), active.half, {
+          player: active.player,
+        });
+      }
+    }
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
       this.endRound();
       return;
@@ -3271,6 +3324,7 @@ export class World implements SimApi {
         chill: t.chill,
         glue: t.glue,
         ...(t.rust > 0 ? { rust: t.rust } : {}),
+        ...(t.jam > 0 ? { jam: t.jam } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
     }
@@ -3411,6 +3465,8 @@ export class World implements SimApi {
       // rust (Thunderstorm): only hashed while rusted, so other matches keep their hashes
       if (t.rust > 0)
         h.num(t.rust).num(t.rustDamage).num(t.rustDrive).num(t.rustWobble).num(t.rustBy);
+      // jam (Shield Breaker EMP): likewise only while jammed
+      if (t.jam > 0) h.num(t.jam);
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {
