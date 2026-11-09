@@ -4,7 +4,7 @@
   "meta": {
     "name": "Mind Link",
     "description": "A mind taken over (and the caster grabbing the controls): a falling whistle that gets sucked inward, then an eerie two-note minor chime.",
-    "since": "core@0.48.0"
+    "since": "core@0.49.0"
   },
   "bus": "sfx",
   "licence": {

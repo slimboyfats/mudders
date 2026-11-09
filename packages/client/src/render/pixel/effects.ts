@@ -1020,6 +1020,9 @@ export class EffectSystem {
       case 'reflect':
         this.reflect(e);
         break;
+      case 'railHit':
+        this.railHit(e);
+        break;
       case 'pocketBurst':
         this.pocketBurst(e);
         break;
@@ -3538,6 +3541,50 @@ export class EffectSystem {
         life: rng.range(6, 16),
         size: 1,
         color: rng.next() < 0.5 ? 0xffffff : 0xc3a2f4,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /**
+   * A railgun slug striking home: a hard white-cyan star of sparks thrown in all directions at
+   * high speed, a short white flash, and a spit of hot fragments.
+   */
+  private railHit(e: EffectEvent): void {
+    const rng = this.rngFor(e, 79);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 7,
+      start: e.tick,
+      dur: 4,
+      color: 0xffffff,
+      strength: 1.3,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 12,
+      start: e.tick,
+      dur: 9,
+      color: 0x60e0ff,
+      strength: 0.7,
+    });
+    const n = Math.round(26 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      // eight spokes, like a star cracked into glass
+      const k = i & 7;
+      const ax = k === 0 || k === 1 || k === 7 ? 1 : k >= 3 && k <= 5 ? -1 : 0;
+      const ay = k >= 1 && k <= 3 ? -1 : k >= 5 ? 1 : 0;
+      const s = rng.range(1.2, 3.6);
+      this.particles.add({
+        x: e.x + 0.5,
+        y: e.y + 0.5,
+        vx: ax * s + rng.range(-0.25, 0.25),
+        vy: ay * s + rng.range(-0.25, 0.25),
+        life: rng.range(4, 12),
+        size: 1,
+        color: rng.next() < 0.45 ? 0xffffff : 0x60e0ff,
         kind: PKind.Spark,
       });
     }

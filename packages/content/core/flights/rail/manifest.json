@@ -1,0 +1,16 @@
+{
+  "id": "flight.rail",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rail",
+    "description": "A hyper-velocity slug along the aim: no wind, very little drop. Bores through thin ground until its pierce budget runs out, and stops at the first tank.",
+    "since": "core@0.48.0"
+  },
+  "behaviour": "flight.rail",
+  "speed": 12,
+  "maxTicks": 120,
+  "gravityScale": 0.04,
+  "windScale": 0,
+  "pierce": 24,
+  "bore": 2
+}
