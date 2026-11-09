@@ -60,7 +60,7 @@ interface Front {
 }
 
 /** Portal ring bands, trailing edge to leading edge: deep violet → violet → blue → cyan. */
-const PORTAL = [0x2a1470, 0x5a2cd0, 0x7a4cff, 0x4a7cff, 0x6ad0ff] as const;
+const PORTAL = [0x5a30c8, 0x8a5cff, 0xb07cff, 0x6a9cff, 0x8ae4ff] as const;
 
 /**
  * A singularity's hang: grit and light spiralling into a growing black core. `snap` is a Black
@@ -535,7 +535,7 @@ export class EffectSystem {
             life: rng.range(10, 24),
             size: 1,
             color: PORTAL[1 + Math.floor(rng.next() * 4)]!,
-            kind: PKind.Spark,
+            kind: PKind.Snow,
           });
         }
         break;
@@ -3579,10 +3579,13 @@ export class EffectSystem {
   private portalRingTick(f: Front, r: number, k: number): void {
     if (r < 3) return;
     const p = this.probe;
-    const n = Math.min(420, Math.round(((2 * Math.PI * r) / 2.5) * this.mult) + 8);
-    const fade = 1 - k * 0.5;
+    // walk the circle a cell at a time so the leading edge reads as one unbroken band
+    const n = Math.min(Math.round(900 * this.mult) + 40, Math.round(2 * Math.PI * r));
+    const fade = 1 - k * 0.4;
+    const a0 = f.rng.range(0, Math.PI * 2);
     for (let i = 0; i < n; i++) {
-      const a = f.rng.range(0, Math.PI * 2);
+      if (f.rng.next() > fade) continue;
+      const a = a0 + (i * Math.PI * 2) / n;
       // band: 0 = leading edge, up to 4 cells behind it
       const band = Math.floor(f.rng.next() * f.rng.next() * 5);
       const rr = r - band * 1.5;
@@ -3592,18 +3595,18 @@ export class EffectSystem {
       const x = Math.round(f.x + ca * rr);
       const y = Math.round(f.y + sa * rr);
       if (x < 0 || y < 0 || x >= p.width || y >= p.height || p.material(x, y) !== 0) continue;
-      if (f.rng.next() > fade) continue;
-      const swirl = f.rng.range(0.15, 0.5);
+      const swirl = f.rng.range(0.05, 0.25);
       this.particles.add({
         x,
         y,
-        vx: ca * 0.5 - sa * swirl,
-        vy: sa * 0.5 + ca * swirl,
-        life: f.rng.range(5, 12) + band * 2,
+        vx: ca * 0.25 - sa * swirl,
+        vy: sa * 0.25 + ca * swirl,
+        life: f.rng.range(6, 12) + band * 3,
         size: 1,
         // the odd white glint on the leading edge
-        color: band === 0 && f.rng.next() < 0.08 ? 0xe8f8ff : PORTAL[4 - band]!,
-        kind: PKind.Spark,
+        color: band === 0 && f.rng.next() < 0.1 ? 0xe8f8ff : PORTAL[4 - band]!,
+        // opaque cells in their own flat colour (sparks would burn white-hot, then red)
+        kind: PKind.Snow,
       });
     }
   }
