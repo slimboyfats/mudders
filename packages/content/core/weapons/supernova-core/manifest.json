@@ -5,7 +5,7 @@
     "name": "Supernova core",
     "description": "The collapsing heart of a Supernova: a white-hot blast, a huge ring of force that throws tanks, and a crater glazed in glowing slag.",
     "category": "submunition",
-    "since": "core@0.47.0"
+    "since": "core@0.48.0"
   },
   "flight": {
     "use": "flight.static"

@@ -5,7 +5,7 @@
     "name": "Rogue Black Hole bite",
     "description": "A Rogue Black Hole tearing at a tank it touches: a crushing squeeze, no crater.",
     "category": "submunition",
-    "since": "core@0.47.0"
+    "since": "core@0.48.0"
   },
   "flight": {
     "use": "flight.static"

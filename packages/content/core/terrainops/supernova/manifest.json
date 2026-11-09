@@ -4,7 +4,7 @@
   "meta": {
     "name": "Supernova",
     "description": "A star ignites over the impact point and burns for a few seconds. While it burns it pulls: loose ground all round is torn up and thrown at it, and tanks in reach are dragged along the ground toward it, harder the longer it burns. Then it collapses to a point.",
-    "since": "core@0.47.0"
+    "since": "core@0.48.0"
   },
   "behaviour": "terrainop.supernova",
   "charge": 150,
