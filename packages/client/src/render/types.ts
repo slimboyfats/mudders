@@ -50,7 +50,7 @@ export interface TankLook {
 
 /** How a weapon's shell is drawn in flight (from its manifest `look`). */
 export interface ShellLook {
-  shell: 'spark' | 'fire' | 'ricochet' | 'meteor' | 'mud' | 'glue' | 'firework' | 'star';
+  shell: 'spark' | 'fire' | 'ricochet' | 'meteor' | 'mud' | 'glue' | 'firework' | 'star' | 'plasma';
   trail: boolean;
   /** Scale of a meteor head and streak. */
   size?: number;

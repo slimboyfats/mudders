@@ -1,0 +1,18 @@
+{
+  "id": "flight.plasma-orb",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma Orb",
+    "description": "Climbs out of the impact, then hangs bobbing in the air and creeps toward the nearest enemy, lashing any enemy tank in reach with plasma arcs until its timer bursts it.",
+    "since": "core@0.45.0"
+  },
+  "behaviour": "flight.plasma-orb",
+  "maxTicks": 400,
+  "rise": 36,
+  "riseTicks": 24,
+  "bob": 3,
+  "drift": 6,
+  "reach": 90,
+  "zapDamage": 9,
+  "zapEvery": 18
+}

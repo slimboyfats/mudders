@@ -526,6 +526,15 @@ export class EffectSystem {
         });
         if (e.radius >= 60) this.tintSky([0, 0.32, 0.22, 0.7], Math.min(0.35, e.radius / 600));
         break;
+      case 'plasmaOrb':
+        this.plasmaOrb(e);
+        break;
+      case 'plasmaZap':
+        this.plasmaZap(e);
+        break;
+      case 'plasmaBurst':
+        this.plasmaBurst(e);
+        break;
       case 'shockFling': {
         // a tank ripped off its feet: a spray of hot sparks and a puff of plasma
         const rng = this.rngFor(e, 13);
@@ -3500,6 +3509,8 @@ export class EffectSystem {
   }
 
   private burst(e: EffectEvent, count: number): void {
+    // `count: 0` asks for no burst at all: no sparks, and no hot soot in the air either
+    if (count <= 0) return;
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
     // the blast shoves the air outward and leaves hot soot hanging in it
@@ -4016,6 +4027,207 @@ export class EffectSystem {
         });
       }
     }
+  }
+
+  /**
+   * A Plasma Orb hanging in the air, each tick: a spinning ball of plasma motes, a hot core, a
+   * sparkle or two and now and then a short arc crackling out of it. Grows in for its first ticks
+   * and churns harder as its timer runs down.
+   */
+  private plasmaOrb(e: EffectEvent): void {
+    const rng = this.rngFor(e, 23);
+    const age = e.params.age ?? 0;
+    const life = Math.max(1, e.params.life ?? 150);
+    const grow = Math.min(1, age / 18);
+    const late = age / life;
+    const R = 4 + 7 * grow;
+    const n = Math.round((10 + late * 8) * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = R * rng.range(0.5, 1.1);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const spin = rng.range(0.4, 0.9);
+      this.particles.add({
+        x: e.x + ca * rr,
+        y: e.y + sa * rr,
+        vx: -sa * spin - ca * 0.15,
+        vy: ca * spin - sa * 0.15,
+        life: rng.range(8, 14),
+        size: Math.round(rng.range(2, 4)),
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
+      });
+    }
+    // hot core: a few white-cyan cells that flicker in place
+    for (let i = 0; i < 4; i++) {
+      this.particles.add({
+        x: e.x + Math.round(rng.range(-R * 0.4, R * 0.4)),
+        y: e.y + Math.round(rng.range(-R * 0.4, R * 0.4)),
+        vx: 0,
+        vy: 0,
+        life: 3,
+        size: 1,
+        color: rng.next() < 0.5 ? 0xe8fcff : 0x9ae8ff,
+        kind: PKind.Plasma,
+      });
+    }
+    if (rng.next() < 0.3 * this.mult) {
+      const a = rng.range(0, Math.PI * 2);
+      this.particles.add({
+        x: e.x + Math.cos(a) * R,
+        y: e.y + Math.sin(a) * R,
+        vx: Math.cos(a) * 0.8,
+        vy: Math.sin(a) * 0.8,
+        life: rng.range(10, 20),
+        size: 1,
+        color: 0x9ae0ff,
+        kind: PKind.Glitter,
+      });
+    }
+    // crackle: a short arc licking out of the ball
+    if (age > 12 && rng.next() < 0.18 + late * 0.3) {
+      const a = rng.range(0, Math.PI * 2);
+      const len = rng.range(10, 22);
+      this.arc(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len, e.tick, rng, 6);
+    }
+  }
+
+  /**
+   * A Plasma Orb bursting: the ball blows out as a sphere of plasma motes racing outward, arcs
+   * lashing out in every direction, sparkles, a jolt and a blue-violet cast over the sky.
+   */
+  private plasmaBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 31);
+    const k = e.params.strength ?? 1;
+    const r = Math.max(10, e.radius);
+    const n = Math.round(90 * k * this.mult) + 10;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = rng.range(0, r * 0.4);
+      const sp = rng.range(0.8, 2.6);
+      this.particles.add({
+        x: e.x + Math.cos(a) * d,
+        y: e.y + Math.sin(a) * d,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(18, 36),
+        size: Math.round(rng.range(3, 6)),
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
+      });
+    }
+    const m = Math.round(50 * k * this.mult) + 6;
+    for (let i = 0; i < m; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const sp = rng.range(1.5, 4);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(14, 30),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x9ae8ff : 0xc8a8ff,
+        kind: PKind.Glitter,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + rng.range(-0.3, 0.3);
+      const len = r * rng.range(1.2, 2.2);
+      this.arc(
+        e.x,
+        e.y,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len,
+        e.tick + (i % 3),
+        rng,
+        12,
+      );
+    }
+    this.tintSky([0, 0.3, 0.32, 0.85], 0.35 * k);
+    this.kick(4 * k, e.tick);
+  }
+
+  /** A Plasma Orb lashing a tank: a jagged arc from the ball to it, sparks and plasma where it lands. */
+  private plasmaZap(e: EffectEvent): void {
+    const rng = this.rngFor(e, 29);
+    const tx = e.params.tx ?? e.x;
+    const ty = e.params.ty ?? e.y;
+    this.arc(e.x, e.y, tx, ty, e.tick, rng, 10);
+    this.arc(e.x, e.y, tx + rng.range(-4, 4), ty + rng.range(-3, 3), e.tick + 2, rng, 7);
+    const n = Math.round(14 * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: tx + rng.range(-3, 3),
+        y: ty + rng.range(-3, 3),
+        vx: rng.range(-1.6, 1.6),
+        vy: rng.range(-2, 0.6),
+        life: rng.range(8, 18),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x9ae8ff : 0xc0a0ff,
+        kind: PKind.Glitter,
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      this.particles.add({
+        x: tx + rng.range(-3, 3),
+        y: ty + rng.range(-3, 3),
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0, 0.4),
+        life: rng.range(10, 18),
+        size: 3,
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
+      });
+    }
+    this.kick(1.2, e.tick);
+  }
+
+  /** A jagged bolt of whole cells from (x0, y0) to (x1, y1), drawn with the lightning bolts. */
+  private arc(
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    tick: number,
+    rng: FxRng,
+    dur: number,
+  ): void {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    if (len < 2) return;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const segs = Math.max(2, Math.round(len / 5));
+    const pts: number[] = [];
+    let px = Math.round(x0);
+    let py = Math.round(y0);
+    for (let s = 1; s <= segs; s++) {
+      const k = s / segs;
+      const j = s === segs ? 0 : rng.range(-1, 1) * Math.min(5, len * 0.12);
+      const qx = Math.round(x0 + dx * k + nx * j);
+      const qy = Math.round(y0 + dy * k + ny * j);
+      // whole cells between the kinks
+      const steps = Math.max(Math.abs(qx - px), Math.abs(qy - py), 1);
+      for (let i = 1; i <= steps; i++) {
+        pts.push(
+          Math.round(px + ((qx - px) * i) / steps),
+          Math.round(py + ((qy - py) * i) / steps),
+        );
+      }
+      px = qx;
+      py = qy;
+    }
+    this.bolts.push({
+      cells: Int32Array.from(pts),
+      main: pts.length,
+      start: tick,
+      dur,
+      w: 0.7,
+      seed: rng.next() * 4294967296,
+    });
   }
 
   /** Top surface row near (x, y): first solid cell with air above, scanning ±range. */

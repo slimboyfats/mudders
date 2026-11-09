@@ -1,0 +1,78 @@
+{
+  "id": "weapon.plasma-orb-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Plasma Orb core",
+    "description": "The orb of a Plasma Orb: hovers and zaps, then bursts in a plasma shockwave.",
+    "category": "submunition",
+    "since": "core@0.45.0"
+  },
+  "flight": {
+    "use": "flight.plasma-orb"
+  },
+  "triggers": [
+    {
+      "onTimer": 150
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 26,
+        "damage": 70,
+        "damageType": "shock",
+        "effects": {
+          "flash": {
+            "strength": 0
+          },
+          "burst": {
+            "count": 0
+          },
+          "shake": {
+            "strength": 5
+          },
+          "plasmaBurst": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 110,
+        "damage": 30,
+        "push": 0,
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 14,
+          "lift": 1,
+          "expandTicks": 14,
+          "blobPush": 30,
+          "fling": 220,
+          "flingApex": 90,
+          "propBoost": 240
+        },
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "plasma",
+    "trail": false
+  }
+}

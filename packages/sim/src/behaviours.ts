@@ -75,6 +75,11 @@ export interface SimApi extends EffectSink {
   /** Take a live shell out of the air without it going off. Returns false if there is none. */
   catchShell(id: number): boolean;
   /**
+   * Hurt a tank directly (a zap or arc that is not a blast): `amount` HP of damage credited to
+   * `owner`, soaked by its shield like any hit. Ignored for dead tanks.
+   */
+  hurt(player: number, amount: number, owner: number): void;
+  /**
    * Put a shell of weapon index `weapon` in the air at (x, y), fixed-point cells and velocity,
    * credited to `owner`; it starts its flight afresh (age 0). Returns its id, or -1 if the sky is
    * full.
