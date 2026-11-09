@@ -1,0 +1,35 @@
+{
+  "id": "weapon.decoy-tank",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Decoy Tank",
+    "description": "Lob it where you want the enemy to look. It lands softly and unfolds into a dummy tank in your colours. Bots can't tell it from the real thing and shoot at it, and homing warheads (Heat Seeker, Smart Bomb, V3 Rocket, Plasma Orb) lock on to it first. It soaks 50 damage, then pops in a burst of scrap.",
+    "category": "guided",
+    "since": "core@0.59.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.decoy"
+      },
+      "radius": 8,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 6000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "spark"
+  }
+}

@@ -104,7 +104,20 @@ export interface MineView {
   owner: number;
 }
 
-export type EntityView = TankView | ProjectileView | ZoneView | MineView;
+/** A decoy (Decoy Tank): a dummy tank in its owner's colours. */
+export interface DecoyView {
+  kind: 'decoy';
+  /** Stable for the round. */
+  id: number;
+  x: number;
+  /** Bottom row. */
+  y: number;
+  owner: number;
+  hp: number;
+  maxHp: number;
+}
+
+export type EntityView = TankView | ProjectileView | ZoneView | MineView | DecoyView;
 
 export interface RenderSnapshot {
   tick: number;

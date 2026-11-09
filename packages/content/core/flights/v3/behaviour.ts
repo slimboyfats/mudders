@@ -1,6 +1,6 @@
 import { z } from '@mudders/shared';
 import { FP, defineFlight, toFixed } from '@mudders/sim';
-import { ballisticStep } from '../../../src/flight';
+import { ballisticStep, lureNear } from '../../../src/flight';
 
 const params = z.strictObject({
   gravityScale: z.number().min(0).max(10),
@@ -41,7 +41,7 @@ const SINCE = 3;
 export default defineFlight<Params>({
   kind: 'flight',
   id: 'flight.v3',
-  version: 1,
+  version: 2,
   params,
   maxTicks: (p) => p.maxTicks,
   step(api, proj, p) {
@@ -84,6 +84,18 @@ export default defineFlight<Params>({
           tx = t.x;
           ty = t.y - (t.h >> 1);
         }
+      }
+      // a decoy draws the warhead unless a real tank is less than half as far from the turnover
+      const lure = lureNear(
+        api,
+        team,
+        cx,
+        api.grid.surfaceY(Math.max(0, Math.min(api.grid.width - 1, cx))),
+        api.grid.width,
+      );
+      if (lure && Math.abs(lure.x - cx) <= p.range && Math.abs(lure.x - cx) <= best * 2) {
+        tx = lure.x;
+        ty = lure.y;
       }
       proj.data[STAGE] = 3;
       proj.data[TX] = tx;
