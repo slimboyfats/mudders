@@ -55,6 +55,7 @@ import {
 } from './theme';
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 import { drawWarp, type WarpFx } from './warp';
+import { Rockets } from './rocket';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -350,6 +351,10 @@ export class PixelRenderer implements Renderer {
   private entities: EntityView[] = [];
   /** Meteor shells: last position and per-tick motion by projectile id (for streaks and trails). */
   private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
+  /** V3 rockets and their spent stages (`rocket` / `stage` shell looks). */
+  private readonly rockets = new Rockets({ add: (e) => this.particles.add(e) }, () =>
+    this.fluid?.ok ? this.fluid : null,
+  );
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
   private debris: RenderSnapshot['debris'] = {
@@ -848,6 +853,7 @@ export class PixelRenderer implements Renderer {
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
       else if (e.type === 'tsunami') this.scour(e.x, e.params.dir ?? 1, (e.params.len ?? 0) + 12);
+      if (e.type === 'v3Burn') this.rockets.burn(e.params.id ?? -1, e.params.stage ?? 2, e.tick);
       if (e.type === 'tankDeath') this.startWreck(e.params.player ?? -1, e.tick);
       if (e.type === 'shieldHit') this.shieldHitAt[e.params.player ?? -1] = e.tick;
       else if (e.type === 'shieldUp') this.shieldUpAt[e.params.player ?? -1] = e.tick;
@@ -899,6 +905,7 @@ export class PixelRenderer implements Renderer {
     this.water.clear();
     this.liquid.clear();
     this.meteors.clear();
+    this.rockets.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
@@ -1464,6 +1471,7 @@ export class PixelRenderer implements Renderer {
     const shells = this.palette.shells;
     if (shells) {
       this.stepMeteors(shells);
+      this.rockets.prune(this.fxTick);
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -1482,6 +1490,17 @@ export class PixelRenderer implements Renderer {
               kind: PKind.Chunk,
             });
           }
+          continue;
+        }
+        if (look === 'rocket' || look === 'stage') {
+          this.rockets.step(
+            e.id,
+            e.x,
+            e.y,
+            look === 'stage',
+            this.fxTick,
+            QUALITY_PARTICLES[this.quality].mult,
+          );
           continue;
         }
         if (look === 'firework') {
@@ -2611,6 +2630,14 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x, y, 4 - wob, 3 + wob, GLUE[2], 1);
         this.normal.push(x, y + 1, 2, 1, GLUE[3], 1);
         this.normal.push(x - 0.5, y - 1, 1, 1, GLUE[0], 1);
+        continue;
+      }
+      if (look?.shell === 'rocket') {
+        this.rockets.drawRocket(e.id, e.x, e.y, this.fxTick, g, this.normal);
+        continue;
+      }
+      if (look?.shell === 'stage') {
+        this.rockets.drawStage(e.id, e.x, e.y, this.fxTick, this.normal);
         continue;
       }
       if (look?.shell === 'firework') {

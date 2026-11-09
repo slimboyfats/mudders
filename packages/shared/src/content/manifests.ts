@@ -511,13 +511,27 @@ export const WeaponSchema = z.strictObject({
    * gob shedding flames instead of the default spark, `ricochet` a crackling energy ball that runs
    * hotter after every bounce, `meteor` a glowing rock head trailing a long streak of fire and
    * smoke, `mud` a dripping glob of wet mud, `glue` a wobbling glob of glue, `firework` a fizzing
-   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of blue-violet plasma; `trail: false` leaves no
+   * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of
+   * blue-violet plasma, `rocket` a long rocket
+   * body pointed along its flight with a roaring exhaust, `stage` a tumbling spent rocket stage; `trail: false` leaves no
    * trail line.
    */
   look: z
     .strictObject({
       shell: z
-        .enum(['spark', 'fire', 'ricochet', 'meteor', 'mud', 'glue', 'firework', 'star', 'plasma'])
+        .enum([
+          'spark',
+          'fire',
+          'ricochet',
+          'meteor',
+          'mud',
+          'glue',
+          'firework',
+          'star',
+          'rocket',
+          'stage',
+          'plasma',
+        ])
         .default('spark'),
       trail: z.boolean().default(true),
       /** Scale of a `meteor` head and its streak. */
