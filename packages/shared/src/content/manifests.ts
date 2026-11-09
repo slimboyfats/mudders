@@ -564,7 +564,7 @@ export const WeaponSchema = z.strictObject({
    * rocket shedding sparks, `star` a twinkling coloured firework star, `plasma` a small crackling ball of
    * blue-violet plasma, `rocket` a long rocket
    * body pointed along its flight with a roaring exhaust, `stage` a tumbling spent rocket stage, `rail` a white-hot railgun slug, `acid` a falling
-   * yellow-green drop; `trail: false` leaves no
+   * yellow-green drop, `vapor` a shimmering puff of fuel vapour; `trail: false` leaves no
    * trail line.
    */
   look: z
@@ -584,6 +584,7 @@ export const WeaponSchema = z.strictObject({
           'plasma',
           'rail',
           'acid',
+          'vapor',
         ])
         .default('spark'),
       trail: z.boolean().default(true),

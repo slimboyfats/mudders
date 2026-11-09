@@ -326,6 +326,7 @@ export class PixelRenderer implements Renderer {
       | 'u_rippleCount'
       | 'u_ripple'
       | 'u_rippleW'
+      | 'u_swirl'
       | 'u_tint'
       | 'u_origin'
       | 'u_scale'
@@ -375,6 +376,8 @@ export class PixelRenderer implements Renderer {
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
+  /** Per ripple slot: twist in radians at the centre for a swirl lens (0 = a ring wave). */
+  private swirl = new Float32Array(MAX_RIPPLES);
   /** Tick each player's shield last soaked a hit (for the flash). */
   private shieldHitAt: number[] = [];
   /** Tick each player last switched a shield on, or used a battery (gear, §5.1). */
@@ -502,6 +505,7 @@ export class PixelRenderer implements Renderer {
       'u_rippleCount',
       'u_ripple',
       'u_rippleW',
+      'u_swirl',
       'u_tint',
       'u_origin',
       'u_scale',
@@ -1760,7 +1764,19 @@ export class PixelRenderer implements Renderer {
     // ripples, shake and the flash tint need a post pass; most frames draw straight to the canvas
     const distort = this.quality !== 'low';
     let nRipples = 0;
+    this.swirl.fill(0);
     if (distort) {
+      // black holes first: a standing swirl lens round each one
+      for (const s of this.fx.swirls(t)) {
+        if (nRipples >= MAX_RIPPLES) break;
+        this.rippleBuf[nRipples * 4] = ox + s.x * scale;
+        this.rippleBuf[nRipples * 4 + 1] = oy + s.y * scale;
+        this.rippleBuf[nRipples * 4 + 2] = s.r * scale;
+        this.rippleBuf[nRipples * 4 + 3] = s.strength;
+        this.rippleW[nRipples] = 1;
+        this.swirl[nRipples] = s.twist;
+        nRipples++;
+      }
       for (const r of this.fx.ripples) {
         if (nRipples >= MAX_RIPPLES) break;
         const k = (t - r.start) / r.dur;
@@ -1887,6 +1903,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawMushrooms(this.normal, this.additive, t);
     this.fx.drawVortices(this.normal, this.additive, t);
     this.fx.drawMagnets(this.normal, this.additive, t);
+    this.fx.drawGravity(this.normal, this.additive, t);
     this.drawProjectiles();
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
@@ -1933,6 +1950,7 @@ export class PixelRenderer implements Renderer {
       gl.uniform1i(this.uPost.u_rippleCount, nRipples);
       gl.uniform4fv(this.uPost.u_ripple, this.rippleBuf);
       gl.uniform1fv(this.uPost.u_rippleW, this.rippleW);
+      gl.uniform1fv(this.uPost.u_swirl, this.swirl);
       gl.uniform3f(this.uPost.u_tint, sky[0] * 0.36, sky[1] * 0.36, sky[2] * 0.36);
       gl.uniform1f(this.uPost.u_split, split);
       gl.uniform1f(this.uPost.u_scan, scan);
@@ -2709,6 +2727,10 @@ export class PixelRenderer implements Renderer {
         g.push(x, y, 1, 1, 0xe8fcff, 1);
         continue;
       }
+      if (look?.shell === 'vapor') {
+        this.drawVapor(e.x, e.y, e.id);
+        continue;
+      }
       if (look?.shell === 'rail') {
         // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
         const x = Math.floor(e.x) + 0.5;
@@ -2794,6 +2816,32 @@ export class PixelRenderer implements Renderer {
       this.normal.push(x, y, 2, 2, look?.trailColor ?? 0xff9a40, 1);
       g.push(x + sx, y + sy, 1, 1, 0xffe0a0, 0.9);
       g.push(x, y, 1, 1, 0xffffff, 1);
+    }
+  }
+
+  /**
+   * A puff of fuel vapour (Fuel-Air Bomb): a loose clump of single cells in pale ochre and grey,
+   * thinner towards the rim, each cell hopping to a new spot every few ticks so the cloud seethes
+   * instead of sliding. Many puffs overlap into one cloud. Positions come from a hash of the puff
+   * and the tick, so nothing is stored per puff.
+   */
+  private drawVapor(px: number, py: number, id: number): void {
+    const b = this.normal;
+    const step = this.fxTick >> 2;
+    const cx = Math.floor(px);
+    const cy = Math.floor(py);
+    for (let i = 0; i < 40; i++) {
+      let h = Math.imul(id * 9973 + i * 7919 + ((step + i) >> 1) * 104729, 0x9e3779b1);
+      h ^= h >>> 15;
+      h = Math.imul(h, 0x85ebca6b);
+      h ^= h >>> 13;
+      // a ring index: most cells near the middle, a few out at the rim
+      const ring = (h & 7) < 4 ? 2 : (h & 7) < 7 ? 5 : 8;
+      const dx = ((h >>> 4) % (2 * ring + 1)) - ring;
+      const dy = (((h >>> 12) % (2 * ring + 1)) - ring) >> 1;
+      const tone = (h >>> 20) & 3;
+      const c = tone === 0 ? 0xd8c890 : tone === 1 ? 0xb8ae88 : tone === 2 ? 0xe8e0b8 : 0x9a9478;
+      b.push(cx + dx + 0.5, cy + dy + 0.5, 1, 1, c, ring === 8 ? 0.45 : ring === 5 ? 0.6 : 0.75);
     }
   }
 

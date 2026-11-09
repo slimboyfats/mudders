@@ -1,0 +1,48 @@
+{
+  "id": "weapon.fuel-air-cloud",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel-Air Cloud",
+    "description": "One puff of a Fuel-Air Bomb's fuel cloud. Drifts and hugs the ground, then goes up in a ball of fire together with all the others.",
+    "since": "core@0.54.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.fuel-drift"
+  },
+  "triggers": ["onSolid", { "onTimer": 80 }],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 20,
+        "damage": 32,
+        "damageType": "heat",
+        "effects": {
+          "burst": {
+            "count": 8
+          },
+          "flash": {
+            "strength": 0.35
+          },
+          "fireball": {
+            "strength": 0.55
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 20,
+    "terrainValue": 0.4
+  },
+  "look": {
+    "shell": "vapor",
+    "trail": false
+  }
+}

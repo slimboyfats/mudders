@@ -1,0 +1,53 @@
+{
+  "id": "audio.supernova-blast",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Supernova Blast",
+    "description": "A huge chip blast: a white-noise crack over a falling square roar and a ringing high tail.",
+    "since": "core@0.53.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 5000,
+        "to": 120,
+        "hold": 0.15,
+        "release": 1.4,
+        "volume": 0.45
+      },
+      {
+        "wave": "square",
+        "freq": 160,
+        "to": 28,
+        "hold": 0.1,
+        "release": 1.2,
+        "volume": 0.32
+      },
+      {
+        "wave": "triangle",
+        "freq": 1800,
+        "to": 900,
+        "attack": 0.05,
+        "release": 1.6,
+        "volume": 0.1,
+        "vibrato": {
+          "rate": 14,
+          "depth": 0.3
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "supernovaBurst"
+    }
+  ],
+  "gap": 0.5
+}

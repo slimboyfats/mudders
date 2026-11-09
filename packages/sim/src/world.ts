@@ -1827,6 +1827,16 @@ export class World implements SimApi {
     return id;
   }
 
+  steerShell(id: number, vx: number, vy: number): boolean {
+    for (const p of this.projectiles) {
+      if (p.id !== id || !p.alive) continue;
+      p.vx = vx;
+      p.vy = vy;
+      return true;
+    }
+    return false;
+  }
+
   interrupt(owner: number): void {
     if (this.phase !== 'aim') return;
     const t = this.tanks[this.activePlayer];

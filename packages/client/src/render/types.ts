@@ -63,7 +63,8 @@ export interface ShellLook {
     | 'stage'
     | 'plasma'
     | 'rail'
-    | 'acid';
+    | 'acid'
+    | 'vapor';
   trail: boolean;
   /** Scale of a meteor head and streak. */
   size?: number;
