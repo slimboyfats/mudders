@@ -1,0 +1,39 @@
+{
+  "id": "weapon.supernova",
+  "schemaVersion": 1,
+  "description": "Player 0 lights a Supernova between players 1 and 2. The star burns, tears up the ground and drags both tanks toward it, then collapses and goes off in a huge ring that flings them away and glazes the crater in glowing slag.",
+  "subject": "weapon.supernova",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 100,
+      "inventory": {
+        "weapon.supernova": 1
+      }
+    },
+    {
+      "x": 400
+    },
+    {
+      "x": 600
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.supernova" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 560 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 1000,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

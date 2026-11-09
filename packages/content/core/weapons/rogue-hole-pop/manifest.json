@@ -1,0 +1,41 @@
+{
+  "id": "weapon.rogue-hole-pop",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rogue Black Hole pop",
+    "description": "A Rogue Black Hole evaporating: a sharp ring of force that shoves tanks and ground outward.",
+    "category": "submunition",
+    "since": "core@0.53.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 1
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 60,
+        "damage": 20,
+        "effects": {
+          "pressureWave": {
+            "strength": 0.9
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

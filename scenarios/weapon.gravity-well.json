@@ -1,0 +1,46 @@
+{
+  "id": "weapon.gravity-well",
+  "schemaVersion": 1,
+  "description": "Player 0 lobs a Gravity Well just in front of itself. Player 1 then fires a missile straight at player 0: the shell bends into the well, spirals and is swallowed. Player 0's own missile flies through untouched.",
+  "subject": "weapon.gravity-well",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 140,
+      "inventory": {
+        "weapon.gravity-well": 1,
+        "weapon.missile": 2
+      }
+    },
+    {
+      "x": 640,
+      "inventory": {
+        "weapon.missile": 2
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.gravity-well" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 60, "power": 330 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 130, "power": 640 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } },
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 585 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 1200,
+    "untilSettled": true,
+    "extraTicks": 90
+  }
+}

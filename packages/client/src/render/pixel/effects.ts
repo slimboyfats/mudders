@@ -10,6 +10,7 @@ import { IonStrikes } from './ion';
 import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawDrone, type DroneFx } from './drone';
+import { drawStar, drawWell, type GravityFx, type StarFx } from './gravity';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawPortal, RING_A, RING_B, type PortalFx } from './portal';
 import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
@@ -312,6 +313,12 @@ export class EffectSystem {
   private magnets: MagnetFx[] = [];
   /** Repair drones (weapon.repair-drone), one per resident op. */
   private drones: DroneFx[] = [];
+  /** Gravity Wells (weapon.gravity-well), one per resident op. */
+  private wells: GravityFx[] = [];
+  /** Supernova stars while they burn. */
+  private novas: StarFx[] = [];
+  /** Rogue black holes (weapon.rogue-hole); they move, so they're matched by proximity. */
+  private holes: GravityFx[] = [];
   /** Kaiju monsters (weapon.kaiju), one per resident op. */
   private kaijus: KaijuFx[] = [];
   /** Portal Pairs (weapon.portal-pair), one per resident op. */
@@ -1208,6 +1215,122 @@ export class EffectSystem {
         break;
       case 'kaiju':
         this.kaiju(e);
+        break;
+      case 'gravityWell':
+        this.gravityWell(e);
+        break;
+      case 'wellOpen':
+        // space dimples in: a ring of distortion closing on the spot, a violet flash
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 24,
+          maxR: e.radius,
+          width: 8,
+          strength: 0.6,
+        });
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: 10,
+          start: e.tick,
+          dur: 12,
+          color: 0xa060ff,
+          strength: 0.8,
+        });
+        this.tintSky([0, 0.25, 0.08, 0.5], 0.2);
+        break;
+      case 'rogueHole':
+        this.rogueHole(e);
+        break;
+      case 'holeOpen':
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: 16,
+          start: e.tick,
+          dur: 12,
+          color: 0xa060ff,
+          strength: 1,
+        });
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 26,
+          maxR: 90,
+          width: 10,
+          strength: 0.9,
+        });
+        this.tintSky([0, 0.3, 0.05, 0.55], 0.3);
+        this.kick(3, e.tick);
+        break;
+      case 'holeSwallow':
+        this.wellSwallow(e);
+        break;
+      case 'holeBite':
+        this.holeBite(e);
+        break;
+      case 'holeClose':
+        this.vortices.push({
+          x: e.x,
+          y: e.y,
+          r: 18,
+          start: e.tick,
+          dur: Math.max(8, e.params.sink ?? 40),
+          rng: this.rngFor(e, 157),
+          snap: true,
+        });
+        break;
+      case 'supernova':
+        this.supernova(e);
+        break;
+      case 'supernovaIgnite':
+        this.glows.push({
+          x: e.x,
+          y: e.y,
+          r: 14,
+          start: e.tick,
+          dur: 14,
+          color: 0xffd060,
+          strength: 1,
+        });
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 20,
+          maxR: 50,
+          width: 8,
+          strength: 0.6,
+        });
+        break;
+      case 'supernovaBurst':
+        this.supernovaBurst(e);
+        break;
+      case 'wellSwallow':
+        this.wellSwallow(e);
+        break;
+      case 'wellClose':
+        this.vortices.push({
+          x: e.x,
+          y: e.y,
+          r: 14,
+          start: e.tick,
+          dur: Math.max(8, e.params.sink ?? 30),
+          rng: this.rngFor(e, 131),
+          snap: true,
+        });
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick + Math.max(4, e.params.sink ?? 30),
+          dur: 26,
+          maxR: e.radius * 1.4,
+          width: 10,
+          strength: 1,
+        });
         break;
       case 'kaijuQuake': {
         // the ground shudders and cracks open along the surface before it bursts
@@ -2897,6 +3020,152 @@ export class EffectSystem {
     }
   }
 
+  /** Update (or start) the gravity well an event belongs to: one event per well per tick. */
+  private gravityWell(e: EffectEvent): void {
+    const pr = e.params;
+    let w: GravityFx | undefined;
+    for (const g of this.wells) {
+      if (e.tick - g.last <= 3 && g.x === e.x && g.y === e.y) {
+        w = g;
+        break;
+      }
+    }
+    if (!w) {
+      w = { x: e.x, y: e.y, r: e.radius, core: 6, strength: 0, age: 0, last: e.tick };
+      this.wells.push(w);
+    }
+    w.r = e.radius;
+    w.core = pr.core ?? 6;
+    w.age = pr.age ?? 0;
+    w.strength = (pr.strength ?? 0) / 256;
+    w.last = e.tick;
+    // space breathes: a faint lensing ripple rolls out of the well now and then
+    if (w.strength >= 1 && w.age % 64 === 0) {
+      this.ripples.push({
+        x: e.x,
+        y: e.y,
+        start: e.tick,
+        dur: 30,
+        maxR: e.radius * 0.7,
+        width: 6,
+        strength: 0.3,
+      });
+    }
+  }
+
+  /** Update (or start) the star a `supernova` event belongs to; the sky warms as it grows. */
+  private supernova(e: EffectEvent): void {
+    const pr = e.params;
+    let st: StarFx | undefined;
+    for (const g of this.novas) if (e.tick - g.last <= 3 && g.x === e.x && g.y === e.y) st = g;
+    if (!st) {
+      st = { x: e.x, y: e.y, r: e.radius, t: 0, charge: 1, collapse: 0, last: e.tick };
+      this.novas.push(st);
+    }
+    st.t = pr.t ?? 0;
+    st.charge = pr.charge ?? 1;
+    st.collapse = pr.collapse ?? 0;
+    st.r = e.radius;
+    st.last = e.tick;
+    const burn = Math.max(1, st.charge - st.collapse);
+    if (st.t <= burn) {
+      const k = st.t / burn;
+      this.tintSky([0, 0.55, 0.3, 0.05], 0.004 + 0.01 * k);
+      if (st.t % 6 === 0) this.kick(0.5 + 2 * k, e.tick);
+      // heat shimmer pulses off the star
+      if (st.t % 20 === 0)
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 18,
+          maxR: 20 + 40 * k,
+          width: 5,
+          strength: 0.25 + 0.3 * k,
+        });
+    } else {
+      this.tintSky([0, 0.2, 0.35, 0.9], 0.03);
+    }
+  }
+
+  /**
+   * A Supernova goes off: a white-out flash, a hard ring of white → cyan → violet star-stuff
+   * racing outward, and a huge distortion wave.
+   */
+  private supernovaBurst(e: EffectEvent): void {
+    const rng = this.rngFor(e, 149);
+    this.novas = this.novas.filter((s) => s.x !== e.x || s.y !== e.y);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 70,
+      start: e.tick,
+      dur: 16,
+      color: 0xffffff,
+      strength: 1.4,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 30,
+      start: e.tick,
+      dur: 40,
+      color: 0x80c8ff,
+      strength: 1,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 40,
+      maxR: e.radius * 1.9,
+      width: 22,
+      strength: 1.6,
+    });
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick + 8,
+      dur: 36,
+      maxR: e.radius * 1.3,
+      width: 12,
+      strength: 0.9,
+    });
+    this.tintSky([0, 1, 1, 1], 0.7);
+    this.kick(9, e.tick);
+    const n = Math.round(220 * this.mult) + 60;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.02, 0.02);
+      const sp = rng.range(3.2, 4.6);
+      const tone = rng.next();
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp * 0.85,
+        life: rng.range(22, 40),
+        size: 1,
+        color: tone < 0.3 ? 0xffffff : tone < 0.65 ? 0x80e8ff : 0xb070ff,
+        kind: PKind.Glitter,
+      });
+    }
+    const m = Math.round(90 * this.mult) + 20;
+    for (let i = 0; i < m; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const sp = rng.range(0.8, 2.6);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(30, 60),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x80c8ff : 0xb070ff,
+        kind: PKind.Plasma,
+      });
+    }
+  }
+
   /** Update (or start) the portal pair an event belongs to, and shed a few wisps off its rims. */
   private portal(e: EffectEvent): void {
     const pr = e.params;
@@ -2951,6 +3220,123 @@ export class EffectSystem {
         kind: PKind.Plasma,
       });
     }
+  }
+
+  /** Update (or start) the rogue black hole an event belongs to; it sheds dust as it eats. */
+  private rogueHole(e: EffectEvent): void {
+    const pr = e.params;
+    let h: GravityFx | undefined;
+    for (const g of this.holes) {
+      if (e.tick - g.last <= 3 && Math.abs(g.x - e.x) <= 4 && Math.abs(g.y - e.y) <= 4) h = g;
+    }
+    if (!h) {
+      h = { x: e.x, y: e.y, r: e.radius, core: 10, strength: 0, age: 0, last: e.tick };
+      this.holes.push(h);
+    }
+    h.x = e.x;
+    h.y = e.y;
+    h.r = e.radius;
+    h.core = pr.core ?? 10;
+    h.age = pr.age ?? 0;
+    h.strength = (pr.strength ?? 0) / 256;
+    h.last = e.tick;
+    // ground torn off the rim streaks into the hole while it moves
+    if ((pr.moving ?? 0) > 0) {
+      const rng = this.rngFor(e, 163);
+      const n = Math.round(6 * this.mult) + 2;
+      const rim = h.core + 2;
+      for (let i = 0; i < n; i++) {
+        const a = rng.range(0, Math.PI * 2);
+        const rr = rim + rng.range(2, 14);
+        const x = Math.round(e.x + Math.cos(a) * rr);
+        const y = Math.round(e.y + Math.sin(a) * rr);
+        const m = this.probe.material(x, y);
+        if (m === 0) continue;
+        const life = rng.range(5, 10);
+        this.particles.add({
+          x,
+          y,
+          vx: (e.x - x) / life,
+          vy: (e.y - y) / life,
+          life,
+          size: 1,
+          color: this.probe.color(m),
+          kind: PKind.Spark,
+        });
+      }
+      if (h.age % 8 === 0) this.kick(1, e.tick);
+    }
+  }
+
+  /** A rogue black hole bites a tank: sparks torn off its hull into the hole, a hard jolt. */
+  private holeBite(e: EffectEvent): void {
+    let cx = e.x;
+    let cy = e.y;
+    for (const g of this.holes)
+      if (Math.abs(g.x - e.x) <= g.r && Math.abs(g.y - e.y) <= g.r) ({ x: cx, y: cy } = g);
+    const rng = this.rngFor(e, 167);
+    const n = Math.round(18 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      const x = e.x + rng.range(-e.radius, e.radius);
+      const y = e.y + rng.range(-3, 3);
+      const life = rng.range(5, 10);
+      this.particles.add({
+        x,
+        y,
+        vx: (cx - x) / life,
+        vy: (cy - y) / life,
+        life,
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xffa040,
+        kind: PKind.Spark,
+      });
+    }
+    this.kick(3, e.tick);
+  }
+
+  /**
+   * A shell swallowed by a gravity well: it stretches into a streak of sparks that snap into the
+   * core, a white pop on the photon ring, and a lensing ripple rolls out.
+   */
+  private wellSwallow(e: EffectEvent): void {
+    let cx = e.x;
+    let cy = e.y;
+    for (const g of this.wells) {
+      if (Math.abs(g.x - e.x) <= g.r && Math.abs(g.y - e.y) <= g.r) {
+        cx = g.x;
+        cy = g.y;
+      }
+    }
+    const rng = this.rngFor(e, 137);
+    const n = Math.round(24 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const rr = rng.range(2, 9);
+      const life = rng.range(4, 9);
+      const x = Math.round(cx + Math.cos(a) * rr);
+      const y = Math.round(cy + Math.sin(a) * rr);
+      this.particles.add({
+        x,
+        y,
+        vx: (cx - x) / life,
+        vy: (cy - y) / life,
+        life,
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : rng.next() < 0.5 ? 0xffa040 : 0xb070ff,
+        kind: PKind.Spark,
+      });
+    }
+    this.glows.push({ x: cx, y: cy, r: 8, start: e.tick, dur: 8, color: 0xffffff, strength: 1 });
+    this.ripples.push({
+      x: cx,
+      y: cy,
+      start: e.tick + 2,
+      dur: 22,
+      maxR: 60,
+      width: 8,
+      strength: 0.8,
+    });
+    this.kick(2, e.tick);
   }
 
   /** A puff of ring-coloured wisps and white pixels (a ring opening, shutting, or something going through). */
@@ -3174,6 +3560,27 @@ export class EffectSystem {
   /** Repair drones and their mending beams. */
   drawDrones(normal: QuadBatch, additive: QuadBatch, t: number): void {
     for (const d of this.drones) drawDrone(d, normal, additive, t);
+  }
+
+  /** Swirl lenses round black holes this frame (the post pass twists the image round them). */
+  swirls(t: number): { x: number; y: number; r: number; strength: number; twist: number }[] {
+    const out: { x: number; y: number; r: number; strength: number; twist: number }[] = [];
+    for (const w of this.wells) {
+      if (t - w.last > 2 || w.strength <= 0) continue;
+      out.push({ x: w.x, y: w.y, r: w.core + 30, strength: w.strength, twist: 2.4 });
+    }
+    for (const h of this.holes) {
+      if (t - h.last > 3 || h.strength <= 0) continue;
+      out.push({ x: h.x, y: h.y, r: h.core + 36, strength: h.strength, twist: -2.8 });
+    }
+    return out;
+  }
+
+  /** Gravity wells. */
+  drawGravity(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const w of this.wells) drawWell(w, normal, additive, t, this.probe);
+    for (const h of this.holes) drawWell(h, normal, additive, t, this.probe, true);
+    for (const s of this.novas) drawStar(s, normal, additive, t, this.probe);
   }
 
   /** Magnet mines and their fields. */
@@ -4379,6 +4786,9 @@ export class EffectSystem {
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.drones = this.drones.filter((d) => t - d.last <= 2);
+    this.wells = this.wells.filter((w) => t - w.last <= 2);
+    this.holes = this.holes.filter((h) => t - h.last <= 3);
+    this.novas = this.novas.filter((s) => t - s.last <= 2);
     this.kaijus = this.kaijus.filter((k) => t - k.last <= 4);
     this.portals = this.portals.filter((p) => t - p.last <= 4);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
@@ -5318,6 +5728,9 @@ export class EffectSystem {
     this.posts = [];
     this.magnets = [];
     this.drones = [];
+    this.wells = [];
+    this.holes = [];
+    this.novas = [];
     this.kaijus = [];
     this.portals = [];
     this.columns.length = 0;

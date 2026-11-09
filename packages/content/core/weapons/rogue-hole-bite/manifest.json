@@ -1,0 +1,49 @@
+{
+  "id": "weapon.rogue-hole-bite",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rogue Black Hole bite",
+    "description": "A Rogue Black Hole tearing at a tank it touches: a crushing squeeze, no crater.",
+    "category": "submunition",
+    "since": "core@0.53.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 1
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 22,
+        "damageType": "shock",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "flash": {
+            "strength": 0
+          },
+          "shake": {
+            "strength": 1
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

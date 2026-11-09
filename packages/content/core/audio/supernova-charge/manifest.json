@@ -1,0 +1,48 @@
+{
+  "id": "audio.supernova-charge",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Supernova Charge",
+    "description": "A long rising chip drone with a climbing arpeggio while the Supernova star burns.",
+    "since": "core@0.53.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 55,
+        "to": 440,
+        "attack": 2,
+        "hold": 2.4,
+        "release": 0.1,
+        "volume": 0.2,
+        "vibrato": {
+          "rate": 6,
+          "depth": 0.4
+        }
+      },
+      {
+        "wave": "square",
+        "freq": 220,
+        "attack": 0.3,
+        "hold": 4.2,
+        "release": 0.05,
+        "volume": 0.07,
+        "arp": [0, 4, 7, 12, 16, 19, 24, 19],
+        "arpRate": 0.08
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "supernovaIgnite"
+    }
+  ],
+  "gap": 1
+}

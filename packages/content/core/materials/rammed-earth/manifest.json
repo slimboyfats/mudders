@@ -4,7 +4,7 @@
   "meta": {
     "name": "Rammed Earth",
     "description": "Soil packed hard in courses, the stuff an Earth Bridge is built of. Unlike loose dirt it holds a span: a deck of it bridges a gap between piers, and a long enough unsupported run sags and breaks off. About as tough as clay to blast.",
-    "since": "core@0.53.0",
+    "since": "core@0.55.0",
     "color": "#8c6a44"
   },
   "cell": 57,
