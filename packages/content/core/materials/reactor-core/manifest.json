@@ -4,7 +4,7 @@
   "meta": {
     "name": "Reactor core",
     "description": "Ground a Chain Reactor has soaked with unstable glowing fuel. It holds its shape, but any blast, fire or lava that reaches it sets it off, and the reaction runs through the whole patch in a chain of explosions. Patches the first reaction missed stay live for the rest of the round.",
-    "since": "core@0.47.0",
+    "since": "core@0.48.0",
     "color": "#3cbf4a"
   },
   "cell": 201,

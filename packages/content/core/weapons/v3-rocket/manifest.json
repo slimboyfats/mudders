@@ -1,0 +1,91 @@
+{
+  "id": "weapon.v3-rocket",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "V3 Rocket",
+    "description": "A three-stage monster. It lobs like a shell, then a moment after launch the booster roars alight and drives it straight up into the high sky, dropping a burning spent stage at each burn-out. Up there the warhead turns over, locks on to the enemy tank nearest below it and screams down on it in a steep powered dive: a deep crater and a shockwave that throws tanks and houses.",
+    "category": "guided",
+    "since": "core@0.47.0"
+  },
+  "flight": {
+    "use": "flight.v3"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 34,
+        "damage": 150,
+        "effects": {
+          "burst": {
+            "count": 90
+          },
+          "flash": {
+            "strength": 1.6
+          },
+          "shake": {
+            "strength": 5
+          },
+          "geyser": {
+            "strength": 1.4
+          },
+          "v3Blast": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 80,
+        "damage": 30,
+        "push": 0,
+        "effects": {
+          "burst": {
+            "count": 0
+          },
+          "ripple": {
+            "strength": 1.2
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "speed": 10,
+          "lift": 0.9,
+          "expandTicks": 10,
+          "blobPush": 14,
+          "fling": 120,
+          "flingApex": 45,
+          "propBoost": 220
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "spawn": {
+        "weapon": "weapon.v3-stage",
+        "count": 1,
+        "inherit": 0.15,
+        "jitter": 0.6
+      }
+    }
+  ],
+  "shop": {
+    "price": 16000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 120,
+    "terrainValue": 0.5
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  },
+  "look": {
+    "shell": "rocket"
+  }
+}
