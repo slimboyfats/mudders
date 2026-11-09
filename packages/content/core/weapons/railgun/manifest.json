@@ -1,0 +1,64 @@
+{
+  "id": "weapon.railgun",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Railgun",
+    "description": "A hyper-velocity slug fired flat along your aim: power doesn't matter, the wind can't touch it and it barely drops. It punches through a thin ridge, a wall or a house and hits the first tank in line hard, but a real hill stops it. A sniper's shot: aim the line, not the arc.",
+    "category": "beam",
+    "since": "core@0.48.0"
+  },
+  "flight": {
+    "use": "flight.rail"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 70,
+        "damageType": "kinetic",
+        "falloff": "flat",
+        "effects": {
+          "flash": {
+            "strength": 1
+          },
+          "burst": {
+            "count": 22
+          },
+          "railHit": {}
+        }
+      }
+    }
+  ],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 2,
+        "damage": 0,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 4
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 60,
+    "terrainValue": 0.1
+  },
+  "audio": {
+    "fire": "audio.fire-beam"
+  },
+  "look": {
+    "shell": "rail"
+  }
+}
