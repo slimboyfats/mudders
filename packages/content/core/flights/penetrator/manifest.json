@@ -4,7 +4,7 @@
   "meta": {
     "name": "Penetrator",
     "description": "Flies an arc, then drives straight on through whatever it hit, rock and ice included, each cell spending some of its punch by how hard it is. Goes off when it breaks into open air under a roof, hits a tank, or runs out of punch.",
-    "since": "core@0.51.0"
+    "since": "core@0.53.0"
   },
   "behaviour": "flight.penetrator",
   "gravityScale": 1,

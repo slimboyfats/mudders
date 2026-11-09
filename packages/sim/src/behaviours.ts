@@ -355,6 +355,8 @@ export interface AiApi {
   readonly chill: number;
   /** Own turns left glued (Glue Bomb); while > 0 I can't drive (`reach` offers nothing). */
   readonly glue: number;
+  /** Own turns left jammed (Shield Breaker EMP); while > 0 I can't drive or switch on gear. */
+  readonly jam: number;
   /** My previous shot this round, or null. */
   readonly lastShot: {
     readonly x: number;

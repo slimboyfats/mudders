@@ -5,7 +5,7 @@
     "name": "Repair Drone",
     "description": "Pops open where it lands and lets loose a little repair drone that flies to the nearest friendly tank (yours, or a teammate's) and hovers over it, patching its armour: 15 HP when it arrives, then 10 more at the start of every turn for two rounds, never above round-start health. Land it near the tank you want mended. Enemies can shoot it down: any shell passing close by, or going off near it, knocks it out of the sky. Does no damage.",
     "category": "support",
-    "since": "core@0.51.0"
+    "since": "core@0.53.0"
   },
   "flight": {
     "use": "flight.ballistic"

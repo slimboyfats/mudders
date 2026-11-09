@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -207,6 +207,8 @@ export const NetSetupSchema = z.object({
   /** Weather (§3.4); older hosts don't send it, which means clear. */
   weather: z.enum(['clear', 'rain', 'snow', 'random']).optional(),
   suddenDeath: z.boolean(),
+  /** Each player's turn sudden death starts on (§3.1); unset = the mode's default. */
+  suddenDeathFrom: z.number().int().min(1).max(30).optional(),
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Team per seat (milestone 7), or null for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(3)).max(8).nullable(),

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Drone Heal",
     "description": "A repair drone at work: a bright rising pulse-wave chirp over a soft buzzing hum and a little rattle of sparks, ending on a clean high ping.",
-    "since": "core@0.51.0"
+    "since": "core@0.53.0"
   },
   "bus": "sfx",
   "licence": {
