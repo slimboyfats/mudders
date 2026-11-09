@@ -41,6 +41,7 @@ export interface WireSnapshot {
   weather?: RenderSnapshot['weather'];
   temperature?: number;
   deathZone?: number;
+  preview?: number[];
 }
 
 export interface CaptureApi {

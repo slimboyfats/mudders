@@ -172,6 +172,10 @@ function describeImpact(
       e.glue > 0 ? `glues ${e.glue} turn${e.glue > 1 ? 's' : ''}` : '',
       e.mind > 0 ? `mind-controls enemies ${e.mind} turn${e.mind > 1 ? 's' : ''}` : '',
       e.strip ? 'strips shields' : '',
+      e.mark > 0
+        ? `spots enemies: +${e.markBonus}% damage from your team for ${e.mark} turn${e.mark > 1 ? 's' : ''}`
+        : '',
+      e.scope > 0 ? `full aim preview for your team, ${e.scope} turn${e.scope > 1 ? 's' : ''}` : '',
       e.drain > 0 ? `destroys ${e.drain} batter${e.drain > 1 ? 'ies' : 'y'}` : '',
       e.jam > 0 ? `jams ${e.jam} turn${e.jam > 1 ? 's' : ''} (no driving, no gear)` : '',
       e.falloff === 'flat' ? 'no falloff' : '',

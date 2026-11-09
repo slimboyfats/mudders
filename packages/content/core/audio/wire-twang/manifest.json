@@ -4,7 +4,7 @@
   "meta": {
     "name": "Wire twang",
     "description": "A taut wire snapping with a bright twang, then the thump of the charge and the net coming down (Tripwire Net).",
-    "since": "core@0.57.0"
+    "since": "core@0.58.0"
   },
   "bus": "sfx",
   "licence": {

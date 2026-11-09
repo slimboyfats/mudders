@@ -1,0 +1,119 @@
+{
+  "id": "weapon.spotter-flare",
+  "schemaVersion": 1,
+  "description": "Player 0 lands a Spotter Flare by player 1 and spots it; on player 0\u2019s next turn the full aim preview swings onto the target and a Missile lands for 50% more damage.",
+  "subject": "weapon.spotter-flare",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.spotter-flare": 2,
+        "weapon.missile": 2
+      }
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.spotter-flare"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 0
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 520
+      }
+    },
+    {
+      "t": 200,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 600
+      }
+    },
+    {
+      "t": 290,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1600,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "props": []
+}
