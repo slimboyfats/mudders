@@ -1,0 +1,17 @@
+{
+  "id": "terrainop.shave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Shave",
+    "description": "A flat blast that races out sideways from the impact and shaves every hill in its path off down to the impact's height, throwing a low sheet of dirt outward. Rock and ice hold.",
+    "since": "core@0.55.0"
+  },
+  "behaviour": "terrainop.shave",
+  "height": 70,
+  "depth": 3,
+  "expandTicks": 18,
+  "maxStrength": 1.6,
+  "spray": 0.18,
+  "speed": 4,
+  "lift": 0.5
+}
