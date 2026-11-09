@@ -473,6 +473,12 @@ export class EffectSystem {
       case 'mirvSplit':
         this.mirvSplit(e);
         break;
+      case 'v3Burn':
+        this.v3Burn(e);
+        break;
+      case 'v3Blast':
+        this.v3Blast(e);
+        break;
       case 'fireball':
         this.fireball(e, e.params.strength ?? 1);
         break;
@@ -1390,6 +1396,102 @@ export class EffectSystem {
    * A MIRV splitting at its apex: a hard white pop, a ring of sparks flung out in every direction,
    * a small lens ripple and a puff of grey smoke left hanging where the bus broke apart.
    */
+  /**
+   * A V3 stage lighting (and the one below it dropping away): a white flare, a hard ring of
+   * gold-white sparks, a collar of grey smoke where the stages part, and a jolt.
+   */
+  private v3Burn(e: EffectEvent): void {
+    const rng = this.rngFor(e, 71);
+    const top = (e.params.stage ?? 2) >= 3;
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: top ? 14 : 9,
+      start: e.tick,
+      dur: 7,
+      color: 0xfff0c0,
+      strength: 1.3,
+    });
+    const n = Math.round((top ? 40 : 28) * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rng.range(-0.08, 0.08);
+      const v = rng.range(1.2, 2.4);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(8, 16),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : i % 3 === 1 ? 0xffd060 : 0xff8a30,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      this.particles.add({
+        x: e.x + Math.cos(a) * 3,
+        y: e.y + Math.sin(a) * 2,
+        vx: Math.cos(a) * 0.25,
+        vy: Math.sin(a) * 0.12,
+        life: rng.range(50, 80),
+        size: rng.range(3, 5),
+        color: rng.next() < 0.5 ? 0xb0aab4 : 0x8a8490,
+        kind: PKind.Smoke,
+      });
+    }
+    this.kick(top ? 2 : 1.2, e.tick);
+  }
+
+  /**
+   * The V3 warhead hitting home: a pillar of fire and white sparks thrown straight back up the
+   * dive path, and a deep ring of falling embers.
+   */
+  private v3Blast(e: EffectEvent): void {
+    const rng = this.rngFor(e, 73);
+    const n = Math.round(70 * this.mult) + 16;
+    for (let i = 0; i < n; i++) {
+      const v = rng.range(1.5, 5.5);
+      this.particles.add({
+        x: e.x + rng.range(-3, 3),
+        y: e.y,
+        vx: rng.range(-0.5, 0.5),
+        vy: -v,
+        life: rng.range(14, 34),
+        size: 1,
+        color: i % 4 === 0 ? 0xffffff : i % 4 === 1 ? 0xfff0a0 : 0xffa030,
+        kind: PKind.Spark,
+      });
+    }
+    const f = Math.round(26 * this.mult) + 6;
+    for (let i = 0; i < f; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-4, 4),
+        y: e.y - rng.range(0, 30),
+        vx: rng.range(-0.15, 0.15),
+        vy: -rng.range(0.3, 1.2),
+        life: rng.range(14, 26),
+        size: rng.range(2, 4),
+        color: 0,
+        kind: PKind.Flame,
+      });
+    }
+    for (let i = 0; i < f; i++) {
+      const a = rng.range(Math.PI * 1.05, Math.PI * 1.95);
+      const v = rng.range(1, 3);
+      this.particles.add({
+        x: e.x,
+        y: e.y - 2,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: rng.range(40, 70),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xff7a20 : 0xffc040,
+        kind: PKind.Ember,
+      });
+    }
+  }
+
   private mirvSplit(e: EffectEvent): void {
     const rng = this.rngFor(e, 43);
     this.glows.push({
