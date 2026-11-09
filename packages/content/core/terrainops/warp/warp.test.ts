@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dropAt, effectsOf, flatWorld } from '../../../src/testing';
+import { dropAt, effectsOf, flatWorld, launchAt } from '../../../src/testing';
 
 describe('terrainop.warp', () => {
   it('lifts a tank out of a hill to stand on top of it', () => {
@@ -52,5 +52,29 @@ describe('terrainop.warp', () => {
     dropAt(w, 'weapon.teleport-shell', 220);
     expect(w.tanks[0]!.x).toBe(40);
     expect(effectsOf(w, 'warpFizzle')).toHaveLength(1);
+  });
+});
+
+describe('terrainop.warp swap mode', () => {
+  it('lifts the swapped tank out onto a ledge that is taller where it lands', () => {
+    const w = flatWorld(150, { tankColumns: [60, 320] });
+    const g = w.grid;
+    const dirt = w.mats.cellOf('material.dirt');
+    // tank 0 stands on a 20-cell plateau
+    for (let y = 130; y < 150; y++) for (let x = 40; x < 80; x++) g.material[y * g.width + x] = dirt;
+    w.tanks[0]!.y = 130;
+    launchAt(w, 'weapon.swap-ray', 72, 126, 4, 0.32);
+    expect(w.tanks[1]!.x).toBe(60);
+    expect(w.tanks[1]!.y).toBe(130);
+    expect(w.tanks[0]!.x).toBe(320);
+    expect(w.tanks[0]!.y).toBe(150);
+  });
+
+  it('a glued target fizzles and nobody moves', () => {
+    const w = flatWorld(150, { tankColumns: [60, 320] });
+    w.tanks[1]!.glue = 2;
+    launchAt(w, 'weapon.swap-ray', 72, 146, 4, 0);
+    expect(w.tanks[0]!.x).toBe(60);
+    expect(w.tanks[1]!.x).toBe(320);
   });
 });
