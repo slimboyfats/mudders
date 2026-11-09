@@ -54,7 +54,15 @@ export const RoomSettingsSchema = z.object({
   maxPlayers: z.number().int().min(1).max(8),
   summary: z.string().max(80),
 });
-export const JoinRoomSchema = z.object({ type: z.literal('joinRoom'), code: RoomCodeSchema });
+export const JoinRoomSchema = z.object({
+  type: z.literal('joinRoom'),
+  code: RoomCodeSchema,
+  /**
+   * The joiner already holds a seat in this room's match (a saved seat token) and is coming back
+   * after the lobby server forgot it. A started room only lets these in; the host checks the token.
+   */
+  rejoin: z.boolean().optional(),
+});
 export const LeaveRoomSchema = z.object({ type: z.literal('leaveRoom') });
 export const ListRoomsSchema = z.object({ type: z.literal('listRooms') });
 /** Host only: the match started; the room leaves the public list and refuses new joins. */

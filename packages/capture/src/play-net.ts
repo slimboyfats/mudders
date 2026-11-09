@@ -24,6 +24,11 @@ import { REPO_ROOT, capturesDir } from './paths';
  *
  * Every run checks the guest never desynced (host-side hash checks) and screenshots both screens.
  * Real NATs, phones and cell handovers are `needs-device`.
+ *
+ * `PLAY_NET_LIVE=<url>` runs against a deployed client and its lobby server instead (for example
+ * `https://slimboyfats.github.io/mudders/`, which talks to the Render signal server): no local
+ * server, no `?signal=` override, and the `lan` run is skipped. Both browsers still sit on this
+ * machine, so WebRTC uses host candidates only (`?ice=none`); real NATs stay `needs-device`.
  */
 export interface PlayNetResult {
   screenshots: string[];
@@ -114,7 +119,22 @@ async function resilience(
   await setHidden(false);
   // ~180 ticks in 3 s at 60 Hz; allow for a slow container
   if (h1 - h0 < 90) throw new Error(`public: hidden host advanced only ${h1 - h0} ticks in 3 s`);
-  if (h1 - g1 > 90) throw new Error(`public: guest fell ${h1 - g1} ticks behind a hidden host`);
+  // the guest keeps receiving ticks; on a slow software GPU its frames can trail a hidden host
+  // (which only ticks), so it only has to catch up shortly after, not keep pace frame for frame
+  if (h1 - g1 > 90) {
+    await guest
+      .waitForFunction(
+        () =>
+          (window as unknown as { __muddersNet: { lag: () => number } }).__muddersNet.lag() <= 60,
+        undefined,
+        { timeout: 20_000 },
+      )
+      .catch(() => {
+        throw new Error(
+          `public: guest fell ${h1 - g1} ticks behind a hidden host and stayed behind`,
+        );
+      });
+  }
 
   // the guest walks away (same tab, so its seat token survives in sessionStorage)
   await guest.goto('about:blank');
@@ -126,7 +146,8 @@ async function resilience(
         ((window as unknown as { __muddersNet: { bots: () => number[] } }).__muddersNet.bots()[1] ??
           -1) >= 0,
       undefined,
-      { timeout: 5000 },
+      // ticks crawl on a software-rendered GPU
+      { timeout: 20_000 },
     )
     .catch(async () => {
       const bots = await dbg<number[]>(host, 'bots');
@@ -134,7 +155,7 @@ async function resilience(
     });
   // the stand-in plays the guest's turn: wait until player 1 has had the turn and fired (a tank
   // that is already dead has no turn until the next round, so there is nothing to wait for)
-  const deadline = Date.now() + 40_000;
+  const deadline = Date.now() + 120_000;
   let sawTurn = false;
   for (;;) {
     if (!(await dbg<boolean[]>(host, 'alive'))[1]) break;
@@ -148,7 +169,7 @@ async function resilience(
   await shot(host, '8-ai-stand-in');
 
   await guest.goto(joinUrl);
-  await guest.locator('.game-canvas').waitFor({ timeout: 20_000 });
+  await guest.locator('.game-canvas').waitFor({ timeout: 60_000 });
   await guest.waitForFunction(
     () =>
       (window as unknown as { __muddersNet: { status: () => string } }).__muddersNet.status() ===
@@ -176,7 +197,47 @@ function networkAddress(): string {
   throw new Error('lan: this machine has no non-loopback IPv4 address');
 }
 
+/** The deployed client to test, from `PLAY_NET_LIVE` (with a trailing slash), or null. */
+function liveBase(): string | null {
+  const v = process.env.PLAY_NET_LIVE?.trim();
+  if (!v) return null;
+  if (!/^https:\/\//.test(v)) throw new Error(`PLAY_NET_LIVE must be an https URL, got ${v}`);
+  return v.endsWith('/') ? v : `${v}/`;
+}
+
+/** Proxy for the live run's browser: a cloud session reaches the internet only through it. */
+function outboundProxy(): string[] {
+  const p = process.env.HTTPS_PROXY ?? process.env.https_proxy;
+  return p ? [`--proxy-server=${p}`] : [];
+}
+
+async function runLive(base: string): Promise<PlayNetResult> {
+  const out = capturesDir();
+  const shots: string[] = [];
+  const lines: string[] = [];
+  const browser = await chromium.launch({
+    headless: true,
+    args: [
+      ...SWIFTSHADER_ARGS,
+      '--disable-features=WebRtcHideLocalIpsWithMdns',
+      ...outboundProxy(),
+    ],
+  });
+  try {
+    const only = process.env.PLAY_NET_RUNS?.split(',');
+    for (const run of ['p2p', 'relay', 'direct', 'public'] as const) {
+      if (only && !only.includes(run)) continue;
+      lines.push(await runOne(browser, base, '', run, out, shots, true));
+    }
+  } finally {
+    await browser.close();
+  }
+  return { screenshots: shots, lines };
+}
+
 export async function runPlayNet(): Promise<PlayNetResult> {
+  const live = liveBase();
+  if (live) return runLive(live);
   const signal = await startSignal();
   // the client's /signal proxy (vite.config.ts) forwards to this run's signal server
   process.env.SIGNAL_TARGET = signal.url;
@@ -226,16 +287,21 @@ async function runOne(
   run: Run,
   out: string,
   shots: string[],
+  live = false,
 ): Promise<string> {
   const t0 = Date.now();
+  const relay = run === 'relay' ? '&relay=1' : '';
   const q =
     run === 'lan'
       ? '?ice=none'
-      : `?ice=none&signal=${encodeURIComponent(signalUrl)}${run === 'relay' ? '&relay=1' : ''}`;
+      : live
+        ? `?ice=none${relay}`
+        : `?ice=none&signal=${encodeURIComponent(signalUrl)}${relay}`;
   const contexts: BrowserContext[] = [];
   const errors: string[] = [];
   const page = async (name: string) => {
-    const ctx = await browser.newContext(LAPTOP);
+    // the cloud proxy re-signs TLS with its own CA, which this browser does not know
+    const ctx = await browser.newContext(live ? { ...LAPTOP, ignoreHTTPSErrors: true } : LAPTOP);
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write']);
     contexts.push(ctx);
     const p = await ctx.newPage();
@@ -252,6 +318,10 @@ async function runOne(
           'mudders.setup.v1',
           JSON.stringify({ size: 'small', scenery: 'village', rounds: 2, turnTimer: 10 }),
         );
+      }
+      // two pages share one software-rendered GPU: the lowest effects tier keeps frames quick
+      if (!localStorage.getItem('mudders.settings.v1')) {
+        localStorage.setItem('mudders.settings.v1', JSON.stringify({ quality: 'low' }));
       }
     });
     return p;
@@ -282,7 +352,10 @@ async function runOne(
     } else {
       await host.goto(`${base}${q}#host`);
       await host.getByTestId('name').fill('Hosty');
-      const code = (await host.getByTestId('room-code').textContent({ timeout: 15_000 }))!.trim();
+      // a sleeping free-tier lobby server takes up to a minute to wake
+      const code = (await host
+        .getByTestId('room-code')
+        .textContent({ timeout: live ? 120_000 : 15_000 }))!.trim();
       const link = await host.getByTestId('share-link').inputValue();
       if (!link.endsWith(`#join/${code}`)) throw new Error(`bad share link ${link}`);
       joinUrl = `${base}${q}#join/${code}`;
@@ -343,7 +416,16 @@ async function runOne(
     const fired = { host: 0, guest: 0 };
     const deadline = Date.now() + 240_000;
     let inflight = '';
-    while (fired.host < 2 || fired.guest < 2) {
+    // A human knocked out after their first shot only fires again next round, which can take
+    // minutes on a software-rendered GPU: then one shot each, with turns passing, is enough.
+    const humanDown = async () => {
+      const alive = await dbg<boolean[]>(host, 'alive');
+      return alive[0] === false || alive[1] === false;
+    };
+    while (
+      (fired.host < 2 || fired.guest < 2) &&
+      !(fired.host >= 1 && fired.guest >= 1 && fired.host + fired.guest >= 3 && (await humanDown()))
+    ) {
       if (Date.now() > deadline)
         throw new Error(`${run}: turns did not come round (${JSON.stringify(fired)})`);
       for (const [who, p, me] of [
@@ -393,18 +475,19 @@ async function runOne(
             window as unknown as { __muddersNet: { status: () => string } }
           ).__muddersNet.status() === 'playing',
         undefined,
-        { timeout: 20_000 },
+        { timeout: 60_000 },
       );
       // reload (app killed, tab restored): rejoin from the host's log
       await guest.reload();
-      await guest.locator('.game-canvas').waitFor({ timeout: 20_000 });
+      // the rejoin re-simulates the whole input log, which is slow on a software-rendered GPU
+      await guest.locator('.game-canvas').waitFor({ timeout: 60_000 });
       await guest.waitForFunction(
         () =>
           (
             window as unknown as { __muddersNet: { status: () => string } }
           ).__muddersNet.status() === 'playing',
         undefined,
-        { timeout: 20_000 },
+        { timeout: 60_000 },
       );
     }
 
@@ -412,6 +495,15 @@ async function runOne(
 
     // let a hash check or two go by, then check nobody desynced
     await host.waitForTimeout(4500);
+    // a guest that just rejoined can still be catching up on a slow machine: give it a moment
+    await guest
+      .waitForFunction(
+        () =>
+          (window as unknown as { __muddersNet: { lag: () => number } }).__muddersNet.lag() <= 60,
+        undefined,
+        { timeout: 20_000 },
+      )
+      .catch(() => {});
     const desyncs = await dbg<number>(host, 'desyncs');
     const lag = await dbg<number>(guest, 'lag');
     const hostTick = await dbg<number>(host, 'tick');

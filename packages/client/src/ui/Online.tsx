@@ -630,7 +630,11 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- external system (socket + session)
     setSession(g);
     setSignal(s);
-    void s.connect().then(() => s.send({ type: 'joinRoom', code: joinCode }));
+    // a saved seat token means we were in this match: ask to come back even if it has started
+    const rejoin = loadToken(joinCode) !== undefined;
+    void s
+      .connect()
+      .then(() => s.send({ type: 'joinRoom', code: joinCode, ...(rejoin ? { rejoin } : {}) }));
     const stopTicks = startTicker(() => {
       g.heartbeat();
       ask();
