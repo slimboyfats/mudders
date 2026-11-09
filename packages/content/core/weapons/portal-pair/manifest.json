@@ -1,0 +1,35 @@
+{
+  "id": "weapon.portal-pair",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Portal Pair",
+    "description": "Opens two linked rings that stay for three full rounds of turns: one where the shell lands and its twin just in front of your tank. Any shell that flies into one ring shoots out of the other at the same speed and heading, and any tank that drives, falls or is thrown into one steps out beside the other. Lob shells into your near ring to drop them on whoever sits by the far one, but they work for everyone, so watch your own back.",
+    "since": "core@0.49.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.portal"
+      },
+      "radius": 16,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "audio": {
+    "fire": "audio.fire"
+  }
+}

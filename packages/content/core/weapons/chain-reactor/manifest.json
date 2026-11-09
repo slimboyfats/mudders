@@ -4,7 +4,7 @@
   "meta": {
     "name": "Chain Reactor",
     "description": "Splits open and soaks the ground around the impact with glowing reactor fuel, then sets it critical. The reaction creeps through the soaked ground and goes off in blast after blast, one setting off the next, until the whole patch has burned down to cinder. Fuel the chain misses stays live: the next blast, fire or lava nearby sets it off again.",
-    "since": "core@0.48.0",
+    "since": "core@0.50.0",
     "category": "explosive"
   },
   "flight": {

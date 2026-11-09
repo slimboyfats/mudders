@@ -1,0 +1,17 @@
+{
+  "id": "terrainop.portal",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Portal",
+    "description": "Two linked rings swirl open, one where the shell went off and its twin a short way in front of the shooter. A shell that flies into one ring comes out of the other at the same speed and heading. A tank that drives, falls or is thrown into one steps out beside the other, going the same way. They stay open for a few full turn rotations and work for everyone, the shooter included.",
+    "since": "core@0.49.0"
+  },
+  "behaviour": "terrainop.portal",
+  "rounds": 3,
+  "rx": 8,
+  "ry": 16,
+  "near": 48,
+  "open": 30,
+  "close": 24,
+  "gap": 3
+}

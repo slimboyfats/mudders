@@ -10,6 +10,7 @@ import { IonStrikes } from './ion';
 import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
+import { drawPortal, RING_A, RING_B, type PortalFx } from './portal';
 import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
 import { PKind, type Emit, type ParticleSink } from './particles';
 import { shade } from './theme';
@@ -308,6 +309,8 @@ export class EffectSystem {
   private magnets: MagnetFx[] = [];
   /** Kaiju monsters (weapon.kaiju), one per resident op. */
   private kaijus: KaijuFx[] = [];
+  /** Portal Pairs (weapon.portal-pair), one per resident op. */
+  private portals: PortalFx[] = [];
   /** Lingering smoke columns over big impacts. */
   readonly columns: SmokeColumn[] = [];
   /** The shake playing now: peak amplitude in cells, start and length in presentation ticks. */
@@ -572,6 +575,18 @@ export class EffectSystem {
         }
         break;
       }
+      case 'portal':
+        this.portal(e);
+        break;
+      case 'portalOpen':
+      case 'portalClose':
+        this.portalBurst(e.x, e.y, e.radius, RING_A, e);
+        this.portalBurst(e.params.bx ?? e.x, e.params.by ?? e.y, e.radius, RING_B, e);
+        break;
+      case 'portalPass':
+        this.portalBurst(e.x, e.y, Math.max(3, e.radius), RING_A, e);
+        this.portalBurst(e.params.tx ?? e.x, e.params.ty ?? e.y, Math.max(3, e.radius), RING_B, e);
+        break;
       case 'warpOut':
       case 'warpIn':
       case 'warpFizzle':
@@ -1004,6 +1019,9 @@ export class EffectSystem {
         break;
       case 'reflect':
         this.reflect(e);
+        break;
+      case 'railHit':
+        this.railHit(e);
         break;
       case 'pocketBurst':
         this.pocketBurst(e);
@@ -2733,6 +2751,92 @@ export class EffectSystem {
     }
   }
 
+  /** Update (or start) the portal pair an event belongs to, and shed a few wisps off its rims. */
+  private portal(e: EffectEvent): void {
+    const pr = e.params;
+    let p: PortalFx | undefined;
+    for (const g of this.portals) {
+      if (e.tick - g.last <= 4 && g.ax === e.x && g.ay === e.y) {
+        p = g;
+        break;
+      }
+    }
+    if (!p) {
+      p = {
+        ax: e.x,
+        ay: e.y,
+        bx: 0,
+        by: 0,
+        rx: 8,
+        ry: e.radius,
+        age: 0,
+        open: 1,
+        shut: -1,
+        close: 1,
+        left: 0,
+        last: e.tick,
+      };
+      this.portals.push(p);
+    }
+    p.bx = pr.bx ?? e.x;
+    p.by = pr.by ?? e.y;
+    p.rx = pr.rx ?? 8;
+    p.ry = e.radius;
+    p.age = pr.age ?? 0;
+    p.open = pr.open ?? 1;
+    p.shut = pr.shut ?? -1;
+    p.close = pr.close ?? 1;
+    p.left = pr.left ?? 0;
+    p.last = e.tick;
+    if (p.shut >= 0 || p.age < p.open * 0.5) return;
+    const rng = this.rngFor(e, 59);
+    for (let k = 0; k < 2; k++) {
+      if (rng.next() > 0.35 * this.mult) continue;
+      const [cx, cy, pal] = k === 0 ? [p.ax, p.ay, RING_A] : [p.bx, p.by, RING_B];
+      const a = rng.range(0, Math.PI * 2);
+      this.particles.add({
+        x: cx + Math.cos(a) * (p.rx + 1),
+        y: cy + Math.sin(a) * (p.ry + 1),
+        vx: Math.cos(a) * 0.25,
+        vy: Math.sin(a) * 0.25 - 0.1,
+        life: rng.range(12, 24),
+        size: 1,
+        color: pal[1 + Math.floor(rng.next() * 3)]!,
+        kind: PKind.Plasma,
+      });
+    }
+  }
+
+  /** A puff of ring-coloured wisps and white pixels (a ring opening, shutting, or something going through). */
+  private portalBurst(
+    x: number,
+    y: number,
+    r: number,
+    pal: readonly number[],
+    e: EffectEvent,
+  ): void {
+    const rng = this.rngFor(e, Math.round(x * 7 + y));
+    const n = Math.round(12 * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const sp = rng.range(0.3, 1.1);
+      this.particles.add({
+        x: x + Math.cos(a) * r * 0.5,
+        y: y + Math.sin(a) * r,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(10, 22),
+        size: 1,
+        color: i % 3 === 0 ? 0xffffff : pal[1 + Math.floor(rng.next() * 3)]!,
+        kind: i % 3 === 0 ? PKind.Glitter : PKind.Plasma,
+      });
+    }
+  }
+
+  drawPortals(normal: QuadBatch, t: number): void {
+    for (const p of this.portals) drawPortal(normal, p, t);
+  }
+
   /** Update (or start) the kaiju an event belongs to: one event per monster per tick. */
   private kaiju(e: EffectEvent): void {
     const pr = e.params;
@@ -3420,6 +3524,50 @@ export class EffectSystem {
     }
   }
 
+  /**
+   * A railgun slug striking home: a hard white-cyan star of sparks thrown in all directions at
+   * high speed, a short white flash, and a spit of hot fragments.
+   */
+  private railHit(e: EffectEvent): void {
+    const rng = this.rngFor(e, 79);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 7,
+      start: e.tick,
+      dur: 4,
+      color: 0xffffff,
+      strength: 1.3,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 12,
+      start: e.tick,
+      dur: 9,
+      color: 0x60e0ff,
+      strength: 0.7,
+    });
+    const n = Math.round(26 * this.mult) + 6;
+    for (let i = 0; i < n; i++) {
+      // eight spokes, like a star cracked into glass
+      const k = i & 7;
+      const ax = k === 0 || k === 1 || k === 7 ? 1 : k >= 3 && k <= 5 ? -1 : 0;
+      const ay = k >= 1 && k <= 3 ? -1 : k >= 5 ? 1 : 0;
+      const s = rng.range(1.2, 3.6);
+      this.particles.add({
+        x: e.x + 0.5,
+        y: e.y + 0.5,
+        vx: ax * s + rng.range(-0.25, 0.25),
+        vy: ay * s + rng.range(-0.25, 0.25),
+        life: rng.range(4, 12),
+        size: 1,
+        color: rng.next() < 0.45 ? 0xffffff : 0x60e0ff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
   /** An uncovered gas pocket going up: tongues of fire licking out of the hollow, then soot. */
   private pocketBurst(e: EffectEvent): void {
     const rng = this.rngFor(e, 73);
@@ -3989,6 +4137,7 @@ export class EffectSystem {
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
     this.kaijus = this.kaijus.filter((k) => t - k.last <= 4);
+    this.portals = this.portals.filter((p) => t - p.last <= 4);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     for (const b of this.bolts) this.boltBits(b, t);
@@ -4855,6 +5004,7 @@ export class EffectSystem {
     this.posts = [];
     this.magnets = [];
     this.kaijus = [];
+    this.portals = [];
     this.columns.length = 0;
     this.shakeAmp = 0;
     this.shakeDur = SHAKE_MIN;
