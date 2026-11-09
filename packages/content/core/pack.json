@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.49.0",
+  "version": "0.50.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -198,6 +198,7 @@
     "terrainop.liquefy",
     "terrainop.magnet",
     "terrainop.melt",
+    "terrainop.portal",
     "terrainop.quake",
     "terrainop.rift",
     "terrainop.sinkhole",
@@ -287,6 +288,7 @@
     "weapon.plasma-blast",
     "weapon.plasma-orb",
     "weapon.plasma-orb-core",
+    "weapon.portal-pair",
     "weapon.quicksand",
     "weapon.railgun",
     "weapon.resonator",
@@ -308,6 +310,7 @@
     "weapon.superstorm",
     "weapon.superstorm-blast",
     "weapon.superstorm-bolt",
+    "weapon.swap-ray",
     "weapon.tectonic-charge",
     "weapon.telepathy",
     "weapon.teleport-shell",
