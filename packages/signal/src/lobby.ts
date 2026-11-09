@@ -306,7 +306,11 @@ export class Lobby {
         const room = this.rooms.get(msg.code);
         if (!room) return this.err(conn, 'notFound', 'no room with that code');
         if (peer.room === room) return this.broadcast(room);
-        if (room.started) return this.err(conn, 'started', 'that match has already started');
+        // a player coming back to their seat may have been away past the grace window; the host
+        // checks their seat token and turns away anyone else
+        if (room.started && !msg.rejoin) {
+          return this.err(conn, 'started', 'that match has already started');
+        }
         if (room.members.length >= room.maxPlayers) return this.err(conn, 'full', 'room is full');
         if (peer.room) this.leave(peer);
         room.members.push(peer);

@@ -113,6 +113,9 @@ describe('lobby', () => {
     a.send({ type: 'leaveRoom' });
     b.send({ type: 'joinRoom', code });
     expect(b.last()).toMatchObject({ code: 'started' });
+    // a player coming back to their seat (the host checks their token) gets back in
+    b.send({ type: 'joinRoom', code, rejoin: true });
+    expect(b.last()).toMatchObject({ type: 'roomUpdate', code, started: true });
   });
 
   it('lists only public rooms that can be joined', () => {
