@@ -1,0 +1,48 @@
+{
+  "id": "audio.kaiju-slam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kaiju Slam",
+    "description": "A deep chip thud when a thrown tank slams into the ground or the Kaiju snatches a shell out of the air.",
+    "since": "core@0.44.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 110,
+        "to": 35,
+        "release": 0.35,
+        "volume": 0.45
+      },
+      {
+        "wave": "noise",
+        "freq": 500,
+        "to": 90,
+        "release": 0.25,
+        "volume": 0.35
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "kaijuSlam"
+    },
+    {
+      "event": "kaijuCatch"
+    },
+    {
+      "event": "kaijuBounce"
+    },
+    {
+      "event": "kaijuBlast"
+    }
+  ],
+  "gap": 0.12
+}

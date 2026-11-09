@@ -2,6 +2,7 @@ import type { EffectEvent } from '@mudders/shared';
 import type { Quality } from '../types';
 import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
+import { drawKaiju, kaijuEmerged, KAIJU_STATES, toppleAngle, type KaijuFx } from './kaiju';
 import { Chunks } from './chunks';
 import { FxRng } from './gl';
 import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
@@ -305,6 +306,8 @@ export class EffectSystem {
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
+  /** Kaiju monsters (weapon.kaiju), one per resident op. */
+  private kaijus: KaijuFx[] = [];
   /** Lingering smoke columns over big impacts. */
   readonly columns: SmokeColumn[] = [];
   /** The shake playing now: peak amplitude in cells, start and length in presentation ticks. */
@@ -1046,6 +1049,120 @@ export class EffectSystem {
         break;
       case 'magnet':
         this.magnet(e);
+        break;
+      case 'kaiju':
+        this.kaiju(e);
+        break;
+      case 'kaijuQuake': {
+        // the ground shudders and cracks open along the surface before it bursts
+        const k = e.params.k ?? 0;
+        this.kick(1 + Math.min(3, k / 8), e.tick);
+        const rng = this.rngFor(e, 101);
+        for (let i = 0; i < 3; i++)
+          this.dirtPop({ ...e, x: e.x + rng.range(-e.radius, e.radius) }, 4);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 14,
+          maxR: e.radius * 1.4,
+          width: 6,
+          strength: 0.35,
+        });
+        break;
+      }
+      case 'kaijuBurst':
+        this.dirtPop(e, 70);
+        this.dirtPop({ ...e, x: e.x - e.radius }, 25);
+        this.dirtPop({ ...e, x: e.x + e.radius }, 25);
+        this.kick(6, e.tick);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: 110,
+          width: 14,
+          strength: 1,
+        });
+        this.tintSky([0, 0.3, 0.15, 0.05], 0.25);
+        break;
+      case 'kaijuRise':
+        this.dirtPop(e, 30);
+        this.kick(3, e.tick);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 40,
+          maxR: 70,
+          width: 12,
+          strength: 0.6,
+        });
+        break;
+      case 'kaijuRoar':
+        this.kick(5, e.tick);
+        this.ripples.push({
+          x: e.x,
+          y: e.y + 8,
+          start: e.tick,
+          dur: 36,
+          maxR: 120,
+          width: 14,
+          strength: 0.9,
+        });
+        this.tintSky([0, 0.35, 0.12, 0.05], 0.3);
+        break;
+      case 'kaijuGrab':
+      case 'kaijuRip':
+      case 'kaijuSink':
+        this.dirtPop(e, 18);
+        break;
+      case 'kaijuThrow':
+      case 'kaijuToss':
+        this.dirtPop(e, 10);
+        this.kick(2, e.tick);
+        break;
+      case 'kaijuFly':
+        if ((e.tick & 1) === 0) this.dirtPop(e, 1);
+        break;
+      case 'kaijuBounce':
+        this.dirtPop(e, 14);
+        this.kick(2, e.tick);
+        break;
+      case 'kaijuSlam':
+        this.dirtPop(e, 34);
+        this.kick(5, e.tick);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 24,
+          maxR: 40,
+          width: 8,
+          strength: 0.8,
+        });
+        break;
+      case 'kaijuTopple':
+        // dug out: it staggers, roars and keels over
+        this.dirtPop(e, 40);
+        this.kick(4, e.tick);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: 90,
+          width: 12,
+          strength: 0.8,
+        });
+        break;
+      case 'kaijuBlast':
+        this.kaijuBlast(e);
+        break;
+      case 'kaijuCatch':
+        this.catchSparks(e);
+        this.kick(2, e.tick);
         break;
       case 'magnetOn':
         // the field kicks in: a jolt and a short drop in the sky's light
@@ -2456,6 +2573,194 @@ export class EffectSystem {
     m.last = e.tick;
   }
 
+  /** Update (or start) the kaiju an event belongs to: one event per monster per tick. */
+  private kaiju(e: EffectEvent): void {
+    const pr = e.params;
+    let k: KaijuFx | undefined;
+    for (const g of this.kaijus) {
+      if (e.tick - g.last <= 4 && g.x === e.x) {
+        k = g;
+        break;
+      }
+    }
+    if (!k) {
+      k = {
+        x: e.x,
+        y: e.y,
+        h: e.radius,
+        state: 0,
+        t: 0,
+        rise: 1,
+        sink: 1,
+        topple: 40,
+        reach: 16,
+        face: 1,
+        hx: e.x,
+        hy: e.y,
+        held: 0,
+        left: 0,
+        age: 0,
+        last: e.tick,
+      };
+      this.kaijus.push(k);
+    }
+    k.y = e.y;
+    k.h = e.radius;
+    k.state = pr.state ?? 1;
+    k.t = pr.t ?? 0;
+    k.rise = pr.rise ?? 1;
+    k.sink = pr.sink ?? 1;
+    k.topple = pr.topple ?? 40;
+    k.reach = pr.reach ?? 16;
+    k.face = pr.face ?? 1;
+    k.hx = pr.hx ?? e.x;
+    k.hy = pr.hy ?? e.y;
+    k.held = pr.held ?? 0;
+    k.left = pr.left ?? 0;
+    k.age = pr.age ?? 0;
+    k.last = e.tick;
+    const rng = this.rngFor(e, 89);
+    const up = kaijuEmerged(k);
+    if (k.state === KAIJU_STATES.RISE && up > 0 && up < 1) {
+      // earth heaving up round it, and clods sliding off its body as it climbs out
+      this.dirtPop({ ...e, x: e.x + rng.range(-30, 30) }, 2);
+      const col = this.dustColor(e.x, e.y + 2);
+      const topY = e.y - up * e.radius;
+      const n = Math.round(4 * this.mult) + 1;
+      for (let i = 0; i < n; i++) {
+        this.particles.add({
+          x: e.x + rng.range(-36, 30),
+          y: topY + rng.range(0, up * e.radius),
+          vx: rng.range(-0.6, 0.6),
+          vy: rng.range(0, 0.8),
+          life: rng.range(14, 30),
+          size: 1,
+          color: shade(col, rng.range(0.6, 1.1)),
+          kind: PKind.Chunk,
+        });
+      }
+    }
+    if (k.state === KAIJU_STATES.TOPPLE) {
+      // its body slams into the ground: a long dust sheet along it and a hard jolt
+      const tp = toppleAngle(k, this.probe);
+      if (tp.landed && tp.since === 0) {
+        this.kick(7, e.tick);
+        const n = 7;
+        for (let i = 0; i <= n; i++) {
+          const x = Math.round(e.x + ((tp.tipX - e.x) * i) / n);
+          const y = Math.round(e.y + ((tp.tipY - e.y) * i) / n);
+          this.dirtPop({ ...e, x, y }, 10);
+        }
+        this.ripples.push({
+          x: tp.tipX,
+          y: tp.tipY,
+          start: e.tick,
+          dur: 26,
+          maxR: 70,
+          width: 10,
+          strength: 0.8,
+        });
+      }
+    }
+    // mud drips off its body now and then (more as its time runs out)
+    const every = k.left <= 1 ? 3 : 9;
+    if (e.tick % every === 0 && k.state !== KAIJU_STATES.SINK) {
+      const col = this.dustColor(e.x, e.y + 2);
+      this.particles.add({
+        x: e.x + rng.range(-12, 12),
+        y: e.y - rng.range(10, e.radius * 0.8),
+        vx: rng.range(-0.1, 0.1),
+        vy: rng.range(0.2, 0.6),
+        life: rng.range(14, 28),
+        size: 1,
+        color: shade(col, rng.range(0.5, 0.8)),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * It hit the ground and burst: the body is gone (no more events), torn into clods of its own
+   * mud-and-scale colours and a spray of embers from its back, over a ground blast.
+   */
+  private kaijuBlast(e: EffectEvent): void {
+    this.kaijus = this.kaijus.filter((k) => Math.abs(k.x - e.x) > e.radius * 2);
+    const rng = this.rngFor(e, 131);
+    const f = (e.params.dir ?? 1) >= 0 ? 1 : -1;
+    const body = [0x6b4a2c, 0x8a6238, 0xa47a46, 0x4e3420, 0x5d6b2a];
+    const n = Math.round(260 * this.mult) + 30;
+    for (let i = 0; i < n; i++) {
+      // clods all along the fallen body, flung up and out
+      const along = rng.range(-0.2, 1.1) * e.radius;
+      this.particles.add({
+        x: e.x - f * (e.radius * 0.45) + f * along,
+        y: e.y - rng.range(1, 14),
+        vx: rng.range(-2, 2),
+        vy: rng.range(-4.2, -0.8),
+        life: rng.range(40, 90),
+        size: rng.next() < 0.45 ? 2 : 1,
+        color: body[Math.floor(rng.next() * body.length) % body.length]!,
+        kind: PKind.Chunk,
+      });
+    }
+    const m = Math.round(40 * this.mult) + 6;
+    for (let i = 0; i < m; i++) {
+      // embers from the spines along its back
+      this.particles.add({
+        x: e.x - f * (e.radius * 0.45) + f * rng.range(0, 1) * e.radius,
+        y: e.y - rng.range(4, 16),
+        vx: rng.range(-1.4, 1.4),
+        vy: rng.range(-2.6, -0.4),
+        life: rng.range(16, 40),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xe95d08 : rng.next() < 0.6 ? 0xa1200c : 0xf8c409,
+        kind: PKind.Spark,
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      this.dirtPop(
+        { ...e, x: Math.round(e.x - f * (e.radius * 0.45) + f * (i / 4) * e.radius) },
+        30,
+      );
+    }
+    this.kick(9, e.tick);
+    this.ripples.push({
+      x: e.x,
+      y: e.y,
+      start: e.tick,
+      dur: 36,
+      maxR: e.radius * 2.2,
+      width: 16,
+      strength: 1,
+    });
+    this.tintSky([0, 0.45, 0.2, 0.05], 0.35);
+  }
+
+  /** A shell snatched out of the air: a hard burst of ember sparks at the hand. */
+  private catchSparks(e: EffectEvent): void {
+    const rng = this.rngFor(e, 97);
+    const n = Math.round(16 * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const sp = rng.range(0.4, 1.8);
+      this.particles.add({
+        x: e.x,
+        y: e.y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp - 0.3,
+        life: rng.range(8, 20),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffb43c : 0xffffff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** Kaiju monsters, drawn behind tanks (so a tank in its hand shows in front). */
+  drawKaijus(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const k of this.kaijus) drawKaiju(k, normal, additive, t, this.probe);
+  }
+
   /** Magnet mines and their fields. */
   drawMagnets(normal: QuadBatch, additive: QuadBatch, t: number): void {
     for (const m of this.magnets) drawMagnet(m, normal, additive, t);
@@ -3521,6 +3826,7 @@ export class EffectSystem {
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
+    this.kaijus = this.kaijus.filter((k) => t - k.last <= 4);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     this.glows = this.glows.filter((g) => t - g.start <= g.dur);
     for (const b of this.bolts) this.boltBits(b, t);
@@ -4185,6 +4491,7 @@ export class EffectSystem {
     this.splats = [];
     this.posts = [];
     this.magnets = [];
+    this.kaijus = [];
     this.columns.length = 0;
     this.shakeAmp = 0;
     this.shakeDur = SHAKE_MIN;

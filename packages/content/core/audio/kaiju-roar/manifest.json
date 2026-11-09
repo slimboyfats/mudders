@@ -1,0 +1,60 @@
+{
+  "id": "audio.kaiju-roar",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kaiju Roar",
+    "description": "A huge, gritty chip roar: a falling square growl over rumbling noise when the Kaiju has climbed out of the ground.",
+    "since": "core@0.44.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 220,
+        "to": 70,
+        "hold": 0.9,
+        "release": 0.9,
+        "volume": 0.38,
+        "vibrato": {
+          "rate": 11,
+          "depth": 4
+        }
+      },
+      {
+        "wave": "pulse25",
+        "freq": 330,
+        "to": 110,
+        "hold": 0.7,
+        "release": 0.8,
+        "volume": 0.22,
+        "vibrato": {
+          "rate": 17,
+          "depth": 3
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 700,
+        "to": 180,
+        "hold": 0.9,
+        "release": 0.9,
+        "volume": 0.35
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "kaijuRoar"
+    },
+    {
+      "event": "kaijuTopple"
+    }
+  ],
+  "gap": 0.8
+}

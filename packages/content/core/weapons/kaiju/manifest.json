@@ -1,0 +1,48 @@
+{
+  "id": "weapon.kaiju",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kaiju",
+    "description": "Summons a huge mud monster that claws its way up out of the ground where the shell lands and stays for three full rounds of turns. Any enemy tank that comes near gets picked up and hurled to slam into the ground far away, any enemy shell that flies past it is caught and thrown to a random spot on the map, and houses and trees in reach are ripped apart. It never touches you or your team.",
+    "since": "core@0.44.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 8,
+        "damage": 10,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 14
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.kaiju"
+      },
+      "radius": 70,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 16000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 40,
+    "terrainValue": 0
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}
