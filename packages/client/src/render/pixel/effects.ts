@@ -1038,6 +1038,19 @@ export class EffectSystem {
       case 'railHit':
         this.railHit(e);
         break;
+      case 'empBlast':
+        this.empBlast(e);
+        break;
+      case 'shieldStrip':
+        this.shieldStrip(e);
+        break;
+      case 'drained':
+      case 'jammed':
+        this.staticSpit(e, e.type === 'drained' ? 14 : 8);
+        break;
+      case 'unjammed':
+        this.staticSpit(e, 4);
+        break;
       case 'pocketBurst':
         this.pocketBurst(e);
         break;
@@ -3686,6 +3699,97 @@ export class EffectSystem {
         life: rng.range(4, 12),
         size: 1,
         color: rng.next() < 0.45 ? 0xffffff : 0x60e0ff,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /**
+   * Shield Breaker EMP: a hard ring of blue-white static racing out to the blast radius (every
+   * cell at the same speed, so it holds its shape), a second fainter ring behind it, forks of
+   * lightning out to the edge and a blue flicker over the sky.
+   */
+  private empBlast(e: EffectEvent): void {
+    const rng = this.rngFor(e, 83);
+    const r = Math.max(12, e.radius);
+    const life = 16;
+    for (let ring = 0; ring < 2; ring++) {
+      const n = Math.round((r * 3 * this.mult) / (ring + 1)) + 12;
+      const reach = ring === 0 ? r : r * 0.6;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const sp = reach / life;
+        this.particles.add({
+          x: e.x + 0.5,
+          y: e.y + 0.5,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: life + (i & 1),
+          size: 1,
+          color: ring === 0 ? ((i & 3) === 0 ? 0xffffff : 0x70d0ff) : 0x3a78ff,
+          kind: PKind.Spark,
+        });
+      }
+    }
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + rng.range(-0.4, 0.4);
+      const len = r * rng.range(0.6, 1);
+      this.arc(
+        e.x,
+        e.y,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len,
+        e.tick + (i % 3),
+        rng,
+        8,
+      );
+    }
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 8,
+      start: e.tick,
+      dur: 6,
+      color: 0xc8f0ff,
+      strength: 1.2,
+    });
+    this.tintSky([0, 0.2, 0.45, 0.9], 0.3);
+    this.kick(2, e.tick);
+  }
+
+  /** A shield collapsing under an EMP: its bubble breaks into blue shards that fall away. */
+  private shieldStrip(e: EffectEvent): void {
+    const rng = this.rngFor(e, 89);
+    const r = Math.max(6, e.radius);
+    const n = Math.round(30 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(Math.PI, Math.PI * 2);
+      this.particles.add({
+        x: e.x + Math.round(Math.cos(a) * r),
+        y: e.y + Math.round(Math.sin(a) * r),
+        vx: Math.cos(a) * rng.range(0.3, 1),
+        vy: rng.range(-0.6, 0.2),
+        life: rng.range(14, 30),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xffffff : 0x58b8ff,
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /** Static spat off a tank whose electrics fry (jammed, batteries cooked) or come back. */
+  private staticSpit(e: EffectEvent, count: number): void {
+    const rng = this.rngFor(e, 97);
+    const n = Math.round(count * this.mult) + 2;
+    for (let i = 0; i < n; i++) {
+      this.particles.add({
+        x: e.x + Math.round(rng.range(-e.radius, e.radius)),
+        y: e.y + Math.round(rng.range(-3, 2)),
+        vx: rng.range(-1.2, 1.2),
+        vy: -rng.range(0.4, 1.6),
+        life: rng.range(5, 12),
+        size: 1,
+        color: rng.next() < 0.4 ? 0xffffff : 0x70d0ff,
         kind: PKind.Spark,
       });
     }

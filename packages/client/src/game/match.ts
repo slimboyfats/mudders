@@ -33,6 +33,8 @@ export interface HudTank {
   chill: number;
   /** Own turns left glued (Glue Bomb): no driving. */
   glue: number;
+  /** Own turns left jammed (Shield Breaker EMP): no driving, no gear. */
+  jam: number;
   weapon: string;
   inventory: { id: string; name: string; count: number; category: string }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
@@ -232,6 +234,7 @@ export abstract class SimMatch implements SnapshotStream {
         power: t.power,
         chill: t.chill,
         glue: t.glue,
+        jam: t.jam,
         weapon: w.weaponId(t.weapon),
         inventory: t.inventory
           .map((count, i) => ({

@@ -1,0 +1,47 @@
+{
+  "id": "audio.emp",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "EMP",
+    "description": "A Shield Breaker pulse: a crack and a falling power-down whine, like every circuit in reach dying at once.",
+    "since": "core@0.51.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "metal",
+        "freq": 3200,
+        "to": 900,
+        "release": 0.2,
+        "volume": 0.4
+      },
+      {
+        "wave": "square",
+        "freq": 1400,
+        "to": 60,
+        "release": 0.9,
+        "volume": 0.3
+      },
+      {
+        "wave": "saw",
+        "freq": 220,
+        "to": 40,
+        "release": 0.7,
+        "volume": 0.2,
+        "arp": [0, 7, 12]
+      }
+    ],
+    "radiusRef": 48
+  },
+  "on": [
+    {
+      "event": "empBlast"
+    }
+  ]
+}

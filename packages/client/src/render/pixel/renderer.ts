@@ -2222,6 +2222,10 @@ export class PixelRenderer implements Renderer {
         this.rustTank(x, y, sw, sh, y0, lean, t, (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0));
       }
       if ((e.mind ?? 0) > 0) this.mindTank(e, x, y, sw, sh, y0, t);
+      if ((e.jam ?? 0) > 0) {
+        const marks = (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0) + ((e.rust ?? 0) > 0 ? 1 : 0);
+        this.jamTank(x, sw, sh, y0, lean, t, e.player, marks);
+      }
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
       this.drawDigit(x - 13, top - 7, e.player + 1);
@@ -2261,7 +2265,11 @@ export class PixelRenderer implements Renderer {
       if (o.kind === 'tank' && o.player === by && o.alive) caster = o;
     }
     const steered = e.active && caster !== undefined;
-    const marks = (e.chill > 0 ? 1 : 0) + (e.glue > 0 ? 1 : 0) + ((e.rust ?? 0) > 0 ? 1 : 0);
+    const marks =
+      (e.chill > 0 ? 1 : 0) +
+      (e.glue > 0 ? 1 : 0) +
+      ((e.rust ?? 0) > 0 ? 1 : 0) +
+      ((e.jam ?? 0) > 0 ? 1 : 0);
     drawPsiAura(
       this.normal,
       this.additive,
@@ -2533,6 +2541,48 @@ export class PixelRenderer implements Renderer {
     b.rect(sx + 1, sy + 2, 1, 1, RUST[0]!);
     b.rect(sx + 3, sy + 1, 1, 1, RUST[0]!);
     b.rect(sx + 2, sy + 3, 2, 1, RUST[0]!);
+  }
+
+  /**
+   * A jammed tank (Shield Breaker EMP): its electrics are fried. Now and then a fork of blue-white
+   * static crawls over the hull a cell at a time and a spark spits off it, and a lightning mark
+   * sits beside the health bar (after any frost, glue and rust marks).
+   */
+  private jamTank(
+    x: number,
+    sw: number,
+    sh: number,
+    top: number,
+    lean: (c: number) => number,
+    t: number,
+    player: number,
+    marks: number,
+  ): void {
+    const g = this.additive;
+    const x0 = x - (sw >> 1);
+    const ph = (t + player * 17) % 40;
+    if (ph < 10) {
+      // a crawl of static: three cells hopping along the hull
+      const c0 = (Math.floor((t + player * 17) / 40) * 7 + ph * 2) % sw;
+      for (let k = 0; k < 3; k++) {
+        const c = (c0 + k) % sw;
+        const r = (c * 5 + ph + k) % Math.max(1, sh - 1);
+        g.push(x0 + c + 0.5, top + r + lean(c) + 0.5, 1, 1, k === 1 ? 0xffffff : 0x70d0ff, 1);
+      }
+      if (ph === 4) g.push(x0 + c0 + 0.5, top - 1.5, 1, 1, 0xa0e8ff, 1);
+    }
+    // jam mark: a black plate with a blue zig-zag bolt, right of the health bar
+    const b = this.normal;
+    const sx = x + 10 + marks * 8;
+    const sy = top - 7;
+    b.rect(sx - 1, sy - 1, 7, 7, 0x000000, 0.6);
+    b.rect(sx, sy, 5, 5, 0x1a2438);
+    const bolt = (t >> 3) & 1 ? 0xffffff : 0x70d0ff;
+    b.rect(sx + 3, sy, 1, 1, bolt);
+    b.rect(sx + 2, sy + 1, 1, 1, bolt);
+    b.rect(sx + 1, sy + 2, 3, 1, bolt);
+    b.rect(sx + 2, sy + 3, 1, 1, bolt);
+    b.rect(sx + 1, sy + 4, 1, 1, bolt);
   }
 
   /**

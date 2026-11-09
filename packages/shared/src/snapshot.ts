@@ -53,6 +53,8 @@ export interface TankView {
   /** Own turns left mind-controlled (Telepathy), and by which player; absent when free. */
   mind?: number;
   mindBy?: number;
+  /** Own turns left jammed (0/absent = not, Shield Breaker EMP): no driving, no gear. */
+  jam?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }

@@ -66,6 +66,8 @@ export interface MatchSetup {
   /** Weather (§3.4): rain or snow change shots and terrain; random picks one from the match seed. */
   weather?: WeatherPick | undefined;
   suddenDeath: boolean;
+  /** Each player's turn sudden death starts on (§3.1); unset = the mode's default (turn 8). */
+  suddenDeathFrom?: number | undefined;
   startingCash: number;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
@@ -98,6 +100,10 @@ export function weatherFor(pick: WeatherPick, seed: number): string | undefined 
   return p === 'clear' ? undefined : `weather.${p}`;
 }
 
+/** Turns sudden death can start from in the rules picker; the mode's default is turn 8. */
+export const SUDDEN_DEATH_TURNS = [3, 5, 8, 10] as const;
+export const SUDDEN_DEATH_DEFAULT = 8;
+
 const KEY = 'mudders.setup.v1';
 
 export function defaultSetup(): MatchSetup {
@@ -111,6 +117,7 @@ export function defaultSetup(): MatchSetup {
     wind: 'perTurn',
     weather: 'clear',
     suddenDeath: true,
+    suddenDeathFrom: SUDDEN_DEATH_DEFAULT,
     startingCash: 3000,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
@@ -193,6 +200,9 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
     suddenDeath: s.suddenDeath,
+    ...(s.suddenDeath && s.suddenDeathFrom !== undefined
+      ? { suddenDeathFrom: s.suddenDeathFrom }
+      : {}),
     windType: s.wind,
     startingCash: s.startingCash,
     // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)

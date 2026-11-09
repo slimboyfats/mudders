@@ -1,0 +1,95 @@
+{
+  "id": "audio.emp",
+  "schemaVersion": 1,
+  "description": "A Shield Breaker pulse goes off near a shielded tank (audio.emp).",
+  "subject": "audio.emp",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.shield-breaker": 2
+      }
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "gear.shield": 1,
+        "gear.battery": 2,
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [1, 0],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "useGear",
+        "gear": "gear.shield"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 0
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.shield-breaker"
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 600
+      }
+    },
+    {
+      "t": 2,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1200,
+    "untilSettled": true,
+    "extraTicks": 60
+  },
+  "props": []
+}
