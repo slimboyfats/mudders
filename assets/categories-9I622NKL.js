@@ -1,0 +1,2 @@
+var e={explosive:`#ff7a2f`,incendiary:`#ff4a2a`,submunition:`#ffb35c`,earthmover:`#c49a6c`,digger:`#a0785a`,"terrain-dynamics":`#8fbf6a`,beam:`#9fd8ff`,guided:`#c7a0ff`,roller:`#e0d070`,mine:`#ff6f91`,weird:`#d48cff`,gear:`#4fb3c4`,driving:`#e8c35a`},t=e=>e.startsWith(`gear`)?`gear`:e||`other`,n=n=>e[t(n)]??`#a8957f`,r=e=>e.replace(/-/g,` `);export{t as n,r,n as t};
+//# sourceMappingURL=categories-9I622NKL.js.map

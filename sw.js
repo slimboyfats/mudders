@@ -1,7 +1,7 @@
 /* Mudders service worker (§8: PWA install, offline local play). Generated at build time by the
  * `pwa` plugin in vite.config.ts, which fills in VERSION and PRECACHE. Plain JS: it runs as-is. */
-const VERSION = '3a99de5330f9';
-const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","assets/MatchView-DGDFDuCy.js","assets/Online-CWpXnHZm.js","assets/Play-Ag3QgpA2.js","assets/Sandbox-B9Sv628f.js","assets/Setup-8JB4jBVA.js","assets/Teams-BjO_QxZH.js","assets/battle-C98AQSKG.mod","assets/engine-Cno3ueYs.js","assets/index-CuYf89Tk.css","assets/index-NARQ21di.js","assets/module-BImwpPm9.js","assets/pixel-ynulnYEg.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
+const VERSION = 'a1d45830c7f4';
+const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","docs/","assets/MatchView-CY6pUQJt.js","assets/Online-qF5ciKMI.js","assets/Play-Dywk00le.js","assets/Sandbox-DRneFsTa.js","assets/Setup-SXYJeb5-.js","assets/Teams-ByqtqRW2.js","assets/battle-C98AQSKG.mod","assets/categories-9I622NKL.js","assets/docs-CpVSOqTp.js","assets/docs-CxLItx76.css","assets/engine-DxfWngQ9.js","assets/jsx-runtime-BFpD7m-V.js","assets/main-CuYf89Tk.css","assets/main-eJMSK75i.js","assets/module-BImwpPm9.js","assets/pixel-Da0a0YO7.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
 const CACHE = `mudders-${VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -35,22 +35,19 @@ self.addEventListener('fetch', (event) => {
   // the lobby server proxied through this origin (same-network play) is never cached
   if (url.pathname.startsWith(new URL('signal/', self.registration.scope).pathname)) return;
   if (req.mode === 'navigate') {
-    // the page: network first so an update lands at once; the cached shell when offline
+    // the page: network first so an update lands at once; the cached copy when offline. The
+    // field manual (docs/) is its own page and keeps its own cache entry, never the game shell's
+    const scope = new URL(self.registration.scope).pathname;
+    const page = url.pathname.startsWith(`${scope}docs/`) ? 'docs/' : './';
+    const key = new URL(page, self.registration.scope).href;
     event.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          if (res.ok)
-            caches
-              .open(CACHE)
-              .then((c) => c.put(new URL('./', self.registration.scope).href, copy));
+          if (res.ok) caches.open(CACHE).then((c) => c.put(key, copy));
           return res;
         })
-        .catch(() =>
-          caches
-            .match(new URL('./', self.registration.scope).href)
-            .then((r) => r ?? Response.error()),
-        ),
+        .catch(() => caches.match(key).then((r) => r ?? Response.error())),
     );
     return;
   }
