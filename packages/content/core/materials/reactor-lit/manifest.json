@@ -4,7 +4,7 @@
   "meta": {
     "name": "Critical reactor core",
     "description": "Reactor core going critical. The white-hot reaction creeps from cell to cell through the fuel around it, every cell it leaves behind burns down to cinder, and every so often one goes off in a blast that sets the core around it critical too.",
-    "since": "core@0.46.0",
+    "since": "core@0.47.0",
     "color": "#e8ffd0"
   },
   "cell": 202,

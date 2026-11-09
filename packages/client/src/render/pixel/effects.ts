@@ -566,6 +566,11 @@ export class EffectSystem {
         }
         break;
       }
+      case 'warpOut':
+      case 'warpIn':
+      case 'warpFizzle':
+        this.warpMotes(e);
+        break;
       case 'shockFly': {
         // sparks and smoke streaming off a tank flying through the air
         const rng = this.rngFor(e, 19);
@@ -2580,6 +2585,50 @@ export class EffectSystem {
     m.life = pr.life ?? 0;
     m.strength = (pr.strength ?? 0) / 100;
     m.last = e.tick;
+  }
+
+  /**
+   * Warp (terrainop.warp): violet-cyan plasma wisps and single white pixels lift off a tank as it
+   * breaks apart, rush in to where it comes out, or puff out where a warp fizzles.
+   */
+  private warpMotes(e: EffectEvent): void {
+    const rng = this.rngFor(e, 41);
+    const r = Math.max(4, e.radius);
+    const inward = e.type === 'warpIn';
+    const fizzle = e.type === 'warpFizzle';
+    const n = Math.round((fizzle ? 8 : 18) * this.mult) + 3;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = inward ? rng.range(r + 6, r + 16) : rng.range(1, r);
+      const ox = Math.cos(a) * d;
+      const oy = Math.sin(a) * d * 0.7;
+      const sp = rng.range(0.25, 0.7);
+      this.particles.add({
+        x: e.x + ox,
+        y: e.y + oy,
+        vx: inward ? (-ox / d) * sp * 1.6 : rng.range(-0.3, 0.3),
+        vy: inward ? (-oy / d) * sp * 1.6 : -sp,
+        life: rng.range(14, 28),
+        size: rng.next() < 0.5 ? 1 : 3,
+        color: PORTAL[Math.floor(rng.next() * PORTAL.length)]!,
+        kind: PKind.Plasma,
+      });
+    }
+    if (fizzle) return;
+    // single white-hot pixels, the sharp edge of the jump
+    const m = Math.round(10 * this.mult) + 2;
+    for (let i = 0; i < m; i++) {
+      this.particles.add({
+        x: e.x + rng.range(-r, r),
+        y: e.y + rng.range(-r * 0.6, r * 0.6),
+        vx: rng.range(-0.8, 0.8),
+        vy: -rng.range(0.6, 1.6),
+        life: rng.range(10, 22),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0x9ff0ff,
+        kind: PKind.Glitter,
+      });
+    }
   }
 
   /** Update (or start) the kaiju an event belongs to: one event per monster per tick. */
