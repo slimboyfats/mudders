@@ -1882,6 +1882,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawFunnels(this.normal, this.additive, t);
     this.fx.drawPosts(this.normal, t);
     this.fx.drawKaijus(this.normal, this.additive, t);
+    this.fx.drawPortals(this.normal, t);
     this.drawDebris();
     this.fx.drawChunks(this.normal);
     this.drawMines(t);
@@ -2629,6 +2630,16 @@ export class PixelRenderer implements Renderer {
           1,
         );
         g.push(x, y, 1, 1, 0xe8fcff, 1);
+        continue;
+      }
+      if (look?.shell === 'rail') {
+        // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const k = (this.fxTick + e.id) & 1;
+        g.push(x, y, k === 0 ? 5 : 1, k === 0 ? 1 : 5, 0x60e0ff, 0.9);
+        g.push(x, y, 3, 3, 0x60e0ff, 0.5, Shape.Pixel);
+        g.push(x, y, 1, 1, 0xffffff, 1);
         continue;
       }
       if (look?.shell === 'fire') {

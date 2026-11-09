@@ -1,0 +1,57 @@
+{
+  "id": "weapon.swap-ray",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Swap Ray up through the hills at player 1 on the high ground: both tanks break apart into pixels and trade places.",
+  "subject": "weapon.swap-ray",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.swap-ray": 1
+      }
+    },
+    {
+      "x": 150
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.swap-ray"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 169,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

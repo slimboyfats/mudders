@@ -4,7 +4,7 @@
   "meta": {
     "name": "Gravity Gulp",
     "description": "A deep chip gulp falling away to nothing when a black hole swallows a shell or bites a tank.",
-    "since": "core@0.48.0"
+    "since": "core@0.50.0"
   },
   "bus": "sfx",
   "licence": {

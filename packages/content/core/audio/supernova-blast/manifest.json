@@ -4,7 +4,7 @@
   "meta": {
     "name": "Supernova Blast",
     "description": "A huge chip blast: a white-noise crack over a falling square roar and a ringing high tail.",
-    "since": "core@0.48.0"
+    "since": "core@0.50.0"
   },
   "bus": "sfx",
   "licence": {
