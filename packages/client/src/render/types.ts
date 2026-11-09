@@ -34,6 +34,10 @@ export interface RenderPalette {
   shells?: Readonly<Record<string, ShellLook>>;
   /** Material cells of cold liquids that splash and ripple (water, liquid dirt, oil). */
   liquids?: readonly number[];
+  /** Material cells of hot liquids (lava): a glowing, bubbling surface. */
+  hotLiquids?: readonly number[];
+  /** Material cells of slurries (mud, wet clay): a sluggish, plopping surface. */
+  heavyLiquids?: readonly number[];
 }
 
 /** A tank type's pixel look (manifest `look`); plain data so it can cross the wire. */

@@ -89,6 +89,8 @@ export class WaterFx {
   private budget = 0;
   /** Particle budget scale from the quality level. */
   mult = 1;
+  /** The wave field along the surface, if one is listening for splashes. */
+  listener: { disturb(x: number, y: number, amp: number): void } | undefined;
 
   constructor(
     private readonly width: number,
@@ -191,6 +193,7 @@ export class WaterFx {
       if (this.waves[k]!.amp > amp) return;
       this.waves.splice(k, 1);
     }
+    this.listener?.disturb(x, y, amp);
     // two splashes on the same spot in the same moment merge into one bigger wave
     for (const w of this.waves) {
       if (t - w.start < 4 && Math.abs(w.x - x) < 4 && Math.abs(w.y - y) < 3) {

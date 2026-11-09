@@ -7,10 +7,16 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
   const materials = new Uint32Array(256);
   const looks: MaterialLook[] = [];
   const liquids: number[] = [];
+  const hotLiquids: number[] = [];
+  const heavyLiquids: number[] = [];
   for (const m of content.list('material')) {
     materials[m.cell] = parseHex(m.meta.color, 0xff00ff);
     // cold liquids splash; lava and burning liquids get their own fire looks instead
     if (m.settle === 'flow' && !m.look?.hot && !m.look?.flames) liquids.push(m.cell);
+    // lava's surface glows and bubbles
+    if (m.settle === 'flow' && m.look?.hot) hotLiquids.push(m.cell);
+    // thick liquids that slide instead of flowing: tar, wet clay
+    if (m.settle === 'slide' && !m.look?.hot && !m.look?.flames) heavyLiquids.push(m.cell);
     if (m.look) {
       looks.push({
         cell: m.cell,
@@ -39,7 +45,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
     if (c !== undefined) look.trailColor = c;
     shells[w.id] = look;
   }
-  return { materials, looks, themes, tanks, shells, liquids };
+  return { materials, looks, themes, tanks, shells, liquids, hotLiquids, heavyLiquids };
 }
 
 /**
