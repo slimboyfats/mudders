@@ -349,6 +349,14 @@ const explosionBody = {
   strip: z.boolean().default(false),
   /** Destroys up to this many spare batteries (gear that heals) carried by each tank in range. */
   drain: z.number().int().min(0).max(9).default(0),
+  /**
+   * Spots enemy tanks in range through the shooter's next this-many turns: hits from the
+   * shooter's team do `markBonus` percent more damage to them. 0 = none.
+   */
+  mark: z.number().int().min(0).max(3).default(0),
+  markBonus: z.number().int().min(0).max(200).default(50),
+  /** Gives the shooter's whole team a full-arc aim preview for this many of their own turns. */
+  scope: z.number().int().min(0).max(3).default(0),
   terrainOp: EmbeddedTerrainOpSchema.nullable(),
   effects: EffectProfileSchema,
 };

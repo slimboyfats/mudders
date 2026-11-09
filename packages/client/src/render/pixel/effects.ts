@@ -1051,6 +1051,12 @@ export class EffectSystem {
       case 'railHit':
         this.railHit(e);
         break;
+      case 'spotFlare':
+        this.spotFlare(e);
+        break;
+      case 'marked':
+        this.staticSpit(e, 6, 0xff4040);
+        break;
       case 'empBlast':
         this.empBlast(e);
         break;
@@ -4234,7 +4240,7 @@ export class EffectSystem {
   }
 
   /** Static spat off a tank whose electrics fry (jammed, batteries cooked) or come back. */
-  private staticSpit(e: EffectEvent, count: number): void {
+  private staticSpit(e: EffectEvent, count: number, tint = 0x70d0ff): void {
     const rng = this.rngFor(e, 97);
     const n = Math.round(count * this.mult) + 2;
     for (let i = 0; i < n; i++) {
@@ -4245,8 +4251,69 @@ export class EffectSystem {
         vy: -rng.range(0.4, 1.6),
         life: rng.range(5, 12),
         size: 1,
-        color: rng.next() < 0.4 ? 0xffffff : 0x70d0ff,
+        color: rng.next() < 0.4 ? 0xffffff : tint,
         kind: PKind.Spark,
+      });
+    }
+  }
+
+  /**
+   * A Spotter Flare going off: a hard white-red flash, a shower of red sparks thrown high, and the
+   * flare itself left burning on the ground, spitting sparks and a thin column of red smoke for a
+   * few seconds while it marks the area.
+   */
+  private spotFlare(e: EffectEvent): void {
+    const rng = this.rngFor(e, 101);
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 10,
+      start: e.tick,
+      dur: 8,
+      color: 0xffd0c0,
+      strength: 1.2,
+    });
+    this.glows.push({
+      x: e.x,
+      y: e.y,
+      r: 18,
+      start: e.tick,
+      dur: 160,
+      color: 0xff3020,
+      strength: 0.5,
+    });
+    const n = Math.round(40 * this.mult) + 8;
+    for (let i = 0; i < n; i++) {
+      const a = rng.range(-Math.PI * 0.9, -Math.PI * 0.1);
+      const sp = rng.range(0.8, 3);
+      this.particles.add({
+        x: e.x + 0.5,
+        y: e.y - 0.5,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(20, 50),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xffffff : rng.next() < 0.5 ? 0xff3020 : 0xff8060,
+        kind: PKind.Spark,
+      });
+    }
+    // the burning flare: a thin column of smoke rising from it for a few seconds
+    if (this.columns.length >= SMOKE_COLUMN_MAX) this.columns.shift();
+    this.columns.push({ x: e.x, y: e.y, r: 6, start: e.tick, dur: 260, color: 0xb03028, rng });
+    // a ring of red cells pulsed out along the ground: the marked area
+    const r = Math.max(10, e.radius);
+    const k = Math.round(r * 1.5 * this.mult) + 8;
+    for (let i = 0; i < k; i++) {
+      const a = (i / k) * Math.PI * 2;
+      this.particles.add({
+        x: e.x + 0.5,
+        y: e.y + 0.5,
+        vx: (Math.cos(a) * r) / 20,
+        vy: (Math.sin(a) * r) / 20,
+        life: 20,
+        size: 1,
+        color: 0xff4030,
+        kind: PKind.Glitter,
       });
     }
   }

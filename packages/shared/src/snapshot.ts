@@ -55,6 +55,11 @@ export interface TankView {
   mindBy?: number;
   /** Own turns left jammed (0/absent = not, Shield Breaker EMP): no driving, no gear. */
   jam?: number;
+  /** Marker's turns left spotted (Spotter Flare), and the player who marked it. */
+  mark?: number;
+  markBy?: number;
+  /** Own turns left with a full-arc aim preview (Spotter Flare). */
+  scope?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }
@@ -126,6 +131,11 @@ export interface RenderSnapshot {
   temperature?: number | undefined;
   /** Width in columns of the sudden-death zone at each map edge (0 or unset = none). */
   deathZone?: number | undefined;
+  /**
+   * The aiming tank's shot path as aimed now (flat cell x, y pairs, one per tick), when it has a
+   * Spotter Flare's aim preview; unset otherwise.
+   */
+  preview?: number[] | undefined;
   theme: string;
   /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
   weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;
