@@ -10,6 +10,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   guided: '#c7a0ff',
   roller: '#e0d070',
   mine: '#ff6f91',
+  support: '#5fe08a',
   weird: '#d48cff',
   gear: '#4fb3c4',
   driving: '#e8c35a',

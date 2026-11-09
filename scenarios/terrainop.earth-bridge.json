@@ -1,0 +1,91 @@
+{
+  "id": "terrainop.earth-bridge",
+  "schemaVersion": 1,
+  "description": "terrainop.earth-bridge via the Earth Bridge weapon: the causeway grows from the far side of a valley back to the shooter, piers dropping to the valley floor.",
+  "subject": "terrainop.earth-bridge",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "generator": "gen.hills",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "tank": "tank.scout",
+      "inventory": {
+        "weapon.earth-bridge": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.earth-bridge"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 59,
+        "power": 290
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 40,
+        "power": 160
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "drive",
+        "dir": 1
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1600,
+    "untilSettled": true,
+    "extraTicks": 260
+  }
+}

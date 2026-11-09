@@ -1,0 +1,61 @@
+{
+  "id": "audio.drone-heal",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Drone Heal",
+    "description": "A repair drone at work: a bright rising pulse-wave chirp over a soft buzzing hum and a little rattle of sparks, ending on a clean high ping.",
+    "since": "core@0.47.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse12",
+        "freq": 660,
+        "to": 1320,
+        "hold": 0.25,
+        "release": 0.15,
+        "volume": 0.18,
+        "arp": [0, 4, 7, 12],
+        "arpRate": 0.06
+      },
+      {
+        "wave": "square",
+        "freq": 180,
+        "hold": 0.35,
+        "release": 0.1,
+        "volume": 0.08,
+        "vibrato": {
+          "rate": 30,
+          "depth": 0.3
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 5000,
+        "to": 3000,
+        "hold": 0.15,
+        "release": 0.1,
+        "volume": 0.12
+      },
+      {
+        "wave": "triangle",
+        "freq": 1760,
+        "delay": 0.32,
+        "release": 0.35,
+        "volume": 0.2
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "droneHeal"
+    }
+  ],
+  "gap": 0.2
+}
