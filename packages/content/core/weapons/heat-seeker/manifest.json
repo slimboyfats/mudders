@@ -20,7 +20,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 18,
-        "damage": 45
+        "damage": 55
       }
     }
   ],
@@ -30,7 +30,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 60,
+    "expectedDamage": 65,
     "terrainValue": 0.2
   }
 }

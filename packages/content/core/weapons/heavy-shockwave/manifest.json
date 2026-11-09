@@ -17,7 +17,7 @@
         "use": "explosion.shockwave",
         "radius": 120,
         "push": 40,
-        "damage": 25,
+        "damage": 50,
         "effects": {
           "pressureWave": {
             "strength": 1
@@ -35,7 +35,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 25,
-    "terrainValue": 1.0
+    "expectedDamage": 45,
+    "terrainValue": 1
   }
 }

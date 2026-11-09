@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 70,
-        "damage": 10,
+        "damage": 20,
         "damageType": "shock",
         "terrainOp": {
           "use": "terrainop.attract"
@@ -35,7 +35,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 10,
+    "expectedDamage": 15,
     "terrainValue": 0.8
   }
 }

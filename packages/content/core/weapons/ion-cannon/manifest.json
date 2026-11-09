@@ -48,7 +48,7 @@
     "tier": 3
   },
   "ai": {
-    "expectedDamage": 100,
+    "expectedDamage": 180,
     "terrainValue": 0.7
   },
   "audio": {

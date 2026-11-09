@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 10,
-        "damage": 12,
+        "damage": 20,
         "effects": {
           "shake": {
             "strength": 4
@@ -38,7 +38,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 25,
+    "expectedDamage": 30,
     "terrainValue": 0.9
   },
   "audio": {
