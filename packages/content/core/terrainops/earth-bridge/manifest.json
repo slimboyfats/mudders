@@ -1,0 +1,20 @@
+{
+  "id": "terrainop.earth-bridge",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Earth Bridge",
+    "description": "Grows a causeway of rammed earth from the impact back towards the shooter: a straight ramp from the ground where it landed to the ground the shooter stands on, never too steep to drive. Piers with flared heads drop to the ground under it where they can reach; a long run with nothing below hangs on the material's span. It never grows into a tank.",
+    "since": "core@0.58.0"
+  },
+  "behaviour": "terrainop.earth-bridge",
+  "material": "material.rammed-earth",
+  "length": 170,
+  "minLength": 40,
+  "thick": 6,
+  "slope": 1,
+  "spacing": 26,
+  "pierWidth": 5,
+  "pierDepth": 120,
+  "speed": 2,
+  "clear": 2
+}

@@ -1903,6 +1903,15 @@ export class World implements SimApi {
     if (t) this.damageTank(t, Math.trunc(amount), owner);
   }
 
+  heal(player: number, amount: number): number {
+    const t = this.tanks[player];
+    if (!t?.alive || amount <= 0) return 0;
+    const healed = Math.min(Math.trunc(amount), t.maxHealth - t.health);
+    if (healed <= 0) return 0;
+    t.health += healed;
+    return healed;
+  }
+
   throwShell(weapon: number, owner: number, x: number, y: number, vx: number, vy: number): number {
     if (this.projectiles.length >= MAX_PROJECTILES || !this.weapons[weapon]) return -1;
     const id = this.nextProjectileId++;

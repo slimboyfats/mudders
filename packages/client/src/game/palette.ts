@@ -63,6 +63,7 @@ export const TRAIL_BY_CATEGORY: Readonly<Record<string, number>> = {
   'terrain-dynamics': 0xa070ff,
   weird: 0xff50c0,
   mine: 0xe04060,
+  support: 0x60f090,
 };
 
 /**

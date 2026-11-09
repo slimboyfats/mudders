@@ -1,0 +1,42 @@
+{
+  "id": "weapon.earth-bridge",
+  "schemaVersion": 1,
+  "description": "Earth Bridge on the hills: player 0 lands it on the far side of the valley, a rammed-earth causeway grows back to its tank, and next turn it drives across.",
+  "subject": "weapon.earth-bridge",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "generator": "gen.hills",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "tank": "tank.scout",
+      "inventory": {
+        "weapon.earth-bridge": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.earth-bridge" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 59, "power": 290 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.baby-missile" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 40, "power": 160 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } },
+    { "t": 0, "player": 0, "action": { "type": "drive", "dir": 1 } }
+  ],
+  "capture": {
+    "maxTicks": 1600,
+    "untilSettled": true,
+    "extraTicks": 260
+  }
+}

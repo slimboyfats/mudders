@@ -1,0 +1,17 @@
+{
+  "id": "flight.penetrator",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Penetrator",
+    "description": "Flies an arc, then drives straight on through whatever it hit, rock and ice included, each cell spending some of its punch by how hard it is. Goes off when it breaks into open air under a roof, hits a tank, or runs out of punch.",
+    "since": "core@0.58.0"
+  },
+  "behaviour": "flight.penetrator",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "speed": 2,
+  "pierce": 60,
+  "lead": 5,
+  "minDepth": 3
+}

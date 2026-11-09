@@ -9,6 +9,7 @@ import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
 import { IonStrikes } from './ion';
 import { Lances } from './lance';
 import type { Lights } from './lighting';
+import { drawDrone, type DroneFx } from './drone';
 import { drawStar, drawWell, type GravityFx, type StarFx } from './gravity';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawPsiWave, PSI, waveLife, type PsiWave } from './psi';
@@ -112,6 +113,8 @@ const FIREWORK_KEEP = 400;
 
 /** Ice colours, light to deep, for shards, glints and the frost front. */
 const ICE = [0xffffff, 0xe6f6ff, 0xbfe4fa, 0x8ccbef, 0x5ea8dc] as const;
+/** Earth Bridge clods: rammed-earth browns, light to dark. */
+const BRIDGE = [0xc8a476, 0xa9845a, 0x8c6a44, 0x6e5034] as const;
 
 /** A mud geyser's erupting column, fed with particles every tick while it lasts. */
 interface Jet {
@@ -311,6 +314,8 @@ export class EffectSystem {
   /** Bumper posts (weapon.bumper). */
   private posts: Post[] = [];
   private magnets: MagnetFx[] = [];
+  /** Repair drones (weapon.repair-drone), one per resident op. */
+  private drones: DroneFx[] = [];
   /** Telepathy rings of psychic static. */
   private psiWaves: PsiWave[] = [];
   /** Gravity Wells (weapon.gravity-well), one per resident op. */
@@ -962,6 +967,103 @@ export class EffectSystem {
       case 'iceWall':
         this.kick(1.5, e.tick);
         break;
+      case 'drone':
+        this.drone(e);
+        break;
+      case 'droneHeal': {
+        const d = this.drones.find((g) => g.id === (e.params.id ?? -1));
+        if (d) d.pulse = 0;
+        // green plus-sign sparks lifting off the mended hull
+        const rng = this.rngFor(e, 97);
+        const n = Math.round(10 * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-e.radius, e.radius)),
+            y: Math.round(e.y + rng.range(-2, 3)),
+            vx: rng.range(-0.25, 0.25),
+            vy: -rng.range(0.3, 0.9),
+            life: rng.range(16, 32),
+            size: 1,
+            color: rng.next() < 0.3 ? 0xffffff : rng.next() < 0.5 ? 0x9affb8 : 0x50e080,
+            kind: PKind.Spark,
+          });
+        }
+        break;
+      }
+      case 'droneLaunch': {
+        // the shell pops open: a puff of white and a few metal flecks
+        const rng = this.rngFor(e, 98);
+        const n = Math.round(8 * this.mult) + 2;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-2, 2)),
+            y: Math.round(e.y + rng.range(-1, 1)),
+            vx: rng.range(-1, 1),
+            vy: -rng.range(0.2, 1.2),
+            life: rng.range(10, 22),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xe8ecef : 0x8a949c,
+            kind: PKind.Spark,
+          });
+        }
+        break;
+      }
+      case 'droneDown': {
+        const id = e.params.id ?? -1;
+        this.drones = this.drones.filter((g) => g.id !== id);
+        const rng = this.rngFor(e, 99);
+        const quiet = (e.params.quiet ?? 0) > 0;
+        const n = Math.round((quiet ? 6 : 22) * this.mult) + 3;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-2, 2)),
+            y: Math.round(e.y + rng.range(-1, 1)),
+            vx: rng.range(-1.6, 1.6) * (quiet ? 0.4 : 1),
+            vy: -rng.range(0.2, 1.8) * (quiet ? 0.4 : 1),
+            life: rng.range(14, 36),
+            size: 1,
+            color: quiet
+              ? 0x9affb8
+              : [0xe8ecef, 0x8a949c, 0x3ccf6a, 0xffd040, 0xff7030][Math.floor(rng.next() * 5)]!,
+            kind: PKind.Spark,
+          });
+        }
+        if (!quiet) this.kick(1, e.tick);
+        break;
+      }
+      case 'earthBridge':
+        this.kick(1, e.tick);
+        break;
+      case 'bridgeGrow': {
+        // an Earth Bridge's building front: clods and dust kicked off the newest course
+        const rng = this.rngFor(e, 83);
+        const n = Math.max(1, Math.round(2 * this.mult));
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-2, 2)),
+            y: e.y - 1,
+            vx: rng.range(-0.7, 0.7),
+            vy: -rng.range(0.4, 1.4),
+            life: rng.range(12, 26),
+            size: 1,
+            color: BRIDGE[Math.floor(rng.next() * BRIDGE.length)]!,
+            kind: PKind.Spark,
+          });
+        }
+        if (rng.next() < 0.3 * this.mult) {
+          this.particles.add({
+            x: e.x + rng.range(-3, 3),
+            y: e.y + 2,
+            vx: rng.range(-0.15, 0.15),
+            vy: -rng.range(0.02, 0.08),
+            life: rng.range(40, 80),
+            size: rng.range(3, 5),
+            color: rng.next() < 0.5 ? 0xb89a72 : 0x9a7c58,
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
       case 'quake': {
         // ground shudder: shake plus dust kicked up along the surface around the epicentre
         const strength = e.params.strength ?? 1;
@@ -3019,6 +3121,34 @@ export class EffectSystem {
     if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
   }
 
+  /** Update (or start) the repair drone an event belongs to: one event per drone per tick. */
+  private drone(e: EffectEvent): void {
+    const pr = e.params;
+    const id = pr.id ?? 0;
+    let d = this.drones.find((g) => g.id === id && e.tick - g.last <= 4);
+    if (!d) {
+      d = {
+        id,
+        x: e.x,
+        y: e.y,
+        px: e.x,
+        hover: false,
+        beamTo: e.y,
+        pulse: 99,
+        last: e.tick,
+        born: e.tick,
+      };
+      this.drones.push(d);
+    }
+    d.px = d.x;
+    d.x = e.x;
+    d.y = e.y;
+    d.hover = (pr.hover ?? 0) > 0;
+    d.beamTo = pr.ty ?? e.y;
+    d.pulse += Math.max(1, e.tick - d.last);
+    d.last = e.tick;
+  }
+
   /** Update (or start) the magnet mine an event belongs to: one event per mine per tick. */
   private magnet(e: EffectEvent): void {
     const pr = e.params;
@@ -3620,6 +3750,11 @@ export class EffectSystem {
   /** Kaiju monsters, drawn behind tanks (so a tank in its hand shows in front). */
   drawKaijus(normal: QuadBatch, additive: QuadBatch, t: number): void {
     for (const k of this.kaijus) drawKaiju(k, normal, additive, t, this.probe);
+  }
+
+  /** Repair drones and their mending beams. */
+  drawDrones(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const d of this.drones) drawDrone(d, normal, additive, t);
   }
 
   /** Telepathy rings. */
@@ -5014,6 +5149,7 @@ export class EffectSystem {
     for (const f of this.funnels) this.funnelDust(f, t);
     this.funnels = this.funnels.filter((f) => t - f.last <= 12);
     this.magnets = this.magnets.filter((m) => t - m.last <= 2);
+    this.drones = this.drones.filter((d) => t - d.last <= 2);
     this.psiWaves = this.psiWaves.filter((w) => t - w.start <= waveLife(w));
     this.wells = this.wells.filter((w) => t - w.last <= 2);
     this.holes = this.holes.filter((h) => t - h.last <= 3);
@@ -5997,6 +6133,7 @@ export class EffectSystem {
     this.nets = [];
     this.posts = [];
     this.magnets = [];
+    this.drones = [];
     this.psiWaves = [];
     this.wells = [];
     this.holes = [];
