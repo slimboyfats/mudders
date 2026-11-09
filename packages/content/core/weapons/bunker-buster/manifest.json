@@ -1,0 +1,56 @@
+{
+  "id": "weapon.bunker-buster",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bunker Buster",
+    "description": "A hardened, heavy shell that doesn't go off on contact. It punches straight on through the ground along its flight line, through rock, ice and roofs alike, and goes off the moment it breaks into open air beneath: inside the cave, the ice cage or under the ledge a tank is hiding in. Through solid ground with no hollow it goes off deep once its punch runs out (about 60 cells of dirt, or 24 of rock).",
+    "category": "digger",
+    "since": "core@0.58.0"
+  },
+  "flight": {
+    "use": "flight.penetrator"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 4,
+      "damageType": "kinetic"
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 22,
+        "damage": 75,
+        "damageType": "blast",
+        "effects": {
+          "burst": {
+            "count": 70
+          },
+          "flash": {
+            "strength": 1.3
+          },
+          "shake": {
+            "strength": 3.5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.4
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

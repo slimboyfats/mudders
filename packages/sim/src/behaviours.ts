@@ -80,6 +80,11 @@ export interface SimApi extends EffectSink {
    */
   hurt(player: number, amount: number, owner: number): void;
   /**
+   * Repair a tank (a repair drone): up to `amount` HP back, never above its round-start health.
+   * Returns the HP actually restored (0 for a dead or full tank).
+   */
+  heal(player: number, amount: number): number;
+  /**
    * Put a shell of weapon index `weapon` in the air at (x, y), fixed-point cells and velocity,
    * credited to `owner`; it starts its flight afresh (age 0). Returns its id, or -1 if the sky is
    * full.
