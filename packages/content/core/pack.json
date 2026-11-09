@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.45.0",
+  "version": "0.46.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -141,6 +141,8 @@
     "material.obsidian",
     "material.oil",
     "material.packed-mud",
+    "material.reactor-core",
+    "material.reactor-lit",
     "material.rock",
     "material.rock-lit",
     "material.rock-shade",
@@ -217,6 +219,7 @@
     "weapon.black-hole-mine-heart",
     "weapon.bumper",
     "weapon.burrower",
+    "weapon.chain-reactor",
     "weapon.cluster-fireworks",
     "weapon.cryo-shell",
     "weapon.digger",

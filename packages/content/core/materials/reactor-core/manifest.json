@@ -1,0 +1,49 @@
+{
+  "id": "material.reactor-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Reactor core",
+    "description": "Ground a Chain Reactor has soaked with unstable glowing fuel. It holds its shape, but any blast, fire or lava that reaches it sets it off, and the reaction runs through the whole patch in a chain of explosions. Patches the first reaction missed stay live for the rest of the round.",
+    "since": "core@0.46.0",
+    "color": "#3cbf4a"
+  },
+  "cell": 201,
+  "settle": "static",
+  "density": 120,
+  "strength": {
+    "blast": 1,
+    "kinetic": 1,
+    "heat": 1,
+    "shock": 1,
+    "dig": 1,
+    "corrosive": 1
+  },
+  "cohesion": 0,
+  "coating": false,
+  "ignite": {
+    "into": "material.reactor-lit",
+    "by": ["blast", "heat", "shock"]
+  },
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.reactor-lit",
+      "chance": 0.3
+    },
+    {
+      "with": "material.lava",
+      "into": "material.reactor-lit",
+      "chance": 0.3
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.reactor-lit",
+      "chance": 0.3
+    }
+  ],
+  "look": {
+    "cycle": ["#2f9a3c", "#3cbf4a", "#6ee05a", "#3cbf4a"],
+    "cycleTicks": 10,
+    "glint": true
+  }
+}
