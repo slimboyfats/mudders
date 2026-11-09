@@ -1,0 +1,63 @@
+{
+  "id": "flight.rail",
+  "schemaVersion": 1,
+  "description": "A Railgun slug on the rail flight: flat and fast, through a house into the far tank.",
+  "subject": "flight.rail",
+  "mode": "mode.classic",
+  "seed": 5,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.railgun": 3
+      }
+    },
+    {
+      "x": 500
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.railgun"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 3,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "props": [
+    {
+      "prop": "prop.house",
+      "x": 330
+    }
+  ]
+}

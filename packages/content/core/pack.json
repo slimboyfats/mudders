@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -93,6 +93,7 @@
     "flight.meteor",
     "flight.orbital-lance",
     "flight.plasma-orb",
+    "flight.rail",
     "flight.ricochet",
     "flight.roller",
     "flight.static",
@@ -285,6 +286,7 @@
     "weapon.plasma-orb",
     "weapon.plasma-orb-core",
     "weapon.quicksand",
+    "weapon.railgun",
     "weapon.resonator",
     "weapon.ricochet-ball",
     "weapon.riot-blast",

@@ -1,0 +1,63 @@
+{
+  "id": "weapon.railgun",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Railgun flat through a house at player 1: the slug punches through and hits the tank.",
+  "subject": "weapon.railgun",
+  "mode": "mode.classic",
+  "seed": 5,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.railgun": 3
+      }
+    },
+    {
+      "x": 500
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.railgun"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 3,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "props": [
+    {
+      "prop": "prop.house",
+      "x": 330
+    }
+  ]
+}
