@@ -5,7 +5,7 @@
     "name": "Tripwire snap",
     "description": "What a Tripwire Net does when something hits the wire: a charge bangs where it was touched and a weighted net drops over everything close by, pinning tanks in place for two of their turns.",
     "category": "submunition",
-    "since": "core@0.56.0"
+    "since": "core@0.57.0"
   },
   "flight": {
     "use": "flight.static"

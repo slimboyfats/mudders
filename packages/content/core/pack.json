@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.56.0",
+  "version": "0.57.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -215,6 +215,7 @@
     "terrainop.quake",
     "terrainop.rift",
     "terrainop.rogue-hole",
+    "terrainop.shave",
     "terrainop.sinkhole",
     "terrainop.supernova",
     "terrainop.tectonic",
@@ -247,6 +248,7 @@
     "weapon.chain-reactor",
     "weapon.cluster-fireworks",
     "weapon.cryo-shell",
+    "weapon.daisy-cutter",
     "weapon.digger",
     "weapon.dirt-ball",
     "weapon.dirt-bomb",

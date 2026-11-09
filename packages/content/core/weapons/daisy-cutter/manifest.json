@@ -1,0 +1,73 @@
+{
+  "id": "weapon.daisy-cutter",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Daisy Cutter",
+    "description": "A huge bomb that goes off flat instead of round. Its blast races out sideways along the ground for 140 cells each way and shaves every hill in its path off down to the height where it landed, throwing a low sheet of dirt outward, then the blast wave throws tanks away to the sides. Drop it in a valley to raze the hills around it. Rock and ice hold.",
+    "since": "core@0.56.0",
+    "category": "explosive"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 60,
+        "effects": {
+          "burst": {
+            "count": 50
+          },
+          "flash": {
+            "strength": 1.3
+          },
+          "shake": {
+            "strength": 4
+          },
+          "fireball": {
+            "strength": 1
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.shave"
+      },
+      "radius": 140,
+      "damageType": "blast"
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 130,
+        "damage": 55,
+        "effects": {
+          "pressureWave": {
+            "strength": 1.2
+          }
+        },
+        "terrainOp": {
+          "use": "terrainop.displace",
+          "expandTicks": 18,
+          "minSpeed": 50,
+          "fling": 200,
+          "flingApex": 45,
+          "propBoost": 0
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 20000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 70,
+    "terrainValue": 0.9
+  }
+}

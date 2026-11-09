@@ -5,7 +5,7 @@
     "name": "Tripwire Net",
     "description": "Drives two stakes into the ground about sixty cells apart and strings a thin wire between them, a few cells up. It arms when your turn ends. The first tank to drive or fall into the wire, or the first shell to fly through it, snaps it: a weighted net drops where it was hit, banging hard and pinning every tank under it so it can't drive for two turns. A blast at either stake snaps it too.",
     "category": "mine",
-    "since": "core@0.56.0"
+    "since": "core@0.57.0"
   },
   "flight": {
     "use": "flight.ballistic"
