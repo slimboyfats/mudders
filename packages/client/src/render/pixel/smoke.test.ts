@@ -21,9 +21,23 @@ const flash = (tick: number, x: number, radius: number, dt = 0): EffectEvent => 
   params: { strength: 1, dt },
 });
 
-function setup(): { fx: EffectSystem; p: Particles } {
+type Splat = { x: number; y: number; vy: number; smoke: number; heat: number };
+
+function setup(): { fx: EffectSystem; p: Particles; splats: Splat[] } {
   const p = new Particles(6000);
-  return { fx: new EffectSystem(p, { splat: () => {} }, probe), p };
+  const splats: Splat[] = [];
+  const fluid = {
+    splat: (
+      x: number,
+      y: number,
+      _r: number,
+      _vx: number,
+      vy: number,
+      smoke: number,
+      heat: number,
+    ) => void splats.push({ x, y, vy, smoke, heat }),
+  };
+  return { fx: new EffectSystem(p, fluid, probe), p, splats };
 }
 
 /** x positions of every drawn particle. */
@@ -58,36 +72,51 @@ describe('smoke columns', () => {
     expect(fx.columns.length).toBe(2);
   });
 
-  it('leans downwind, lingers, then clears', () => {
-    const { fx, p } = setup();
+  it('pours hot soot into the fluid, thinning out, then clears', () => {
+    const { fx, splats } = setup();
     fx.handle(flash(0, 200, 30));
     const dur = fx.columns[0]!.dur;
     expect(dur).toBeGreaterThan(600);
-    for (let t = 0; t < 400; t++) {
-      p.step(0.05, 0.01);
-      fx.tick(t);
+    for (let t = 0; t < 100; t++) fx.tick(t);
+    const young = splats.filter((s) => Math.abs(s.x - 200) < 30);
+    expect(young.length).toBe(100);
+    // rooted on the ground, rising, hot at first
+    for (const s of young) {
+      expect(s.y).toBe(147);
+      expect(s.vy).toBeLessThan(0);
     }
-    const xs = drawnX(p);
-    expect(xs.length).toBeGreaterThan(20);
-    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
-    expect(mean).toBeGreaterThan(215); // blown right
-    for (let t = 400; t < dur + 400; t++) {
-      p.step(0.05, 0.01);
-      fx.tick(t);
-    }
+    expect(young[0]!.heat).toBeGreaterThan(0.1);
+    splats.length = 0;
+    for (let t = 100; t < dur + 100; t++) fx.tick(t);
+    const old = splats.filter((s) => Math.abs(s.x - 200) < 30);
+    expect(old[old.length - 1]!.smoke).toBeLessThan(young[0]!.smoke * 0.2);
     expect(fx.columns.length).toBe(0);
-    expect(p.n).toBe(0);
+  });
+
+  it('sooty puffs from any effect go into the fluid, coloured puffs stay particles', () => {
+    const { fx, p, splats } = setup();
+    // a tank death throws a dozen grey puffs: pooled into a splat or two, not particles
+    fx.handle({ type: 'tankDeath', tick: 0, x: 200, y: 140, radius: 10, params: {} });
+    const before = p.n;
+    fx.tick(0);
+    const pooled = splats.filter((s) => s.smoke > 0 && Math.abs(s.x - 200) < 30);
+    expect(pooled.length).toBeGreaterThan(0);
+    expect(pooled.length).toBeLessThanOrEqual(8);
+    expect(p.n).toBe(before);
+    // frost mist is pale and stays a particle
+    fx.handle({ type: 'frostBlast', tick: 1, x: 300, y: 140, radius: 20, params: {} });
+    expect(p.n).toBeGreaterThan(before);
   });
 
   it('is the same every run (seeded from the event)', () => {
-    const run = (): number[] => {
-      const { fx, p } = setup();
+    const run = (): [number[], Splat[]] => {
+      const { fx, p, splats } = setup();
       fx.handle(flash(5, 200, 40));
       for (let t = 5; t < 200; t++) {
         p.step(0.05, -0.006);
         fx.tick(t);
       }
-      return drawnX(p);
+      return [drawnX(p), splats];
     };
     expect(run()).toEqual(run());
   });

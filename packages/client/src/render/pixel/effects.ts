@@ -10,7 +10,7 @@ import { Lances } from './lance';
 import type { Lights } from './lighting';
 import { drawMagnet, type MagnetFx } from './magnet';
 import { drawMushroom, emitMushroom, makeMushroom, type Mushroom } from './mushroom';
-import { PKind, type ParticleSink } from './particles';
+import { PKind, type Emit, type ParticleSink } from './particles';
 import { shade } from './theme';
 import type { FluidSink } from './fluid';
 import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
@@ -150,9 +150,9 @@ const MUD = [0x4a3f2a, 0x6e6046, 0x8f7f5a, 0xbcae86] as const;
 const STEAM = [0xd0c8b8, 0xb0a898, 0x8c8474] as const;
 
 /**
- * A smoke column left standing over a big impact: a stream of `Plume` puffs fed from the crater,
- * thinning out over `dur` ticks. The puffs drift with the wind, so the column bends downwind and
- * its top spreads into a flat pall.
+ * A smoke column left standing over a big impact: soot poured into the smoke fluid from the
+ * crater every tick, thinning out over `dur` ticks. The fluid carries it up and downwind, so
+ * the column bends with the wind and its top spreads into a flat pall.
  */
 interface SmokeColumn {
   x: number;
@@ -164,6 +164,30 @@ interface SmokeColumn {
   /** Young puff tone: black soot for fire, grey for plain blasts, tinted dust for kinetic hits. */
   color: number;
   rng: FxRng;
+}
+
+/**
+ * Old-style smoke puffs (`PKind.Smoke` in a sooty grey) pooled over one tick and poured into the
+ * smoke fluid as a few splats, so every effect smokes through the same fluid as the blasts.
+ */
+interface SmokeBucket {
+  n: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+}
+const SMOKE_BUCKETS = 8;
+
+/** A sooty tone: dark and nearly grey. Coloured puffs (steam, frost, gas, dirt) stay particles. */
+function sooty(c: number): boolean {
+  const r = (c >>> 16) & 255;
+  const g = (c >>> 8) & 255;
+  const b = c & 255;
+  const hi = Math.max(r, g, b);
+  const lo = Math.min(r, g, b);
+  return hi <= 0x98 && hi - lo <= 0x24;
 }
 
 /** Smallest blast radius that leaves a smoke column (a standard missile is 24). */
@@ -311,18 +335,61 @@ export class EffectSystem {
   /** Debris chunks big blasts throw: they bounce, settle and crumble away. */
   readonly chunks: Chunks;
 
+  /** Where effects spawn particles: sooty smoke puffs are diverted into the fluid. */
+  private readonly particles: ParticleSink;
+  private readonly smoke: SmokeBucket[] = [];
+
   constructor(
-    private readonly particles: ParticleSink,
+    private readonly sink: ParticleSink,
     private readonly fluid: FluidSink,
     private readonly probe: TerrainProbe,
   ) {
-    this.lances = new Lances(particles);
-    this.ions = new IonStrikes(particles);
+    this.particles = { add: (e) => this.addParticle(e) };
+    this.lances = new Lances(sink);
+    this.ions = new IonStrikes(sink);
     this.chunks = new Chunks(
       CHUNK_CAP,
       { solid: (x, y) => probe.material(x, y) !== 0 },
       (x, y, speed) => this.thud(x, y, speed),
     );
+  }
+
+  private addParticle(e: Emit): void {
+    if (e.kind !== PKind.Smoke || !sooty(e.color)) {
+      this.sink.add(e);
+      return;
+    }
+    // pool it with the other puffs of this tick that land in the same patch of the map
+    const sm = this.smoke;
+    for (let i = 0; i < sm.length; i++) {
+      const b = sm[i]!;
+      if (Math.abs(b.x / b.n - e.x) <= 24 && Math.abs(b.y / b.n - e.y) <= 24) {
+        b.n++;
+        b.x += e.x;
+        b.y += e.y;
+        b.vx += e.vx;
+        b.vy += e.vy;
+        b.size += e.size;
+        return;
+      }
+    }
+    if (sm.length < SMOKE_BUCKETS)
+      sm.push({ n: 1, x: e.x, y: e.y, vx: e.vx, vy: e.vy, size: e.size });
+  }
+
+  /** Pour this tick's pooled smoke puffs into the fluid. */
+  private flushSmoke(): void {
+    const sm = this.smoke;
+    for (let i = 0; i < sm.length; i++) {
+      const b = sm[i]!;
+      const n = b.n;
+      const size = b.size / n;
+      // a puff cloud's worth of soot: wider and thicker the more and bigger the puffs
+      const r = Math.max(4, size * 1.2 + Math.sqrt(n) * 2);
+      const amount = Math.min(1.6, 0.12 * size * Math.sqrt(n));
+      this.fluid.splat(b.x / n, b.y / n, r, (b.vx / n) * 1.5, (b.vy / n) * 1.5, amount, 0);
+    }
+    sm.length = 0;
   }
 
   /** A little puff of dust where a chunk lands hard. */
@@ -3208,7 +3275,7 @@ export class EffectSystem {
     return y;
   }
 
-  /** Feed each smoke column a few puffs: thick at first, thinning to wisps before it stops. */
+  /** Feed each smoke column: thick hot soot at first, thinning to wisps before it stops. */
   private tickColumns(t: number): void {
     for (let i = this.columns.length - 1; i >= 0; i--) {
       const c = this.columns[i]!;
@@ -3219,23 +3286,21 @@ export class EffectSystem {
       }
       if (k < 0) continue;
       const big = c.r / 24;
-      // puffs per tick, falling off over the column's life
-      let n = (0.35 + big * 0.45) * this.mult * (1 - k) * (1 - k) + c.rng.next();
+      const fade = (1 - k) * (1 - k);
+      // the source wanders over the crater floor, so the column is ragged, not a pipe
       const w = c.r * (0.18 + 0.12 * (1 - k));
-      for (; n >= 1; n--) {
-        const s = c.rng.next();
-        this.particles.add({
-          x: c.x + c.rng.range(-w, w),
-          y: c.y - c.rng.range(0, 3),
-          vx: c.rng.range(-0.05, 0.05),
-          // the first seconds are hot: puffs shoot up fast, later ones only drift
-          vy: -c.rng.range(0.18, 0.3) * (1 + (1 - k) * 0.8) * Math.min(1.8, 0.75 + big * 0.25),
-          life: c.rng.range(200, 320) * Math.min(1.6, 0.8 + big * 0.2),
-          size: Math.round(3 + big * 2 + s * 3),
-          color: s < 0.25 ? shade(c.color, 0.7) : s > 0.8 ? shade(c.color, 1.25) : c.color,
-          kind: PKind.Plume,
-        });
-      }
+      const x = c.x + c.rng.range(-w, w);
+      // the first seconds are hot: the soot shoots up fast, later it only drifts
+      const rise = 0.5 * (1 + (1 - k) * 0.8) * Math.min(1.8, 0.75 + big * 0.25);
+      this.fluid.splat(
+        x,
+        c.y - 2,
+        Math.max(4, w * 0.6 + big * 2),
+        0,
+        -rise,
+        (0.3 + big * 0.25) * fade,
+        0.25 * fade * fade,
+      );
     }
   }
 
@@ -3403,6 +3468,7 @@ export class EffectSystem {
       s[1] = Math.min(s[1], -dim * 0.95);
       s[2] = Math.min(s[2], -dim * 0.8);
     }
+    this.flushSmoke();
   }
 
   /**
@@ -3554,18 +3620,8 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
-    for (let i = 0; i < 6; i++) {
-      this.particles.add({
-        x: e.x + rng.range(-3, 3),
-        y: e.y - 2,
-        vx: rng.range(-0.2, 0.2),
-        vy: -rng.range(0.4, 0.9),
-        life: rng.range(40, 70),
-        size: rng.range(4, 7),
-        color: 0x6a9a1a,
-        kind: PKind.Smoke,
-      });
-    }
+    // the gas itself spreads through the fluid
+    this.fluid.splat(e.x, e.y - 2, 8, 0, -0.6, 0, 0, 0.5);
     this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
   }
 
