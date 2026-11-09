@@ -119,6 +119,13 @@ export const MaterialSchema = z.strictObject({
   strength: z.partialRecord(DamageTypeSchema, z.number().min(0).max(64)),
   /** -1 loosens neighbours, 0 settles normally, >0 binds into blobs (§4b). */
   cohesion: z.number().min(-1).max(1),
+  /**
+   * Structure (§4c): how many cells this material can bridge or stick out over a hole while it
+   * carries a 16-row load of its own weight. A prop group standing on it gets a shorter reach the
+   * more weight (density × cells, including what rests on it) each column holds up. Unset = no
+   * limit (the old rule: only a nearly bare base gives way).
+   */
+  span: z.number().int().min(0).max(64).optional(),
   /** Coatings live in the secondary layer on top of a base material (§4b). */
   coating: z.boolean(),
   /**

@@ -145,7 +145,10 @@ restored. Cracks show at ⅔ and ⅓ integrity; at 0 the group breaks into `brea
 settling takes over, and groups it `supports` (windows, roof on walls) break with it. Cells that a
 reaction consumes leave the group (`leaveGroup`); losing half its cells breaks a group. While the
 grid is settling, `checkBases` drops a group with nothing under its base as a rigid block (landing
-damage grows with the fall) and breaks a wide group whose base has lost most support.
+damage grows with the fall) and breaks a wide group whose base has lost most support. It then
+runs `structure` (§4c): footing columns that stand vs hang, a reach from the base materials'
+`span` shortened by weight per column, and a `tear` that releases what sticks out too far (plus
+what rests on it) along a ragged line, or a whole break when the weight centre leaves the footing.
 
 `placement.roughen` wears a copy's outline (outline cells chip off, bumps grow on flat tops, then
 needles are trimmed) and `mirror` flips it, both from the match PRNG, so rock formations differ per

@@ -12,6 +12,9 @@ export const MAX_GROUPS = 255;
 export const SHELTER_ROWS = 16;
 export const SHELTER_HALF = 10;
 
+/** A resting group narrower than this many footing columns never tears; it goes as a whole. */
+export const MIN_TEAR = 12;
+
 /** A prop's group compiled to lookup tables. */
 interface GroupDef {
   /** `local` glue: hits free cells where they land instead of draining integrity. */
@@ -90,6 +93,9 @@ export class Groups {
   readonly support = new Uint8Array((MAX_GROUPS + 1) * 4);
   /** Cells `launch` refused since the last guard. */
   readonly pending = new Int32Array(MAX_GROUPS + 1);
+  /** Columns of the group's footing (its bottom row as stamped): what it stands on. */
+  readonly footX0 = new Int32Array(MAX_GROUPS + 1);
+  readonly footX1 = new Int32Array(MAX_GROUPS + 1);
   /** Rows a dropping group has fallen so far. */
   readonly fallen = new Int32Array(MAX_GROUPS + 1);
   /** `local` groups whose hold on the ground must be checked again while things settle. */
@@ -97,6 +103,10 @@ export class Groups {
   /** Flood-fill scratch for `local` groups, sized to the grid on first use. */
   private mark = new Uint8Array(0);
   private queue = new Int32Array(0);
+  /** Per column: does a resting group's footing stand there (`structure` scratch). */
+  private stand = new Uint8Array(0);
+  /** Per column: is this part of a footing kept when it tears (`structure` scratch). */
+  private keep = new Uint8Array(0);
   /** Pre-op copy of the cells around a blast while a shield is up (see `shieldBegin`). */
   private snapMat = new Uint8Array(0);
   private snapCoat = new Uint8Array(0);
@@ -508,7 +518,19 @@ export class Groups {
         if (gy > this.maxY[slot]!) this.maxY[slot] = gy;
       }
     }
-    for (let k = 1; k <= p.groups.length; k++) this.origCells[slot0 + k] = this.cells[slot0 + k]!;
+    for (let k = 1; k <= p.groups.length; k++) {
+      const slot = slot0 + k;
+      this.origCells[slot] = this.cells[slot]!;
+      // footing: the columns of its bottom row (a tree's trunk, not the branches over the canopy)
+      this.footX0[slot] = this.maxX[slot]!;
+      this.footX1[slot] = this.minX[slot]!;
+      const y = this.maxY[slot]!;
+      for (let x = this.minX[slot]!; x <= this.maxX[slot]!; x++) {
+        if (y < 0 || grid.group[y * W + x] !== slot) continue;
+        if (x < this.footX0[slot]!) this.footX0[slot] = x;
+        if (x > this.footX1[slot]!) this.footX1[slot] = x;
+      }
+    }
     grid.markDirty(x0, Math.max(0, top), x0 + p.width - 1, grid.height - 1);
   }
 
@@ -555,6 +577,8 @@ export class Groups {
     }
     this.cells[slot] = n;
     this.origCells[slot] = n;
+    this.footX0[slot] = this.minX[slot]!;
+    this.footX1[slot] = this.maxX[slot]!;
   }
 
   // ── damage ────────────────────────────────────────────────────────────────────────────────
@@ -1049,7 +1073,238 @@ export class Groups {
       if (this.fallen[g]! > 0) this.land(grid, g, fx);
       // a wide structure bridging a hole gives way; a small lump just rests on what holds it
       if (cols >= 20 && held * 5 < cols && this.broken[g] === 0) this.break(grid, g, fx);
+      if (this.broken[g] === 0) this.structure(grid, g, fx);
     }
+  }
+
+  /**
+   * Structure (§4c) of a resting group (`whole` glue, no `supports`): in each column of its
+   * footing (its bottom row as stamped) the lowest cell stands on something or hangs over air.
+   * With every column standing it is fine. Otherwise its reach is worked out: the base cells'
+   * average `span`, shortened by the load (its weight, density over its own cells and everything
+   * resting on it, per column). The part that sticks out past the outer standing columns further
+   * than that, or past a gap between standing columns wider than twice that, tears off along a
+   * ragged line and falls as rubble, along with whatever rested on it; the rest stays up with a
+   * cracked edge. With nothing left to tear, a weight centred outside the standing columns tips the
+   * whole thing over (it breaks). A base with any material that has no `span` skips this.
+   * Cost: one cell per column, plus one pass over the group's box when a column hangs free.
+   */
+  private structure(grid: Grid, g: number, fx: EffectSink): void {
+    const W = grid.width;
+    const group = grid.group;
+    const mat = grid.material;
+    const spanOf = this.mats.span;
+    const x0 = Math.max(this.minX[g]!, this.footX0[g]!);
+    const x1 = Math.min(this.maxX[g]!, this.footX1[g]!);
+    const y0 = this.minY[g]!;
+    const y1 = this.maxY[g]!;
+    if (this.stand.length < W) this.stand = new Uint8Array(W);
+    const stand = this.stand;
+    let first = -1;
+    let last = -1;
+    let left = -1;
+    let right = -1;
+    let span = 0;
+    let free = 0;
+    let baseDensity = 0;
+    let cols = 0;
+    for (let x = x0; x <= x1; x++) {
+      stand[x] = 0;
+      let i = y1 * W + x;
+      let y = y1;
+      while (y >= y0 && group[i] !== g) {
+        y--;
+        i -= W;
+      }
+      if (y < y0) continue;
+      cols++;
+      if (first < 0) first = x;
+      last = x;
+      const m = mat[i]!;
+      const sp = spanOf[m]!;
+      if (sp === 255) return; // a material with no structural rule: the old rule only
+      span += sp;
+      baseDensity += this.mats.density[m]!;
+      const under = group[i + W]!;
+      const stands =
+        y < grid.height - 1 && mat[i + W] !== 0 && (under === 0 || !this.restsOn(under, g));
+      if (stands) {
+        stand[x] = 1;
+        if (left < 0) left = x;
+        right = x;
+      } else free++;
+    }
+    // all standing, nothing measured, no rule, or bare (`drop` handles that)
+    if (free === 0 || left < 0) return;
+    // weight and its centre, over this group and everything resting on it
+    let w = 0;
+    let wx = 0;
+    const dens = this.mats.density;
+    for (let o = 1; o <= this.count; o++) {
+      if (this.broken[o] !== 0 || !this.restsOn(o, g)) continue;
+      const ox1 = this.maxX[o]!;
+      for (let y = this.minY[o]!; y <= this.maxY[o]!; y++) {
+        for (let x = this.minX[o]!, i = y * W + x; x <= ox1; x++, i++) {
+          if (group[i] !== o) continue;
+          const d = dens[mat[i]!]!;
+          w += d;
+          wx += d * x;
+        }
+      }
+    }
+    if (w === 0) return;
+    // rows of its own base material each column carries (weight over the summed density of the
+    // column bottoms); the reach is the base's average span, shortened as that load grows
+    const load = Math.trunc(w / Math.max(1, baseDensity));
+    const reach = Math.trunc((span * 32) / (cols * (16 + Math.max(16, load))));
+    if (
+      left - first <= reach &&
+      last - right <= reach &&
+      !this.gapOver(stand, left, right, reach)
+    ) {
+      // nothing sticks out too far; it tips over if its weight is centred off what stands
+      // (half a cell of slack)
+      if (2 * wx < w * (2 * left - 1) || 2 * wx > w * (2 * right + 1)) this.break(grid, g, fx);
+      return;
+    }
+    // narrow things (a trunk, a lump) don't tear: they go as a whole
+    if (last - first + 1 < MIN_TEAR) {
+      this.break(grid, g, fx);
+      return;
+    }
+    // keep every stretch of 2+ standing columns (gaps up to 2×reach bridged) plus `reach` either side
+    if (this.keep.length < W) this.keep = new Uint8Array(W);
+    const keep = this.keep;
+    keep.fill(0, first, last + 1);
+    for (let x = left, segL = left, n = 0, prev = left; x <= right + 1; x++) {
+      if (x <= right && stand[x] === 0) continue;
+      if (x > right || x - prev - 1 > 2 * reach) {
+        if (n >= 2) keep.fill(1, Math.max(first, segL - reach), Math.min(last, prev + reach) + 1);
+        segL = x;
+        n = 0;
+      }
+      n++;
+      prev = x;
+    }
+    this.tear(grid, g, first, last, fx);
+  }
+
+  /** Is there a run of free columns between `left` and `right` longer than 2×reach? */
+  private gapOver(stand: Uint8Array, left: number, right: number, reach: number): boolean {
+    let run = 0;
+    for (let x = left; x <= right; x++) {
+      if (stand[x] !== 0) run = 0;
+      else if (++run > 2 * reach) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Tear group `g` (and everything resting on it) along ragged lines: cells in footing columns
+   * `keep` doesn't mark (columns beyond the footing [first, last] go with its end column), give
+   * or take a cell per row, convert per their group's `breakInto` and come loose; the cells along
+   * a tear on the kept side crack.
+   */
+  private tear(grid: Grid, g: number, first: number, last: number, fx: EffectSink): void {
+    const W = grid.width;
+    const group = grid.group;
+    const mat = grid.material;
+    const keep = this.keep;
+    let lost = 0;
+    let lx0 = W;
+    let lx1 = -1;
+    let ly0 = grid.height;
+    let ly1 = -1;
+    for (let o = 1; o <= this.count; o++) {
+      if (this.broken[o] !== 0 || !this.restsOn(o, g)) continue;
+      const def = this.def[o]!;
+      const ox0 = this.minX[o]!;
+      const ox1 = this.maxX[o]!;
+      const oy0 = this.minY[o]!;
+      const oy1 = this.maxY[o]!;
+      let n = 0;
+      let nx0 = W;
+      let nx1 = -1;
+      let ny0 = grid.height;
+      let ny1 = -1;
+      for (let y = oy0; y <= oy1; y++) {
+        // the tear wanders a cell either way from row to row
+        const jag = (h(y * 0x9e37 + g) % 3) - 1;
+        for (let x = ox0, i = y * W + ox0; x <= ox1; x++, i++) {
+          if (group[i] !== o) continue;
+          const k = x - jag;
+          if (keep[k < first ? first : k > last ? last : k] === 0) {
+            group[i] = 0;
+            const b = def.breakInto[mat[i]!]!;
+            if (b !== KEEP) {
+              mat[i] = b;
+              if (b === 0) grid.coating[i] = 0;
+            }
+            grid.cellState[i] = 0;
+            lost++;
+            if (x < lx0) lx0 = x;
+            if (x > lx1) lx1 = x;
+            if (y < ly0) ly0 = y;
+            if (y > ly1) ly1 = y;
+            continue;
+          }
+          const kl = k - 2;
+          const kr = k + 2;
+          if (
+            keep[kl < first ? first : kl > last ? last : kl] === 0 ||
+            keep[kr < first ? first : kr > last ? last : kr] === 0
+          ) {
+            const c = def.crack[mat[i]!]!;
+            if (c !== KEEP) {
+              mat[i] = c;
+              grid.groupMat[i] = c;
+            }
+          }
+          n++;
+          if (x < nx0) nx0 = x;
+          if (x > nx1) nx1 = x;
+          if (y < ny0) ny0 = y;
+          if (y > ny1) ny1 = y;
+        }
+      }
+      this.cells[o] = n;
+      if (n === 0) {
+        this.broken[o] = 1;
+        this.integrity[o] = 0;
+        continue;
+      }
+      this.minX[o] = nx0;
+      this.maxX[o] = nx1;
+      this.minY[o] = ny0;
+      this.maxY[o] = ny1;
+      if (this.footX0[o]! < nx0) this.footX0[o] = nx0;
+      if (this.footX1[o]! > nx1) this.footX1[o] = nx1;
+    }
+    if (lost === 0) return;
+    grid.markDirty(lx0 - 1, ly0, lx1 + 1, ly1);
+    fx.emit('collapse', (lx0 + lx1) >> 1, (ly0 + ly1) >> 1, Math.max(lx1 - lx0, ly1 - ly0) >> 1, {
+      cells: lost,
+    });
+    // too little left to stand on its own: the rest comes down too
+    if (this.cells[g]! * 4 < this.origCells[g]!) {
+      this.break(grid, g, fx);
+      return;
+    }
+    // what is left counts as whole again (cells lost later are measured against it)
+    for (let o = 1; o <= this.count; o++)
+      if (this.broken[o] === 0 && this.restsOn(o, g)) this.origCells[o] = this.cells[o]!;
+  }
+
+  /** Is `o` the group `g` itself, or resting on it through any chain of `supports`? */
+  private restsOn(o: number, g: number, depth = 0): boolean {
+    if (o === g) return true;
+    if (depth >= 8) return false;
+    for (let s = 0; s < 4; s++) {
+      const t = this.support[o * 4 + s]!;
+      if (t === 0) break;
+      if (this.restsOn(t, g, depth + 1)) return true;
+    }
+    return false;
   }
 
   /** Move a whole group down one row if nothing but air (or itself) is under any of its cells. */
@@ -1119,6 +1374,7 @@ export class Groups {
     for (let g = 1; g <= this.count; g++) {
       h.num(this.integrity[g]!).num(this.cells[g]!).num(this.stage[g]!).num(this.broken[g]!);
       h.num(this.pending[g]!).num(this.fallen[g]!).num(this.minY[g]!);
+      h.num(this.footX0[g]!).num(this.footX1[g]!);
       if (this.def[g]!.local) h.num(this.recheck[g]!);
     }
   }
