@@ -66,6 +66,7 @@ export function supportPass(
   const thick = scratch.tmpState; // rows in this cell's hanging run
   const q = scratch.queue;
   let tail = 0;
+  let hanging = 0;
   for (let x = rx0; x <= rx1; x++) {
     let below = 1;
     for (let y = H - 1, i = y * W + x; y >= 0; y--, i -= W) {
@@ -81,6 +82,7 @@ export function supportPass(
         below !== 0 || group[i] !== 0 || (settle[m] === SETTLE_STATIC && spanOf[m] === 255) ? 1 : 0;
       grounded[i] = g;
       below = g;
+      if (g === 0) hanging++;
     }
     // hanging runs: their thickness, and the grounded cells next to them seed the search
     for (let y = 0, i = x; y < H; y++, i += W) {
@@ -97,6 +99,8 @@ export function supportPass(
       i = j - W;
     }
   }
+  // nothing hangs (the usual case on soft ground): done after the one column pass
+  if (hanging === 0) return 0;
   for (let x = rx0; x <= rx1; x++) {
     for (let y = 0, i = x; y < H; y++, i += W) {
       if (mat[i] === 0 || grounded[i] === 0) continue;
