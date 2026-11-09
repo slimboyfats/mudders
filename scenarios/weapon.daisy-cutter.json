@@ -1,0 +1,57 @@
+{
+  "id": "weapon.daisy-cutter",
+  "schemaVersion": 1,
+  "description": "Player 0 drops a Daisy Cutter on the slope by player 1. The flat blast races out sideways, shaves the slope and the hills beside it flat, and throws the tank away.",
+  "subject": "weapon.daisy-cutter",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.daisy-cutter": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.daisy-cutter"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 720,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
