@@ -1,0 +1,57 @@
+{
+  "id": "material.reactor-lit",
+  "schemaVersion": 1,
+  "description": "A Chain Reactor sets its soaked ground critical: the reaction creeps through it and pops in a chain of blasts.",
+  "subject": "material.reactor-lit",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.chain-reactor": 2
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.chain-reactor"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 720,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
