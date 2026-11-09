@@ -35,22 +35,19 @@ self.addEventListener('fetch', (event) => {
   // the lobby server proxied through this origin (same-network play) is never cached
   if (url.pathname.startsWith(new URL('signal/', self.registration.scope).pathname)) return;
   if (req.mode === 'navigate') {
-    // the page: network first so an update lands at once; the cached shell when offline
+    // the page: network first so an update lands at once; the cached copy when offline. The
+    // field manual (docs/) is its own page and keeps its own cache entry, never the game shell's
+    const scope = new URL(self.registration.scope).pathname;
+    const page = url.pathname.startsWith(`${scope}docs/`) ? 'docs/' : './';
+    const key = new URL(page, self.registration.scope).href;
     event.respondWith(
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          if (res.ok)
-            caches
-              .open(CACHE)
-              .then((c) => c.put(new URL('./', self.registration.scope).href, copy));
+          if (res.ok) caches.open(CACHE).then((c) => c.put(key, copy));
           return res;
         })
-        .catch(() =>
-          caches
-            .match(new URL('./', self.registration.scope).href)
-            .then((r) => r ?? Response.error()),
-        ),
+        .catch(() => caches.match(key).then((r) => r ?? Response.error())),
     );
     return;
   }

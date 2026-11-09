@@ -90,6 +90,9 @@ export function Title({ onPlay }: Props) {
           <a className="secondary chip" href="#sandbox">
             ✦ Content sandbox
           </a>
+          <a className="secondary chip" href={`${import.meta.env.BASE_URL}docs/`}>
+            ☰ Field manual
+          </a>
           {install === 'prompt' && (
             <button
               className="secondary chip"

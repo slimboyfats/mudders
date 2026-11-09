@@ -31,7 +31,8 @@ function pwa(): Plugin {
         'icons/icon-512.png',
         'icons/favicon-32.png',
         'icons/apple-touch-icon.png',
-        ...files.filter((f) => f !== 'index.html'),
+        'docs/',
+        ...files.filter((f) => !f.endsWith('index.html')),
       ];
       const version = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
       const source = readFileSync(new URL('./pwa/sw-template.js', import.meta.url), 'utf8')
@@ -104,7 +105,12 @@ export default defineConfig(({ command }) => ({
   base: process.env.MUDDERS_BASE ?? '/',
   // LAN addresses go in dev only; a production build must not carry the build machine's IPs
   define: { __MUDDERS_LAN_HOSTS__: JSON.stringify(command === 'serve' ? lanHosts() : []) },
-  build: { target, sourcemap: true },
+  build: {
+    target,
+    sourcemap: true,
+    // the player field manual (/docs/) is a second page built from the same content packs
+    rollupOptions: { input: { main: 'index.html', docs: 'docs/index.html' } },
+  },
   server: { port: 5173, host: true, proxy: signalProxy },
   preview: { host: true, proxy: signalProxy },
 }));
