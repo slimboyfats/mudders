@@ -1,0 +1,71 @@
+{
+  "id": "trees.topple",
+  "schemaVersion": 1,
+  "description": "A shockwave lands in a wood: the pine in the middle of the blast is blown apart, the oak and birch at its edge snap at the trunk and fall away from it, leaving stumps and logs.",
+  "subject": "prop.pine",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.shockwave": 5
+      }
+    },
+    {
+      "x": 790
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.003,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.shockwave"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 525
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 420,
+    "untilSettled": false,
+    "extraTicks": 0
+  },
+  "props": [
+    {
+      "prop": "prop.pine",
+      "x": 500
+    },
+    {
+      "prop": "prop.tree",
+      "x": 568
+    },
+    {
+      "prop": "prop.birch",
+      "x": 588
+    }
+  ]
+}

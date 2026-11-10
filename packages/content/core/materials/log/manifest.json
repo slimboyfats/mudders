@@ -1,0 +1,14 @@
+{
+  "id": "material.log",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fallen log",
+    "description": "A felled tree trunk lying where it came down. Timber like any wood, but a log holds together over a longer gap before it breaks.",
+    "since": "core@0.69.0",
+    "color": "#6e4a2a"
+  },
+  "extends": "material.wood",
+  "cell": 94,
+  "span": 64,
+  "look": {}
+}

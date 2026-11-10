@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
-    pack: 'core@0.61.0 – 0.68.0',
+    pack: 'core@0.61.0 – 0.69.0',
     newSince: 'core@0.62.0',
     items: [
       'Real gas in the world: steam, flames, marsh gas and gas flares rise, drift with the wind and bubble up through water',
@@ -37,6 +37,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Blast pressure blows the leaves off trees well beyond the crater: trunk and branches stay standing while the leaves flutter away on the wind. Shockwaves reach furthest, and a hill shelters the trees behind it',
       'Trees come alive in the wind: trunks lean downwind, crowns rock as gusts roll across the map and leaves flicker, harder the stronger it blows',
       'Six new kinds of tree: pine, birch, poplar, willow, autumn maple and bush. The Village gets a mixed wood, Lakeland willows by the water, the Glacier pines',
+      'Trees snap and fall: a hard hit breaks a tree at the trunk, and it tips over in one piece away from the blast, faster as it goes, crashing down as a log beside its stump in a burst of dust. A direct hit still blows it to splinters',
       "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
     ],
   },

@@ -13,7 +13,9 @@
     "material.splinter",
     "material.needles",
     "material.birch-bark",
-    "material.amber-leaf"
+    "material.amber-leaf",
+    "material.log",
+    "material.birch-log"
   ],
   "into": "material.fire",
   "core": 0.8,

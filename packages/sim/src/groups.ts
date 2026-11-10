@@ -4,9 +4,12 @@ import type { Grid } from './grid';
 import type { Hasher } from './hash';
 import { KEEP, NUM_DAMAGE_TYPES, STRENGTH_ONE, type MaterialTable } from './materials';
 import type { Prng } from './prng';
+import { STUMP, Toppler } from './topple';
 
 /** Group slots per map; slot 0 means "no group". */
 export const MAX_GROUPS = 255;
+/** Percent of a blast's radius inside which a tree is blown apart instead of falling over. */
+const SHATTER_IN = 55;
 
 /** A shelter's opening: free rows above the ground, and half its width around a tank spawn. */
 export const SHELTER_ROWS = 16;
@@ -28,6 +31,10 @@ interface GroupDef {
   breakInto: Uint8Array;
   /** material → cracked variant (KEEP = none). */
   crack: Uint8Array;
+  /** Snaps and falls over in one piece (a tree) unless blown apart. */
+  topple: boolean;
+  /** material → what it lies as once fallen (KEEP = unchanged). */
+  felled: Uint8Array;
 }
 
 interface CompiledProp {
@@ -122,11 +129,19 @@ export class Groups {
   private readonly def: GroupDef[] = [];
   private readonly props: CompiledProp[] = [];
   private readonly propIndex: Record<string, number> = {};
+  /** Trees falling over (topple groups that broke). */
+  readonly toppler: Toppler;
+  /** Column of the blast whose op is being guarded, -1 outside an op: trees fall away from it. */
+  hitX = -1;
+  /** Radius of that blast: trees well inside it shatter instead of falling. */
+  hitR = 0;
+  private lift = new Int32Array(0);
 
   constructor(
     props: readonly PropManifest[],
     private readonly mats: MaterialTable,
   ) {
+    this.toppler = new Toppler(mats);
     for (const p of props) {
       this.propIndex[p.id] = this.props.length;
       this.props.push(this.compile(p));
@@ -150,6 +165,18 @@ export class Groups {
     this.stage.fill(0);
     this.fallen.fill(0);
     this.recheck.fill(0);
+    this.toppler.reset();
+    this.hitX = -1;
+    this.hitR = 0;
+  }
+
+  /** A tree is falling. */
+  get toppling(): boolean {
+    return this.toppler.any;
+  }
+
+  stepTopple(grid: Grid, fx: EffectSink): void {
+    this.toppler.step(grid, fx);
   }
 
   /** True for a slot whose glue is `local` (its cells may be knocked loose one by one). */
@@ -192,10 +219,14 @@ export class Groups {
       for (const [from, to] of Object.entries(g.breakInto)) breakInto[ref(from)] = ref(to);
       const crack = new Uint8Array(256).fill(KEEP);
       for (const [from, to] of Object.entries(g.crack)) crack[ref(from)] = ref(to);
+      const felled = new Uint8Array(256).fill(KEEP);
+      for (const [from, to] of Object.entries(g.felled)) felled[ref(from)] = ref(to);
       return {
         local: g.glue === 'local',
         loosen: g.loosen,
         shield: g.glue === 'local' ? g.shield : 0,
+        topple: g.topple,
+        felled,
         integrity: g.integrity,
         resist,
         breakInto,
@@ -993,7 +1024,17 @@ export class Groups {
   private break(grid: Grid, g: number, fx: EffectSink): void {
     if (this.broken[g] !== 0) return;
     this.broken[g] = 1;
+    const left = this.integrity[g]!;
     this.integrity[g] = 0;
+    // a tree snaps and falls over, unless the hit was so hard it blew it to bits
+    if (
+      this.def[g]!.topple &&
+      this.support[g * 4] === 0 &&
+      this.toppler.room &&
+      left * 2 > -this.maxIntegrity[g]! &&
+      this.topple(grid, g, fx)
+    )
+      return;
     const W = grid.width;
     const into = this.def[g]!.breakInto;
     const x0 = this.minX[g]!;
@@ -1023,6 +1064,81 @@ export class Groups {
       if (this.broken[o] !== 0) continue;
       for (let s = 0; s < 4; s++) if (this.support[o * 4 + s] === g) this.break(grid, o, fx);
     }
+  }
+
+  /**
+   * Lift group `g` and everything resting on it into a falling body, leaving the bottom `STUMP`
+   * rows of `g` as plain cells (the stump). False if there is too little left to fall.
+   */
+  private topple(grid: Grid, g: number, fx: EffectSink): boolean {
+    const W = grid.width;
+    const group = grid.group;
+    const yb = this.maxY[g]!;
+    const top = yb - STUMP + 1;
+    if (top <= this.minY[g]!) return false;
+    // the stump's columns: the trunk's bottom row
+    let sx0 = W;
+    let sx1 = -1;
+    for (let x = this.minX[g]!, i = yb * W + x; x <= this.maxX[g]!; x++, i++) {
+      if (group[i] !== g) continue;
+      if (x < sx0) sx0 = x;
+      sx1 = x;
+    }
+    if (sx1 < sx0) return false;
+    // a trunk deep inside the blast is blown apart; only the trees near its edge snap and fall
+    if (
+      this.hitX >= 0 &&
+      Math.abs(sx0 + sx1 + 1 - this.hitX * 2) * 100 < this.hitR * 2 * SHATTER_IN
+    )
+      return false;
+    // everything that falls with it
+    let x0 = this.minX[g]!;
+    let x1 = this.maxX[g]!;
+    let y0 = this.minY[g]!;
+    const riders: number[] = [];
+    for (let o = 1; o <= this.count; o++) {
+      if (o === g || this.broken[o] !== 0 || !this.restsOn(o, g)) continue;
+      riders.push(o);
+      x0 = Math.min(x0, this.minX[o]!);
+      x1 = Math.max(x1, this.maxX[o]!);
+      y0 = Math.min(y0, this.minY[o]!);
+    }
+    const cap = (x1 - x0 + 1) * (yb - y0 + 1);
+    if (this.lift.length < cap) this.lift = new Int32Array(cap);
+    const lift = this.lift;
+    let n = 0;
+    let sum = 0;
+    for (let y = y0; y <= yb; y++) {
+      for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+        const c = group[i]!;
+        if (c === 0) continue;
+        let mine = c === g;
+        for (let r = 0; !mine && r < riders.length; r++) mine = riders[r] === c;
+        if (!mine) continue;
+        if (y >= top) {
+          // the stump stays, as plain cells
+          group[i] = 0;
+          continue;
+        }
+        group[i] = g;
+        lift[n++] = i;
+        sum += x;
+      }
+    }
+    for (const o of riders) {
+      this.broken[o] = 1;
+      this.integrity[o] = 0;
+      this.cells[o] = 0;
+    }
+    this.cells[g] = 0;
+    // away from the blast that broke it, else toward the side its weight hangs
+    const mid2 = sx0 + sx1 + 1;
+    let dir: number;
+    if (this.hitX >= 0) dir = this.hitX * 2 <= mid2 ? 1 : -1;
+    else dir = n > 0 && sum * 2 < mid2 * n ? -1 : 1;
+    fx.emit('treeSnap', (sx0 + sx1) >> 1, top, 2, { dir, cells: n });
+    this.toppler.start(grid, g, lift, n, sx0, sx1, top, dir, this.def[g]!.felled, this.hitX >= 0);
+    return true;
   }
 
   /** Cells lost outside ops (burnt, edge collapse): half gone and the group gives way. */
@@ -1377,5 +1493,7 @@ export class Groups {
       h.num(this.footX0[g]!).num(this.footX1[g]!);
       if (this.def[g]!.local) h.num(this.recheck[g]!);
     }
+    this.toppler.hash(h);
+    h.num(this.hitX).num(this.hitR);
   }
 }

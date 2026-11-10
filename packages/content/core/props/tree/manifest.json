@@ -55,6 +55,10 @@
       "integrity": 60,
       "breakInto": {
         "material.wood": "material.splinter"
+      },
+      "topple": true,
+      "felled": {
+        "material.wood": "material.log"
       }
     },
     {

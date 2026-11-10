@@ -47,6 +47,10 @@
       "integrity": 30,
       "breakInto": {
         "material.birch-bark": "material.splinter"
+      },
+      "topple": true,
+      "felled": {
+        "material.birch-bark": "material.birch-log"
       }
     },
     {

@@ -1,0 +1,14 @@
+{
+  "id": "material.birch-log",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fallen birch",
+    "description": "A felled birch trunk lying where it came down. Holds together over a longer gap than standing timber before it breaks.",
+    "since": "core@0.69.0",
+    "color": "#cbc4b2"
+  },
+  "extends": "material.birch-bark",
+  "cell": 95,
+  "span": 64,
+  "look": {}
+}

@@ -946,6 +946,14 @@ export const PropSchema = z.strictObject({
         crack: z.record(MaterialIdSchema, MaterialIdSchema).default({}),
         /** Groups this one rests on: when one breaks, this one breaks too. */
         supports: z.array(z.string().min(1)).default([]),
+        /**
+         * Snaps and falls over in one piece when it breaks (a tree): a stump stays, the rest,
+         * with everything resting on it, turns about the stump away from the blast and lands
+         * as plain cells. A hit that drains twice its integrity still blows it to bits.
+         */
+        topple: z.boolean().default(false),
+        /** `topple`: material → what it becomes once the fallen tree lies still (trunk → log). */
+        felled: z.record(MaterialIdSchema, MaterialRefSchema).default({}),
       }),
     )
     .max(16)

@@ -76,6 +76,8 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** Ticks after a blast that a tree it undermined still falls away from it. */
+const HIT_LINGER = 40;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
 /**
@@ -588,6 +590,8 @@ export class World implements SimApi {
   } | null;
 
   tick = 0;
+  /** Tick the last op touched props (`groups.hitX`). */
+  private hitTick = 0;
   phase: Phase = 'aim';
   /** Wind now: the turn's base plus the current gust (fixed-point cells/tick²). */
   wind = 0;
@@ -1277,6 +1281,7 @@ export class World implements SimApi {
       this.ops.length === this.idleOps &&
       this.fronts.length === 0 &&
       this.debris.count === 0 &&
+      !this.groups.toppling &&
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
@@ -1384,6 +1389,7 @@ export class World implements SimApi {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
       else this.groups.settled();
+      if (this.groups.toppling) this.groups.stepTopple(this.grid, this);
     }
     // everything has come to rest after a change: what hangs too far for its material comes
     // down (§4b); never while an op is still shaping the ground (a growing ice wall)
@@ -1405,6 +1411,8 @@ export class World implements SimApi {
       }
       if (this.quiet) this.endTurn();
     }
+    // a tree the last blast undermined still falls away from it for a moment after
+    if (this.groups.hitX >= 0 && this.tick - this.hitTick > HIT_LINGER) this.groups.hitX = -1;
     this.tick++;
   }
 
@@ -3304,7 +3312,8 @@ export class World implements SimApi {
               const i = cy * W + cx;
               const m = mat[i]!;
               const c = m === 0 ? 0 : chance[m]!;
-              if (c > 0) {
+              // a tree already going over keeps its crown on the way down
+              if (c > 0 && (g.group[i] === 0 || !this.groups.toppler.falling(g.group[i]!))) {
                 const dx = cx - p.x;
                 const d = isqrt(dx * dx + dy * dy);
                 // strong through most of the band, easing off near its reach: 1 - t² of full
@@ -3430,7 +3439,12 @@ export class World implements SimApi {
     const shielded = this.groups.any && this.groups.shieldBegin(this.grid, x, y, radius);
     const data = site.b.start(this, site.params, call);
     if (shielded) this.groups.shieldEnd(this.grid);
-    if (this.groups.any) this.groups.guard(this.grid, call.damageTypeIndex, this);
+    if (this.groups.any) {
+      this.groups.hitX = Math.max(0, x);
+      this.groups.hitR = radius;
+      this.hitTick = this.tick;
+      this.groups.guard(this.grid, call.damageTypeIndex, this);
+    }
     if (data) this.ops.push({ op, call, t: 0, data });
   }
 
@@ -3450,7 +3464,12 @@ export class World implements SimApi {
       const shielded = this.groups.any && this.groups.shieldBegin(this.grid, c.x, c.y, c.radius);
       const more = site.b.step?.(this, site.params, inst) ?? false;
       if (shielded) this.groups.shieldEnd(this.grid);
-      if (this.groups.any) this.groups.guard(this.grid, c.damageTypeIndex, this);
+      if (this.groups.any) {
+        this.groups.hitX = Math.max(0, c.x);
+        this.groups.hitR = c.radius;
+        this.hitTick = this.tick;
+        this.groups.guard(this.grid, c.damageTypeIndex, this);
+      }
       if (more) next.push(inst);
       if (more === 'idle') idle++;
     }

@@ -35,3 +35,52 @@ describe('prop.tree', () => {
     expect(dug(199, 200)).toBe(0);
   });
 });
+
+describe('prop.tree falling', () => {
+  it('is blown apart instead when the blast is close', () => {
+    const w = propWorld('prop.tree', 200);
+    dropAt(w, 'weapon.shockwave', 222);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
+    expect(countCells(w, 'material.log')).toBe(0);
+    expect(countCells(w, 'material.splinter')).toBeGreaterThan(40);
+  });
+
+  it('snaps at the trunk and falls away at the edge of a blast, leaving a stump and a log', () => {
+    const w = propWorld('prop.tree', 200);
+    const wood = countCells(w, 'material.wood');
+    dropAt(w, 'weapon.shockwave', 252);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
+    expect(w.quiet).toBe(true);
+    // a stump of trunk stays where it grew
+    const stump = countCells(w, 'material.wood');
+    expect(stump).toBeGreaterThan(0);
+    expect(stump).toBeLessThan(12);
+    // the rest lies as a log on the side away from the blast, down on the ground (or on the dirt the blast heaped up)
+    const log = w.mats.cellOf('material.log');
+    let left = 0;
+    let right = 0;
+    let high = 0;
+    for (let y = 100; y < 170; y++)
+      for (let x = 150; x < 250; x++) {
+        if (w.grid.get(x, y) !== log) continue;
+        if (x < 199) left++;
+        else if (x > 202) right++;
+        if (y < 125) high++;
+      }
+    expect(left).toBeGreaterThan(wood / 2);
+    expect(right).toBeLessThan(left / 4);
+    expect(high).toBe(0);
+    expect(groupCells(w)).toBe(0);
+  });
+
+  it('tips the way it leans once it is undermined on one side', () => {
+    const w = propWorld('prop.tree', 200);
+    // dig the ground away to the right of the trunk and under its right half
+    for (let x = 201; x <= 230; x++) for (let y = 150; y < 175; y++) w.grid.set(x, y, 0);
+    w.grid.markDirty(160, 100, 240, 175);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
+    expect(w.quiet).toBe(true);
+    expect(groupCells(w)).toBe(0);
+    expect(countCells(w, 'material.log')).toBeGreaterThan(40);
+  });
+});
