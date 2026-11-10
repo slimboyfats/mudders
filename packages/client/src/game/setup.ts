@@ -208,6 +208,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     startingCash: s.startingCash,
     // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)
     openingShop: true,
+    // swallow flocks over every map (a shell that hits one goes off there)
+    birds: true,
   };
   return {
     seed,

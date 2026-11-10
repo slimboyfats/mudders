@@ -37,6 +37,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Blast pressure blows the leaves off trees well beyond the crater: trunk and branches stay standing while the leaves flutter away on the wind. Shockwaves reach furthest, and a hill shelters the trees behind it',
       'Trees come alive in the wind: trunks lean downwind, crowns rock as gusts roll across the map and leaves flicker, harder the stronger it blows',
       'Six new kinds of tree: pine, birch, poplar, willow, autumn maple and bush. The Village gets a mixed wood, Lakeland willows by the water, the Glacier pines',
+      "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
     ],
   },
   {

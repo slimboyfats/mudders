@@ -1,5 +1,5 @@
 {
-  "contentHash": "61373079b2ca7bd6",
+  "contentHash": "012a2a18c49f0e4e",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 488,
@@ -352,6 +352,14 @@
     "audio.zap": {
       "ticks": 162,
       "hash": "3672c8ba78bee362"
+    },
+    "birds.pulverise": {
+      "ticks": 188,
+      "hash": "199fb2495e8eb4ab"
+    },
+    "birds.swallows": {
+      "ticks": 122,
+      "hash": "09fa14adbdcaf799"
     },
     "explosion.glob-splash": {
       "ticks": 46,

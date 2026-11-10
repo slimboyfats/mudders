@@ -16,6 +16,7 @@ import type {
   TankLook,
   Vec2,
 } from '../types';
+import { birdHit, birdPulp, drawBirds } from './birds';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
@@ -420,6 +421,8 @@ export class PixelRenderer implements Renderer {
   private rangeBuf = new Float32Array(9);
   private lastTick = 0;
   private fxTick = -1;
+  /** The sim's swallows this snapshot (see `birds.ts`). */
+  private birds: readonly number[] | undefined;
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
@@ -996,6 +999,7 @@ export class PixelRenderer implements Renderer {
     this.witherGrass();
     this.debris = s.debris;
     this.wind = s.wind;
+    this.birds = s.birds;
     this.temperature = s.temperature ?? 15;
     this.preview = s.preview ?? null;
     const zone = s.deathZone ?? 0;
@@ -1021,6 +1025,8 @@ export class PixelRenderer implements Renderer {
     while (this.fxTick < s.tick) this.stepFx();
     for (const e of s.effectEvents) {
       this.fx.handle(e);
+      if (e.type === 'birdHit') birdHit(e, this.particles);
+      else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
         this.water.blast(e);
         this.liquid.blast(e.x, e.y, e.radius);
@@ -2121,6 +2127,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawDrones(this.normal, this.additive, t);
     this.fx.drawPsiWaves(this.normal, this.additive, t);
     this.fx.drawGravity(this.normal, this.additive, t);
+    drawBirds(this.normal, this.birds, this.lastTick, luma(this.theme.skyTop) < 0.25);
     this.drawProjectiles();
     this.drawPreview(t);
     this.fx.drawGlows(this.additive, t);
@@ -3371,4 +3378,9 @@ export function rasterTrail(out: number[], x0: number, y0: number, x1: number, y
     if (n >= 2 && out[n - 2] === cx && out[n - 1] === cy) continue;
     out.push(cx, cy);
   }
+}
+
+/** Perceived brightness of 0xRRGGBB, 0..1. */
+function luma(c: number): number {
+  return (((c >> 16) & 255) * 0.3 + ((c >> 8) & 255) * 0.59 + (c & 255) * 0.11) / 255;
 }
