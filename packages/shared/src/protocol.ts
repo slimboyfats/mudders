@@ -200,6 +200,7 @@ export const NetSetupSchema = z.object({
     'caves',
     'glacier',
     'claypits',
+    'lakeland',
   ]),
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),

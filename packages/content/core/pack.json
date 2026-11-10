@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.62.0",
+  "version": "0.63.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -123,6 +123,7 @@
     "gen.glacier",
     "gen.hills",
     "gen.islands",
+    "gen.lakeland",
     "gen.marsh",
     "gen.village",
     "material.ash",

@@ -27,7 +27,8 @@ describe('material.moss', () => {
     pour(w);
     const wet = countCells(w, 'material.wet-moss');
     const total = countCells(w, 'material.moss') + wet;
-    expect(countCells(w, 'material.water')).toBe(0);
+    // water stays now; only what ran off the moss edge is left
+    expect(countCells(w, 'material.water')).toBeLessThan(120);
     expect(wet).toBeGreaterThan(400);
     // the moss mound grew by a good share of the 1200 water cells
     expect(total - before).toBeGreaterThan(400);

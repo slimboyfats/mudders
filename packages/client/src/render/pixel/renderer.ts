@@ -785,7 +785,10 @@ export class PixelRenderer implements Renderer {
             ? 0
             : this.terrain[y * this.mapWidth + x]!,
         color: (m) => this.palette.materials[m] ?? 0x7a5a3a,
-        grass: (x, y) => this.grassMask[y * this.mapWidth + x] !== 0,
+        grass: (x, y) => {
+          const gm = this.grassMask[y * this.mapWidth + x]!;
+          return gm === 1 || gm === 2;
+        },
       });
     }
     this.fx.mult = q.mult;
@@ -1394,9 +1397,11 @@ export class PixelRenderer implements Renderer {
           if (cx < 0 || cx >= w) continue;
           const j = yy * w + cx;
           this.burn[j] = stamp;
-          // and the grass under it burns away for the rest of the round
-          if (this.grassMask[j] !== 0) {
-            this.grassMask[j] = 0;
+          // and the grass under it chars for the rest of the round (3 = burnt: the turf stays,
+          // blackened, so the fire leaves a scorched skin, not a cut to bare dirt)
+          const gm = this.grassMask[j]!;
+          if (gm === 1 || gm === 2) {
+            this.grassMask[j] = 3;
             grassBurnt = true;
           }
         }
