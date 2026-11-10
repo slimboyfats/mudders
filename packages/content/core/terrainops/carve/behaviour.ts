@@ -14,7 +14,7 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 3,
+  version: 4,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
@@ -89,10 +89,15 @@ export default defineTerrainOp<z.infer<typeof params>>({
           shattered = true;
           continue;
         }
-        if (spChance[m] !== 0 && shardRoll(i) < spChance[m]!) {
-          // likewise a splashing liquid: its drops fly once the crater is open
-          splashed = true;
-          continue;
+        if (spChance[m] !== 0) {
+          // a splashing liquid is not dug like ground: water is pushed aside, not removed, so
+          // only its top rows are blown out (as drops, once the crater is open) and the body
+          // under them stays, leaving a dent that closes at once instead of a round hole
+          if (liquidDepth(mat, spChance, i, W) > SPLASH_DEPTH) continue;
+          if (shardRoll(i) < spChance[m]!) {
+            splashed = true;
+            continue;
+          }
         }
         mat[i] = 0;
         grid.coating[i] = 0;
@@ -142,6 +147,7 @@ export default defineTerrainOp<z.infer<typeof params>>({
           const s = str[m * nd + c.damageTypeIndex]!;
           if (s !== 0 && d2 * s * s > r2s) continue;
           if (shardRoll(i) >= spChance[m]!) continue;
+          if (liquidDepth(mat, spChance, i, W) > SPLASH_DEPTH) continue;
           // a crown: out from the blast and always up, faster near it, each drop a little
           // faster or slower than the next so the sheet breaks into spray
           const d = Math.max(1, Math.sqrt(d2));
@@ -188,6 +194,21 @@ export default defineTerrainOp<z.infer<typeof params>>({
     return null;
   },
 });
+
+/** Rows of a splashing liquid a blast blows out from its surface; deeper liquid stays put. */
+const SPLASH_DEPTH = 5;
+
+/** Rows of splashing liquid from cell `i` up to open air (counting `i`), capped past SPLASH_DEPTH. */
+function liquidDepth(mat: Uint8Array, splash: Uint16Array, i: number, W: number): number {
+  let d = 0;
+  for (let j = i; j >= 0 && d <= SPLASH_DEPTH; j -= W) {
+    const m = mat[j]!;
+    if (m === 0) return d;
+    if (splash[m] === 0) return SPLASH_DEPTH + 1; // under a lid of ground: buried, stays
+    d++;
+  }
+  return d;
+}
 
 /** Fixed per-cell hash in [0, 256): which carved cells of a shattering material become shards. */
 function shardRoll(i: number): number {
