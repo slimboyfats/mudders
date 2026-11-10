@@ -60,6 +60,14 @@ export class Grid {
   reactMaxX = -1;
   reactMinY = 0;
   reactMaxY = -1;
+  /**
+   * Process counters for the snapshot (cosmetic: the soundscape and effects read them; never
+   * hashed, reset at each snapshot): gas cells and burning gas cells at the last gas pass, and
+   * wet gas (steam) born from reactions since the last snapshot.
+   */
+  gasCells = 0;
+  gasHot = 0;
+  quenched = 0;
   /** Gas region (inclusive rect): where gas cells are, stepped by `gasStep`. */
   gasMinX = 0;
   gasMaxX = -1;

@@ -42,6 +42,7 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
     turn: s.turn,
     patches,
     ...(gas ? { gas } : {}),
+    ...(s.processes ? { processes: s.processes } : {}),
     entities: s.entities,
     effectEvents: s.effectEvents,
     debris: {

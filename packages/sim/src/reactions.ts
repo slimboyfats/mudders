@@ -38,6 +38,7 @@ export function place(grid: Grid, mats: MaterialTable, i: number, m: number): vo
   if (m !== 0 && mats.gasLift[m] !== 0) {
     setCell(grid, i, 0);
     grid.putGas(i, m);
+    if (mats.wet[m] !== 0) grid.quenched++;
   } else setCell(grid, i, m);
 }
 

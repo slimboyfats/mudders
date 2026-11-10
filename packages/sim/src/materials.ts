@@ -56,6 +56,9 @@ export class MaterialTable {
   readonly ruleChance = new Uint32Array(256 * MAX_REACTIONS + 1);
   /** Gas cells: 1 rises, 255 (-1) sinks, 0 = not a gas. */
   readonly gasLift = new Int8Array(256);
+  /** Tagged `hot` / `wet` (process counters for the renderer and the soundscape; not sim rules). */
+  readonly hot = new Uint8Array(256);
+  readonly wet = new Uint8Array(256);
   /** Gas vertical and sideways step chances per tick ×65536. */
   readonly gasRise = new Uint32Array(256);
   readonly gasDrift = new Uint32Array(256);
@@ -143,7 +146,11 @@ export class MaterialTable {
     const ref = (id: string) => (id === 'air' ? 0 : this.cellOf(id));
     // tag → cells carrying it, in manifest order (deterministic)
     const tagged: Record<string, number[]> = {};
-    for (const m of materials) for (const t of m.tags ?? []) (tagged[t] ??= []).push(m.cell);
+    for (const m of materials) {
+      for (const t of m.tags ?? []) (tagged[t] ??= []).push(m.cell);
+      if (m.tags?.includes('hot')) this.hot[m.cell] = 1;
+      if (m.tags?.includes('wet')) this.wet[m.cell] = 1;
+    }
     // 1 = set by a tag rule, 2 = set by an id rule (an id rule beats any tag rule)
     const by = new Uint8Array(256 * 256);
     let rule = 0;

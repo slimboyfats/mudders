@@ -116,6 +116,7 @@ const api: CaptureApi = {
         coating,
         gas,
         gasRect,
+        ...(w.processes ? { processes: w.processes } : {}),
         dirtyRects,
         entities: w.entities,
         effectEvents: w.effectEvents,

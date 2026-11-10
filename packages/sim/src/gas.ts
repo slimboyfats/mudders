@@ -15,6 +15,8 @@ import { place, react, roll, SRC_GAS } from './reactions';
  * aims. What it changes in the terrain (a flame lighting wood) marks those cells dirty as usual.
  */
 export function gasStep(grid: Grid, mats: MaterialTable, tick: number, wind: number): void {
+  grid.gasCells = 0;
+  grid.gasHot = 0;
   if (!grid.gassy) return;
   const x0 = grid.gasMinX;
   const x1 = grid.gasMaxX;
@@ -51,6 +53,10 @@ function pass(
     const g = gas[i]!;
     if (g === 0) continue;
     const L = mats.gasLift[g]!;
+    if (L === lift) {
+      grid.gasCells++;
+      if (mats.hot[g] !== 0) grid.gasHot++;
+    }
     if (L !== lift) {
       if (L !== 0) other = true;
       if (lift === 1) grid.extendGas(x, y);

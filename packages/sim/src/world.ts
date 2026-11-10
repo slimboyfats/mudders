@@ -11,6 +11,7 @@ import {
   type Impact,
   type Input,
   type ModeManifest,
+  type ProcessCounts,
   type Rect,
   type RenderSnapshot,
   type WallRule,
@@ -1178,6 +1179,15 @@ export class World implements SimApi {
   get suddenDeathActive(): boolean {
     const sd = this.suddenDeath;
     return sd !== null && Math.floor(this.turn / Math.max(1, this.tanks.length)) >= sd.fromTurn - 1;
+  }
+
+  /** What the gas layer adds to the renderer's process meter (fire crackle, gas hiss, sizzle). */
+  private processCounts(): Partial<ProcessCounts> | undefined {
+    const g = this.grid;
+    const q = g.quenched;
+    g.quenched = 0;
+    if (g.gasCells === 0 && q === 0) return undefined;
+    return { burning: g.gasHot, gassing: g.gasCells - g.gasHot, quenching: q };
   }
 
   /** Gas region at the last snapshot, so the renderer also clears where gas has left. */
@@ -3992,6 +4002,7 @@ export class World implements SimApi {
       coating: this.grid.coating,
       gas: this.grid.gas,
       gasRect: this.gasRect(),
+      processes: this.processCounts(),
       dirtyRects: this.grid.takeRenderRects(),
       entities,
       effectEvents,

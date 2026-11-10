@@ -21,6 +21,8 @@ function snap(
     height: H,
     terrain,
     coating: new Uint8Array(W * H),
+    gas: new Uint8Array(W * H),
+    gasRect: null,
     dirtyRects: dirty,
     entities,
     effectEvents: [],
