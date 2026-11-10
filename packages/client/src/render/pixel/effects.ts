@@ -303,7 +303,9 @@ export interface Incoming {
 }
 
 /** Ticks a fireball goes on letting go of burning cells into its two rolls. */
-const FIRE_FEED = 14;
+const FIRE_FEED = 10;
+/** Ticks the crater goes on smoking into the blast's turning air after it. */
+const SMOKE_FEED = 50;
 
 /** One side's roll of a blast: where its vortex turns, how wide, and how fast. */
 interface Roll {
@@ -329,6 +331,10 @@ interface BlastRolls {
   nx: number;
   ny: number;
   rolls: [Roll, Roll];
+  /** The heart's jet: unit direction and speed. */
+  jx: number;
+  jy: number;
+  up: number;
   start: number;
   left: number;
   per: number;
@@ -5006,18 +5012,18 @@ export class EffectSystem {
     const gy = nx;
     const roll = (sgn: 1 | -1): Roll => {
       const lead = 1 + 0.45 * side * sgn;
-      const R = Math.max(5, r * 0.55 * lead);
+      const R = Math.max(5, r * 0.5 * lead);
       // the eye coasts outward about a radius and a half, and lifts a little
       const out = R * 0.085;
       const spin = -sgn * (0.9 + r * 0.03) * lead;
       return {
         // starts beside the impact with its underside on the ground
-        x: e.x + gx * sgn * R * 0.35 + nx * R * 0.85,
-        y: e.y + gy * sgn * R * 0.35 + ny * R * 0.85,
+        x: e.x + gx * sgn * (r * 0.3 + R * 0.6) + nx * R * 0.85,
+        y: e.y + gy * sgn * (r * 0.3 + R * 0.6) + ny * R * 0.85,
         r: R,
         spin,
-        fx: e.x + gx * sgn * 2 + nx * 1.5,
-        fy: e.y + gy * sgn * 2 + ny * 1.5,
+        fx: e.x + gx * sgn * r * 0.3 + nx * 1.5,
+        fy: e.y + gy * sgn * r * 0.3 + ny * 1.5,
         vx: gx * sgn * out + nx * out * 0.2,
         vy: gy * sgn * out + ny * out * 0.2,
       };
@@ -5038,8 +5044,48 @@ export class EffectSystem {
       this.fluid.splat(ro.fx, ro.fy, r * 0.5, ro.vx, ro.vy, 0, 0.3, 0, false, hot);
       this.fluid.swirl?.(ro.x + ro.vx * 12, ro.y + ro.vy * 12, ro.r, ro.spin * 0.6);
     }
-    const n = Math.min(9000, Math.round(r * r * 7 * Math.max(0.3, this.mult)));
+    // the heart: a jet of burning gas off the ground, leaning the way the shell was going. The
+    // fluid swells and lifts it, and the air it drags in underneath rolls it up as it climbs
+    let jx = nx + gx * side * 0.15;
+    let jy = ny + gy * side * 0.15 - 0.35;
+    const jl = Math.hypot(jx, jy);
+    jx /= jl;
+    jy /= jl;
+    const up = 0.55 + r * 0.03;
+    this.fluid.splat(
+      e.x + jx * r * 0.3,
+      e.y + jy * r * 0.3,
+      r * 0.7,
+      jx * up,
+      jy * up,
+      0,
+      0.6,
+      0,
+      false,
+      Math.min(2, 1 + r / 40),
+    );
+    // and the heart rolls as it climbs: a pair of vortices riding up with it, turning the other
+    // way to the ground rolls (up the middle, out over the top, down the outside), so the ball
+    // curls over on both sides into a cap
+    const capR = Math.max(5, r * 0.45);
+    const capSpin = 0.9 + r * 0.03;
+    for (const sgn of [1, -1] as const) {
+      const lead = 1 + 0.3 * side * sgn;
+      this.sink.vortex?.({
+        x: e.x + jx * r * 0.75 - jy * sgn * capR * 0.8,
+        y: e.y + jy * r * 0.75 + jx * sgn * capR * 0.8,
+        vx: jx * up * 0.75,
+        vy: jy * up * 0.75,
+        r: capR * lead,
+        spin: sgn * capSpin * lead,
+        life: 140,
+      });
+    }
+    const n = Math.min(14000, Math.round(r * r * 11 * Math.max(0.3, this.mult)));
     this.fires.push({
+      jx,
+      jy,
+      up,
       x: e.x,
       y: e.y,
       r,
@@ -5061,10 +5107,51 @@ export class EffectSystem {
       );
       const n = Math.min(f.left, f.per);
       f.left -= n;
+      const age = t - f.start;
+      // the heart: most of the fire, packed over the impact and thrown up the jet. Dense enough
+      // to read as a ball; the fluid rolls it as it climbs
+      const heart = Math.round(n * 0.44);
+      const hx = f.x + f.jx * f.r * 0.7;
+      const hy = f.y + f.jy * f.r * 0.7;
+      for (let i = 0; i < heart; i++) {
+        const a = rng.next() * Math.PI * 2;
+        const d = Math.sqrt(rng.next()) * f.r * 0.42;
+        const along = rng.range(0.4, 1) * f.up * 0.75;
+        const s = rng.next() * 0.35;
+        this.particles.add({
+          x: hx + Math.cos(a) * d,
+          y: hy + Math.sin(a) * d,
+          vx: Math.cos(a) * s + f.jx * along,
+          vy: Math.sin(a) * s + f.jy * along,
+          life: rng.range(70, 200),
+          size: 1,
+          color: 0xffa020,
+          kind: PKind.Fire,
+        });
+      }
+      // then the smoke the fire leaves, pouring up out of the crater into the same turning air
+      if (age >= 4 && age < SMOKE_FEED) {
+        const puffs = Math.round(f.r * 0.9 * Math.max(0.3, this.mult) * (1 - age / SMOKE_FEED));
+        for (let i = 0; i < puffs; i++) {
+          const a = rng.next() * Math.PI * 2;
+          const d = Math.sqrt(rng.next()) * f.r * 0.45;
+          this.particles.add({
+            x: f.x + Math.cos(a) * d,
+            y: f.y - Math.abs(Math.sin(a)) * d,
+            vx: rng.range(-0.3, 0.3) + f.jx * 0.3,
+            vy: f.jy * rng.range(0.2, 0.7),
+            life: rng.range(120, 300),
+            size: 1,
+            color: SOOT[i % SOOT.length]!,
+            kind: PKind.Wisp,
+          });
+        }
+      }
+      if (n === 0) continue;
       for (const ro of f.rolls) {
         // a sheet of fire thrown out along the ground from the impact, into the underside of
         // this side's roll, which carries it up the far side and winds it in
-        const share = Math.round((n * 0.5 * ro.r) / (f.r * 0.55));
+        const share = Math.round((n * 0.28 * ro.r) / (f.r * 0.5));
         const sp = Math.abs(ro.spin);
         const sgn = ro.spin < 0 ? 1 : -1;
         for (let i = 0; i < share; i++) {
@@ -5084,7 +5171,7 @@ export class EffectSystem {
         }
       }
     }
-    this.fires = this.fires.filter((f) => f.left > 0);
+    this.fires = this.fires.filter((f) => f.left > 0 || t - f.start < SMOKE_FEED);
   }
 
   private burst(e: EffectEvent, count: number): void {

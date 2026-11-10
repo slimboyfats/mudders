@@ -261,7 +261,7 @@ export const KINDS: readonly KindPhysics[] = [
 const NK = KINDS.length;
 
 /** Most vortices turning at once (the oldest gives way), and how fast their drift dies. */
-const MAX_VORTEX = 8;
+const MAX_VORTEX = 16;
 const VORTEX_COAST = '0.95';
 
 /** The smoke fluid's velocity texture and its grid, for particles that ride the air. */
@@ -389,7 +389,7 @@ void main() {
       float prof = d * (1.5 - d) * 1.78;
       vec2 dir = off / len;
       vec2 air = va.zw * kk + (vec2(-dir.y, dir.x) * vb.y - dir * abs(vb.y) * 0.16) * prof * fade;
-      v += (air - v) * D.z * min(1.0, (1.5 - d) * 4.0) * (0.35 + 0.65 * fade);
+      v += (air - v) * D.z * 0.7 * min(1.0, (1.5 - d) * 4.0) * (0.35 + 0.65 * fade);
     }
   }
   // swirl grows as smoke ages and spreads into bigger eddies
