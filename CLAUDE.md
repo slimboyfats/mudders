@@ -31,6 +31,7 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm content:docs`: Regenerate `docs/WEAPONS.md` from manifests
 - `pnpm capture <scenario>`: Scenario → real pixel renderer in headless Chromium → `captures/<id>-<time>.mp4` + sheet + JSON
 - `pnpm capture weapon-showcase <weapon-id>`: Preset: fire the weapon at three ranges on the standard map (`--help` for options)
+- `pnpm capture <scenario> --audio`: Same, with the game's sound muxed in (SFX + fire/lava/liquid/gas soundscape, rendered offline)
 - `pnpm capture theme.<id>` or `pnpm capture <scenario> --theme theme.<id>`: Theme showcase, or any scenario in another theme
 - `pnpm audio:preview`: Render every `audio.*` item in headless Chromium (real worklet), fail on silence, write `captures/audio/*.mp3` + SFX reel
 - `pnpm --filter @mudders/content music`: Rebuild the music modules from `packages/content/scripts/make-music.ts`

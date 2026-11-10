@@ -1802,6 +1802,10 @@ a.button {
   font-weight: 700;
 }
 
+.hud-center .timer.idle {
+  visibility: hidden;
+}
+
 .hud-center .timer.low {
   background: #8a1c12;
   color: #fff;
@@ -2032,8 +2036,7 @@ a.button {
     grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
       'aim aim aim'
-      'drive weapon fire'
-      'gear gear gear';
+      'drive weapon fire';
     gap: 8px;
   }
   .controls .aim {
@@ -2070,9 +2073,6 @@ a.button {
     margin: 0;
     min-height: 56px;
     min-width: 96px;
-  }
-  .controls .weapons {
-    grid-area: gear;
   }
   .controls .aim {
     flex-wrap: wrap;
@@ -3243,6 +3243,42 @@ a.button {
   }
   .hud-center .wind {
     min-width: 0;
+  }
+  /* The dock keeps one height on every turn. Gear (a bot's battery, your parachutes) and the
+     frost/glue notes come and go with whoever's turn it is, so they float just above the dock
+     instead of adding a row and shoving the map up and down. */
+  .controls .weapons {
+    position: absolute;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(100% + 4px);
+    max-width: calc(100% - 16px);
+    flex: none;
+    overflow: visible;
+  }
+  .controls .weapons button,
+  .controls .weapons .gear-chip {
+    min-height: 40px;
+    min-width: 64px;
+    font-size: 0.8rem;
+    background: rgb(24 17 12 / 0.8);
+  }
+  .controls .aim {
+    position: relative;
+    flex-wrap: nowrap;
+  }
+  .controls .aim .frost-note,
+  .controls .aim .glue-note {
+    position: absolute;
+    left: 4px;
+    bottom: calc(100% + 12px);
+    text-shadow: 0 1px 2px #000;
+  }
+  .controls .aim .glue-note {
+    bottom: calc(100% + 28px);
+  }
+  /* the turn banner drops below the wind/round row instead of sliding under it */
+  .turn-banner {
+    top: calc(env(safe-area-inset-top) + 150px);
   }
 }
 

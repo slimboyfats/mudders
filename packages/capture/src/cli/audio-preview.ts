@@ -23,6 +23,7 @@ const MUSIC_SECONDS = Number(process.env.AUDIO_MUSIC_SECONDS ?? 30);
 interface AudioApi {
   patch(voices: SynthVoice[], radius: number, radiusRef: number): Promise<number[][]>;
   module(bytes: number[], seconds: number): Promise<number[][]>;
+  soundscape(seconds: number): Promise<number[][]>;
 }
 
 function wav(channels: number[][]): Buffer {
@@ -176,6 +177,22 @@ export async function main(): Promise<number> {
           `${a.id}: ${MUSIC_SECONDS} s via chiptune3 worklet, rms ${level.toFixed(3)} → ${out}`,
         );
       }
+    }
+    // the process soundscape (fire, lava, liquid, gas, steam loops), each layer then all at once
+    {
+      const ch = await page.evaluate(
+        (s) => (window as unknown as { __muddersAudio: AudioApi }).__muddersAudio.soundscape(s),
+        4,
+      );
+      const level = rms(ch);
+      if (level < 0.01) problems.push(`soundscape: silent (rms ${level.toFixed(4)})`);
+      const w = resolve(tmp, 'soundscape.wav');
+      writeFileSync(w, wav(ch));
+      const out = resolve(outDir, 'soundscape.mp3');
+      mp3(w, out);
+      log.push(
+        `soundscape: burning, boiling, flowing, gassing, quenching, all; rms ${level.toFixed(3)} → ${out}`,
+      );
     }
     const reelWav = resolve(tmp, 'sfx-reel.wav');
     writeFileSync(reelWav, wav(reel));

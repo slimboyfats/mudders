@@ -1,4 +1,4 @@
-import type { EffectEvent, RenderSnapshot } from '@mudders/shared';
+import type { EffectEvent, ProcessCounts, RenderSnapshot } from '@mudders/shared';
 import type { PixelTheme } from './pixel/theme';
 
 /**
@@ -107,6 +107,11 @@ export interface RendererOptions {
    * events for the audio engine. Called at most once per snapshot.
    */
   onCues?: (events: readonly EffectEvent[]) => void;
+  /**
+   * How much is burning, boiling, flowing and gassing in the world, measured from each snapshot
+   * (for the process soundscape). Called once per snapshot; the object is reused.
+   */
+  onProcesses?: (counts: Readonly<ProcessCounts>) => void;
 }
 
 export interface Renderer {

@@ -1,4 +1,4 @@
-import type { EffectEvent } from '@mudders/shared';
+import type { EffectEvent, ProcessCounts } from '@mudders/shared';
 import type { PlayScale } from './synth';
 
 /**
@@ -18,6 +18,8 @@ export interface Engine {
   music(id: string | null): void;
   play(id: string, scale?: PlayScale): void;
   events(events: readonly EffectEvent[]): void;
+  /** How much is burning, boiling, flowing, gassing, quenching now; null fades it all out. */
+  processes(counts: Readonly<Partial<ProcessCounts>> | null): void;
 }
 
 let engine: Engine | null = null;
@@ -44,6 +46,15 @@ export function sfx(id: string): void {
 /** Effect events from a render snapshot: the engine picks the sounds. */
 export function effectSounds(events: readonly EffectEvent[]): void {
   if (events.length > 0) engine?.events(events);
+}
+
+/**
+ * The world's ongoing processes (the soundscape's input): call as often as every snapshot with
+ * raw counts; `null` when the match goes away. Any source can feed it (the renderer's meter
+ * today, sim counters later).
+ */
+export function processSounds(counts: Readonly<Partial<ProcessCounts>> | null): void {
+  engine?.processes(counts);
 }
 
 function gesture(e: Event): void {

@@ -187,6 +187,18 @@ function useLastTurnWind(hud: HudState): number | null {
   return aiming ? was : null;
 }
 
+/**
+ * The turn timer's full length once a timed turn has been seen (-1 before that, or with the
+ * timer off), so the HUD can hold the timer's place while shots fly and turns change.
+ */
+function useTurnTimer(hud: HudState): number {
+  const [len, setLen] = useState(-1);
+  const s = hud.phase === 'aim' ? hud.seconds : -1;
+  // adjusting state while rendering (React's pattern for state derived from earlier props)
+  if (s > len) setLen(s);
+  return Math.max(len, s);
+}
+
 /** Who is at the controls this turn: a bot, the player, or a Telepathy caster (mind link). */
 function bannerSub(hud: HudState, bot: string): string {
   const c = hud.controller;
@@ -258,6 +270,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
   const turnKey = `${hud.round}-${hud.turn}-${hud.activePlayer}`;
   const gust = hud.windMax > 0 ? hud.windBase / hud.windMax : 0;
   const [fsHint, setFsHint] = useState(false);
+  const timer = useTurnTimer(hud);
   const fullscreen = () => {
     if (fs.mode === 'ios-hint') setFsHint(true);
     else void toggleFullscreen();
@@ -321,11 +334,20 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
             was={was}
           />
           <Temperature temp={hud.temperature} />
-          {hud.phase === 'aim' && hud.seconds >= 0 && (
-            <span className={`badge timer${hud.seconds <= 5 ? ' low' : ''}`} aria-label="Time left">
-              {hud.seconds}s
-            </span>
-          )}
+          {timer >= 0 &&
+            (hud.phase === 'aim' && hud.seconds >= 0 ? (
+              <span
+                className={`badge timer${hud.seconds <= 5 ? ' low' : ''}`}
+                aria-label="Time left"
+              >
+                {hud.seconds}s
+              </span>
+            ) : (
+              // keeps the timer's slot between turns so the wind chip and the row don't jump
+              <span className="badge timer idle" aria-hidden="true">
+                {timer}s
+              </span>
+            ))}
         </div>
         <div className="cam" role="group" aria-label="Camera">
           <button onClick={() => renderer.current?.camera.glideBy(-1)} aria-label="Zoom out">

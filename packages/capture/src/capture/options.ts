@@ -24,6 +24,8 @@ export interface CaptureOptions {
   slowmo: boolean;
   /** Theme id overriding the scenario's (`theme.*`). */
   theme: string | undefined;
+  /** Give the MP4 a soundtrack: the game's SFX and process soundscape, rendered offline. */
+  audio: boolean;
 }
 
 export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options]
@@ -42,7 +44,8 @@ export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options
   --no-cache            render even if an identical capture exists
   --no-shake            disable screen shake
   --slowmo              play the blow that decides the round in slow motion, as the game does
-  --theme <theme-id>    render with this theme (default: the scenario's, else theme.default)`;
+  --theme <theme-id>    render with this theme (default: the scenario's, else theme.default)
+  --audio               give the MP4 the game's sound (effects + fire/liquid/gas soundscape)`;
 
 export class UsageError extends Error {}
 
@@ -67,6 +70,7 @@ export function parseArgs(argv: string[]): CaptureOptions {
     shake: true,
     slowmo: false,
     theme: undefined,
+    audio: false,
   };
   let onlyGif = false;
   let onlyMp4 = false;
@@ -142,6 +146,9 @@ export function parseArgs(argv: string[]): CaptureOptions {
         break;
       case '--slowmo':
         o.slowmo = true;
+        break;
+      case '--audio':
+        o.audio = true;
         break;
       case '--theme': {
         const t = val();

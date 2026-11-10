@@ -6,6 +6,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -24,7 +25,7 @@ import { REPO_ROOT, capturesDir } from '../paths';
 import { buildRendererBundle } from './bundle';
 import { DEVICES } from './devices';
 import { DIFF_THRESHOLD, pixelDiff } from './diff';
-import { decodeRgb, encodeGif, encodeMp4, encodeSheet, fileSize } from './encode';
+import { decodeRgb, encodeGif, encodeMp4, encodeSheet, fileSize, muxAudio } from './encode';
 import type { CaptureOptions } from './options';
 import { isPreset, weaponShowcase } from './presets';
 import { toWire } from './wire';
@@ -102,6 +103,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     shake: o.shake,
     ...(o.zoom > 0 ? { zoom: o.zoom } : {}),
     ...(o.center ? { center: o.center } : {}),
+    ...(o.audio && o.mp4 ? { audio: true } : {}),
   };
 
   const key = createHash('sha256')
@@ -163,9 +165,12 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     let inflight: Promise<void>[] = [];
     // hit-stop (§2a) as in the game: big hits hold the picture while the shake plays on
     const stop = new HitStop(o.shake);
+    /** Sim tick each frame shows (for the soundtrack). */
+    const frameTicks: number[] = [];
     const grab = async (time: number): Promise<void> => {
       const held = stop.held;
       const index = frames++;
+      frameTicks.push(time);
       const snaps = pending;
       pending = [];
       for (let k = 0; k < pages.length; k++) {
@@ -255,6 +260,22 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     if (o.mp4) {
       const mp4 = resolve(out, `${id}.mp4`);
       encodeMp4(pattern, o.fps, mp4);
+      if (init.audio) {
+        const audio = content.list('audio').filter((a) => a.synth);
+        const fire = content.list('weapon').map((wp) => wp.audio?.fire);
+        const b64 = await pages[0]!.evaluate((req) => window.__mudders!.audio(req), {
+          frameTicks,
+          fps: o.fps,
+          items: audio,
+          fire,
+          sfx: 0.8,
+        });
+        const pcm = join(frameDir, 'sound.pcm');
+        writeFileSync(pcm, Buffer.from(b64, 'base64'));
+        const silent = join(frameDir, 'silent.mp4');
+        renameSync(mp4, silent);
+        muxAudio(silent, pcm, mp4);
+      }
       outputs.push(mp4);
     }
     const sidecar = resolve(out, `${id}.json`);

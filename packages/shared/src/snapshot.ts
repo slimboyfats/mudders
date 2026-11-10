@@ -121,6 +121,33 @@ export interface DecoyView {
 
 export type EntityView = TankView | ProjectileView | ZoneView | MineView | DecoyView;
 
+/**
+ * How much of each ongoing process the world holds right now, for the soundscape (§8b): the
+ * crackle, bubbling, trickle and hiss loops get louder the more there is. Counts, not 0–1 levels.
+ */
+export interface ProcessCounts {
+  /** Burning cells (flaming materials and coatings). */
+  burning: number;
+  /** Molten cells open to the air (lava, magma), bubbling. */
+  boiling: number;
+  /** Liquid cells that moved, per tick. */
+  flowing: number;
+  /** Cells covered by gas clouds, weighted toward fresh ones. */
+  gassing: number;
+  /** Hot cells quenched by liquid per tick (steam sizzle). */
+  quenching: number;
+}
+
+export type ProcessKind = keyof ProcessCounts;
+
+export const PROCESS_KINDS: readonly ProcessKind[] = [
+  'burning',
+  'boiling',
+  'flowing',
+  'gassing',
+  'quenching',
+];
+
 export interface RenderSnapshot {
   tick: number;
   /** Turns taken this round; renderers clear last turn's trails when a newer shot appears. */
@@ -158,4 +185,10 @@ export interface RenderSnapshot {
   theme: string;
   /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
   weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;
+  /**
+   * Process counts the sim measured itself (optional, not hashed). The renderer measures what it
+   * can see from the grid and takes the larger of the two per process, so a sim that tracks
+   * fire spread or steam exactly only has to fill this in.
+   */
+  processes?: Partial<ProcessCounts> | undefined;
 }

@@ -1,4 +1,5 @@
-import type { RenderSnapshot } from '@mudders/shared';
+import type { EffectEvent, RenderSnapshot } from '@mudders/shared';
+import { renderTimeline, type TimelineStep } from '../audio/timeline';
 import { PixelRenderer } from '../render/pixel/renderer';
 import type { SnapshotStream } from '../render/types';
 import type { CaptureApi, WireInit, WireSnapshot } from './wire';
@@ -13,8 +14,12 @@ let terrain = new Uint8Array(0);
 let coating = new Uint8Array(0);
 let gas = new Uint8Array(0);
 let mapW = 0;
+let init0: WireInit | null = null;
 let mapH = 0;
 const listeners: ((s: RenderSnapshot) => void)[] = [];
+/** Per snapshot: its events (plus the renderer's sound cues) and process counts (`init.audio`). */
+let timeline: TimelineStep[] = [];
+let step: TimelineStep | null = null;
 const stream: SnapshotStream = {
   subscribe(fn) {
     listeners.push(fn);
@@ -31,6 +36,7 @@ function decode(b64: string): Uint8Array {
 
 const api: CaptureApi = {
   init(init: WireInit): string {
+    init0 = init;
     mapW = init.mapWidth;
     mapH = init.mapHeight;
     terrain = new Uint8Array(mapW * mapH);
@@ -43,7 +49,17 @@ const api: CaptureApi = {
     canvas.style.display = 'block';
     document.body.appendChild(canvas);
     renderer = new PixelRenderer(mapW, mapH);
+    timeline = [];
+    const audio = init.audio
+      ? {
+          onCues: (ev: readonly EffectEvent[]) => step?.events.push(...ev),
+          onProcesses: (c: TimelineStep['processes']) => {
+            if (step) step.processes = { ...c };
+          },
+        }
+      : {};
     renderer.mount(canvas, stream, {
+      ...audio,
       quality: init.quality,
       theme: init.theme,
       palette: {
@@ -117,11 +133,30 @@ const api: CaptureApi = {
         deathZone: w.deathZone,
         preview: w.preview,
       };
+      if (init0?.audio) {
+        step = {
+          tick: w.tick,
+          events: [...w.effectEvents],
+          processes: { burning: 0, boiling: 0, flowing: 0, gassing: 0, quenching: 0 },
+        };
+        timeline.push(step);
+      }
       for (const l of listeners) l(snap);
+      step = null;
     }
     if (!draw) return '';
     renderer.render(time, held);
     return canvas.toDataURL('image/png');
+  },
+
+  async audio(req) {
+    const pcm = await renderTimeline(timeline, req);
+    const bytes = new Uint8Array(pcm.buffer);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(bin);
   },
 };
 

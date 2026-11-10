@@ -1,4 +1,5 @@
 import type { EffectEvent, EntityView, RenderSnapshot } from '@mudders/shared';
+import type { TimelineAudio } from '../audio/timeline';
 import type { PixelTheme } from '../render/pixel/theme';
 import type { MaterialLook, Quality, ShellLook, TankLook } from '../render/types';
 
@@ -26,6 +27,8 @@ export interface WireInit {
   zoom?: number;
   center?: { x: number; y: number };
   shake: boolean;
+  /** Record effect events and process counts for a soundtrack (`audio`). */
+  audio?: boolean;
 }
 
 export interface WireSnapshot {
@@ -55,6 +58,8 @@ export interface CaptureApi {
    */
   /** `held`: hit-stop ticks so far (`HitStop.held`), passed through to `render`. */
   frame(snaps: WireSnapshot[], time: number, draw: boolean, held?: number): string;
+  /** The soundtrack of everything seen so far (needs `init.audio`): base64 of mono 16-bit PCM. */
+  audio(req: TimelineAudio): Promise<string>;
 }
 
 declare global {

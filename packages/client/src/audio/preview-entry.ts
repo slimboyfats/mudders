@@ -1,5 +1,6 @@
-import type { SynthVoice } from '@mudders/shared';
+import { PROCESS_KINDS, type ProcessCounts, type SynthVoice } from '@mudders/shared';
 import { ModulePlayer } from './module';
+import { Soundscape } from './soundscape';
 import { patchLength, playVoices, radiusScale } from './synth';
 
 /**
@@ -21,6 +22,28 @@ const api = {
     const secs = patchLength(voices, scale) + 0.1;
     const ctx = new OfflineAudioContext(2, Math.ceil(secs * RATE), RATE);
     playVoices(ctx, ctx.destination, voices, 0, scale);
+    return pack(await ctx.startRendering());
+  },
+  /**
+   * The process soundscape: each layer alone swelling in, holding and dying away (`seconds` per
+   * layer), then all of them together.
+   */
+  async soundscape(seconds: number): Promise<number[][]> {
+    const n = PROCESS_KINDS.length + 1;
+    const ctx = new OfflineAudioContext(2, Math.ceil(seconds * n * RATE), RATE);
+    const scape = new Soundscape(ctx, ctx.destination);
+    const zero: ProcessCounts = { burning: 0, boiling: 0, flowing: 0, gassing: 0, quenching: 0 };
+    for (let i = 0; i < n; i++) {
+      const at = i * seconds;
+      const on = { ...zero };
+      for (const k of PROCESS_KINDS) if (i === n - 1 || PROCESS_KINDS[i] === k) on[k] = 1;
+      // a small fire first, then a big one
+      const half = { ...zero };
+      for (const k of PROCESS_KINDS) half[k] = on[k] * 0.4;
+      scape.set(half, at);
+      scape.set(on, at + seconds * 0.35);
+      scape.set(zero, at + seconds * 0.7);
+    }
     return pack(await ctx.startRendering());
   },
   async module(bytes: number[], seconds: number): Promise<number[][]> {
