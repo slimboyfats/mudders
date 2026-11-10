@@ -546,9 +546,9 @@ export class EffectSystem {
           x: e.x,
           y: e.y,
           // a short pop only: the fireball itself is burning gas in the fluid
-          r: e.radius * 1.3,
+          r: e.radius * 1.8,
           start: e.tick,
-          dur: 5,
+          dur: 9,
           color: look[0],
           strength,
         });
@@ -5081,6 +5081,38 @@ export class EffectSystem {
         life: 140,
       });
     }
+    // the bang itself: a packed ball of white-hot cells blown out from the impact in every
+    // direction the ground allows. It fills the blast radius in a few ticks and burns out fast;
+    // what is left of it is caught by the turning air and rolled up
+    const nBang = Math.min(16000, Math.round(r * r * 13 * Math.max(0.3, this.mult)));
+    const vMax = 0.5 + r * 0.13;
+    const bang = this.rngFor(e, 31);
+    for (let i = 0; i < nBang; i++) {
+      const a = bang.next() * Math.PI * 2;
+      let dx = Math.cos(a);
+      let dy = Math.sin(a);
+      // what would go into the ground comes back off it, slower
+      const into = dx * nx + dy * ny;
+      let s = Math.sqrt(bang.next()) * vMax;
+      if (into < 0) {
+        dx -= 2 * into * nx;
+        dy -= 2 * into * ny;
+        s *= 0.7;
+      }
+      const d = bang.next() * r * 0.2;
+      this.sink.add({
+        x: e.x + nx * 2 + dx * d,
+        y: e.y + ny * 2 + dy * d,
+        vx: dx * s,
+        vy: dy * s,
+        life: bang.range(14, 44),
+        size: 1,
+        color: 0xffa020,
+        kind: PKind.Bang,
+      });
+    }
+    // the air goes with it: a hard shove outward, so smoke, dust and leaves around are blown back
+    this.fluid.splat(e.x, e.y, r * 1.6, 0.6 + r * 0.06, 0, 0, 0, 0, true);
     const n = Math.min(14000, Math.round(r * r * 11 * Math.max(0.3, this.mult)));
     this.fires.push({
       jx,

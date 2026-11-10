@@ -69,6 +69,11 @@ export const PKind = {
    * fresh, its own colour, then paler as it thins out cell by cell. GPU only.
    */
   Wisp: 17,
+  /**
+   * One cell of a blast's first flash of fire: looks like {@link PKind.Fire} but passes through
+   * the ground, because the bang fills the crater it is digging and shows over its rim. GPU only.
+   */
+  Bang: 18,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

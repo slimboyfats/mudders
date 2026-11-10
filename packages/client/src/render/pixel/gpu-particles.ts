@@ -256,6 +256,8 @@ export const KINDS: readonly KindPhysics[] = [
     collide: true,
     friction: 0.9,
   }),
+  // Bang: a blast's flash of fire, thrown too hard for the air or the ground to stop at once
+  K({ flow: 0.5, jitter: 0.3, dragX: 0.95, dragY: 0.95, lift: 0.004, spread: 0.6 }),
 ];
 
 const NK = KINDS.length;
@@ -362,6 +364,9 @@ void main() {
   v.x += u_wind * (B.y + B.z * t);
   if (B.w > 0.0) v.y = min(v.y, B.w);
   if (C.x > 0.0) v.x += sin(age * 0.11 + float(gl_VertexID) * 1.7) * C.x;
+  // a thing just thrown keeps its own way for a moment before the air takes it, so a blast's
+  // fire flies out as a ball first and is rolled up after
+  D.z *= min(1.0, 0.03 + age * age / 700.0);
   // the air carries it: close part of the gap to the fluid's velocity here
   if (D.z > 0.0 && u_flowK.z > 0.0) {
     vec2 air = textureLod(u_flow, p * u_flowK.xy, 0.0).xy * u_flowK.z;
@@ -389,7 +394,9 @@ void main() {
       float prof = d * (1.5 - d) * 1.78;
       vec2 dir = off / len;
       vec2 air = va.zw * kk + (vec2(-dir.y, dir.x) * vb.y - dir * abs(vb.y) * 0.16) * prof * fade;
-      v += (air - v) * D.z * 0.7 * min(1.0, (1.5 - d) * 4.0) * (0.35 + 0.65 * fade);
+      // the roll takes a moment to wind up: the bang flies out first, then is caught
+      float wind = clamp((ag - 5.0) / 14.0, 0.0, 1.0);
+      v += (air - v) * D.z * 0.7 * wind * min(1.0, (1.5 - d) * 4.0) * (0.35 + 0.65 * fade);
     }
   }
   // swirl grows as smoke ages and spreads into bigger eddies
@@ -525,6 +532,17 @@ void main() {
                   : mix(col, shade(col, 1.3), x);
     }
     show = show && th < cover;
+  } else if (k == ${PKind.Bang}) {
+    // all fire, start to finish: white-hot for the first third, then down the ramp and out
+    float f = stepT(max(0.0, t - 0.3) / 0.7, th, 8.0);
+    col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
+                  : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), vec3(0.4, 0.1, 0.06), f * 2.0 - 1.0);
+    show = show && th < (t < 0.7 ? 1.0 : (1.0 - t) / 0.3);
+    if (u_pass == 1) {
+      show = show && f < 0.5;
+      col = vec3(1.0, 0.816, 0.376);
+      alpha = 0.4;
+    }
   } else if (k == ${PKind.Fire}) {
     // burns through the fire ramp in its first third, then is soot that pales and thins
     float x = stepT(t, th, 12.0);
