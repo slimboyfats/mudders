@@ -19,8 +19,8 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-10',
-    title: 'Living chemistry: gas and flames',
-    pack: 'core@0.62.0',
+    title: 'Living chemistry and glow in the dark',
+    pack: 'core@0.61.0 – 0.62.0',
     newSince: 'core@0.62.0',
     items: [
       'Real gas in the world: steam, flames, marsh gas and gas flares rise, drift with the wind and bubble up through water',
@@ -28,13 +28,6 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Burst gas pockets leave marsh gas hanging over the hole, and any flame sets the cloud off in a chain of flares',
       'New weapon: Bog Flask, a cloud of marsh gas waiting for a spark',
       'Materials now react by kind (anything hot, anything that burns), so new materials join in by themselves',
-    ],
-  },
-  {
-    date: '2026-11-10',
-    title: 'Glow in the dark',
-    pack: 'core@0.61.0',
-    items: [
       'Falling sand, dirt and liquids keep their own grain colour as they tumble and pour',
       'Glowing things light the ground and air in their own colour: plasma violet, crystal lilac, reactor cores green, lava and fire orange',
       'New Pitch Black theme in Settings: no light but what burns, glows or explodes. Try it on the Caves map',

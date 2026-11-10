@@ -24,7 +24,7 @@ describe('changelog', () => {
       .list('weapon')
       .filter((w) => w.shop.price > 0);
     const fresh = weapons.filter((w) => isNew(w.meta.since)).map((w) => w.id);
-    expect(fresh).toContain('weapon.kaiju');
+    expect(fresh).toContain('weapon.bog-flask');
     expect(fresh).not.toContain('weapon.mirv');
     expect(fresh.length).toBeLessThan(weapons.length / 2);
   });
