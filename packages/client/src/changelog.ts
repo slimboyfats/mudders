@@ -38,6 +38,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Trees come alive in the wind: trunks lean downwind, crowns rock as gusts roll across the map and leaves flicker, harder the stronger it blows',
       'Six new kinds of tree: pine, birch, poplar, willow, autumn maple and bush. The Village gets a mixed wood, Lakeland willows by the water, the Glacier pines',
       "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
+      'Explosions are no longer a disc: a white-hot fireball of single pixels bursts out, then the air rolls it up into a head that curls over and a swirl of fire sweeping out along the ground each side, bigger on the side the shell was heading. Smoke, sparks, embers, dust and leaves are carried round by the same air',
     ],
   },
   {
