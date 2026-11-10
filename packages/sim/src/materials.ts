@@ -104,6 +104,9 @@ export class MaterialTable {
   readonly igniteInto = new Uint8Array(256).fill(KEEP);
   readonly igniteBy = new Uint8Array(256);
   anyIgnite = false;
+  /** Chance ×65536 that blast pressure tears this cell off (leaves), and whether any material can. */
+  readonly blowOff = new Uint32Array(256);
+  anyBlowOff = false;
   /** Chance ×65536 that a tick decay of this cell sets off its `detonate` explosion. */
   readonly detonateChance = new Uint32Array(256);
   /** id → cell byte. */
@@ -233,6 +236,10 @@ export class MaterialTable {
         for (const t of m.ignite.by)
           this.igniteBy[c] = this.igniteBy[c]! | (1 << damageTypeIndex(t));
         this.anyIgnite = true;
+      }
+      if (m.blowOff && m.blowOff.chance > 0) {
+        this.blowOff[c] = Math.round(m.blowOff.chance * 65536);
+        this.anyBlowOff = true;
       }
       if (m.detonate) this.detonateChance[c] = Math.round(m.detonate.chance * 65536);
     }

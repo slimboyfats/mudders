@@ -275,6 +275,14 @@ export const MaterialSchema = z.strictObject({
     .max(4)
     .optional(),
   /**
+   * Blown off by blast pressure (leaves): a pressure front from an explosion with `pressure` tears
+   * cells of this material out of the ground or their prop, without harming anything else, with
+   * probability `chance` within the blast radius, falling off to nothing at the front's reach.
+   * Terrain or prop cells between the blast and the cell shelter it. The cells are gone from the
+   * map; renderers send them flying (`blowOff` events).
+   */
+  blowOff: z.strictObject({ chance: z.number().min(0).max(1) }).optional(),
+  /**
    * Blast-lit (gunpowder): an explosion of one of the `by` damage types that reaches this cell,
    * without carving it away, turns it into `into` (a burning fuse). Reactions light it from fire
    * and lava as usual.
@@ -398,6 +406,12 @@ const explosionBody = {
    * tank can't drive or switch on gear. 0 = none.
    */
   jam: z.number().int().min(0).max(3).default(0),
+  /**
+   * Reach of the blast's pressure front as a percent of its radius: it strips `blowOff` cells
+   * (leaves) as it passes. Unset = 250 for blast, heat and shock explosions that deal damage,
+   * else 0 (none).
+   */
+  pressure: z.number().int().min(0).max(1000).optional(),
   /** Knocks the shields of tanks in range down to nothing, however strong. */
   strip: z.boolean().default(false),
   /** Destroys up to this many spare batteries (gear that heals) carried by each tank in range. */

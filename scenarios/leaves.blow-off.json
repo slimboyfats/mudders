@@ -1,0 +1,87 @@
+{
+  "id": "leaves.blow-off",
+  "schemaVersion": 1,
+  "description": "weapon.shockwave lands in a wood: trees inside the ring are blown apart, trees beyond it stand bare as the pressure front strips their leaves and sends them fluttering away.",
+  "subject": "material.leaf",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.shockwave": 5
+      }
+    },
+    {
+      "x": 740
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.shockwave"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "props": [
+    {
+      "prop": "prop.tree",
+      "x": 430
+    },
+    {
+      "prop": "prop.tree",
+      "x": 470
+    },
+    {
+      "prop": "prop.tree",
+      "x": 520
+    },
+    {
+      "prop": "prop.tree",
+      "x": 560
+    },
+    {
+      "prop": "prop.tree",
+      "x": 690
+    },
+    {
+      "prop": "prop.tree",
+      "x": 730
+    },
+    {
+      "prop": "prop.tree",
+      "x": 770
+    }
+  ]
+}

@@ -173,6 +173,19 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Plasma: energy wisps, no weight, torn into filaments by a strong swirl
   K({ dragX: 0.975, dragY: 0.975, swirl: 0.11, sway: 0.035, spread: 0.6 }),
+  // Leaf: flung out, brakes, then flutters down on the wind, swaying wide, and lies where it lands
+  K({
+    gravity: 0.05,
+    dragX: 0.93,
+    dragY: 0.9,
+    maxFall: 0.3,
+    wind: 5,
+    sway: 0.05,
+    swirl: 0.035,
+    spread: 0.5,
+    collide: true,
+    friction: 0,
+  }),
 ];
 
 const NK = KINDS.length;
@@ -422,6 +435,13 @@ void main() {
       col = min(vec3(1.0), col * 1.3 + 0.12);
       alpha = 0.85;
     } else show = false; // settled: gone
+  } else if (k == ${PKind.Leaf}) {
+    show = show && u_pass == 0 && th < (t < 0.8 ? 1.0 : (1.0 - t) / 0.2);
+    // tumbling: flips between its light and dark face on its own beat while it moves
+    float sp = length(a_dyn.zw);
+    float beat = sp > 0.05 ? floor(age / (3.0 + th * 4.0)) : 0.0;
+    float face = mod(beat + floor(th * 2.0), 2.0);
+    col = face < 0.5 ? col : shade(col, 0.72);
   } else if (k == ${PKind.Ash}) {
     show = show && u_pass == 0 && th < (t < 0.75 ? 1.0 : (1.0 - t) / 0.25);
     col = mix(col, shade(col, 1.5), stepT(t, th, 4.0));

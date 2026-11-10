@@ -422,6 +422,40 @@ export class EffectSystem {
     sm.length = 0;
   }
 
+  /**
+   * Leaves torn off by a blast's pressure front (a run of `radius` cells on one row): each cell
+   * flies off away from the blast, faster the nearer it was, then flutters down as a leaf.
+   */
+  private blowOff(e: EffectEvent): void {
+    const rng = this.rngFor(e, 31);
+    const m = e.params.m ?? 0;
+    const base = m !== 0 ? this.probe.color(m) : 0x3f8a3a;
+    const near = (e.params.near ?? 500) / 1000;
+    const n = Math.max(1, e.radius);
+    for (let i = 0; i < n; i++) {
+      // the full run at full detail; on lower settings every other leaf
+      if (this.mult < 0.5 && (i & 1) === 1) continue;
+      const x = e.x + i + 0.5;
+      const y = e.y + 0.5;
+      const dx = x - (e.params.ox ?? x);
+      const dy = y - (e.params.oy ?? y + 1);
+      const d = Math.max(1, Math.hypot(dx, dy));
+      const sp = (0.5 + near * 2.6) * rng.range(0.6, 1.25);
+      const v = rng.range(0, 1);
+      const tone = v < 0.3 ? 0.84 : v > 0.82 ? 1.18 : 1;
+      this.particles.add({
+        x,
+        y,
+        vx: (dx / d) * sp + rng.range(-0.25, 0.25),
+        vy: (dy / d) * sp - rng.range(0.2, 0.6) * (0.4 + near),
+        life: rng.range(260, 460),
+        size: 1,
+        color: shade(base, tone),
+        kind: PKind.Leaf,
+      });
+    }
+  }
+
   /** A little puff of dust where a chunk lands hard. */
   private thud(x: number, y: number, speed: number): void {
     if (this.mult < 0.5) return;
@@ -759,6 +793,9 @@ export class EffectSystem {
         }
         break;
       }
+      case 'blowOff':
+        this.blowOff(e);
+        break;
       case 'creak':
       case 'collapse': {
         // dust off a cracking or collapsing prop: pixel dust puffs across its footprint

@@ -11,6 +11,7 @@
   "damageType": "shock",
   "falloff": "linear",
   "push": 0,
+  "pressure": 400,
   "terrainOp": {
     "use": "terrainop.displace",
     "fling": 140,

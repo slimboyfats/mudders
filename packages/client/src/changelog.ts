@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
-    pack: 'core@0.61.0 – 0.65.0',
+    pack: 'core@0.61.0 – 0.66.0',
     newSince: 'core@0.62.0',
     items: [
       'Real gas in the world: steam, flames, marsh gas and gas flares rise, drift with the wind and bubble up through water',
@@ -34,6 +34,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Water stays now: it pours, spreads and levels out into lakes instead of soaking away, and turns dirt to mud',
       'New map: Lakeland, rolling hills with lakes in the hollows. Boil them with lava or drain them with a crater',
       'Shells that hit water throw it up in a crown of real drops that rain back down, run off the banks and pour into craters',
+      'Blast pressure blows the leaves off trees well beyond the crater: trunk and branches stay standing while the leaves flutter away on the wind. Shockwaves reach furthest, and a hill shelters the trees behind it',
     ],
   },
   {

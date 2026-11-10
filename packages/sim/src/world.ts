@@ -62,7 +62,7 @@ import { Prng } from './prng';
 import { Scratch } from './scratch';
 import { supportPass } from './support';
 import { settleStep } from './settle';
-import { reactStep, turnDecay } from './reactions';
+import { reactStep, roll, turnDecay } from './reactions';
 import { gasStep } from './gas';
 import { KEEP, SETTLE_FLOW } from './materials';
 
@@ -317,9 +317,29 @@ interface RtExplosion {
   mark: number;
   markBonus: number;
   scope: number;
+  /** Reach of the pressure front in cells (0 = none), see `blowOff`. */
+  pressure: number;
   op: number;
   effects: [string, Record<string, number>][];
 }
+
+/** A blast's pressure front, expanding at `PRESSURE_SPEED` cells per tick, see `stepPressure`. */
+interface PressureFront {
+  x: number;
+  y: number;
+  /** Full strength within this radius (the blast's own). */
+  full: number;
+  reach: number;
+  /** Radius the front has covered so far. */
+  front: number;
+}
+
+/** Cells per tick a pressure front travels (the shockwave ring's speed). */
+const PRESSURE_SPEED = 6;
+/** Default pressure reach, percent of the radius, for blast, heat and shock explosions. */
+const PRESSURE_DEFAULT = 250;
+/** Shelter a cell needs between it and the blast to keep its leaves (solid 4, leaves 1). */
+const PRESSURE_SHELTER = 24;
 
 interface RtSpawn {
   /** Weapon indexes (one, or a pool to pick from). */
@@ -575,6 +595,7 @@ export class World implements SimApi {
   readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
+  private fronts: PressureFront[] = [];
   /** Ops whose last step was `'idle'` (resident: they don't hold up the turn). */
   private idleOps = 0;
   zones: Zone[] = [];
@@ -875,6 +896,15 @@ export class World implements SimApi {
       mark: e.mark,
       markBonus: e.markBonus,
       scope: e.scope,
+      pressure: Math.trunc(
+        (e.radius *
+          (e.pressure ??
+            (e.damage > 0 &&
+            (e.damageType === 'blast' || e.damageType === 'heat' || e.damageType === 'shock')
+              ? PRESSURE_DEFAULT
+              : 0))) /
+          100,
+      ),
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -1034,6 +1064,7 @@ export class World implements SimApi {
     this.projectiles = [];
     this.ops = [];
     this.idleOps = 0;
+    this.fronts = [];
     this.zones = [];
     this.mines = [];
     this.lures = [];
@@ -1218,6 +1249,7 @@ export class World implements SimApi {
     return (
       this.projectiles.length === 0 &&
       this.ops.length === this.idleOps &&
+      this.fronts.length === 0 &&
       this.debris.count === 0 &&
       !this.grid.settling &&
       !this.grid.reacting &&
@@ -1308,6 +1340,7 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     this.stepOps();
+    if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
     const settling = this.grid.settling;
@@ -3007,6 +3040,8 @@ export class World implements SimApi {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
+    if (e.pressure > e.radius && this.mats.anyBlowOff && this.fronts.length < 64)
+      this.fronts.push({ x, y, full: e.radius, reach: e.pressure, front: 0 });
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     const shooter = owner >= 0 ? this.tanks[owner] : undefined;
     const mine = shooter !== undefined && owner === this.activePlayer && this.phase === 'resolve';
@@ -3179,6 +3214,131 @@ export class World implements SimApi {
     }
   }
 
+  /**
+   * Pressure fronts (leaves blown off trees): each tick every front grows by `PRESSURE_SPEED`
+   * and rolls the `blowOff` cells in the new ring: full chance within the blast radius, easing
+   * off (1 - t²) to nothing at its reach. A cell with enough terrain (or canopy) between it and the blast
+   * is sheltered. Torn-off cells leave the map and their prop; renderers get `blowOff` runs.
+   */
+  private stepPressure(): void {
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    const chance = this.mats.blowOff;
+    const fronts = this.fronts;
+    let keep = 0;
+    for (let f = 0; f < fronts.length; f++) {
+      const p = fronts[f]!;
+      const r0 = p.front;
+      const r1 = Math.min(p.reach, r0 + PRESSURE_SPEED);
+      p.front = r1;
+      const in2 = r0 * r0;
+      const out2 = r1 * r1;
+      const span = p.reach - p.full;
+      const y0 = Math.max(0, p.y - r1 + 1);
+      const y1 = Math.min(H - 1, p.y + r1 - 1);
+      for (let cy = y0; cy <= y1; cy++) {
+        const dy = cy - p.y;
+        const xo = isqrt(out2 - dy * dy - 1);
+        const xi = in2 - dy * dy > 0 ? isqrt(in2 - dy * dy - 1) : -1;
+        // the ring's two pieces of this row: left of the inner disc, then right of it
+        for (let side = 0; side < 2; side++) {
+          const a = side === 0 ? p.x - xo : xi < 0 ? p.x - xo : p.x + xi + 1;
+          const b = side === 0 ? (xi < 0 ? p.x + xo : p.x - xi - 1) : p.x + xo;
+          if (side === 1 && xi < 0) break;
+          let run = -1;
+          let runM = 0;
+          const end = Math.min(W - 1, b);
+          for (let cx = Math.max(0, a); cx <= end + 1; cx++) {
+            let hit = 0;
+            if (cx <= end) {
+              const i = cy * W + cx;
+              const m = mat[i]!;
+              const c = m === 0 ? 0 : chance[m]!;
+              if (c > 0) {
+                const dx = cx - p.x;
+                const d = isqrt(dx * dx + dy * dy);
+                // strong through most of the band, easing off near its reach: 1 - t² of full
+                const t = d - p.full;
+                const k = d <= p.full ? c : Math.trunc((c * (span * span - t * t)) / (span * span));
+                if (roll(i, this.tick, 7) < k && !this.sheltered(p.x, p.y, cx, cy, p.full)) {
+                  g.clearCell(i);
+                  g.markDirty(cx, cy, cx, cy);
+                  hit = m;
+                }
+              }
+            }
+            if (hit !== 0 && run >= 0 && hit !== runM) {
+              this.emitBlowOff(p, run, cy, cx - run, runM);
+              run = -1;
+            }
+            if (hit !== 0 && run < 0) {
+              run = cx;
+              runM = hit;
+            } else if (hit === 0 && run >= 0) {
+              this.emitBlowOff(p, run, cy, cx - run, runM);
+              run = -1;
+            }
+          }
+        }
+      }
+      if (r1 < p.reach) fronts[keep++] = p;
+    }
+    fronts.length = keep;
+  }
+
+  /** One row run of torn-off cells: `near` (0-1000) is how close to the blast it was. */
+  private emitBlowOff(p: PressureFront, x: number, y: number, n: number, m: number): void {
+    const dx = x + (n >> 1) - p.x;
+    const dy = y - p.y;
+    const d = isqrt(dx * dx + dy * dy);
+    const near =
+      d <= p.full
+        ? 1000
+        : Math.trunc(((p.reach - Math.min(p.reach, d)) * 1000) / (p.reach - p.full));
+    this.emit('blowOff', x, y, n, { m, ox: p.x, oy: p.y, near });
+  }
+
+  /**
+   * Whether enough lies between a blast at (x0, y0) and the cell (x1, y1) to shelter it from the
+   * pressure: terrain and props count 4 per cell, other blow-off cells (canopy) 1. The blast
+   * blows through its own radius (`skip` steps), so only cover beyond it counts.
+   */
+  private sheltered(x0: number, y0: number, x1: number, y1: number, skip: number): boolean {
+    const g = this.grid;
+    const W = g.width;
+    const mat = g.material;
+    const soft = this.mats.blowOff;
+    const dx = Math.abs(x1 - x0);
+    const dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    let x = x0;
+    let y = y0;
+    let cover = 0;
+    for (let step = 0; ; step++) {
+      if (x === x1 && y === y1) return false;
+      if (step >= skip && y >= 0 && y < g.height && x >= 0 && x < W) {
+        const m = mat[y * W + x]!;
+        if (m !== 0) {
+          cover += soft[m]! > 0 ? 1 : 4;
+          if (cover > PRESSURE_SHELTER) return true;
+        }
+      }
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }
+
   /** A resonance zone under the blast scales it once and is used up (Resonator). */
   private resonate(e: RtExplosion, x: number, y: number): RtExplosion {
     for (let i = 0; i < this.zones.length; i++) {
@@ -3195,6 +3355,7 @@ export class World implements SimApi {
         radius: Math.min(400, Math.trunc((e.radius * k) / FP)),
         damage: Math.trunc((e.damage * k) / FP),
         push: Math.trunc((e.push * k) / FP),
+        pressure: Math.min(4000, Math.trunc((e.pressure * k) / FP)),
       };
     }
     return e;
@@ -4108,6 +4269,11 @@ export class World implements SimApi {
     for (const p of this.projectiles) {
       h.num(p.id).num(p.weapon).num(p.owner).num(p.x).num(p.y).num(p.vx).num(p.vy).num(p.age);
       for (const v of p.data) h.num(v);
+    }
+    // pressure fronts (kernel 0.33.0): only hashed while one runs, so other ticks keep their hashes
+    if (this.fronts.length > 0) {
+      h.num(this.fronts.length);
+      for (const p of this.fronts) h.num(p.x).num(p.y).num(p.full).num(p.reach).num(p.front);
     }
     const d = this.debris;
     h.num(d.count);
