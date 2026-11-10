@@ -10,6 +10,8 @@ import {
 
 /** Terminal fall speed in cells per tick. */
 export const MAX_FALL_SPEED = 8;
+/** How far a resting liquid looks sideways for a drop to run to. */
+const DROP_LOOK = 8;
 
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
@@ -125,7 +127,9 @@ export function settleStep(
           } else if (
             k === SETTLE_FLOW &&
             mat[idx + d] === 0 &&
-            (spread[m] === 0 || (state[idx]! & AGE_MASK) < spread[m]!)
+            (spread[m] === 0 ||
+              (state[idx]! & AGE_MASK) < spread[m]! ||
+              dropAhead(mat, idx, d, nx, W))
           ) {
             dst = idx + d;
             // a runny liquid keeps running along the surface, up to `disperse` cells, and stops
@@ -186,4 +190,18 @@ export function settleStep(
     grid.extendStruct(nMinX, nMinY, nMaxX, nMaxY);
   }
   return moved;
+}
+
+/**
+ * Whether a liquid at `idx` running sideways in direction `d` reaches a drop (air below the row)
+ * within a few cells before anything blocks it. A liquid whose spreading time is up still runs
+ * towards a drop, so a lake whose side is blasted open pours into the hole instead of standing
+ * as a slope, while a flat film or a ripple on a level lake stays put and the world goes quiet.
+ */
+function dropAhead(mat: Uint8Array, idx: number, d: number, nx: number, W: number): boolean {
+  for (let r = 0, p = idx + d, x = nx; r < DROP_LOOK; r++, p += d, x += d) {
+    if (x < 0 || x >= W || mat[p] !== 0) return false;
+    if (mat[p + W] === 0) return true;
+  }
+  return false;
 }
