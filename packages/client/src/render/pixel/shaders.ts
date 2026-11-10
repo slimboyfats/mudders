@@ -327,6 +327,8 @@ void main() {
           c = u_grass.rgb * 0.8;
         }
       }
+      // in the dark the open air and the cave walls behind it go black too
+      c *= 1.0 - u_dark * 0.82;
       // the air around a glowing cell catches a little of its colour (much more in the dark),
       // in the same hard dithered bands
       if (u_heatOn > 0.0) {
