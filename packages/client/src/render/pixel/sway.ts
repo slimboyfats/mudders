@@ -18,8 +18,8 @@ export const SWAY_LEAF = 128;
 /** Weight units per cell of bend at full wind. */
 export const SWAY_UNIT = 50;
 /** Furthest a cell is ever drawn from home, in cells (the shader's gather window). */
-export const SWAY_REACH = 4;
-/** Height over the root at which a cell bends one full unit; above it the bend grows as h². */
+export const SWAY_REACH = 6;
+/** Height over the root at which a cell bends one full unit; the bend grows as h^1.5. */
 const BEND_ROWS = 28;
 /** Rows of open air a limb may have between it and the canopy it holds up. */
 const LIMB_GAP = 3;
@@ -49,7 +49,7 @@ export function swayLooks(
 /** Bend weight of a cell `h` rows above its root (before flex), in SWAY_UNITs. */
 export function bend(h: number): number {
   const t = Math.min(h, 2 * BEND_ROWS) / BEND_ROWS;
-  return t * t;
+  return t * Math.sqrt(t);
 }
 
 /**
@@ -152,4 +152,42 @@ export function swayWind(
     speed: 0.035 + 0.045 * a,
     k: n < 0 ? -0.045 : 0.045,
   };
+}
+
+/** Blasts the trees whip away from at once (shader uniforms). */
+export const SWAY_BLASTS = 4;
+/** Ticks a tree keeps wobbling after a blast. */
+export const SWAY_BLAST_TICKS = 260;
+
+/**
+ * Recent blasts as the shader reads them: x, y, reach (cells) and tick, newest replacing the
+ * oldest. A blast whips every tree within reach away from it as its front arrives, then the tree
+ * springs back and wobbles out.
+ */
+export class SwayBlasts {
+  readonly data = new Float32Array(SWAY_BLASTS * 4);
+  count = 0;
+  private next = 0;
+
+  add(x: number, y: number, radius: number, tick: number): void {
+    const o = this.next * 4;
+    this.data[o] = x;
+    this.data[o + 1] = y;
+    this.data[o + 2] = Math.max(48, radius * 6);
+    this.data[o + 3] = tick;
+    this.next = (this.next + 1) % SWAY_BLASTS;
+    this.count = Math.min(SWAY_BLASTS, this.count + 1);
+  }
+
+  /** Whether any blast is still shaking trees at `tick`. */
+  live(tick: number): boolean {
+    for (let i = 0; i < this.count; i++)
+      if (tick - this.data[i * 4 + 3]! < SWAY_BLAST_TICKS) return true;
+    return false;
+  }
+
+  clear(): void {
+    this.count = 0;
+    this.next = 0;
+  }
 }
