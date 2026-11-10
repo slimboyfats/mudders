@@ -1,9 +1,11 @@
 import { loadContent } from '@mudders/content';
 import type { ResolvedContent } from '@mudders/sim';
-import { DAMAGE_TYPES, type AudioManifest, type EffectEvent } from '@mudders/shared';
+import type { AudioManifest, EffectEvent, ProcessCounts } from '@mudders/shared';
 import type { AudioSettings, Engine } from './bridge';
 import type { ModulePlayer } from './module';
-import { playVoices, radiusScale, UNIT, type PlayScale } from './synth';
+import { processLevels, Soundscape } from './soundscape';
+import { eventScale, SfxLimiter, soundMap, soundsFor, type SoundMap } from './sounds';
+import { playVoices, UNIT, type PlayScale } from './synth';
 
 /** Module files of every audio item, by item id (`core/audio/<name>/<file>` → `audio.<name>`). */
 const MODULE_URLS: Record<string, string> = (() => {
@@ -20,59 +22,19 @@ const MODULE_URLS: Record<string, string> = (() => {
   return out;
 })();
 
-/** At most this many SFX voices sound at once; more are dropped (a big chain stays readable). */
-const MAX_SOUNDS = 12;
-
-/** Which sounds an effect event plays: per event type, generic ids and ids per damage type. */
-export interface SoundMap {
-  generic: Record<string, string[]>;
-  byDamage: Record<string, string[]>;
-  /** Fire sound per weapon index (the sim's weapon order: ids sorted). */
-  fire: string[];
-}
-
-export function soundMap(content: ResolvedContent): SoundMap {
-  const generic: Record<string, string[]> = {};
-  const byDamage: Record<string, string[]> = {};
-  for (const a of content.list('audio')) {
-    for (const on of a.on) {
-      const key = on.damageType ? `${on.event}:${on.damageType}` : on.event;
-      const into = on.damageType ? byDamage : generic;
-      (into[key] ??= []).push(a.id);
-    }
-  }
-  const def = generic.muzzle?.[0] ?? 'audio.fire';
-  const fire = content.list('weapon').map((w) => w.audio?.fire ?? def);
-  return { generic, byDamage, fire };
-}
-
-/** The sound ids an event plays: damage-type-specific ones win over the event's generic ones. */
-export function soundsFor(map: SoundMap, e: EffectEvent): readonly string[] {
-  if (e.type === 'muzzle') {
-    const w = map.fire[e.params.weapon ?? -1];
-    return w ? [w] : (map.generic.muzzle ?? []);
-  }
-  const dt = e.params.dt;
-  if (dt !== undefined) {
-    const specific = map.byDamage[`${e.type}:${DAMAGE_TYPES[dt] ?? ''}`];
-    if (specific) return specific;
-  }
-  return map.generic[e.type] ?? [];
-}
-
 class AudioEngine implements Engine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private readonly buses = new Map<AudioManifest['bus'], GainNode>();
   private readonly items = new Map<string, AudioManifest>();
   private readonly map: SoundMap;
-  private readonly lastStart = new Map<string, number>();
-  private ends: number[] = [];
+  private readonly limit = new SfxLimiter();
   private settings: AudioSettings = { music: 0.6, sfx: 0.8, muted: false };
   private player: Promise<ModulePlayer> | null = null;
   private playing: string | null = null;
   private want: string | null = null;
   private readonly bytes = new Map<string, Promise<ArrayBuffer>>();
+  private scape: Soundscape | null = null;
 
   constructor(content: ResolvedContent) {
     for (const a of content.list('audio')) this.items.set(a.id, a);
@@ -105,6 +67,7 @@ class AudioEngine implements Engine {
       }
       this.ctx = ctx;
       this.master = master;
+      this.scape = new Soundscape(ctx, this.buses.get('sfx')!);
       this.applySettings();
       this.music(this.want);
     }
@@ -165,12 +128,15 @@ class AudioEngine implements Engine {
     const a = this.items.get(id);
     if (!a?.synth) return;
     const now = ctx.currentTime;
-    const last = this.lastStart.get(id);
-    if (last !== undefined && now - last < a.gap) return;
-    this.ends = this.ends.filter((t) => t > now);
-    if (this.ends.length >= MAX_SOUNDS) return;
-    this.lastStart.set(id, now);
-    this.ends.push(playVoices(ctx, this.buses.get(a.bus)!, a.synth.voices, now + 0.005, scale));
+    if (!this.limit.admit(id, a.gap, now)) return;
+    this.limit.playing(playVoices(ctx, this.buses.get(a.bus)!, a.synth.voices, now + 0.005, scale));
+  }
+
+  processes(counts: Readonly<Partial<ProcessCounts>> | null): void {
+    const ctx = this.ctx;
+    if (!ctx || !this.scape) return;
+    if (counts) this.scape.set(processLevels(counts), ctx.currentTime);
+    else this.scape.silence(ctx.currentTime);
   }
 
   events(events: readonly EffectEvent[]): void {
@@ -178,12 +144,7 @@ class AudioEngine implements Engine {
       for (const id of soundsFor(this.map, e)) {
         const a = this.items.get(id);
         if (!a?.synth) continue;
-        const scale = radiusScale(e.radius, a.synth.radiusRef);
-        const strength = e.params.strength;
-        this.play(
-          id,
-          strength === undefined ? scale : { ...scale, gain: scale.gain * Math.min(1.3, strength) },
-        );
+        this.play(id, eventScale(e, a.synth.radiusRef));
       }
     }
   }

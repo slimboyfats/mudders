@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
-import { effectSounds, setMusic, sfx } from '../audio/bridge';
+import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
@@ -163,6 +163,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           palette: paletteFrom(match.content),
           shake: settings.shake,
           onCues: effectSounds,
+          onProcesses: processSounds,
         });
         rendererRef.current = r;
         const size = () => {
@@ -193,6 +194,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       ro?.disconnect();
       rendererRef.current?.unmount();
       rendererRef.current = null;
+      processSounds(null);
     };
   }, [match, settings.quality, settings.shake, settings.theme, refreshHud]);
 
