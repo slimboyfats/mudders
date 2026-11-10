@@ -6155,7 +6155,7 @@ export class EffectSystem {
       });
     }
     // the gas itself spreads through the fluid
-    this.fluid.splat(e.x, e.y - 2, 8, 0, -0.6, 0, 0, 0.5);
+    this.fluid.splat(e.x, e.y - 2, 8, 0, -0.6, 0, 0, 2);
     this.tintSky([0, 0.12, 0.3, 0.02], 0.35);
   }
 

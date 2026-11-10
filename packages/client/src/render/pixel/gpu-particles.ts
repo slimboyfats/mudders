@@ -258,6 +258,20 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Bang: a blast's flash of fire, thrown too hard for the air or the ground to stop at once
   K({ flow: 0.5, jitter: 0.3, dragX: 0.95, dragY: 0.95, lift: 0.004, spread: 0.6 }),
+  // Gas: a cell of heavy gas: rides the air, but sinks through it and spreads along the ground
+  K({
+    flow: 0.45,
+    jitter: 0.2,
+    gravity: 0.012,
+    maxFall: 0.22,
+    dragX: 0.95,
+    dragY: 0.95,
+    wind: 2.5,
+    swirl: 0.02,
+    spread: 0.6,
+    collide: true,
+    friction: 0.97,
+  }),
 ];
 
 const NK = KINDS.length;
@@ -563,6 +577,11 @@ void main() {
   } else if (k == ${PKind.Wisp}) {
     show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.55 ? 1.0 : (1.0 - t) / 0.45);
     col = ramp3(shade(col, 0.55), col, shade(col, 1.45), stepT(t, th, 6.0));
+  } else if (k == ${PKind.Gas}) {
+    show = show && u_pass == 0 && th < min(1.0, t * 10.0 + 0.3) * (t < 0.6 ? 1.0 : (1.0 - t) / 0.4);
+    // each cell breathes between three tones on its own slow beat, so a still cloud shimmers
+    float beat = fract(sin(floor(age / 9.0 + th * 7.0) * 5.31 + th * 57.3) * 2843.17);
+    col = beat < 0.3 ? shade(col, 0.72) : beat < 0.8 ? col : shade(col, 1.3);
   } else if (k == ${PKind.Ember}) {
     // flickers: each ember blinks off now and then, on its own beat
     float fl = fract(sin(floor(age / 3.0) * 7.13 + th * 91.7) * 4375.85);

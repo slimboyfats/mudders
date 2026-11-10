@@ -14,7 +14,8 @@
  * drawing a disc), climbs hard, and burns out into heat and soot. A fireball is therefore a hot
  * bubble that rolls up into a pair of vortices, one each side, like a real one. Effects feed them through {@link FluidSink.splat}, in tick
  * order; the passes are deferred to draw time and run one tick at a time, so a capture replays
- * exactly. The field draws as hard colour bands dithered on the map grid (see {@link GpuFluid.draw}).
+ * exactly. Nothing of the field is painted: smoke, fire and gas show as single cells that ride
+ * its velocity (see `air.ts`).
  *
  * Needs float render targets (`EXT_color_buffer_float`); without them the fluid is off and
  * everything else carries on.
@@ -265,54 +266,6 @@ void main() {
   o = vec4(v, 0.0, 1.0);
 }`;
 
-/**
- * The field on screen: per map cell, the dye is cut into hard bands with an ordered dither on
- * the cell grid, soot greys for smoke, lit orange where it is hot, sick greens for gas.
- * Premultiplied; nothing where there is no dye or the cell is solid.
- */
-const DRAW_FS = `#version 300 es
-precision highp float;
-precision highp int;
-precision highp usampler2D;
-uniform sampler2D u_dye;
-uniform usampler2D u_terrain;
-uniform ivec2 u_map;
-uniform vec2 u_fsize;  // fluid cells across and down
-uniform int u_div;
-uniform vec2 u_view;
-uniform vec2 u_origin;
-uniform float u_scale;
-uniform float u_tick;
-out vec4 o;
-void main() {
-  vec2 px = vec2(gl_FragCoord.x, u_view.y - gl_FragCoord.y);
-  vec2 cellF = floor((px - u_origin) / u_scale);
-  ivec2 cell = ivec2(cellF);
-  if (cell.x < 0 || cell.y < 0 || cell.x >= u_map.x || cell.y >= u_map.y) discard;
-  if (texelFetch(u_terrain, cell, 0).r != 0u) discard;
-  vec2 uv = (cellF + 0.5) / (u_fsize * float(u_div));
-  vec4 d = texture(u_dye, uv);
-  // a coarse checker dither between bands (hard bands, a one-cell checker seam), crawling a
-  // cell every few ticks so a still cloud still shimmers
-  int ox = int(mod(floor(u_tick / 3.0), 2.0));
-  float dither = (((cell.x + ox) & 1) == (cell.y & 1)) ? 0.3 : 0.7;
-  float smoke = d.x;
-  float heat = d.y;
-  float gas = d.z;
-  vec3 col;
-  float alpha;
-  if (gas > smoke && gas > 0.04) {
-    float b = floor(min(gas, 1.0) * 3.0 + dither);
-    if (b < 1.0) discard;
-    col = b < 2.0 ? vec3(0.17, 0.35, 0.16) : b < 3.0 ? vec3(0.31, 0.54, 0.23) : vec3(0.48, 0.72, 0.29);
-    alpha = b < 2.0 ? 0.45 : b < 3.0 ? 0.65 : 0.8;
-  } else {
-    // smoke and fire are not drawn here: they are single cells riding this field (air.ts)
-    discard;
-  }
-  o = vec4(col * alpha, alpha);
-}`;
-
 interface Splat {
   a: [number, number, number, number];
   b: [number, number, number, number];
@@ -424,22 +377,6 @@ export class GpuFluid implements FluidSink {
     mk('div', DIV_FS, ['u_vel', 'u_dye']);
     mk('pressure', PRESSURE_FS, ['u_pressure', 'u_divergence']);
     mk('gradient', GRADIENT_FS, ['u_pressure', 'u_vel']);
-    const draw = compile(gl, FULL_VS, DRAW_FS);
-    this.progs.draw = draw;
-    const ud: Record<string, WebGLUniformLocation | null> = {};
-    for (const n of [
-      'u_dye',
-      'u_terrain',
-      'u_map',
-      'u_fsize',
-      'u_div',
-      'u_view',
-      'u_origin',
-      'u_scale',
-      'u_tick',
-    ])
-      ud[n] = gl.getUniformLocation(draw, n);
-    this.uni.draw = ud;
     this.vao = gl.createVertexArray();
   }
 
@@ -644,37 +581,6 @@ export class GpuFluid implements FluidSink {
   /** The velocity field (fluid cells per tick, RG), for particles that ride the flow. */
   get velocity(): WebGLTexture | null {
     return this.ok && this.live ? this.vel![this.cur]!.tex : null;
-  }
-
-  /** Draw the field over the scene. Blending is set here and left disabled. */
-  draw(
-    terrain: WebGLTexture,
-    view: [number, number],
-    origin: [number, number],
-    scale: number,
-  ): void {
-    if (!this.ok || !this.live) return;
-    const gl = this.gl;
-    const u = this.uni.draw!;
-    gl.useProgram(this.progs.draw!);
-    gl.bindVertexArray(this.vao);
-    this.bind(0, this.dye![this.cur]!.tex, u.u_dye!);
-    gl.activeTexture(gl.TEXTURE9);
-    gl.bindTexture(gl.TEXTURE_2D, terrain);
-    gl.uniform1i(u.u_terrain!, 9);
-    gl.uniform2i(u.u_map!, this.mapW, this.mapH);
-    gl.uniform2f(u.u_fsize!, this.w, this.h);
-    gl.uniform1i(u.u_div!, this.div);
-    gl.uniform2f(u.u_view!, view[0], view[1]);
-    gl.uniform2f(u.u_origin!, origin[0], origin[1]);
-    gl.uniform1f(u.u_scale!, scale);
-    gl.uniform1f(u.u_tick!, this.tick);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.disable(gl.BLEND);
-    gl.bindVertexArray(null);
-    gl.activeTexture(gl.TEXTURE0);
   }
 
   dispose(): void {
