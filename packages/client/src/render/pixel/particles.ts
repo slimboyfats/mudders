@@ -74,6 +74,12 @@ export const PKind = {
    * the ground, because the bang fills the crater it is digging and shows over its rim. GPU only.
    */
   Bang: 18,
+  /**
+   * One cell of a gas cloud, carried by the air like {@link PKind.Wisp} but heavier than it: it
+   * sinks, pools in hollows and creeps along the ground. Keeps its own colour, shimmering a
+   * tone up and down, and thins out cell by cell. GPU only.
+   */
+  Gas: 19,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

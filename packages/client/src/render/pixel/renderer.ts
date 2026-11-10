@@ -195,6 +195,9 @@ const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
 /** Ticks the death-zone wall takes to creep to its new line after sudden death moves it. */
 const ZONE_CREEP_TICKS = 180;
 
+/** A toxic cloud's cells, from its dense heart out to its rim. */
+const CLOUD_TONES = [0x4a7a0c, 0x8cc81a, 0xa6e024, 0xb8ec2c] as const;
+
 export class PixelRenderer implements Renderer {
   readonly camera: Camera;
   private gl!: WebGL2RenderingContext;
@@ -1435,8 +1438,14 @@ export class PixelRenderer implements Renderer {
     const f = this.fluid;
     if (f.ok) {
       for (const z of this.zones) {
+        const pf = z.puffs;
+        if (pf && pf.length > 0) {
+          const grow = Math.min(1, 0.3 + (z.age ?? 1000) / 50);
+          const r = Math.max(3, z.puffRadius ?? 10) * grow;
+          this.air.cloud(pf, r, z.turns <= 1 ? 0.7 : 1, CLOUD_TONES, this.probe.solid);
+        }
         if (z.look !== 'gas' && z.look !== 'toxic') continue;
-        f.splat(z.x, z.y, z.radius * 0.8, this.wind * 20, 0, 0, 0, 0.06);
+        this.air.splat(z.x, z.y, z.radius * 0.8, this.wind * 20, 0, 0, 0, 0.06);
       }
     }
     f.step(this.wind);
@@ -2151,8 +2160,7 @@ export class PixelRenderer implements Renderer {
     gl.blendFunc(gl.ONE, gl.ONE);
     this.additive.flush(view, origin, scale);
     gl.disable(gl.BLEND);
-    // the smoke field sits over the ground and under the particles, sparks and shells
-    this.fluid.draw(this.terrainTex, view, origin, scale);
+    // smoke, fire and gas are particles carried by the fluid's velocity field
     const air = this.fluid.velocity;
     this.particles.draw(
       this.terrainTex,
