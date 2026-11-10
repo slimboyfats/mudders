@@ -298,6 +298,11 @@ export const MaterialSchema = z.strictObject({
       glint: z.boolean().default(false),
       /** Gas: share of its cells drawn (ordered dither), so thin gas reads as a haze of pixels. */
       cover: z.number().min(0).max(1).default(1),
+      /**
+       * Glows: lights the ground and air around it in this colour, in hard dithered bands
+       * (plasma violet, reactor green). Hot and flaming cells without it glow warm orange.
+       */
+      emit: HexColorSchema.optional(),
     })
     .optional(),
 });
@@ -971,6 +976,11 @@ export const ThemeSchema = z.strictObject({
   scanlines: z.number().min(0).max(1).default(0),
   /** Lightning flicker in the sky every N ticks on average (storms); 0 = never. */
   flicker: z.number().int().min(0).max(3600).default(0),
+  /**
+   * Darkness, 0–1: unlit ground falls toward black, and only what burns or glows (lava, flames,
+   * plasma, crystal: materials with a glow) and blasts light it, further than in daylight.
+   */
+  dark: z.number().min(0).max(1).default(0),
   /**
    * Painted scenery behind the battlefield (cosmetic): shaded pixel clouds, up to three parallax
    * ranges (far to near, hazing into the sky's bottom colour) and the grass on topsoil materials.

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Flame",
     "description": "A tongue of fire in the air. Burning ground throws flames up that flicker and rise for a moment before they go out. They light anything that burns, singe tanks they lick and turn to steam on water.",
-    "since": "core@0.61.0",
+    "since": "core@0.62.0",
     "color": "#ffb43a"
   },
   "cell": 30,

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Gas flare",
     "description": "Marsh gas going up in flames: a blinding flash of fire that leaps from cell to cell through the cloud, burns tanks caught in it, lights what it touches and now and then bangs.",
-    "since": "core@0.61.0",
+    "since": "core@0.62.0",
     "color": "#fff0a0"
   },
   "cell": 33,

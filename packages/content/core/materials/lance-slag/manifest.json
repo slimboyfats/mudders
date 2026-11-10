@@ -31,6 +31,7 @@
   "look": {
     "cycle": ["#fff4c0", "#ffd36a", "#ffa63a", "#ff7a24", "#ffa63a", "#ffd36a"],
     "cycleTicks": 4,
-    "hot": true
+    "hot": true,
+    "emit": "#ffc060"
   }
 }

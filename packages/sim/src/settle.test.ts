@@ -1,6 +1,6 @@
 import type { MaterialManifest } from '@mudders/shared';
 import { describe, expect, it } from 'vitest';
-import { Grid } from './grid';
+import { Grid, grainShade } from './grid';
 import { MaterialTable } from './materials';
 import { MAX_FALL_SPEED, settleStep } from './settle';
 
@@ -42,6 +42,20 @@ describe('MaterialTable', () => {
 });
 
 describe('settleStep', () => {
+  it("carries each grain's cosmetic shade down with it", () => {
+    const g = new Grid(8, 20);
+    g.set(3, 2, 1);
+    g.set(4, 2, 1);
+    g.markDirty(3, 2, 4, 2);
+    const a = grainShade(3, 2);
+    const b = grainShade(4, 2);
+    expect(a).toBeGreaterThan(0);
+    run(g);
+    expect(g.get(3, 19)).toBe(1);
+    expect(g.shade[19 * 8 + 3]).toBe(a);
+    expect(g.shade[19 * 8 + 4]).toBe(b);
+  });
+
   it('drops a floating dirt cell with acceleration and stops on the floor', () => {
     const g = new Grid(5, 60);
     g.set(2, 0, 1);

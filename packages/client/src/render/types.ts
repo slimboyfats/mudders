@@ -92,6 +92,11 @@ export interface MaterialLook {
   glint?: boolean;
   /** Gas only: share of its cells drawn, as an ordered dither. */
   cover?: number;
+  /**
+   * 0xRRGGBB light the cell gives off onto the ground and air near it (plasma violet, reactor
+   * green). Hot and flaming cells without one glow the warm heat colour.
+   */
+  emit?: number;
 }
 
 export interface RendererOptions {

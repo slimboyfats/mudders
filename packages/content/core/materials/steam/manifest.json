@@ -4,7 +4,7 @@
   "meta": {
     "name": "Steam",
     "description": "Boiled water. Rises in a white, ragged cloud where water meets fire or lava, drifts with the wind and thins away.",
-    "since": "core@0.61.0",
+    "since": "core@0.62.0",
     "color": "#dfe6ee"
   },
   "cell": 31,

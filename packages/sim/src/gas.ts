@@ -140,6 +140,7 @@ function pass(
       ) {
         // a bubble: rising gas trades places with the liquid above it
         mat[i] = mu;
+        grid.shade[i] = grid.shadeOf(up);
         grid.coating[i] = grid.coating[up]!;
         grid.cellState[i] = grid.cellState[up]!;
         mat[up] = 0;

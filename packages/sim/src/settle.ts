@@ -35,6 +35,7 @@ export function settleStep(
   const state = grid.cellState;
   const vel = grid.fallVel;
   const group = grid.group;
+  const shade = grid.shade;
   const kind = mats.settle;
   const density = mats.density;
   const spread = mats.spread;
@@ -75,6 +76,9 @@ export function settleStep(
         const ss = state[idx]!;
         state[idx] = state[below]!;
         state[below] = ss;
+        const sh = grid.shadeOf(idx);
+        shade[idx] = grid.shadeOf(below);
+        shade[below] = sh;
         vel[idx] = 0;
         vel[below] = 1;
         grid.extendReact(x - 1, y - 1, x + 1, y + 2);
@@ -139,6 +143,7 @@ export function settleStep(
         gas[dst] = 0;
         grid.extendGas(x, y);
       }
+      shade[dst] = grid.shadeOf(idx);
       // moved reactive cells (lava, napalm, burning things) must be re-checked where they land
       if (act[m] !== 0 || turns[m] !== 0 || act[coat[dst]!] !== 0) {
         const dx0 = dst % W;

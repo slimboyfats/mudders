@@ -3,6 +3,23 @@ import type { Rect } from '@mudders/shared';
 const MAX_RENDER_RECTS = 8;
 
 /**
+ * The cosmetic grain shade a cell at (x, y) shows while it rests where the map put it: the same
+ * integer hash the terrain shader uses on its 2×2 "art pixel" (`hash(c >> 1)` in `TERRAIN_FS`),
+ * in 63 steps, packed with two bits of the cell's own hash for single-grain flecks. Never 0
+ * (0 = "not moved yet, use the position").
+ */
+export function grainShade(x: number, y: number): number {
+  const ax = x >> 1;
+  const ay = y >> 1;
+  let h = (Math.imul(ax, 374761393) + Math.imul(ay, 668265263)) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+  const tone = Math.min(62, Math.floor(((h & 1023) * 63) / 1024));
+  let f = (Math.imul(x, 2246822519) ^ Math.imul(y, 3266489917)) >>> 0;
+  f = Math.imul(f ^ (f >>> 15), 668265263) >>> 0;
+  return ((tone + 1) << 2) | ((f >>> 7) & 3);
+}
+
+/**
  * The terrain grid (§4.1): one byte of material per cell, plus a coating layer, a per-cell state
  * byte for effects, and the kernel's settle velocity. Row-major, y = 0 is the top row.
  *
@@ -26,6 +43,12 @@ export class Grid {
   readonly group: Uint8Array;
   /** The material a group cell is meant to hold; ops that change it are undone while intact. */
   readonly groupMat: Uint8Array;
+  /**
+   * Cosmetic grain shade per cell (`grainShade`), carried along when settle or debris moves a
+   * cell, so falling sand and flowing liquid keep their grains instead of shimmering through a
+   * fixed pattern. 0 = the cell never moved. Render-only: not hashed, never read by the sim.
+   */
+  readonly shade: Uint8Array;
   /** Group cells lost outside ops (burnt, collapsed edge) since the kernel last looked. */
   readonly groupLost = new Int32Array(256);
   groupLostAny = false;
@@ -100,6 +123,7 @@ export class Grid {
     this.fallVel = new Uint8Array(this.size);
     this.group = new Uint8Array(this.size);
     this.groupMat = new Uint8Array(this.size);
+    this.shade = new Uint8Array(this.size);
   }
 
   /** Empty every layer and region (new round). */
@@ -112,6 +136,7 @@ export class Grid {
     this.fallVel.fill(0);
     this.group.fill(0);
     this.groupMat.fill(0);
+    this.shade.fill(0);
     this.groupLost.fill(0);
     this.groupLostAny = false;
     this.burstCount = 0;
@@ -223,6 +248,14 @@ export class Grid {
 
   get(x: number, y: number): number {
     return this.inBounds(x, y) ? this.material[y * this.width + x]! : 0;
+  }
+
+  /** The shade a cell carries when it moves: its own, or the one its position gave it. */
+  shadeOf(i: number): number {
+    const s = this.shade[i]!;
+    if (s !== 0) return s;
+    const x = i % this.width;
+    return grainShade(x, (i - x) / this.width);
   }
 
   /** Raw write; call `markDirty` for the affected area afterwards. */

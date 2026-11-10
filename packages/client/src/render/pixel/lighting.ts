@@ -6,17 +6,28 @@
  *
  * Two kinds of source:
  * - point lights (`Lights`), up to `MAX_LIGHTS` a frame, fed from the effect system's glows;
- * - a heat field (`heatField`): per cell, the chamfer distance to the nearest hot or burning cell,
- *   rebuilt with the look scan every 20 ticks.
+ * - a glow field (`heatField`): per cell, the chamfer distance to the nearest glowing cell (lava,
+ *   flames, plasma, crystal, reactor cores: any material with a `look.emit` colour, or hot or
+ *   flaming) and which material that is, so each source lights in its own colour. Rebuilt with
+ *   the look scan every 20 ticks.
  */
 
 export const MAX_LIGHTS = 8;
-/** How far (cells) lava and flames light the ground. */
+/** How far (cells) glowing cells light the ground in ordinary themes. */
 export const HEAT_REACH = 10;
+/** How far the glow field is measured: dark themes light this far (`PixelTheme.dark`). */
+export const GLOW_REACH = 30;
+/** Look flags (renderer `lookFlags`): hot, flaming, and any glowing material. */
+export const FLAG_HOT = 2;
+export const FLAG_FLAMES = 4;
+export const FLAG_EMIT = 8;
+const GLOWS = FLAG_HOT | FLAG_FLAMES | FLAG_EMIT;
 /** Heat-field value for cells beyond `HEAT_REACH`. */
 export const HEAT_NONE = 255;
 /** Warm light colour of lava and flames. */
 export const HEAT_RGB: readonly [number, number, number] = [1.0, 0.42, 0.1];
+/** `HEAT_RGB` as 0xRRGGBB. */
+export const HEAT_HEX = 0xff6b1a;
 /** How strongly the heat field lights. */
 export const HEAT_STRENGTH = 0.5;
 /** Light bands per unit strength (hard steps, dithered between). */
@@ -102,11 +113,16 @@ export function lightAt(
   return out;
 }
 
-/** Warm light amount (0–1, before `HEAT_STRENGTH`) at a heat-field distance; 0 at sources. */
-export function heatFalloff(d: number): number {
-  if (d === 0 || d > HEAT_REACH) return 0;
-  const f = 1 - (d - 1) / HEAT_REACH;
+/** Glow amount (0–1, before `HEAT_STRENGTH`) at a glow-field distance; 0 at sources. */
+export function heatFalloff(d: number, reach: number = HEAT_REACH): number {
+  if (d === 0 || d > reach) return 0;
+  const f = 1 - (d - 1) / reach;
   return f * f;
+}
+
+/** Light reach for a theme's darkness (0–1): the dark lets glow carry further. */
+export function glowReach(dark: number): number {
+  return Math.round(HEAT_REACH + (GLOW_REACH - HEAT_REACH) * Math.min(1, Math.max(0, dark)));
 }
 
 /** One channel lit by `k` (capped so a lit tank keeps its colour instead of going white). */
@@ -126,9 +142,11 @@ export function litColor(rgb: number, l: readonly [number, number, number]): num
 }
 
 /**
- * Chamfer distance (3-4 metric, in whole cells) from every cell whose material or coating has a
- * hot (2) or flaming (4) look flag, capped at `HEAT_REACH`; `HEAT_NONE` beyond. Only the box around
- * the sources is walked. Returns whether any source exists.
+ * Chamfer distance (3-4 metric, in whole cells) from every cell whose material or coating glows
+ * (hot, flaming or emitting look flag), capped at `GLOW_REACH`; `HEAT_NONE` beyond. With `src`,
+ * also the glowing material each cell's nearest source is made of (0 beyond reach), so the
+ * renderer lights each cell in that material's colour. Only the box around the sources is walked.
+ * Returns whether any source exists.
  */
 export function heatField(
   terrain: Uint8Array,
@@ -137,15 +155,20 @@ export function heatField(
   w: number,
   h: number,
   out: Uint8Array,
+  src?: Uint8Array,
 ): boolean {
   out.fill(HEAT_NONE);
+  if (src) src.fill(0);
   let x0 = w;
   let y0 = h;
   let x1 = -1;
   let y1 = -1;
   for (let i = 0; i < terrain.length; i++) {
-    if ((flags[terrain[i]!]! & 6) === 0 && (flags[coating[i]!]! & 6) === 0) continue;
+    const tm = terrain[i]!;
+    const glowT = (flags[tm]! & GLOWS) !== 0;
+    if (!glowT && (flags[coating[i]!]! & GLOWS) === 0) continue;
     out[i] = 0;
+    if (src) src[i] = glowT ? tm : coating[i]!;
     const x = i % w;
     const y = (i - x) / w;
     if (x < x0) x0 = x;
@@ -154,12 +177,12 @@ export function heatField(
     if (y > y1) y1 = y;
   }
   if (x1 < 0) return false;
-  x0 = Math.max(0, x0 - HEAT_REACH);
-  y0 = Math.max(0, y0 - HEAT_REACH);
-  x1 = Math.min(w - 1, x1 + HEAT_REACH);
-  y1 = Math.min(h - 1, y1 + HEAT_REACH);
+  x0 = Math.max(0, x0 - GLOW_REACH);
+  y0 = Math.max(0, y0 - GLOW_REACH);
+  x1 = Math.min(w - 1, x1 + GLOW_REACH);
+  y1 = Math.min(h - 1, y1 + GLOW_REACH);
   // distances in thirds of a cell (3 straight, 4 diagonal) while walking, then whole cells
-  const cap = HEAT_REACH * 3 + 3;
+  const cap = GLOW_REACH * 3 + 3;
   const big = 250;
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -167,32 +190,65 @@ export function heatField(
       out[i] = out[i] === 0 ? 0 : big;
     }
   }
+  // two sweeps; each cell takes the nearest of its already-swept neighbours (and its source)
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       const i = y * w + x;
-      let d = out[i]!;
-      if (d === 0) continue;
-      if (x > x0) d = Math.min(d, out[i - 1]! + 3);
-      if (y > y0) {
-        d = Math.min(d, out[i - w]! + 3);
-        if (x > x0) d = Math.min(d, out[i - w - 1]! + 4);
-        if (x < x1) d = Math.min(d, out[i - w + 1]! + 4);
+      const d0 = out[i]!;
+      if (d0 === 0) continue;
+      let d = d0;
+      let n = -1;
+      if (x > x0 && out[i - 1]! + 3 < d) {
+        d = out[i - 1]! + 3;
+        n = i - 1;
       }
+      if (y > y0) {
+        if (out[i - w]! + 3 < d) {
+          d = out[i - w]! + 3;
+          n = i - w;
+        }
+        if (x > x0 && out[i - w - 1]! + 4 < d) {
+          d = out[i - w - 1]! + 4;
+          n = i - w - 1;
+        }
+        if (x < x1 && out[i - w + 1]! + 4 < d) {
+          d = out[i - w + 1]! + 4;
+          n = i - w + 1;
+        }
+      }
+      if (n < 0) continue;
       out[i] = Math.min(d, big);
+      if (src) src[i] = src[n]!;
     }
   }
   for (let y = y1; y >= y0; y--) {
     for (let x = x1; x >= x0; x--) {
       const i = y * w + x;
-      let d = out[i]!;
-      if (d === 0) continue;
-      if (x < x1) d = Math.min(d, out[i + 1]! + 3);
-      if (y < y1) {
-        d = Math.min(d, out[i + w]! + 3);
-        if (x < x1) d = Math.min(d, out[i + w + 1]! + 4);
-        if (x > x0) d = Math.min(d, out[i + w - 1]! + 4);
+      const d0 = out[i]!;
+      if (d0 === 0) continue;
+      let d = d0;
+      let n = -1;
+      if (x < x1 && out[i + 1]! + 3 < d) {
+        d = out[i + 1]! + 3;
+        n = i + 1;
       }
+      if (y < y1) {
+        if (out[i + w]! + 3 < d) {
+          d = out[i + w]! + 3;
+          n = i + w;
+        }
+        if (x < x1 && out[i + w + 1]! + 4 < d) {
+          d = out[i + w + 1]! + 4;
+          n = i + w + 1;
+        }
+        if (x > x0 && out[i + w - 1]! + 4 < d) {
+          d = out[i + w - 1]! + 4;
+          n = i + w - 1;
+        }
+      }
+      if (n < 0) continue;
       out[i] = Math.min(d, big);
+      if (src) src[i] = src[n]!;
     }
   }
   for (let y = y0; y <= y1; y++) {
@@ -200,6 +256,7 @@ export function heatField(
       const i = y * w + x;
       const d = out[i]!;
       out[i] = d === 0 ? 0 : d > cap ? HEAT_NONE : Math.max(1, Math.round(d / 3));
+      if (src && out[i] === HEAT_NONE) src[i] = 0;
     }
   }
   return true;

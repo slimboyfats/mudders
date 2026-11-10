@@ -1,0 +1,86 @@
+{
+  "id": "theme.pitch-black",
+  "schemaVersion": 1,
+  "description": "Theme showcase: a crystal cave in the dark. Napalm lights the rock orange, then a plasma cannon pours violet plasma that glows as it runs.",
+  "subject": "theme.pitch-black",
+  "mode": "mode.classic",
+  "theme": "theme.pitch-black",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.caves"
+  },
+  "tanks": [
+    {
+      "x": 72,
+      "inventory": {
+        "weapon.napalm": 5
+      }
+    },
+    {
+      "x": 725,
+      "inventory": {
+        "weapon.plasma-cannon": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.napalm"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 40,
+        "power": 420
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.plasma-cannon"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 140,
+        "power": 420
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 90
+  }
+}

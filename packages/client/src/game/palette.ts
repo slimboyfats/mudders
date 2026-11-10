@@ -28,6 +28,7 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         char: m.look.char,
         glint: m.look.glint,
         ...(m.settle === 'gas' ? { cover: m.look.cover } : {}),
+        ...(m.look.emit ? { emit: parseHex(m.look.emit, 0xffffff) } : {}),
       });
     } else if (m.settle === 'gas') {
       looks.push({ cell: m.cell, cycle: [], ticks: 1, hot: false, cover: 1 });

@@ -35,6 +35,8 @@ export interface PixelTheme {
   ground: number;
   /** Flower specks in the grass, 0–1. */
   flowers: number;
+  /** Darkness, 0–1: unlit ground falls toward black and only glow and blasts light it. */
+  dark: number;
 }
 
 export const DEFAULT_THEME: PixelTheme = {
@@ -55,6 +57,7 @@ export const DEFAULT_THEME: PixelTheme = {
   grass: -1,
   ground: 0xffffff,
   flowers: 0,
+  dark: 0,
 };
 
 /** The subset of a `theme.*` manifest the renderer reads. */
@@ -70,6 +73,7 @@ export interface ThemeData {
   snow: number;
   scanlines: number;
   flicker: number;
+  dark?: number | undefined;
   scenery: {
     clouds?: { cover: number; light: string; shadow: string } | undefined;
     ranges: string[];
@@ -106,6 +110,7 @@ export function themeFrom(m: ThemeData): PixelTheme {
     grass: m.scenery.grass ? hex(m.scenery.grass) : -1,
     ground: m.scenery.ground ? hex(m.scenery.ground) : 0xffffff,
     flowers: m.scenery.flowers ?? 0,
+    dark: m.dark ?? 0,
   };
 }
 
