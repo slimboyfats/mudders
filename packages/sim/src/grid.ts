@@ -340,7 +340,14 @@ export class Grid {
     this.settleMaxY = -1;
   }
 
-  addRenderRect(x: number, y: number, w: number, h: number): void {
+  addRenderRect(x0: number, y0: number, w0: number, h0: number): void {
+    // clip to the map: a rect hanging off an edge (settle pads its region by DROP_LOOK) makes
+    // the renderer's texture upload fail, and with it every change merged into that rect
+    const x = Math.max(0, x0);
+    const y = Math.max(0, y0);
+    const w = Math.min(this.width, x0 + w0) - x;
+    const h = Math.min(this.height, y0 + h0) - y;
+    if (w <= 0 || h <= 0) return;
     const rects = this.renderRects;
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i]!;

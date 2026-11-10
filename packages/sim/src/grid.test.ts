@@ -39,4 +39,15 @@ describe('Grid', () => {
     const r = rects.at(-1)!;
     expect(r.x + r.w).toBeGreaterThanOrEqual(90);
   });
+
+  it('clips render rects to the map, so a padded rect at an edge still uploads', () => {
+    const g = new Grid(100, 50);
+    g.addRenderRect(-32, 10, 40, 2);
+    g.addRenderRect(90, 45, 40, 20);
+    g.addRenderRect(200, 0, 5, 5);
+    expect(g.takeRenderRects()).toEqual([
+      { x: 0, y: 10, w: 8, h: 2 },
+      { x: 90, y: 45, w: 10, h: 5 },
+    ]);
+  });
 });
