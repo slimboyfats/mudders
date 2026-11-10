@@ -52,6 +52,12 @@ export const PKind = {
    * winking out cell by cell. No gravity. GPU only (the CPU model draws it as dust).
    */
   Plasma: 14,
+  /**
+   * A leaf torn off a tree by blast pressure: one cell that flies out, brakes hard in the air,
+   * then flutters down on the wind, flipping between its two faces (a light and a dark tone) as
+   * it tumbles; it lies still where it lands and winks out cell by cell. GPU only.
+   */
+  Leaf: 15,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 

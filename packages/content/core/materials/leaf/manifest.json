@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Leaves",
-    "description": "Tree canopy. Held up by its tree while it stands, then drifts down like sand. Burns fast.",
+    "description": "Tree canopy. Held up by its tree while it stands, then drifts down like sand. Burns fast. A blast's pressure blows it off the branches well beyond the crater.",
     "since": "core@0.4.0",
     "color": "#3f8a3a"
   },
@@ -20,5 +20,8 @@
   },
   "cohesion": 0,
   "coating": false,
-  "tags": ["burns"]
+  "tags": ["burns"],
+  "blowOff": {
+    "chance": 0.9
+  }
 }
