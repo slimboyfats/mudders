@@ -3204,3 +3204,83 @@ a.button {
   margin: 0 5px 0 0;
   vertical-align: 0;
 }
+
+/* ── Portrait phones: popovers stay inside the screen ──
+   The weapon grid used to hang off the weapon button's right edge at near full width, so on a
+   phone held upright its left column ran off the screen and it covered the power pill. In portrait
+   it is anchored to the whole dock instead: full width, just above the angle and power pills,
+   scrolling up and down. */
+@media (max-aspect-ratio: 1/1) {
+  .controls {
+    position: relative;
+  }
+  .controls:has(.weapon-picker.open) {
+    z-index: 7;
+  }
+  .controls .weapon-picker {
+    position: static;
+    min-width: 0;
+  }
+  .controls .weapon-pop {
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: calc(100% + 8px);
+    width: auto;
+    max-height: min(58vh, 520px);
+    overscroll-behavior: contain;
+  }
+  .controls .weapon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(124px, 40vw), 1fr));
+  }
+  .controls .weapon-cycle {
+    left: 8px;
+    right: 8px;
+  }
+  .hud-center {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    max-width: 100%;
+  }
+  .hud-center .wind {
+    min-width: 0;
+  }
+}
+
+/* portrait phones up to 440px wide: slimmer drive buttons so the weapon name fits,
+   and the wind chip shrinks so the turn timer stays on screen */
+@media (max-aspect-ratio: 1/1) and (max-width: 440px) {
+  .controls {
+    gap: 6px;
+  }
+  .controls .drive {
+    gap: 2px;
+  }
+  .controls .drive-btn {
+    min-width: 34px;
+  }
+  .controls .drive-left {
+    min-width: 2.2em;
+    font-size: 0.72rem;
+  }
+  .controls .drive-left .fuel {
+    font-size: 0.62rem;
+  }
+  .controls .fire {
+    min-width: 72px;
+    font-size: 1.05rem;
+  }
+  .controls .weapon-btn {
+    column-gap: 4px;
+    padding: 4px 18px 4px 10px;
+  }
+  .controls .weapon-btn .wname {
+    font-size: 0.92rem;
+  }
+  .hud-center {
+    gap: 4px;
+  }
+  .hud-center .badge,
+  .hud-center .wind {
+    padding: 5px 7px;
+  }
+}
