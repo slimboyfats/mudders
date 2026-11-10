@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
-    pack: 'core@0.61.0 – 0.65.0',
+    pack: 'core@0.61.0 – 0.66.0',
     newSince: 'core@0.62.0',
     items: [
       'Real gas in the world: steam, flames, marsh gas and gas flares rise, drift with the wind and bubble up through water',

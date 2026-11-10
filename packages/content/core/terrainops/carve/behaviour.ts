@@ -14,7 +14,7 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 4,
+  version: 5,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
@@ -159,6 +159,9 @@ export default defineTerrainOp<z.infer<typeof params>>({
           );
           const vx = Math.trunc((dx * sp) / d);
           const vy = -Math.trunc((sp * 3) / 4) - Math.trunc((Math.abs(dy) * sp) / (2 * d));
+          // a drop lands fresh: it spreads and levels out again instead of keeping the age of
+          // the still water it was thrown from (which would leave it piled where it fell)
+          grid.cellState[i] = 0;
           if (!api.launch(i, vx, vy)) {
             mat[i] = 0;
             grid.coating[i] = 0;
