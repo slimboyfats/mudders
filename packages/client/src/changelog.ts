@@ -38,6 +38,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Trees come alive in the wind: trunks lean downwind, crowns rock as gusts roll across the map and leaves flicker, harder the stronger it blows',
       'Six new kinds of tree: pine, birch, poplar, willow, autumn maple and bush. The Village gets a mixed wood, Lakeland willows by the water, the Glacier pines',
       'Trees snap and fall: a hard hit breaks a tree at the trunk, and it tips over in one piece away from the blast, faster as it goes, crashing down as a log beside its stump in a burst of dust. A direct hit still blows it to splinters',
+      'Blasts set trees on fire: the heat of an explosion lights the crowns nearest to it, pine needles and dry autumn leaves most readily, and the fire eats down the tree. Fire blasts light them twice as readily',
       "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
     ],
   },

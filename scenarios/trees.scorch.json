@@ -1,0 +1,75 @@
+{
+  "id": "trees.scorch",
+  "schemaVersion": 1,
+  "description": "A missile lands in a wood: the crowns nearest the blast catch fire from its heat and burn down, those further out only lose leaves.",
+  "subject": "prop.pine",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 790
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.003,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 525
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 450,
+    "untilSettled": false,
+    "extraTicks": 0
+  },
+  "props": [
+    {
+      "prop": "prop.pine",
+      "x": 497
+    },
+    {
+      "prop": "prop.tree",
+      "x": 552
+    },
+    {
+      "prop": "prop.maple",
+      "x": 590
+    },
+    {
+      "prop": "prop.pine",
+      "x": 620
+    }
+  ]
+}

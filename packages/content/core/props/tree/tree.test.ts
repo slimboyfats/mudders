@@ -36,6 +36,23 @@ describe('prop.tree', () => {
   });
 });
 
+describe("prop.tree in a blast's heat", () => {
+  it('catches fire when a blast goes off close by, and burns down', () => {
+    const w = propWorld('prop.tree', 200);
+    dropAt(w, 'weapon.missile', 230);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
+    expect(countCells(w, 'material.ash')).toBeGreaterThan(50);
+  });
+
+  it('only loses leaves to one further off', () => {
+    const w = propWorld('prop.tree', 200);
+    dropAt(w, 'weapon.missile', 260);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
+    expect(countCells(w, 'material.ash')).toBe(0);
+    expect(countCells(w, 'material.wood')).toBeGreaterThan(90);
+  });
+});
+
 describe('prop.tree falling', () => {
   it('is blown apart instead when the blast is close', () => {
     const w = propWorld('prop.tree', 200);

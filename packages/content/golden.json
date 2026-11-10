@@ -1,5 +1,5 @@
 {
-  "contentHash": "a2e6899b8029dc69",
+  "contentHash": "d887f72ee058e368",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 488,
@@ -494,8 +494,8 @@
       "hash": "90f4dbd77688c4d4"
     },
     "gen.lakeland": {
-      "ticks": 1534,
-      "hash": "4f1a08278602015e"
+      "ticks": 3000,
+      "hash": "e02ff8a917aa7070"
     },
     "gen.marsh": {
       "ticks": 377,
@@ -750,8 +750,8 @@
       "hash": "8b8c0470b88ed3ef"
     },
     "material.water": {
-      "ticks": 1427,
-      "hash": "849bac04d75aee4d"
+      "ticks": 1326,
+      "hash": "368e27565af42923"
     },
     "material.wet-clay": {
       "ticks": 509,
@@ -835,7 +835,7 @@
     },
     "shockwave.fling-nuke": {
       "ticks": 577,
-      "hash": "8ea37f8c2a1c429e"
+      "hash": "d5300512b0b6ec1b"
     },
     "shockwave.fling": {
       "ticks": 240,
@@ -1091,7 +1091,11 @@
     },
     "trees.nuke": {
       "ticks": 600,
-      "hash": "24fd94fa49fbff85"
+      "hash": "818dda64855dcff4"
+    },
+    "trees.scorch": {
+      "ticks": 450,
+      "hash": "1138820bd74bca57"
     },
     "trees.shockwave": {
       "ticks": 330,

@@ -107,6 +107,10 @@ export class MaterialTable {
   /** Chance ×65536 that blast pressure tears this cell off (leaves), and whether any material can. */
   readonly blowOff = new Uint32Array(256);
   anyBlowOff = false;
+  /** Chance ×65536 that a blast's heat flash lights this cell, what it turns into, and whether any can. */
+  readonly flashChance = new Uint32Array(256);
+  readonly flashInto = new Uint8Array(256);
+  anyFlash = false;
   /** Chance ×65536 that a tick decay of this cell sets off its `detonate` explosion. */
   readonly detonateChance = new Uint32Array(256);
   /** id → cell byte. */
@@ -240,6 +244,11 @@ export class MaterialTable {
       if (m.blowOff && m.blowOff.chance > 0) {
         this.blowOff[c] = Math.round(m.blowOff.chance * 65536);
         this.anyBlowOff = true;
+      }
+      if (m.flash && m.flash.chance > 0) {
+        this.flashChance[c] = Math.round(m.flash.chance * 65536);
+        this.flashInto[c] = ref(m.flash.into);
+        this.anyFlash = true;
       }
       if (m.detonate) this.detonateChance[c] = Math.round(m.detonate.chance * 65536);
     }
