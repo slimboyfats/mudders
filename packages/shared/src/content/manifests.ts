@@ -235,6 +235,18 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Splashing (liquids): a carve throws about `chance` of the cells it blows out of this material
+   * up and out of the crater as drops of the same liquid (sim debris), faster near the blast, so
+   * a shell into a lake sends up a crown of water that rains back down and runs off.
+   */
+  splash: z
+    .strictObject({
+      chance: z.number().min(0).max(1),
+      /** Launch speed near the blast, cells per tick. */
+      speed: z.number().min(0.1).max(8),
+    })
+    .optional(),
+  /**
    * Bursting (gas pockets): when a cell of this material touches open air, the whole connected
    * pocket (up to `max` cells) turns to air at once and `weapon`'s impacts go off at its middle,
    * credited to the player whose turn it is. A burst can uncover the next pocket (chains).

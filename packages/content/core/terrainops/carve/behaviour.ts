@@ -14,7 +14,7 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 2,
+  version: 3,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
@@ -40,7 +40,9 @@ export default defineTerrainOp<z.infer<typeof params>>({
     const cRatio = mats.compactRatio;
     const sInto = mats.shatterInto;
     const sKeep = mats.shatterKeep;
+    const spChance = mats.splashChance;
     let shattered = false;
+    let splashed = false;
     // Per column (x - x0): summed compaction ratio ×256, and the lowest carved row.
     const cols = x1 - x0 + 1;
     const q = api.scratch.queue;
@@ -87,6 +89,11 @@ export default defineTerrainOp<z.infer<typeof params>>({
           shattered = true;
           continue;
         }
+        if (spChance[m] !== 0 && shardRoll(i) < spChance[m]!) {
+          // likewise a splashing liquid: its drops fly once the crater is open
+          splashed = true;
+          continue;
+        }
         mat[i] = 0;
         grid.coating[i] = 0;
         grid.cellState[i] = 0;
@@ -117,6 +124,39 @@ export default defineTerrainOp<z.infer<typeof params>>({
           if (!api.launch(i, vx, vy)) {
             mat[i] = 0;
             grid.coating[i] = 0;
+            grid.fallVel[i] = 0;
+          }
+        }
+      }
+    }
+    if (splashed) {
+      const spSpeed = mats.splashSpeed;
+      for (let y = y0; y <= y1; y++) {
+        const dy = y - c.y;
+        for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+          const m = mat[i]!;
+          if (m === 0 || spChance[m] === 0) continue;
+          const dx = x - c.x;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > R * R) continue;
+          const s = str[m * nd + c.damageTypeIndex]!;
+          if (s !== 0 && d2 * s * s > r2s) continue;
+          if (shardRoll(i) >= spChance[m]!) continue;
+          // a crown: out from the blast and always up, faster near it, each drop a little
+          // faster or slower than the next so the sheet breaks into spray
+          const d = Math.max(1, Math.sqrt(d2));
+          const jitter = 160 + (shardRoll(i + 7919) >> 1);
+          const sp = Math.trunc(
+            (((spSpeed[m]! * (FP >> 8) * (R + 2 - Math.min(R, Math.trunc(d)))) / (R + 2)) *
+              jitter) /
+              256,
+          );
+          const vx = Math.trunc((dx * sp) / d);
+          const vy = -Math.trunc((sp * 3) / 4) - Math.trunc((Math.abs(dy) * sp) / (2 * d));
+          if (!api.launch(i, vx, vy)) {
+            mat[i] = 0;
+            grid.coating[i] = 0;
+            grid.cellState[i] = 0;
             grid.fallVel[i] = 0;
           }
         }

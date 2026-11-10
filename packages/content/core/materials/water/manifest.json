@@ -18,6 +18,10 @@
     "dig": 0.2
   },
   "cohesion": -0.5,
+  "splash": {
+    "chance": 0.85,
+    "speed": 6
+  },
   "coating": false,
   "tags": ["wet"],
   "reactions": [

@@ -12,6 +12,10 @@
   "density": 40,
   "strength": {},
   "cohesion": 0.6,
+  "splash": {
+    "chance": 0.6,
+    "speed": 3
+  },
   "coating": true,
   "reactions": [
     {

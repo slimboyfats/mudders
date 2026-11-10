@@ -84,6 +84,9 @@ export class MaterialTable {
   readonly shatterInto = new Uint8Array(256).fill(KEEP);
   readonly shatterKeep = new Uint16Array(256);
   readonly shatterSpeed = new Uint16Array(256);
+  /** Splashing (liquids): share of carved cells thrown as drops ×256, launch speed ×256. */
+  readonly splashChance = new Uint16Array(256);
+  readonly splashSpeed = new Uint16Array(256);
   /** Bursting (gas pockets): biggest pocket per burst, 0 = never bursts. */
   readonly burstMax = new Uint16Array(256);
   /** Weapon id whose impacts a burst runs, per cell ('' = none). */
@@ -206,6 +209,10 @@ export class MaterialTable {
         this.shatterInto[c] = ref(m.shatter.into);
         this.shatterKeep[c] = Math.round(m.shatter.keep * 256);
         this.shatterSpeed[c] = Math.round(m.shatter.speed * 256);
+      }
+      if (m.splash) {
+        this.splashChance[c] = Math.round(m.splash.chance * 256);
+        this.splashSpeed[c] = Math.round(m.splash.speed * 256);
       }
       if (m.burst) {
         this.burstMax[c] = m.burst.max;

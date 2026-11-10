@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCells, flatWorld } from '../../../src/testing';
+import { countCells, dropAt, flatWorld } from '../../../src/testing';
 
 describe('material.water', () => {
   it('quenches lava into rock', () => {
@@ -46,5 +46,34 @@ describe('material.water', () => {
     // and it stays: a long wait later it is all still there
     w.run(1200);
     expect(countCells(w, 'material.water')).toBe(cells);
+  });
+
+  it('splashes: a shell into a pond throws drops of water out over the banks', () => {
+    const w = flatWorld();
+    const water = w.mats.cellOf('material.water');
+    // a pond 60 wide and 20 deep, full to the brim
+    for (let x = 170; x < 230; x++) for (let y = 150; y < 170; y++) w.grid.set(x, y, water);
+    w.grid.markDirty(170, 150, 230, 170);
+    w.run(5);
+    const before = countCells(w, 'material.water');
+    let flying = 0;
+    const step = w.step.bind(w);
+    w.step = () => {
+      step();
+      let n = 0;
+      for (let k = 0; k < w.debris.count; k++) if (w.debris.mat[k] === water) n++;
+      flying = Math.max(flying, n);
+    };
+    dropAt(w, 'weapon.missile', 200);
+    w.step = step;
+    w.run(300);
+    expect(flying).toBeGreaterThan(50);
+    // drops that cleared the banks run off over the dry ground beside the pond
+    let out = 0;
+    for (let y = 0; y < 150; y++)
+      for (let x = 0; x < 400; x++) if ((x < 168 || x > 232) && w.grid.get(x, y) === water) out++;
+    expect(out).toBeGreaterThan(5);
+    // most of the pond survives the blast as water somewhere
+    expect(countCells(w, 'material.water')).toBeGreaterThan(before * 0.6);
   });
 });
