@@ -1,0 +1,47 @@
+{
+  "id": "audio.tree-fall",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tree fall",
+    "description": "A rushing swish of leaves and the heavy thud of a trunk hitting the ground.",
+    "since": "core@0.69.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 1800,
+        "to": 500,
+        "hold": 0.1,
+        "release": 0.35,
+        "volume": 0.22
+      },
+      {
+        "wave": "triangle",
+        "freq": 70,
+        "to": 32,
+        "release": 0.6,
+        "volume": 0.55
+      },
+      {
+        "wave": "noise",
+        "freq": 260,
+        "to": 80,
+        "release": 0.45,
+        "volume": 0.35
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "treeFall"
+    }
+  ],
+  "gap": 0.2
+}

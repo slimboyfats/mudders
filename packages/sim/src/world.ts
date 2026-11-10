@@ -76,6 +76,8 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** Ticks after a blast that a tree it undermined still falls away from it. */
+const HIT_LINGER = 40;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
 /**
@@ -338,6 +340,8 @@ interface PressureFront {
   reach: number;
   /** Radius the front has covered so far. */
   front: number;
+  /** Heat flash strength: 0 none (shock, cold...), 1 blast, 2 heat. */
+  heat: number;
 }
 
 /** Cells per tick a pressure front travels (the shockwave ring's speed). */
@@ -588,6 +592,8 @@ export class World implements SimApi {
   } | null;
 
   tick = 0;
+  /** Tick the last op touched props (`groups.hitX`). */
+  private hitTick = 0;
   phase: Phase = 'aim';
   /** Wind now: the turn's base plus the current gust (fixed-point cells/tick²). */
   wind = 0;
@@ -1277,6 +1283,7 @@ export class World implements SimApi {
       this.ops.length === this.idleOps &&
       this.fronts.length === 0 &&
       this.debris.count === 0 &&
+      !this.groups.toppling &&
       !this.grid.settling &&
       !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
@@ -1384,6 +1391,7 @@ export class World implements SimApi {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
       else this.groups.settled();
+      if (this.groups.toppling) this.groups.stepTopple(this.grid, this);
     }
     // everything has come to rest after a change: what hangs too far for its material comes
     // down (§4b); never while an op is still shaping the ground (a growing ice wall)
@@ -1405,6 +1413,8 @@ export class World implements SimApi {
       }
       if (this.quiet) this.endTurn();
     }
+    // a tree the last blast undermined still falls away from it for a moment after
+    if (this.groups.hitX >= 0 && this.tick - this.hitTick > HIT_LINGER) this.groups.hitX = -1;
     this.tick++;
   }
 
@@ -3083,8 +3093,14 @@ export class World implements SimApi {
     const e = this.resonate(e0, x, y);
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
-    if (e.pressure > e.radius && this.mats.anyBlowOff && this.fronts.length < 64)
-      this.fronts.push({ x, y, full: e.radius, reach: e.pressure, front: 0 });
+    if (
+      e.pressure > e.radius &&
+      (this.mats.anyBlowOff || this.mats.anyFlash) &&
+      this.fronts.length < 64
+    ) {
+      const heat = e.dt === DT_HEAT ? 2 : e.dt === DT_BLAST ? 1 : 0;
+      this.fronts.push({ x, y, full: e.radius, reach: e.pressure, front: 0, heat });
+    }
     // the pressure front tears apart the birds it reaches; further out they scatter
     if (this.birdsOn) {
       const reach = Math.max(e.pressure, e.radius);
@@ -3274,6 +3290,8 @@ export class World implements SimApi {
     const H = g.height;
     const mat = g.material;
     const chance = this.mats.blowOff;
+    const flash = this.mats.flashChance;
+    const flashInto = this.mats.flashInto;
     const fronts = this.fronts;
     let keep = 0;
     for (let f = 0; f < fronts.length; f++) {
@@ -3303,8 +3321,33 @@ export class World implements SimApi {
             if (cx <= end) {
               const i = cy * W + cx;
               const m = mat[i]!;
+              // the heat flash lights dry canopy out to half the front's reach
+              const fc = m === 0 || p.heat === 0 ? 0 : flash[m]!;
+              let lit = false;
+              if (fc > 0) {
+                const dx = cx - p.x;
+                const d = isqrt(dx * dx + dy * dy);
+                const half = (p.reach - p.full) >> 1;
+                const t = d - p.full;
+                const k = t <= 0 ? fc : t >= half ? 0 : Math.trunc((fc * (half - t)) / half);
+                if (
+                  roll(i, this.tick, 11) < Math.min(65536, k * p.heat) &&
+                  !this.sheltered(p.x, p.y, cx, cy, p.full)
+                ) {
+                  g.leaveGroup(i);
+                  mat[i] = flashInto[m]!;
+                  g.cellState[i] = 0;
+                  g.markDirty(cx, cy, cx, cy);
+                  lit = true;
+                }
+              }
               const c = m === 0 ? 0 : chance[m]!;
-              if (c > 0) {
+              // a tree already going over keeps its crown on the way down
+              if (
+                c > 0 &&
+                !lit &&
+                (g.group[i] === 0 || !this.groups.toppler.falling(g.group[i]!))
+              ) {
                 const dx = cx - p.x;
                 const d = isqrt(dx * dx + dy * dy);
                 // strong through most of the band, easing off near its reach: 1 - t² of full
@@ -3430,7 +3473,12 @@ export class World implements SimApi {
     const shielded = this.groups.any && this.groups.shieldBegin(this.grid, x, y, radius);
     const data = site.b.start(this, site.params, call);
     if (shielded) this.groups.shieldEnd(this.grid);
-    if (this.groups.any) this.groups.guard(this.grid, call.damageTypeIndex, this);
+    if (this.groups.any) {
+      this.groups.hitX = Math.max(0, x);
+      this.groups.hitR = radius;
+      this.hitTick = this.tick;
+      this.groups.guard(this.grid, call.damageTypeIndex, this);
+    }
     if (data) this.ops.push({ op, call, t: 0, data });
   }
 
@@ -3450,7 +3498,12 @@ export class World implements SimApi {
       const shielded = this.groups.any && this.groups.shieldBegin(this.grid, c.x, c.y, c.radius);
       const more = site.b.step?.(this, site.params, inst) ?? false;
       if (shielded) this.groups.shieldEnd(this.grid);
-      if (this.groups.any) this.groups.guard(this.grid, c.damageTypeIndex, this);
+      if (this.groups.any) {
+        this.groups.hitX = Math.max(0, c.x);
+        this.groups.hitR = c.radius;
+        this.hitTick = this.tick;
+        this.groups.guard(this.grid, c.damageTypeIndex, this);
+      }
       if (more) next.push(inst);
       if (more === 'idle') idle++;
     }
@@ -4393,6 +4446,7 @@ export class World implements SimApi {
 
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
 const DT_HEAT = damageTypeIndex('heat');
+const DT_BLAST = damageTypeIndex('blast');
 const DT_COLD = damageTypeIndex('cold');
 
 function clampTemp(t: number): number {

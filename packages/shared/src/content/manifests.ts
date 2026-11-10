@@ -283,6 +283,13 @@ export const MaterialSchema = z.strictObject({
    */
   blowOff: z.strictObject({ chance: z.number().min(0).max(1) }).optional(),
   /**
+   * Lit by a blast's heat flash (dry leaves, needles): as a blast or heat explosion's pressure front
+   * passes, a cell of this material turns into `into` (fire) with probability `chance` near the
+   * blast, falling off to nothing halfway to the front's reach (heat blasts reach twice as often).
+   * Sheltered cells, as for `blowOff`, are spared.
+   */
+  flash: z.strictObject({ chance: z.number().min(0).max(1), into: MaterialRefSchema }).optional(),
+  /**
    * Blast-lit (gunpowder): an explosion of one of the `by` damage types that reaches this cell,
    * without carving it away, turns it into `into` (a burning fuse). Reactions light it from fire
    * and lava as usual.
@@ -946,6 +953,14 @@ export const PropSchema = z.strictObject({
         crack: z.record(MaterialIdSchema, MaterialIdSchema).default({}),
         /** Groups this one rests on: when one breaks, this one breaks too. */
         supports: z.array(z.string().min(1)).default([]),
+        /**
+         * Snaps and falls over in one piece when it breaks (a tree): a stump stays, the rest,
+         * with everything resting on it, turns about the stump away from the blast and lands
+         * as plain cells. A hit that drains twice its integrity still blows it to bits.
+         */
+        topple: z.boolean().default(false),
+        /** `topple`: material → what it becomes once the fallen tree lies still (trunk → log). */
+        felled: z.record(MaterialIdSchema, MaterialRefSchema).default({}),
       }),
     )
     .max(16)

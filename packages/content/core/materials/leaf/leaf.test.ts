@@ -22,8 +22,8 @@ describe('material.leaf', () => {
     const w = propWorld('prop.tree', 200);
     const leaves = countCells(w, 'material.leaf');
     const wood = countCells(w, 'material.wood');
-    // a missile 34 cells away: its crater misses the tree, its pressure doesn't
-    dropAt(w, 'weapon.missile', 234);
+    // a missile 44 cells away: its crater and heat miss the tree, its pressure doesn't
+    dropAt(w, 'weapon.missile', 244);
     const left = countCells(w, 'material.leaf');
     expect(left).toBeLessThan(leaves * 0.75);
     expect(countCells(w, 'material.wood')).toBe(wood);

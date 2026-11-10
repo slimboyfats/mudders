@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.69.0",
+  "version": "0.70.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -79,6 +79,8 @@
     "audio.tank-cookoff",
     "audio.tank-death",
     "audio.thunder",
+    "audio.tree-fall",
+    "audio.tree-snap",
     "audio.tsunami",
     "audio.tsunami-crash",
     "audio.turn",
@@ -129,6 +131,7 @@
     "material.amber-leaf",
     "material.ash",
     "material.birch-bark",
+    "material.birch-log",
     "material.brick",
     "material.burning-oil",
     "material.burning-tar",
@@ -157,6 +160,7 @@
     "material.limestone",
     "material.liquid-dirt",
     "material.lit-gunpowder",
+    "material.log",
     "material.magma",
     "material.marsh-gas",
     "material.meteorite",
