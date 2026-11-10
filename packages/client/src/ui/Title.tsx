@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { PROTOCOL_VERSION } from '@mudders/shared';
+import { hasUnseen } from '../changelog';
 import { SIGNAL_URL } from '../config';
 import { installState, promptInstall, subscribeInstall } from '../pwa';
 
@@ -16,6 +17,7 @@ function hasWebGL2(): boolean {
 export function Title({ onPlay }: Props) {
   const [lobby, setLobby] = useState<LobbyStatus>('checking');
   const [webgl2] = useState(hasWebGL2);
+  const [unseen] = useState(hasUnseen);
   const install = useSyncExternalStore(subscribeInstall, installState);
 
   useEffect(() => {
@@ -84,6 +86,10 @@ export function Title({ onPlay }: Props) {
           </div>
         </div>
         <div className="menu-row">
+          <a className="secondary chip" href="#changelog" data-testid="changelog-button">
+            ★ Changelog
+            {unseen && <span className="new-dot" aria-label="new" />}
+          </a>
           <a className="secondary chip" href="#settings">
             ⚙ Settings
           </a>

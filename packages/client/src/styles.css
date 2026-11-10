@@ -3106,3 +3106,101 @@ a.button {
     min-height: 38px;
   }
 }
+
+/* ── changelog, NEW badges, shop sort ──────────────────────────────── */
+
+:root {
+  --new: #7cf05a;
+}
+
+.new-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  vertical-align: 2px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #10200a;
+  background: var(--new);
+  border-radius: 2px;
+  box-shadow: 0 2px 0 #2f6b22;
+}
+
+.new-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  vertical-align: 1px;
+  background: var(--new);
+}
+
+.shop-sort {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+  margin-right: 2px;
+  border-right: 1px solid #3a2c22;
+  color: var(--muted);
+}
+
+.shop-sort select {
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 17px;
+  font-size: 0.85rem;
+  color: var(--fg);
+  background: #221913;
+  border: 1px solid #3a2c22;
+}
+
+.shop .card p .stat {
+  color: #ffd27a;
+  font-weight: 700;
+}
+
+.changelog .log-entry {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #241a14;
+  border: 1px solid #3a2c22;
+}
+
+.changelog .log-entry header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.changelog .log-entry header small {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.changelog .log-entry .new-badge {
+  margin-left: 0;
+}
+
+.changelog h3 {
+  margin: 4px 0 6px;
+  font-size: 1.05rem;
+}
+
+.changelog ul {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+  font-size: 0.9rem;
+}
+
+.weapon-tile .wcat .new-badge {
+  margin: 0 5px 0 0;
+  vertical-align: 0;
+}

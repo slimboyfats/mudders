@@ -342,3 +342,23 @@ a {
   color: var(--muted);
   font-size: 12px;
 }
+
+.new-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 5px;
+  vertical-align: 3px;
+  font-size: 0.6em;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #10200a;
+  background: #7cf05a;
+  border-radius: 2px;
+}
+
+.card ul.log {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
