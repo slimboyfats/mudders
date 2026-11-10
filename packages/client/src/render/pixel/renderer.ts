@@ -70,6 +70,7 @@ import {
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
+import { swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -293,6 +294,10 @@ export class PixelRenderer implements Renderer {
       | 'u_glow'
       | 'u_reach'
       | 'u_dark'
+      | 'u_sway'
+      | 'u_swayOn'
+      | 'u_swayWind'
+      | 'u_swayK'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -314,6 +319,12 @@ export class PixelRenderer implements Renderer {
   /** The glowing material each cell's nearest glow source is made of (R8UI), with `heat`. */
   private glowSrc = new Uint8Array(0);
   private glowTex!: WebGLTexture;
+  /** Trees in the wind (sway.ts): the per-cell field, its texture, and what sways. */
+  private sway = new Uint8Array(0);
+  private swayRun = new Int32Array(0);
+  private swayTex!: WebGLTexture;
+  private swayLooks: SwayLooks = { flex: new Uint8Array(256), limb: new Uint8Array(256) };
+  private swayOn = false;
   /** 0xRRGGBB glow per material cell, -1 = none (hot/flaming cells default to the heat colour). */
   private readonly emitRgb = new Int32Array(256).fill(-1);
   /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
@@ -538,6 +549,10 @@ export class PixelRenderer implements Renderer {
       'u_glow',
       'u_reach',
       'u_dark',
+      'u_sway',
+      'u_swayOn',
+      'u_swayWind',
+      'u_swayK',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -658,6 +673,20 @@ export class PixelRenderer implements Renderer {
       gl.UNSIGNED_BYTE,
       this.glowSrc,
     );
+    this.sway = new Uint8Array(this.mapWidth * this.mapHeight);
+    this.swayRun = new Int32Array(this.mapHeight);
+    this.swayTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.sway,
+    );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
     this.uploadPalette();
@@ -764,6 +793,7 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 10, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
     this.meter?.setLooks(this.lookFlags, this.palette.liquids ?? []);
+    this.swayLooks = swayLooks(this.palette.looks ?? []);
   }
 
   setQuality(quality: Quality): void {
@@ -1320,6 +1350,7 @@ export class PixelRenderer implements Renderer {
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
     this.scanHeat((any & (FLAG_HOT | FLAG_FLAMES | FLAG_EMIT)) !== 0);
+    this.scanSway();
     this.flameN = 0;
     if ((any & 4) === 0) return;
     // flaming cells with air above: where the flame tongues lick up from
@@ -1327,6 +1358,19 @@ export class PixelRenderer implements Renderer {
     for (let i = w; i < t.length && this.flameN < FLAME_CAP; i++) {
       if ((f[t[i]!]! & 4) !== 0 && t[i - w] === 0) this.flameCells[this.flameN++] = i;
     }
+  }
+
+  /** Rebuild and upload the field of cells that sway in the wind (trees). */
+  private scanSway(): void {
+    if (!this.swayTex) return;
+    const was = this.swayOn;
+    const w = this.mapWidth;
+    const h = this.mapHeight;
+    this.swayOn = swayField(this.terrain, w, h, this.swayLooks, this.sway, this.swayRun);
+    if (!this.swayOn && !was) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.swayTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.sway);
   }
 
   /** Rebuild and upload the heat field lava and flames light the ground from. */
@@ -2010,6 +2054,16 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(this.uBg.u_glow, 9);
     gl.uniform1f(this.uBg.u_reach, glowReach(this.theme.dark));
     gl.uniform1f(this.uBg.u_dark, this.theme.dark);
+    gl.activeTexture(gl.TEXTURE11);
+    gl.bindTexture(gl.TEXTURE_2D, this.swayTex);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_sway, 11);
+    gl.uniform1f(this.uBg.u_swayOn, this.swayOn ? 1 : 0);
+    {
+      const sw = swayWind(this.wind, this.shakeOn);
+      gl.uniform4f(this.uBg.u_swayWind, sw.lean, sw.amp, sw.rustle, sw.speed);
+      gl.uniform1f(this.uBg.u_swayK, sw.k);
+    }
     this.lights.clear();
     this.fx.collectLights(this.lights, t);
     gl.uniform1i(this.uBg.u_lightCount, this.lights.count);
@@ -3252,6 +3306,7 @@ export class PixelRenderer implements Renderer {
     gl.deleteTexture(this.shadeTex);
     gl.deleteTexture(this.heatTex);
     gl.deleteTexture(this.glowTex);
+    gl.deleteTexture(this.swayTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);

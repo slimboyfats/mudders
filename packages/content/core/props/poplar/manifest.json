@@ -1,0 +1,50 @@
+{
+  "id": "prop.poplar",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Poplar",
+    "description": "A tall, narrow column of a tree. Its slim crown towers over everything else and rocks furthest in the wind.",
+    "since": "core@0.67.0"
+  },
+  "extends": "prop.pine",
+  "shape": [
+    "    L",
+    "   LLL",
+    "   LLL",
+    "  LLLLL",
+    "  LLLLL",
+    "  LLLLL",
+    " LLLLLLL",
+    " LLLLLLL",
+    " LLLLLLL",
+    " LLLLLLL",
+    "LLLLLLLLL",
+    "LLLLLLLLL",
+    "LLLLLLLLL",
+    "LLLLTLLLL",
+    "LLLLTLLLL",
+    "LLLLTLLLL",
+    "LLLLTLLLL",
+    " LLLTLLL",
+    " LLLTLLL",
+    " LLLTLLL",
+    " LLLTLLL",
+    " LLLTLLL",
+    " LLTTTLL",
+    "  LTTTL",
+    "  LTTTL",
+    "  LTTTL",
+    "   TTT",
+    "   TTT",
+    "   TTT",
+    "   TTT",
+    "   TTT",
+    "   TTT",
+    "   TTT",
+    "   TTT"
+  ],
+  "materials": {
+    "trunk": "material.wood",
+    "leaves": "material.leaf"
+  }
+}

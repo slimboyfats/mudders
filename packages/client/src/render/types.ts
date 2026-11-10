@@ -90,6 +90,10 @@ export interface MaterialLook {
   flames?: boolean;
   /** Crystalline: scattered cells glint white for a moment (frost). */
   glint?: boolean;
+  /** Sways in the wind, 0–1 (trees); 0 or unset = stays put. */
+  sway?: number;
+  /** Sways only where its column also holds a swaying canopy (a trunk, not a house wall). */
+  limb?: boolean;
   /** Gas only: share of its cells drawn, as an ordered dither. */
   cover?: number;
   /**

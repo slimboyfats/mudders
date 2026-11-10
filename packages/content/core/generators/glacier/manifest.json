@@ -12,5 +12,12 @@
   "iceDepth": 10,
   "iceLevel": 0.03,
   "iceCap": 0.1,
-  "temperature": -12
+  "temperature": -12,
+  "props": [
+    {
+      "prop": "prop.pine",
+      "count": [2, 4],
+      "cluster": false
+    }
+  ]
 }

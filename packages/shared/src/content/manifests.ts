@@ -321,6 +321,16 @@ export const MaterialSchema = z.strictObject({
       flames: z.boolean().default(false),
       /** Crystalline: scattered cells glint white for a moment, in whole-cell steps (frost). */
       glint: z.boolean().default(false),
+      /**
+       * Sways in the wind (0–1, how freely): the renderer leans and rocks these cells sideways in
+       * whole cells, more the higher they stand over the ground (trees bend from the root).
+       */
+      sway: z.number().min(0).max(1).optional(),
+      /**
+       * A limb (trunk, branch): sways only where its column also holds a canopy that sways, so
+       * the same wood in a house wall or a roof stays put.
+       */
+      limb: z.boolean().optional(),
       /** Gas: share of its cells drawn (ordered dither), so thin gas reads as a haze of pixels. */
       cover: z.number().min(0).max(1).default(1),
       /**

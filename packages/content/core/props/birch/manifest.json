@@ -1,0 +1,59 @@
+{
+  "id": "prop.birch",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Birch",
+    "description": "A slender white-barked tree with a light, airy crown; its thin branches show through the leaves, and it whips about in a strong wind.",
+    "since": "core@0.67.0"
+  },
+  "extends": "prop.pine",
+  "shape": [
+    "        L LL",
+    "     LL LLLLL L",
+    "    LLLLLLLLLLLL",
+    "   LLLL LLLLL LLL",
+    "  LLLLLLTLLLLLLLLL",
+    "  LLL LLTLLLLTLLLL",
+    " LLLLLLLTLLLTLLLLL",
+    "  LLLLLLLTLTLLL LL",
+    " LL LLLLLTTLLLLLLL",
+    "  LLLLTLLTTLLLLLL",
+    "   LLLLTTTTLLLLL",
+    "    LL LLTTLLTLL",
+    "      L  TT   L",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT",
+    "         TT"
+  ],
+  "materials": {
+    "trunk": "material.birch-bark",
+    "leaves": "material.leaf"
+  },
+  "groups": [
+    {
+      "name": "trunk",
+      "roles": ["trunk"],
+      "integrity": 30,
+      "breakInto": {
+        "material.birch-bark": "material.splinter"
+      }
+    },
+    {
+      "name": "canopy",
+      "roles": ["leaves"],
+      "integrity": 18,
+      "supports": ["trunk"]
+    }
+  ]
+}

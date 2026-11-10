@@ -21,5 +21,9 @@
   "cohesion": 0,
   "span": 2,
   "coating": false,
-  "tags": ["burns"]
+  "tags": ["burns"],
+  "look": {
+    "sway": 0.9,
+    "limb": true
+  }
 }
