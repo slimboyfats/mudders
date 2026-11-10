@@ -10,5 +10,22 @@
   "amplitude": 0.22,
   "sandChance": 0.25,
   "lakeLevel": 0.02,
-  "temperature": 16
+  "temperature": 16,
+  "props": [
+    {
+      "prop": "prop.willow",
+      "count": [2, 3],
+      "cluster": false
+    },
+    {
+      "prop": "prop.birch",
+      "count": [1, 1],
+      "cluster": false
+    },
+    {
+      "prop": "prop.bush",
+      "count": [2, 3],
+      "cluster": false
+    }
+  ]
 }

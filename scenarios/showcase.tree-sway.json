@@ -1,0 +1,88 @@
+{
+  "id": "showcase.tree-sway",
+  "schemaVersion": 1,
+  "description": "Trees in a strong wind: every kind of tree leans downwind and rocks as gusts roll across the map, the crowns bending most, leaves flicking.",
+  "subject": "prop.tree",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 120
+    },
+    {
+      "x": 720
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.012,
+  "props": [
+    {
+      "prop": "prop.willow",
+      "x": 300
+    },
+    {
+      "prop": "prop.pine",
+      "x": 470
+    },
+    {
+      "prop": "prop.maple",
+      "x": 500
+    },
+    {
+      "prop": "prop.birch",
+      "x": 530
+    },
+    {
+      "prop": "prop.tree",
+      "x": 560
+    },
+    {
+      "prop": "prop.poplar",
+      "x": 590
+    },
+    {
+      "prop": "prop.bush",
+      "x": 612
+    },
+    {
+      "prop": "prop.pine",
+      "x": 635
+    }
+  ],
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 80,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 300,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}

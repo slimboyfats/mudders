@@ -1,0 +1,34 @@
+{
+  "id": "prop.willow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Willow",
+    "description": "A broad, low tree whose long curtains of leaves hang almost to the ground and swing together in the wind. Grows by the water.",
+    "since": "core@0.67.0"
+  },
+  "extends": "prop.pine",
+  "shape": [
+    "         LLLLLLLLLL",
+    "      LLLLLLLLLLLLLLLL",
+    "    LLLLLLLLLLLLLLLLLLLL",
+    "  LLLLLLLLLLLLLLLLLLLLLLLL",
+    " LLLLLLLLLLLLLLLLLLLLLLLLLL",
+    "LLLLLLLLLLLTTTTLLLLLLLLLLLLL",
+    "LLLLLLLLLLLTTTTLLLLLLLLLLLLL",
+    "L LL LLL LLTTTTLL LLL LL LLL",
+    "L L  L L LLTTTTL  LL  L  L L",
+    "L L  L L L TTTT L  L  L  L L",
+    "L    L L L TTTT L  L  L    L",
+    "L    L   L TTTT L     L    L",
+    "     L   L TTTT       L",
+    "     L     TTTT",
+    "           TTTT",
+    "           TTTT",
+    "           TTTT",
+    "           TTTT"
+  ],
+  "materials": {
+    "trunk": "material.wood",
+    "leaves": "material.leaf"
+  }
+}

@@ -10,8 +10,45 @@
   "amplitude": 0.14,
   "roughness": 0.4,
   "props": [
-    { "prop": "prop.house", "count": [2, 4], "cluster": true },
-    { "prop": "prop.tree", "count": [4, 7], "cluster": false },
-    { "prop": "prop.boulder", "count": [1, 2], "cluster": false }
+    {
+      "prop": "prop.house",
+      "count": [2, 4],
+      "cluster": true
+    },
+    {
+      "prop": "prop.tree",
+      "count": [2, 4],
+      "cluster": false
+    },
+    {
+      "prop": "prop.pine",
+      "count": [1, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.birch",
+      "count": [1, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.maple",
+      "count": [0, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.poplar",
+      "count": [0, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.bush",
+      "count": [1, 3],
+      "cluster": false
+    },
+    {
+      "prop": "prop.boulder",
+      "count": [1, 2],
+      "cluster": false
+    }
   ]
 }

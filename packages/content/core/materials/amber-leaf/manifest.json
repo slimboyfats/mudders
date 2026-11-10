@@ -1,0 +1,18 @@
+{
+  "id": "material.amber-leaf",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Autumn leaves",
+    "description": "A maple's amber autumn leaves. Held up by their tree, drift down when it falls, and a blast strips them even more easily than green leaves.",
+    "color": "#c8742c",
+    "since": "core@0.67.0"
+  },
+  "extends": "material.leaf",
+  "cell": 93,
+  "blowOff": {
+    "chance": 0.95
+  },
+  "look": {
+    "sway": 1
+  }
+}

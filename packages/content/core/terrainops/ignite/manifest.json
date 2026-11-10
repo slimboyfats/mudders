@@ -7,7 +7,14 @@
     "description": "Sets wood, leaves and splinters inside a disc alight; the fire then spreads on its own.",
     "since": "core@0.4.0"
   },
-  "from": ["material.wood", "material.leaf", "material.splinter"],
+  "from": [
+    "material.wood",
+    "material.leaf",
+    "material.splinter",
+    "material.needles",
+    "material.birch-bark",
+    "material.amber-leaf"
+  ],
   "into": "material.fire",
   "core": 0.8,
   "expandTicks": 6
