@@ -28,11 +28,15 @@ import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
 import { compile, rgb, texture, uniforms } from './gl';
 import {
+  FLAG_EMIT,
+  FLAG_FLAMES,
+  FLAG_HOT,
+  HEAT_HEX,
   HEAT_NONE,
-  HEAT_RGB,
   HEAT_STRENGTH,
   Lights,
   band,
+  glowReach,
   heatFalloff,
   heatField,
   lightAt,
@@ -217,6 +221,8 @@ export class PixelRenderer implements Renderer {
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
   private coatTex!: WebGLTexture;
+  /** Cosmetic grain shade per cell (`RenderSnapshot.shade`): moved grains keep their colour. */
+  private shadeTex!: WebGLTexture;
   /** Where grass may grow (R8UI, 1 = round-start surface), seeded once per round. */
   private grassTex!: WebGLTexture;
   private readonly grassMask: Uint8Array;
@@ -277,6 +283,9 @@ export class PixelRenderer implements Renderer {
       | 'u_lightCol'
       | 'u_heat'
       | 'u_heatOn'
+      | 'u_glow'
+      | 'u_reach'
+      | 'u_dark'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -295,6 +304,11 @@ export class PixelRenderer implements Renderer {
   private heat = new Uint8Array(0);
   private heatTex!: WebGLTexture;
   private heatOn = false;
+  /** The glowing material each cell's nearest glow source is made of (R8UI), with `heat`. */
+  private glowSrc = new Uint8Array(0);
+  private glowTex!: WebGLTexture;
+  /** 0xRRGGBB glow per material cell, -1 = none (hot/flaming cells default to the heat colour). */
+  private readonly emitRgb = new Int32Array(256).fill(-1);
   /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
   private readonly flameCells = new Int32Array(FLAME_CAP);
   private flameN = 0;
@@ -327,6 +341,7 @@ export class PixelRenderer implements Renderer {
       | 'u_ground'
       | 'u_flowers'
       | 'u_grassMask'
+      | 'u_shade'
     >
   >;
   private uPost!: ReturnType<
@@ -477,6 +492,7 @@ export class PixelRenderer implements Renderer {
       'u_ground',
       'u_flowers',
       'u_grassMask',
+      'u_shade',
     ]);
     this.bgProg = compile(gl, FULLSCREEN_VS, BG_FS);
     this.uBg = uniforms(gl, this.bgProg, [
@@ -510,6 +526,9 @@ export class PixelRenderer implements Renderer {
       'u_lightCol',
       'u_heat',
       'u_heatOn',
+      'u_glow',
+      'u_reach',
+      'u_dark',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -545,6 +564,18 @@ export class PixelRenderer implements Renderer {
       this.terrain,
     );
     this.coatTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array(this.mapWidth * this.mapHeight),
+    );
+    this.shadeTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -592,6 +623,19 @@ export class PixelRenderer implements Renderer {
       gl.RED_INTEGER,
       gl.UNSIGNED_BYTE,
       this.heat,
+    );
+    this.glowSrc = new Uint8Array(this.mapWidth * this.mapHeight);
+    this.glowTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      this.glowSrc,
     );
     this.paletteTex = texture(gl);
     this.lookTex = texture(gl);
@@ -659,13 +703,28 @@ export class PixelRenderer implements Renderer {
     }
     gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
-    const look = new Uint8Array(256 * 9 * 4);
+    // rows 1–8: cycle colours; row 9: glow colour (a = 255 steady, 160 flickers like fire)
+    const look = new Uint8Array(256 * 10 * 4);
+    this.emitRgb.fill(-1);
     for (const l of this.palette.looks ?? []) {
       if (l.cell <= 0 || l.cell > 255) continue;
       const n = Math.min(8, l.cycle.length);
       look[l.cell * 4] = n >= 2 ? n : 0;
       // glinting cells animate too, so they keep the animated-terrain pass on
-      this.lookFlags[l.cell] = (n >= 2 || l.glint ? 1 : 0) | (l.hot ? 2 : 0) | (l.flames ? 4 : 0);
+      const emit = l.emit ?? (l.hot || l.flames ? HEAT_HEX : -1);
+      this.lookFlags[l.cell] =
+        (n >= 2 || l.glint ? 1 : 0) |
+        (l.hot ? FLAG_HOT : 0) |
+        (l.flames ? FLAG_FLAMES : 0) |
+        (emit >= 0 ? FLAG_EMIT : 0);
+      this.emitRgb[l.cell] = emit;
+      if (emit >= 0) {
+        const o = (9 * 256 + l.cell) * 4;
+        look[o] = (emit >> 16) & 255;
+        look[o + 1] = (emit >> 8) & 255;
+        look[o + 2] = emit & 255;
+        look[o + 3] = l.hot || l.flames ? 160 : 255;
+      }
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
       // b: 255 hot, 96 glint (the shader tells them apart by range)
       look[l.cell * 4 + 2] = l.hot ? 255 : l.glint ? 96 : 0;
@@ -681,7 +740,7 @@ export class PixelRenderer implements Renderer {
       }
     }
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 9, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 10, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
     this.meter?.setLooks(this.lookFlags, this.palette.liquids ?? []);
   }
 
@@ -783,6 +842,20 @@ export class PixelRenderer implements Renderer {
           gl.UNSIGNED_BYTE,
           s.coating,
         );
+        if (s.shade) {
+          gl.bindTexture(gl.TEXTURE_2D, this.shadeTex);
+          gl.texSubImage2D(
+            gl.TEXTURE_2D,
+            0,
+            r.x,
+            r.y,
+            r.w,
+            r.h,
+            gl.RED_INTEGER,
+            gl.UNSIGNED_BYTE,
+            s.shade,
+          );
+        }
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
         // shading reads neighbours (up to 32 up for soil depth, 1 down, CUT_REACH sideways for
         // crater walls cut through the turf): widen the box
@@ -1195,7 +1268,7 @@ export class PixelRenderer implements Renderer {
     for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
-    this.scanHeat((any & 6) !== 0);
+    this.scanHeat((any & (FLAG_HOT | FLAG_FLAMES | FLAG_EMIT)) !== 0);
     this.flameN = 0;
     if ((any & 4) === 0) return;
     // flaming cells with air above: where the flame tongues lick up from
@@ -1210,11 +1283,14 @@ export class PixelRenderer implements Renderer {
     if (!any && !this.heatOn) return;
     const w = this.mapWidth;
     const h = this.mapHeight;
-    this.heatOn = any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat);
+    this.heatOn =
+      any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat, this.glowSrc);
     if (!this.heatTex) return;
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.heat);
+    gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.glowSrc);
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
@@ -1871,6 +1947,12 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.uBg.u_heat, 8);
     gl.uniform1f(this.uBg.u_heatOn, this.heatOn ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE9);
+    gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.uBg.u_glow, 9);
+    gl.uniform1f(this.uBg.u_reach, glowReach(this.theme.dark));
+    gl.uniform1f(this.uBg.u_dark, this.theme.dark);
     this.lights.clear();
     this.fx.collectLights(this.lights, t);
     gl.uniform1i(this.uBg.u_lightCount, this.lights.count);
@@ -2069,6 +2151,9 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE4);
     gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
     gl.uniform1i(this.uTer.u_grassMask, 4);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadeTex);
+    gl.uniform1i(this.uTer.u_shade, 5);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
@@ -2114,7 +2199,12 @@ export class PixelRenderer implements Renderer {
       // of a few hard shade bands, and makes one in sixteen a 2×2 clod, so a shower reads as
       // grit and clods instead of one flat colour
       const h = Math.imul(d.vx[i]! ^ (d.material[i]! << 20), 0x9e3779b1) >>> 27;
-      const col = shade(pal[d.material[i]!] ?? 0x7a5a3a, DEBRIS_SHADES[h & 3]!);
+      // the cell's own grain (it lands with it), in the same bands
+      const g = d.shade?.[i] ?? 0;
+      const col = shade(
+        pal[d.material[i]!] ?? 0x7a5a3a,
+        DEBRIS_SHADES[g !== 0 ? (g >> 6) & 3 : h & 3]!,
+      );
       if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
       else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
     }
@@ -2223,10 +2313,14 @@ export class PixelRenderer implements Renderer {
     const yi = Math.floor(y);
     const l = lightAt(this.lights, xi, yi, this.lightTmp);
     if (this.heatOn && xi >= 0 && yi >= 0 && xi < this.mapWidth && yi < this.mapHeight) {
-      const q = band(heatFalloff(this.heat[yi * this.mapWidth + xi]!) * HEAT_STRENGTH, xi, yi);
-      l[0] += HEAT_RGB[0] * q;
-      l[1] += HEAT_RGB[1] * q;
-      l[2] += HEAT_RGB[2] * q;
+      const i = yi * this.mapWidth + xi;
+      const reach = glowReach(this.theme.dark);
+      const q = band(heatFalloff(this.heat[i]!, reach) * HEAT_STRENGTH, xi, yi);
+      const c = this.emitRgb[this.glowSrc[i]!]!;
+      const rgb = c >= 0 ? c : HEAT_HEX;
+      l[0] += (((rgb >> 16) & 255) / 255) * q;
+      l[1] += (((rgb >> 8) & 255) / 255) * q;
+      l[2] += ((rgb & 255) / 255) * q;
     }
     return l;
   }
@@ -3097,7 +3191,9 @@ export class PixelRenderer implements Renderer {
     this.additive.dispose();
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
+    gl.deleteTexture(this.shadeTex);
     gl.deleteTexture(this.heatTex);
+    gl.deleteTexture(this.glowTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);

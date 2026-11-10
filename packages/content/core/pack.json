@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.60.0",
+  "version": "0.61.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -234,6 +234,7 @@
     "theme.day",
     "theme.default",
     "theme.inferno",
+    "theme.pitch-black",
     "theme.snow",
     "theme.storm",
     "weapon.acid-cloud",

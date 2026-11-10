@@ -26,6 +26,7 @@
     "speed": 2.5
   },
   "look": {
-    "glint": true
+    "glint": true,
+    "emit": "#b48cff"
   }
 }

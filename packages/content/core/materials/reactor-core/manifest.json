@@ -44,6 +44,7 @@
   "look": {
     "cycle": ["#2f9a3c", "#3cbf4a", "#6ee05a", "#3cbf4a"],
     "cycleTicks": 10,
-    "glint": true
+    "glint": true,
+    "emit": "#5ae05a"
   }
 }

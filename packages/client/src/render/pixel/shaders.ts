@@ -3,7 +3,7 @@
  * SwiftShader supports: no derivatives tricks, no float render targets, bounded loops.
  */
 
-import { HEAT_REACH, HEAT_RGB, HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
+import { HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
 
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
 const NOISE = `
@@ -52,8 +52,8 @@ export const HAZE_TICKS = 420;
  * for animated materials, heat haze over hot ground and fresh craters, sky tint and vignette. One pass keeps software
  * GL (SwiftShader capture) fast. Everything is evaluated per map cell, so it stays on the grid.
  *
- * `u_look` is 256×9: row 0 per material = (cycle length, ticks per step, hot, 0) as bytes,
- * rows 1–8 the cycle colours.
+ * `u_look` is 256×10: row 0 per material = (cycle length, ticks per step, hot, 0) as bytes,
+ * rows 1–8 the cycle colours, row 9 the glow colour (a: 255 steady, 160 flickering, 0 none).
  */
 export const BG_FS = `#version 300 es
 precision highp float;
@@ -88,8 +88,11 @@ uniform float u_burnOn;      // any blast recent enough to still smoulder
 uniform int u_lightCount;    // dynamic lights (lighting.ts): blasts light the faces around them
 uniform vec4 u_lights[${MAX_LIGHTS}];  // x, y (cells), radius, strength
 uniform vec3 u_lightCol[${MAX_LIGHTS}];
-uniform usampler2D u_heat;   // cells to the nearest hot or burning cell, 0 = source, 255 = far
+uniform usampler2D u_heat;   // cells to the nearest glowing cell, 0 = source, 255 = far
 uniform float u_heatOn;
+uniform usampler2D u_glow;   // the glowing material that nearest source is made of
+uniform float u_reach;       // cells glow lights (further in the dark)
+uniform float u_dark;        // 0–1: unlit ground falls toward black, glow and blasts light it
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -97,7 +100,23 @@ uint mat(ivec2 c) {
   return texelFetch(u_terrain, c, 0).r;
 }
 vec4 look(uint m) { return texelFetch(u_look, ivec2(int(m), 0), 0); }
+// glow colour of a material (row 9), a = 1 steady, ~0.63 flickers like fire, 0 = none
+vec4 emitOf(uint m) { return texelFetch(u_look, ivec2(int(m), 9), 0); }
 ${NOISE}
+// banded glow at heat-field distance hd from a source of colour ec: hard steps, ordered dither
+// between them, fire-like sources flickering in 8×8 blocks
+vec3 glowAt(ivec2 cell, uint hd, vec4 ec, float k) {
+  float f = 1.0 - float(hd - 1u) / u_reach;
+  float fl = 1.0;
+  if (ec.a < 0.9) {
+    ivec2 blk = cell >> 3;
+    int st = int(floor(u_time / 9.0 + hash(blk) * 13.0));
+    fl = 0.8 + 0.35 * hash(blk + ivec2(st * 7, st * 3 + 19));
+  }
+  float e = f * f * fl * k;
+  float q = floor(e * ${LIGHT_BANDS}.0 + bayer(cell) - 0.5) / ${LIGHT_BANDS}.0;
+  return ec.rgb * max(q, 0.0);
+}
 bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
 // chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
 bool charrable(uint m) { return m != 0u && look(m).a > 0.25; }
@@ -254,19 +273,32 @@ void main() {
           L += u_lightCol[i] * q;
         }
       }
+      // glow: lava, flames, plasma, crystal and the like light the ground near them in their own
+      // colour. In the dark, light reaches further but only cells near open air catch it, and
+      // the glowing cells themselves keep their full colour while everything unlit goes dark
+      bool glowing = false;
       if (u_heatOn > 0.0) {
         uint hd = texelFetch(u_heat, cell, 0).r;
-        if (hd > 0u && hd <= ${HEAT_REACH}u) {
-          float f = 1.0 - float(hd - 1u) / ${HEAT_REACH}.0;
-          ivec2 blk = cell >> 3;
-          int st = int(floor(u_time / 9.0 + hash(blk) * 13.0));
-          float fl = 0.8 + 0.35 * hash(blk + ivec2(st * 7, st * 3 + 19));
-          float e = f * f * fl * ${HEAT_STRENGTH.toFixed(3)};
-          float q = floor(e * ${LIGHT_BANDS}.0 + bayer(cell) - 0.5) / ${LIGHT_BANDS}.0;
-          L += vec3(${HEAT_RGB.map((v) => v.toFixed(3)).join(', ')}) * max(q, 0.0);
+        if (hd == 0u) glowing = true;
+        else if (float(hd) <= u_reach) {
+          float face = 1.0;
+          if (u_dark > 0.0) {
+            face = 0.2;
+            for (int k = 1; k <= 3; k++) {
+              if (mat(cell + ivec2(0, -k)) == 0u || mat(cell + ivec2(0, k)) == 0u ||
+                  mat(cell + ivec2(-k, 0)) == 0u || mat(cell + ivec2(k, 0)) == 0u) {
+                face = k == 1 ? 1.0 : k == 2 ? 0.6 : 0.35;
+                break;
+              }
+            }
+            face = mix(1.0, face, u_dark);
+          }
+          vec4 ec = emitOf(texelFetch(u_glow, cell, 0).r);
+          L += glowAt(cell, hd, ec, ${HEAT_STRENGTH.toFixed(3)} * (1.0 + 0.5 * u_dark) * face);
         }
       }
-      c = min(c * (1.0 + L * 1.3) + L * 0.16, vec3(1.0));
+      float amb = glowing ? 1.0 : 1.0 - u_dark * 0.86;
+      c = min(c * (amb + L * (1.3 + 1.2 * u_dark)) + L * 0.16, vec3(1.0));
     } else {
       float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
       vec4 sc = texelFetch(u_scenery, cell >> 1, 0);
@@ -293,6 +325,15 @@ void main() {
                    texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r != 0u && hash(cell + ivec2(5, 10)) > 0.86 &&
                    hash(cell + ivec2(2, 3)) > 0.45) {
           c = u_grass.rgb * 0.8;
+        }
+      }
+      // the air around a glowing cell catches a little of its colour (much more in the dark),
+      // in the same hard dithered bands
+      if (u_heatOn > 0.0) {
+        uint hd = texelFetch(u_heat, cell, 0).r;
+        if (hd > 0u && float(hd) <= u_reach) {
+          vec4 ec = emitOf(texelFetch(u_glow, cell, 0).r);
+          c += glowAt(cell, hd, ec, 0.12 + 0.5 * u_dark) * 0.55;
         }
       }
       c += u_flash;
@@ -545,6 +586,7 @@ uniform vec4 u_grass;
 uniform vec3 u_ground;       // theme tint multiplied into still ground
 uniform float u_flowers;     // flower specks in the grass, 0–1
 uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
+uniform usampler2D u_shade;  // grain a moved cell carries (tone << 2 | fleck), 0 = never moved
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -570,7 +612,14 @@ void main() {
   bool still = lk.r == 0.0;
   // texture works on "art pixels" of 2×2 cells so it reads as chunky pixel art; edges stay per cell
   ivec2 ap = c >> 1;
-  float g = (hash(ap) - 0.5) * u_grain;
+  // loose grains (cells settle or a blast has moved) carry their own shade: a falling heap reads
+  // as grains tumbling down, not as sand sliding under a fixed pattern. The tone is the one the
+  // cell showed at rest (same hash), a little stronger, plus a per-grain fleck; ground that never
+  // moved keeps its strata, mottling and pebbles.
+  uint sh = texelFetch(u_shade, c, 0).r;
+  bool loose = sh != 0u;
+  float g = loose ? (float((sh >> 2u) - 1u) / 62.0 - 0.5) * u_grain * 1.5 : (hash(ap) - 0.5) * u_grain;
+  if (loose) g += (sh & 3u) == 3u ? 0.07 : (sh & 3u) == 0u ? -0.07 : 0.0;
   // rows down to open air above (1 = surface), 0 = deeper than 32
   int sd = 0;
   for (int k = 1; k <= 32; k++) if (mat(c + ivec2(0, -k)) == 0u) { sd = k; break; }
@@ -649,7 +698,7 @@ void main() {
   }
   // dither the last few cells so the turf ends in a ragged edge, not a ruled line
   bool bare = cut > 0 && (cut <= 10 || bayer(ap) > float(cut - 10) / 7.0);
-  if (still) {
+  if (still && !loose) {
     // mottled ground: two noise scales quantised to four tones with ordered dither between them
     vec2 fp = vec2(ap);
     float mot = vnoise(fp / 7.0) * 0.6 + vnoise(fp / 2.5 + 7.0) * 0.4;

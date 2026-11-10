@@ -160,6 +160,7 @@ export function supportPass(
           m,
           grid.coating[i]!,
           grid.cellState[i]!,
+          grid.shadeOf(i),
         )
       )
         continue;
