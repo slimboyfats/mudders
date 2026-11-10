@@ -154,16 +154,7 @@ export function drawZones(
     const fade = Math.min(1, 0.45 + z.turns * 0.2);
     const salt = z.x * 131 + z.y * 7;
     if (z.look === 'gas' || z.look === 'acid') {
-      const col = z.look === 'gas' ? ZONE_COLOR[0] : ZONE_COLOR[1];
-      const puffs = Math.round(Math.min(40, (R * R) / 60 + 6) * Math.max(0.5, mult));
-      for (let i = 0; i < puffs; i++) {
-        const ang = h01(i, salt) * Math.PI * 2 + t * 0.008 * (h01(i, salt + 1) - 0.5);
-        const rad = Math.sqrt(h01(i, salt + 2)) * R * 0.85;
-        const x = Math.round(z.x + Math.cos(ang) * rad + Math.sin(t * 0.02 + i) * 2);
-        const y = Math.round(z.y + Math.sin(ang) * rad * 0.6 - 2);
-        const size = 5 + h01(i, salt + 3) * 7;
-        normal.push(x, y, size, size, col, (z.look === 'gas' ? 0.3 : 0.2) * fade, Shape.Pixel);
-      }
+      // the haze itself is single gas cells riding the air (renderer feedFluid)
       if (z.look === 'acid') {
         const drops = Math.round(Math.min(30, R / 2 + 4) * Math.max(0.5, mult));
         for (let i = 0; i < drops; i++) {
