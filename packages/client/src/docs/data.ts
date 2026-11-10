@@ -282,6 +282,13 @@ function weaponLines(
   return w.impact.map((i) => describeImpact(c, i, depth, peak, next));
 }
 
+/** Largest blast radius and tank damage anywhere in a weapon's shot (children included). */
+export function weaponPeak(c: ResolvedContent, id: string): { radius: number; damage: number } {
+  const peak: Peak = { radius: 0, damage: 0 };
+  weaponLines(c, id, 0, peak, []);
+  return peak;
+}
+
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 function weaponDoc(c: ResolvedContent, w: WeaponManifest): WeaponDoc {

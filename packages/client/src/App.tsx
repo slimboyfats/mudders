@@ -9,6 +9,7 @@ import { Title } from './ui/Title';
 // The match (renderer, sim, content), the setup screen and the sandbox are code-split (§9).
 const Play = lazy(() => import('./ui/Play').then((m) => ({ default: m.Play })));
 const Setup = lazy(() => import('./ui/Setup').then((m) => ({ default: m.Setup })));
+const Changelog = lazy(() => import('./ui/Changelog').then((m) => ({ default: m.Changelog })));
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
 const HostGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.HostGame })));
 const JoinGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.JoinGame })));
@@ -18,6 +19,7 @@ type Route =
   | { name: 'title' }
   | { name: 'setup' }
   | { name: 'settings' }
+  | { name: 'changelog' }
   | { name: 'play'; quick?: { players: number; size: MapSize } }
   | { name: 'sandbox' }
   | { name: 'host'; mode: 'online' | 'direct' }
@@ -30,6 +32,7 @@ function fromHash(): Route {
   if (h.startsWith('#sandbox')) return { name: 'sandbox' };
   if (h.startsWith('#setup')) return { name: 'setup' };
   if (h.startsWith('#settings')) return { name: 'settings' };
+  if (h.startsWith('#changelog')) return { name: 'changelog' };
   if (h === '#host') return { name: 'host', mode: 'online' };
   if (h === '#direct') return { name: 'direct' };
   if (h === '#browse') return { name: 'browse' };
@@ -107,6 +110,7 @@ export function App() {
       {route.name === 'settings' && (
         <Settings settings={settings} setSettings={setSettings} onBack={() => go('')} />
       )}
+      {route.name === 'changelog' && <Changelog onBack={() => go('')} />}
       {route.name === 'play' && (
         <Play setup={playSetup} settings={settings} onExit={() => go('')} />
       )}

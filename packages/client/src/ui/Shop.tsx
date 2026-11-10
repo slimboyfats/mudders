@@ -1,6 +1,7 @@
-import { useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import type { Input } from '@mudders/shared';
-import type { HudState, HudTank } from '../game/match';
+import type { HudState, HudTank, ShopItem } from '../game/match';
+import { compareSince } from '../changelog';
 import { teamName } from '../game/setup';
 import { sfx } from '../audio/bridge';
 import { PLAYER_COLORS } from '../render/pixel/theme';
@@ -61,6 +62,46 @@ export function Scoreboard({ hud, final }: ScoreProps) {
   );
 }
 
+const SORTS = [
+  ['price', 'Price'],
+  ['new', 'Newest'],
+  ['blast', 'Blast size'],
+  ['damage', 'Damage'],
+  ['name', 'A–Z'],
+] as const;
+type SortKey = (typeof SORTS)[number][0];
+const SORT_KEY = 'mudders.shopSort';
+
+function loadSort(): SortKey {
+  try {
+    const v = localStorage.getItem(SORT_KEY);
+    return SORTS.find(([k]) => k === v)?.[0] ?? 'price';
+  } catch {
+    return 'price';
+  }
+}
+
+/**
+ * Shop order: 'price' keeps the default (gear first, then weapons cheapest first). The others put
+ * weapons first by the chosen stat (biggest or newest first, ties by price) and gear after them.
+ */
+export function sortShop(items: readonly ShopItem[], by: SortKey): ShopItem[] {
+  if (by === 'price') return [...items];
+  if (by === 'name') return [...items].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  const rank = (a: ShopItem, b: ShopItem): number => {
+    if (by === 'new') return compareSince(b.since ?? '', a.since ?? '');
+    if (by === 'blast') return (b.blast ?? 0) - (a.blast ?? 0);
+    return (b.damage ?? 0) - (a.damage ?? 0);
+  };
+  return [...items].sort(
+    (a, b) =>
+      Number(a.gear !== undefined) - Number(b.gear !== undefined) ||
+      rank(a, b) ||
+      a.price - b.price ||
+      a.name.localeCompare(b.name, 'en'),
+  );
+}
+
 interface ShopProps {
   hud: HudState;
   controls: (player: number) => boolean;
@@ -78,18 +119,30 @@ export function Shop({ hud, controls, send }: ShopProps) {
   const [sel, setSel] = useState(firstOpen?.player ?? 0);
   const [filter, setFilter] = useState('all');
   const [info, setInfo] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortKey>(loadSort);
+  const items = useMemo(() => sortShop(hud.shop, sort), [hud.shop, sort]);
+  const pickSort = (k: SortKey) => {
+    setSort(k);
+    try {
+      localStorage.setItem(SORT_KEY, k);
+    } catch {
+      // private mode: the order just isn't remembered
+    }
+  };
   const me = hud.tanks[sel] && controls(sel) ? hud.tanks[sel] : firstOpen;
   const last = hud.results[hud.results.length - 1];
   const opening = hud.results.length === 0;
   const owned = (id: string) =>
     me?.gear.find((g) => g.id === id)?.count ?? me?.inventory.find((i) => i.id === id)?.count ?? 0;
   const groups: string[] = ['all'];
+  if (hud.shop.some((it) => it.isNew)) groups.push('new');
   for (const it of hud.shop) {
     const g = categoryGroup(it.category);
     if (!groups.includes(g)) groups.push(g);
   }
   groups.push('driving');
-  const shown = (category: string) => filter === 'all' || categoryGroup(category) === filter;
+  const shown = (category: string, fresh = false) =>
+    filter === 'all' || (filter === 'new' ? fresh : categoryGroup(category) === filter);
   const low = hud.seconds >= 0 && hud.seconds <= 5;
 
   return (
@@ -147,16 +200,37 @@ export function Shop({ hud, controls, send }: ShopProps) {
       {me && (
         <>
           <div className="shop-filters" role="tablist" aria-label="Filter">
+            <label className="shop-sort">
+              <span aria-hidden="true">⇅</span>
+              <select
+                value={sort}
+                onChange={(e) => pickSort(e.target.value as SortKey)}
+                aria-label="Sort by"
+                data-testid="shop-sort"
+              >
+                {SORTS.map(([k, l]) => (
+                  <option key={k} value={k}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </label>
             {groups.map((g) => (
               <button
                 key={g}
                 role="tab"
                 aria-selected={filter === g}
                 className={filter === g ? 'on' : ''}
-                style={{ '--cat': g === 'all' ? 'var(--fg)' : categoryColor(g) } as CSSProperties}
+                style={
+                  {
+                    '--cat':
+                      g === 'all' ? 'var(--fg)' : g === 'new' ? 'var(--new)' : categoryColor(g),
+                  } as CSSProperties
+                }
                 onClick={() => setFilter(g)}
+                data-testid={`shop-filter-${g}`}
               >
-                {g === 'all' ? 'All' : categoryLabel(g)}
+                {g === 'all' ? 'All' : g === 'new' ? '★ New' : categoryLabel(g)}
               </button>
             ))}
           </div>
@@ -202,8 +276,8 @@ export function Shop({ hud, controls, send }: ShopProps) {
                   </button>
                 </div>
               )}
-              {hud.shop.map((it) => {
-                if (!shown(it.category)) return null;
+              {items.map((it) => {
+                if (!shown(it.category, it.isNew)) return null;
                 const have = owned(it.id);
                 const full = it.gear !== undefined && have >= it.gear.max;
                 const can = !me.ready && have >= 0 && !full && me.money >= it.price;
@@ -218,13 +292,23 @@ export function Shop({ hud, controls, send }: ShopProps) {
                       onClick={() => setInfo(info === it.id ? null : it.id)}
                       aria-expanded={info === it.id}
                     >
-                      <b>{it.name}</b>
+                      <b>
+                        {it.name}
+                        {it.isNew && <span className="new-badge">New</span>}
+                      </b>
                       <span className="own">
                         {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
                       </span>
                     </button>
                     <p className={info === it.id ? 'full' : ''}>
-                      <small className="cat">{categoryLabel(it.category)}</small> {it.description}
+                      <small className="cat">{categoryLabel(it.category)}</small>
+                      {sort === 'blast' && it.blast ? (
+                        <small className="stat"> · radius {it.blast}</small>
+                      ) : null}
+                      {sort === 'damage' && it.damage ? (
+                        <small className="stat"> · {it.damage} dmg</small>
+                      ) : null}{' '}
+                      {it.description}
                     </p>
                     <button
                       className="buy"

@@ -140,7 +140,10 @@ export function WeaponPicker({ inventory, selected, disabled, onSelect }: Props)
               >
                 <span className="wname">{w.name}</span>
                 <span className="wmeta">
-                  <span className="wcat">{label(w.category)}</span>
+                  <span className="wcat">
+                    {w.isNew && <span className="new-badge">New</span>}
+                    {label(w.category)}
+                  </span>
                   <span className="count">{countText(w.count)}</span>
                 </span>
               </button>

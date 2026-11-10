@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CHANGELOG, isNew } from '../changelog';
 import { categoryColor, categoryLabel } from '../ui/categories';
 import {
   DAMAGE_LABELS,
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'materials', label: 'Materials', prefix: 'material.' },
   { key: 'tanks', label: 'Tanks', prefix: 'tank.' },
   { key: 'gear', label: 'Gear', prefix: 'gear.' },
+  { key: 'new', label: "What's new", prefix: 'changelog.' },
 ] as const;
 type Tab = (typeof TABS)[number]['key'];
 
@@ -63,6 +65,7 @@ export function Docs({ data }: { data: DocsData }) {
     materials: data.materials.length,
     tanks: data.tanks.length,
     gear: data.gear.length,
+    new: CHANGELOG.length,
   };
 
   return (
@@ -107,6 +110,21 @@ export function Docs({ data }: { data: DocsData }) {
                 <Since s={g.since} />
               </article>
             ))}
+        {tab === 'new' &&
+          CHANGELOG.filter((e) => matches(q, e.title, ...e.items)).map((e) => (
+            <article key={e.date} id={`changelog.${e.date}`} className="card">
+              <h2>{e.title}</h2>
+              <ul className="log">
+                {e.items.map((it) => (
+                  <li key={it}>{it}</li>
+                ))}
+              </ul>
+              <p className="since">
+                {e.date}
+                {e.pack ? ` · ${e.pack}` : ''}
+              </p>
+            </article>
+          ))}
       </main>
       <footer className="docs-foot">
         Generated from the game's own content files at build time, so every number here is the one
@@ -201,6 +219,7 @@ function WeaponCard({ w, maxR, maxD }: { w: WeaponDoc; maxR: number; maxD: numbe
     <article id={w.id} className="card" style={{ borderTopColor: color }}>
       <h2>
         {w.name}
+        {isNew(w.since) && <span className="new-badge">New</span>}
         <span className="tag" style={{ color }}>
           {categoryLabel(w.category)}
         </span>
