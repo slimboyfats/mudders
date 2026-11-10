@@ -246,7 +246,7 @@ export const KINDS: readonly KindPhysics[] = [
   // Wisp: a cell of smoke or gas, the same but it also leans on the wind
   K({
     flow: 0.8,
-    jitter: 0.5,
+    jitter: 0.28,
     dragX: 0.95,
     dragY: 0.95,
     lift: 0.003,
@@ -561,8 +561,8 @@ void main() {
       alpha = 0.4;
     }
   } else if (k == ${PKind.Wisp}) {
-    show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.35 ? 1.0 : (1.0 - t) / 0.65);
-    col = ramp3(shade(col, 0.6), col, shade(col, 1.5), stepT(t, th, 6.0));
+    show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.55 ? 1.0 : (1.0 - t) / 0.45);
+    col = ramp3(shade(col, 0.55), col, shade(col, 1.45), stepT(t, th, 6.0));
   } else if (k == ${PKind.Ember}) {
     // flickers: each ember blinks off now and then, on its own beat
     float fl = fract(sin(floor(age / 3.0) * 7.13 + th * 91.7) * 4375.85);

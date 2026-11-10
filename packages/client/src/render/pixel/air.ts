@@ -11,7 +11,7 @@ import type { FluidSink } from './fluid';
 import { PKind, type ParticleSink } from './particles';
 
 /** Soot tones a wisp starts from; it steps darker-to-paler over its life on its own. */
-const SOOT_TONES = [0x4a4448, 0x5a5256, 0x3e383a] as const;
+const SOOT_TONES = [0x5c5458, 0x6e666a, 0x4a4246, 0x7c7478] as const;
 
 export class PixelAir implements FluidSink {
   /** Fractions of a wisp owed from earlier splats, so thin sources still smoke steadily. */
@@ -50,7 +50,7 @@ export class PixelAir implements FluidSink {
     this.fluid?.splat(x, y, r, vx, vy, smoke, heat, gas, radial, fire);
     if (smoke <= 0) return;
     // as many cells as the soot would have covered
-    this.owed += smoke * r * 0.9 * Math.max(0.35, this.mult);
+    this.owed += smoke * r * 4 * Math.max(0.35, this.mult);
     const n = Math.floor(this.owed);
     this.owed -= n;
     for (let i = 0; i < n; i++) {
@@ -64,7 +64,7 @@ export class PixelAir implements FluidSink {
         y: y + uy * d,
         vx: (radial ? 0 : vx * 0.5) + ux * out + (this.rand() - 0.5) * 0.2,
         vy: (radial ? 0 : vy * 0.5) + uy * out + (this.rand() - 0.5) * 0.2,
-        life: 110 + this.rand() * 170,
+        life: 160 + this.rand() * 240,
         size: 1,
         color: SOOT_TONES[Math.floor(this.rand() * SOOT_TONES.length)]!,
         kind: PKind.Wisp,

@@ -305,7 +305,9 @@ export interface Incoming {
 /** Ticks a fireball goes on letting go of burning cells into its two rolls. */
 const FIRE_FEED = 10;
 /** Ticks the crater goes on smoking into the blast's turning air after it. */
-const SMOKE_FEED = 50;
+const SMOKE_FEED = 70;
+/** Blast smoke: sooty greys with a little brown in them, light enough to show on a night sky. */
+const SMOKE_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
 
 /** One side's roll of a blast: where its vortex turns, how wide, and how fast. */
 interface Roll {
@@ -5161,20 +5163,26 @@ export class EffectSystem {
           kind: PKind.Fire,
         });
       }
-      // then the smoke the fire leaves, pouring up out of the crater into the same turning air
-      if (age >= 4 && age < SMOKE_FEED) {
-        const puffs = Math.round(f.r * 0.9 * Math.max(0.3, this.mult) * (1 - age / SMOKE_FEED));
+      // then the smoke: the ball goes black as it burns out, so soot is let go all through
+      // where the fire was, thick at first, and the crater goes on pouring it up after. It is
+      // caught by the same turning air, so the swirls go on as smoke when the fire is gone
+      if (age >= 6 && age < SMOKE_FEED) {
+        const k = 1 - age / SMOKE_FEED;
+        const puffs = Math.min(700, Math.round(f.r * f.r * 0.5 * Math.max(0.3, this.mult) * k * k));
         for (let i = 0; i < puffs; i++) {
           const a = rng.next() * Math.PI * 2;
-          const d = Math.sqrt(rng.next()) * f.r * 0.45;
+          const d = Math.sqrt(rng.next()) * f.r * (0.5 + 0.7 * k);
+          const sx = f.x + f.jx * f.r * 0.5 + Math.cos(a) * d;
+          const sy = f.y + f.jy * f.r * 0.5 + Math.sin(a) * d * 0.8;
+          if (this.probe.material(Math.floor(sx), Math.floor(sy)) !== 0) continue;
           this.particles.add({
-            x: f.x + Math.cos(a) * d,
-            y: f.y - Math.abs(Math.sin(a)) * d,
-            vx: rng.range(-0.3, 0.3) + f.jx * 0.3,
-            vy: f.jy * rng.range(0.2, 0.7),
-            life: rng.range(120, 300),
+            x: sx,
+            y: sy,
+            vx: Math.cos(a) * 0.25 + f.jx * 0.3,
+            vy: Math.sin(a) * 0.25 + f.jy * rng.range(0.2, 0.6),
+            life: rng.range(170, 420),
             size: 1,
-            color: SOOT[i % SOOT.length]!,
+            color: SMOKE_TONES[Math.floor(rng.next() * SMOKE_TONES.length)]!,
             kind: PKind.Wisp,
           });
         }
@@ -5190,9 +5198,13 @@ export class EffectSystem {
           const k = rng.range(0.6, 1.5) * sp;
           const up = rng.next() * ro.r * 0.5;
           const along = rng.next() * ro.r * 0.5;
+          const sx = ro.fx - f.ny * sgn * along + f.nx * up;
+          const sy = ro.fy + f.nx * sgn * along + f.ny * up;
+          // nothing is let go inside the ground (a slope can put the sheet's far end under it)
+          if (this.probe.material(Math.floor(sx), Math.floor(sy)) !== 0) continue;
           this.particles.add({
-            x: ro.fx - f.ny * sgn * along + f.nx * up,
-            y: ro.fy + f.nx * sgn * along + f.ny * up,
+            x: sx,
+            y: sy,
             vx: -f.ny * sgn * k + rng.range(-0.1, 0.1),
             vy: f.nx * sgn * k + rng.range(-0.1, 0.1),
             life: rng.range(80, 210),
