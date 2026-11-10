@@ -11,7 +11,7 @@ import {
 /** Terminal fall speed in cells per tick. */
 export const MAX_FALL_SPEED = 8;
 /** How far a resting liquid looks sideways for a drop to run to. */
-const DROP_LOOK = 8;
+const DROP_LOOK = 32;
 
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
@@ -165,8 +165,11 @@ export function settleStep(
       state[dst] = dy > 0 && spread[m] !== 0 ? state[idx]! & ~AGE_MASK : state[idx]!;
       state[idx] = 0;
       const dx = (dst % W) - x;
-      const lo = dx < 0 ? x + dx : x;
-      const hi = dx > 0 ? x + dx : x;
+      // a liquid that moved may have opened a drop for still liquid further along its surface
+      // (the end of a terrace), so the next pass looks that far to either side
+      const pad = dx !== 0 && spread[m] !== 0 ? DROP_LOOK : 0;
+      const lo = (dx < 0 ? x + dx : x) - pad;
+      const hi = (dx > 0 ? x + dx : x) + pad;
       if (lo < nMinX) nMinX = lo;
       if (hi > nMaxX) nMaxX = hi;
       if (y + dy > nMaxY) nMaxY = y + dy;
@@ -194,7 +197,7 @@ export function settleStep(
 
 /**
  * Whether a liquid at `idx` running sideways in direction `d` reaches a drop (air below the row)
- * within a few cells before anything blocks it. A liquid whose spreading time is up still runs
+ * within DROP_LOOK cells before anything blocks it. A liquid whose spreading time is up still runs
  * towards a drop, so a lake whose side is blasted open pours into the hole instead of standing
  * as a slope, while a flat film or a ripple on a level lake stays put and the world goes quiet.
  */
