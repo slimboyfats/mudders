@@ -294,7 +294,58 @@ function warmLight(c: number): number {
   return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }
 
+/** A shell as it was a tick ago: where, and its motion in cells per tick. */
+export interface Incoming {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+/** Ticks a fireball goes on letting go of burning cells into its two rolls. */
+const FIRE_FEED = 10;
+/** Ticks the crater goes on smoking into the blast's turning air after it. */
+const SMOKE_FEED = 70;
+/** Blast smoke: sooty greys with a little brown in them, light enough to show on a night sky. */
+const SMOKE_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
+
+/** One side's roll of a blast: where its vortex turns, how wide, and how fast. */
+interface Roll {
+  /** Vortex centre and radius. */
+  x: number;
+  y: number;
+  r: number;
+  /** Spin, cells per tick (positive = clockwise on screen). */
+  spin: number;
+  /** Where its fire is let go, and the way it is thrown (along the ground, outward). */
+  fx: number;
+  fy: number;
+  vx: number;
+  vy: number;
+}
+
+/** A blast still burning: its heart, and the roll on each side of the impact. */
+interface BlastRolls {
+  x: number;
+  y: number;
+  r: number;
+  /** The ground's outward normal at the impact. */
+  nx: number;
+  ny: number;
+  rolls: [Roll, Roll];
+  /** The heart's jet: unit direction and speed. */
+  jx: number;
+  jy: number;
+  up: number;
+  start: number;
+  left: number;
+  per: number;
+}
+
 export class EffectSystem {
+  private fires: BlastRolls[] = [];
+  /** Shells in flight just before this tick's events, so a blast knows the angle it came in at. */
+  incoming: readonly Incoming[] = [];
   ripples: Ripple[] = [];
   private glows: Glow[] = [];
   private fronts: Front[] = [];
@@ -496,9 +547,10 @@ export class EffectSystem {
         this.glows.push({
           x: e.x,
           y: e.y,
-          r: e.radius * 2.2,
+          // a short pop only: the fireball itself is burning gas in the fluid
+          r: e.radius * 1.8,
           start: e.tick,
-          dur: 14,
+          dur: 9,
           color: look[0],
           strength,
         });
@@ -4944,13 +4996,277 @@ export class EffectSystem {
     this.kick(5, e.tick);
   }
 
+  /** The first solid row at column x, looking down from `from` (or `from + span` if none). */
+  private groundBelow(x: number, from: number, span: number): number {
+    const p = this.probe;
+    const xi = Math.round(x);
+    const y0 = Math.round(from);
+    for (let y = y0; y < y0 + span; y++) if (p.material(xi, y) !== 0) return y;
+    return y0 + span;
+  }
+
+  /**
+   * The lie of the ground under a blast at (x, y), and the slant the shell came in at. Returns
+   * the ground's outward unit normal and `side` in -1..1: how much of the shell's way in ran
+   * along the ground, positive when it was heading right (0 for a plumb hit, or no shell).
+   */
+  blastLean(x: number, y: number, r: number): { nx: number; ny: number; side: number } {
+    const reach = r + 3;
+    const hl = this.groundBelow(x - reach, y - reach, reach * 2);
+    const hr = this.groundBelow(x + reach, y - reach, reach * 2);
+    // the ground's outward normal (y is down), never steeper than 45 degrees off plumb
+    let nx = Math.max(-2 * reach, Math.min(2 * reach, hr - hl));
+    let ny = -2 * reach;
+    const nl = Math.hypot(nx, ny);
+    nx /= nl;
+    ny /= nl;
+    let side = 0;
+    // the shell that made it: the nearest one that was flying here a tick ago
+    let best: Incoming | undefined;
+    let bestD = Infinity;
+    for (const s of this.incoming) {
+      const sp = Math.hypot(s.vx, s.vy);
+      const d = Math.hypot(s.x - x, s.y - y);
+      if (d < 16 + sp * 3 && d < bestD) {
+        bestD = d;
+        best = s;
+      }
+    }
+    if (best) {
+      const sp = Math.hypot(best.vx, best.vy);
+      // along the ground to the right is (-ny, nx)
+      if (sp > 0.05) side = Math.max(-1, Math.min(1, ((best.vx * -ny + best.vy * nx) / sp) * 1.4));
+    }
+    return { nx, ny, side };
+  }
+
+  /**
+   * The fireball. Nothing here is a drawn shape: the blast shoves the air (the smoke fluid) and
+   * lets go single cells of burning gas in it. The shove is what a real ground burst does: the
+   * blast cannot go down, so it sheets out along the ground both ways, and each sheet rolls up
+   * and back over itself. So there is a vortex turning on each side of the impact, left and
+   * right, and the fire is thrown along the ground into the underside of each, which winds it
+   * into a swirl that burns out into soot still turning. A shell that came in at a slant throws
+   * more of the blast downrange: that side's roll is bigger, faster and further out, the other
+   * small and tight. A plumb hit gives two even rolls.
+   */
+  private fireball2(e: EffectEvent, r: number): void {
+    const { nx, ny, side } = this.blastLean(e.x, e.y, r);
+    // along the ground, to the right
+    const gx = -ny;
+    const gy = nx;
+    const roll = (sgn: 1 | -1): Roll => {
+      const lead = 1 + 0.45 * side * sgn;
+      const R = Math.max(5, r * 0.5 * lead);
+      // the eye coasts outward about a radius and a half, and lifts a little
+      const out = R * 0.085;
+      const spin = -sgn * (0.9 + r * 0.03) * lead;
+      return {
+        // starts beside the impact with its underside on the ground
+        x: e.x + gx * sgn * (r * 0.3 + R * 0.6) + nx * R * 0.85,
+        y: e.y + gy * sgn * (r * 0.3 + R * 0.6) + ny * R * 0.85,
+        r: R,
+        spin,
+        fx: e.x + gx * sgn * r * 0.3 + nx * 1.5,
+        fy: e.y + gy * sgn * r * 0.3 + ny * 1.5,
+        vx: gx * sgn * out + nx * out * 0.2,
+        vy: gy * sgn * out + ny * out * 0.2,
+      };
+    };
+    const rolls: [Roll, Roll] = [roll(1), roll(-1)];
+    const hot = Math.min(1.2, 0.4 + r / 60);
+    for (const ro of rolls) {
+      this.sink.vortex?.({
+        x: ro.x,
+        y: ro.y,
+        vx: ro.vx,
+        vy: ro.vy,
+        r: ro.r,
+        spin: ro.spin,
+        life: 120,
+      });
+      // the same shove to the smoke fluid, so the smoke that follows turns the same way
+      this.fluid.splat(ro.fx, ro.fy, r * 0.5, ro.vx, ro.vy, 0, 0.3, 0, false, hot);
+      this.fluid.swirl?.(ro.x + ro.vx * 12, ro.y + ro.vy * 12, ro.r, ro.spin * 0.6);
+    }
+    // the heart: a jet of burning gas off the ground, leaning the way the shell was going. The
+    // fluid swells and lifts it, and the air it drags in underneath rolls it up as it climbs
+    let jx = nx + gx * side * 0.15;
+    let jy = ny + gy * side * 0.15 - 0.35;
+    const jl = Math.hypot(jx, jy);
+    jx /= jl;
+    jy /= jl;
+    const up = 0.55 + r * 0.03;
+    this.fluid.splat(
+      e.x + jx * r * 0.3,
+      e.y + jy * r * 0.3,
+      r * 0.7,
+      jx * up,
+      jy * up,
+      0,
+      0.6,
+      0,
+      false,
+      Math.min(2, 1 + r / 40),
+    );
+    // and the heart rolls as it climbs: a pair of vortices riding up with it, turning the other
+    // way to the ground rolls (up the middle, out over the top, down the outside), so the ball
+    // curls over on both sides into a cap
+    const capR = Math.max(5, r * 0.45);
+    const capSpin = 0.9 + r * 0.03;
+    for (const sgn of [1, -1] as const) {
+      const lead = 1 + 0.3 * side * sgn;
+      this.sink.vortex?.({
+        x: e.x + jx * r * 0.75 - jy * sgn * capR * 0.8,
+        y: e.y + jy * r * 0.75 + jx * sgn * capR * 0.8,
+        vx: jx * up * 0.75,
+        vy: jy * up * 0.75,
+        r: capR * lead,
+        spin: sgn * capSpin * lead,
+        life: 140,
+      });
+    }
+    // the bang itself: a packed ball of white-hot cells blown out from the impact in every
+    // direction the ground allows. It fills the blast radius in a few ticks and burns out fast;
+    // what is left of it is caught by the turning air and rolled up
+    const nBang = Math.min(16000, Math.round(r * r * 13 * Math.max(0.3, this.mult)));
+    const vMax = 0.5 + r * 0.13;
+    const bang = this.rngFor(e, 31);
+    for (let i = 0; i < nBang; i++) {
+      const a = bang.next() * Math.PI * 2;
+      let dx = Math.cos(a);
+      let dy = Math.sin(a);
+      // what would go into the ground comes back off it, slower
+      const into = dx * nx + dy * ny;
+      let s = Math.sqrt(bang.next()) * vMax;
+      if (into < 0) {
+        dx -= 2 * into * nx;
+        dy -= 2 * into * ny;
+        s *= 0.7;
+      }
+      const d = bang.next() * r * 0.2;
+      this.sink.add({
+        x: e.x + nx * 2 + dx * d,
+        y: e.y + ny * 2 + dy * d,
+        vx: dx * s,
+        vy: dy * s,
+        life: bang.range(14, 44),
+        size: 1,
+        color: 0xffa020,
+        kind: PKind.Bang,
+      });
+    }
+    // the air goes with it: a hard shove outward, so smoke, dust and leaves around are blown back
+    this.fluid.splat(e.x, e.y, r * 1.6, 0.6 + r * 0.06, 0, 0, 0, 0, true);
+    const n = Math.min(14000, Math.round(r * r * 11 * Math.max(0.3, this.mult)));
+    this.fires.push({
+      jx,
+      jy,
+      up,
+      x: e.x,
+      y: e.y,
+      r,
+      nx,
+      ny,
+      rolls,
+      start: e.tick,
+      left: n,
+      per: Math.ceil(n / FIRE_FEED),
+    });
+  }
+
+  /** Let go this tick's share of each burning blast's cells into its two rolls. */
+  private feedFires(t: number): void {
+    if (this.fires.length === 0) return;
+    for (const f of this.fires) {
+      const rng = new FxRng(
+        Math.imul(t + 1, 0x9e3779b1) ^ Math.imul(Math.round(f.x) + 7, 0x85ebca6b),
+      );
+      const n = Math.min(f.left, f.per);
+      f.left -= n;
+      const age = t - f.start;
+      // the heart: most of the fire, packed over the impact and thrown up the jet. Dense enough
+      // to read as a ball; the fluid rolls it as it climbs
+      const heart = Math.round(n * 0.44);
+      const hx = f.x + f.jx * f.r * 0.7;
+      const hy = f.y + f.jy * f.r * 0.7;
+      for (let i = 0; i < heart; i++) {
+        const a = rng.next() * Math.PI * 2;
+        const d = Math.sqrt(rng.next()) * f.r * 0.42;
+        const along = rng.range(0.4, 1) * f.up * 0.75;
+        const s = rng.next() * 0.35;
+        this.particles.add({
+          x: hx + Math.cos(a) * d,
+          y: hy + Math.sin(a) * d,
+          vx: Math.cos(a) * s + f.jx * along,
+          vy: Math.sin(a) * s + f.jy * along,
+          life: rng.range(70, 200),
+          size: 1,
+          color: 0xffa020,
+          kind: PKind.Fire,
+        });
+      }
+      // then the smoke: the ball goes black as it burns out, so soot is let go all through
+      // where the fire was, thick at first, and the crater goes on pouring it up after. It is
+      // caught by the same turning air, so the swirls go on as smoke when the fire is gone
+      if (age >= 6 && age < SMOKE_FEED) {
+        const k = 1 - age / SMOKE_FEED;
+        const puffs = Math.min(700, Math.round(f.r * f.r * 0.5 * Math.max(0.3, this.mult) * k * k));
+        for (let i = 0; i < puffs; i++) {
+          const a = rng.next() * Math.PI * 2;
+          const d = Math.sqrt(rng.next()) * f.r * (0.5 + 0.7 * k);
+          const sx = f.x + f.jx * f.r * 0.5 + Math.cos(a) * d;
+          const sy = f.y + f.jy * f.r * 0.5 + Math.sin(a) * d * 0.8;
+          if (this.probe.material(Math.floor(sx), Math.floor(sy)) !== 0) continue;
+          this.particles.add({
+            x: sx,
+            y: sy,
+            vx: Math.cos(a) * 0.25 + f.jx * 0.3,
+            vy: Math.sin(a) * 0.25 + f.jy * rng.range(0.2, 0.6),
+            life: rng.range(170, 420),
+            size: 1,
+            color: SMOKE_TONES[Math.floor(rng.next() * SMOKE_TONES.length)]!,
+            kind: PKind.Wisp,
+          });
+        }
+      }
+      if (n === 0) continue;
+      for (const ro of f.rolls) {
+        // a sheet of fire thrown out along the ground from the impact, into the underside of
+        // this side's roll, which carries it up the far side and winds it in
+        const share = Math.round((n * 0.28 * ro.r) / (f.r * 0.5));
+        const sp = Math.abs(ro.spin);
+        const sgn = ro.spin < 0 ? 1 : -1;
+        for (let i = 0; i < share; i++) {
+          const k = rng.range(0.6, 1.5) * sp;
+          const up = rng.next() * ro.r * 0.5;
+          const along = rng.next() * ro.r * 0.5;
+          const sx = ro.fx - f.ny * sgn * along + f.nx * up;
+          const sy = ro.fy + f.nx * sgn * along + f.ny * up;
+          // nothing is let go inside the ground (a slope can put the sheet's far end under it)
+          if (this.probe.material(Math.floor(sx), Math.floor(sy)) !== 0) continue;
+          this.particles.add({
+            x: sx,
+            y: sy,
+            vx: -f.ny * sgn * k + rng.range(-0.1, 0.1),
+            vy: f.nx * sgn * k + rng.range(-0.1, 0.1),
+            life: rng.range(80, 210),
+            size: 1,
+            color: 0xffa020,
+            kind: PKind.Fire,
+          });
+        }
+      }
+    }
+    this.fires = this.fires.filter((f) => f.left > 0 || t - f.start < SMOKE_FEED);
+  }
+
   private burst(e: EffectEvent, count: number): void {
     // `count: 0` asks for no burst at all: no sparks, and no hot soot in the air either
     if (count <= 0) return;
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
-    // the blast shoves the air outward and leaves hot soot hanging in it
-    this.fluid.splat(e.x, e.y, r * 1.5, 0.3 + r * 0.05, 0, 1 + r / 30, 0.5 + r / 60, 0, true);
+    this.fireball2(e, r);
     const nSpark = Math.round(count * 1.4 * this.mult);
     const speed = 0.8 + r / 14;
     for (let i = 0; i < nSpark; i++) {
@@ -5185,6 +5501,7 @@ export class EffectSystem {
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
     this.groundLife(t);
+    this.feedFires(t);
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
       if (t >= m.start && t <= m.start + m.life) emitMushroom(m, t, this.particles, this.mult);
@@ -6240,6 +6557,7 @@ export class EffectSystem {
   }
 
   clear(): void {
+    this.fires = [];
     this.ripples = [];
     this.glows = [];
     this.fronts = [];

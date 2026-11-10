@@ -40,6 +40,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Trees snap and fall: a hard hit breaks a tree at the trunk, and it tips over in one piece away from the blast, faster as it goes, crashing down as a log beside its stump in a burst of dust. A direct hit still blows it to splinters',
       'Blasts set trees on fire: the heat of an explosion lights the crowns nearest to it, pine needles and dry autumn leaves most readily, and the fire eats down the tree. Fire blasts light them twice as readily',
       "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
+      'Explosions are no longer a disc: a white-hot fireball of single pixels bursts out, then the air rolls it up into a head that curls over and a swirl of fire sweeping out along the ground each side, bigger on the side the shell was heading. Smoke, sparks, embers, dust and leaves are carried round by the same air',
     ],
   },
   {
