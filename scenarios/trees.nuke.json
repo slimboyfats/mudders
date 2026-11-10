@@ -1,0 +1,91 @@
+{
+  "id": "trees.nuke",
+  "schemaVersion": 1,
+  "description": "A nuke lands in a mixed wood swaying in the wind.",
+  "subject": "prop.pine",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.nuke": 5
+      }
+    },
+    {
+      "x": 790
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0.006,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.nuke"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 600,
+    "untilSettled": false,
+    "extraTicks": 0
+  },
+  "props": [
+    {
+      "prop": "prop.pine",
+      "x": 560
+    },
+    {
+      "prop": "prop.birch",
+      "x": 585
+    },
+    {
+      "prop": "prop.maple",
+      "x": 612
+    },
+    {
+      "prop": "prop.bush",
+      "x": 636
+    },
+    {
+      "prop": "prop.poplar",
+      "x": 678
+    },
+    {
+      "prop": "prop.tree",
+      "x": 702
+    },
+    {
+      "prop": "prop.birch",
+      "x": 728
+    },
+    {
+      "prop": "prop.pine",
+      "x": 752
+    }
+  ]
+}

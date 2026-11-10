@@ -4,7 +4,7 @@
  */
 
 import { HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
-import { SWAY_LEAF, SWAY_REACH, SWAY_UNIT } from './sway';
+import { SWAY_BLAST_TICKS, SWAY_BLASTS, SWAY_LEAF, SWAY_REACH, SWAY_UNIT } from './sway';
 
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
 const NOISE = `
@@ -100,6 +100,8 @@ uniform usampler2D u_sway;   // trees in the wind (sway.ts): 0 none, 1 look arou
 uniform float u_swayOn;
 uniform vec4 u_swayWind;     // lean (cells at full bend), rock amplitude, rustle chance, rock speed
 uniform float u_swayK;       // phase per column: gusts roll across the map with the wind
+uniform int u_blastN;        // recent blasts trees whip away from (sway.ts SwayBlasts)
+uniform vec4 u_blasts[${SWAY_BLASTS}];  // x, y, reach, tick
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -130,6 +132,20 @@ int swayD(ivec2 q, uint v) {
   float wgt = float((v & ${SWAY_LEAF - 1}u) - 2u) / ${SWAY_UNIT}.0;
   float ph = u_time * u_swayWind.w - float(q.x) * u_swayK + float(q.y) * 0.03;
   float a = u_swayWind.x + u_swayWind.y * (sin(ph) + 0.35 * sin(ph * 2.3 + 1.7));
+  // blasts: the pressure front reaches the tree, whips it away from the blast, then it springs
+  // back and wobbles out, harder the closer it stood
+  for (int i = 0; i < ${SWAY_BLASTS}; i++) {
+    if (i >= u_blastN) break;
+    vec4 b = u_blasts[i];
+    vec2 dd = vec2(q) + 0.5 - b.xy;
+    float dist = length(dd);
+    if (dist >= b.z) continue;
+    float age = u_time - b.w - dist / 3.0;
+    if (age <= 0.0 || age > ${SWAY_BLAST_TICKS}.0) continue;
+    float f = 1.0 - dist / b.z;
+    float env = exp(-age / 45.0) * cos(age * 0.16) * min(age / 3.0, 1.0);
+    a += sign(dd.x) * f * (4.0 + 8.0 * f) * env;
+  }
   int d = int(floor(a * wgt + 0.5));
   if ((v & ${SWAY_LEAF}u) != 0u && wgt > 0.05) {
     float h = hash(q + ivec2(23, 61));

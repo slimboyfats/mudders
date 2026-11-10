@@ -54,11 +54,11 @@ describe('sway field', () => {
     expect(swayField(t, w, h, looks, new Uint8Array(w * h), new Int32Array(h))).toBe(false);
   });
 
-  it('bends as the square of height', () => {
+  it('bends as height to the power 1.5', () => {
     expect(bend(0)).toBe(0);
     expect(bend(28)).toBe(1);
-    expect(bend(14)).toBeCloseTo(0.25);
-    expect(bend(500)).toBe(4);
+    expect(bend(7)).toBeCloseTo(0.125);
+    expect(bend(500)).toBeCloseTo(2 * Math.SQRT2);
   });
 
   it('leans with the wind and rocks harder in a strong one', () => {

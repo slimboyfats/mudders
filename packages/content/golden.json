@@ -1069,6 +1069,18 @@
       "ticks": 900,
       "hash": "703089248a512ad6"
     },
+    "trees.missile": {
+      "ticks": 330,
+      "hash": "53b1ef3f7401e6ab"
+    },
+    "trees.nuke": {
+      "ticks": 600,
+      "hash": "2922b33b52012d4a"
+    },
+    "trees.shockwave": {
+      "ticks": 330,
+      "hash": "962c4c2d05308b3d"
+    },
     "weapon.acid-cloud-drop": {
       "ticks": 167,
       "hash": "1d8d2e07f113ece9"

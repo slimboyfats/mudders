@@ -71,7 +71,7 @@ import {
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
-import { swayField, swayLooks, swayWind, type SwayLooks } from './sway';
+import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
@@ -299,6 +299,8 @@ export class PixelRenderer implements Renderer {
       | 'u_swayOn'
       | 'u_swayWind'
       | 'u_swayK'
+      | 'u_blastN'
+      | 'u_blasts'
     >
   >;
   /** Material looks: 256×9 (row 0 = cycle length, ticks, hot; rows 1–8 = cycle colours). */
@@ -326,6 +328,7 @@ export class PixelRenderer implements Renderer {
   private swayTex!: WebGLTexture;
   private swayLooks: SwayLooks = { flex: new Uint8Array(256), limb: new Uint8Array(256) };
   private swayOn = false;
+  private readonly swayBlasts = new SwayBlasts();
   /** 0xRRGGBB glow per material cell, -1 = none (hot/flaming cells default to the heat colour). */
   private readonly emitRgb = new Int32Array(256).fill(-1);
   /** Exposed flaming cells (index into the grid) found by the last look scan, at most FLAME_CAP. */
@@ -556,6 +559,8 @@ export class PixelRenderer implements Renderer {
       'u_swayOn',
       'u_swayWind',
       'u_swayK',
+      'u_blastN',
+      'u_blasts',
     ]);
     this.sceneryProg = compile(gl, FULLSCREEN_VS, SCENERY_FS);
     this.uScn = uniforms(gl, this.sceneryProg, SCENERY_UNIFORMS);
@@ -1031,6 +1036,7 @@ export class PixelRenderer implements Renderer {
         this.water.blast(e);
         this.liquid.blast(e.x, e.y, e.radius);
         if ((e.params.strength ?? 1) > 0) this.scorch(e.x, e.y, e.radius, e.tick);
+        this.swayBlasts.add(e.x, e.y, e.radius, e.tick);
       }
       // dirt geysers throw the char wider than the crater
       else if (e.type === 'geyser') this.scorch(e.x, e.y, e.radius * 1.8, e.tick);
@@ -1084,6 +1090,7 @@ export class PixelRenderer implements Renderer {
 
   /** Drop every cosmetic left over from the last round, so a new map starts clean. */
   private clearRoundFx(): void {
+    this.swayBlasts.clear();
     this.trails = [];
     this.particles.clear();
     this.fluid.clear();
@@ -2069,6 +2076,9 @@ export class PixelRenderer implements Renderer {
       const sw = swayWind(this.wind, this.shakeOn);
       gl.uniform4f(this.uBg.u_swayWind, sw.lean, sw.amp, sw.rustle, sw.speed);
       gl.uniform1f(this.uBg.u_swayK, sw.k);
+      const nb = this.swayBlasts.live(t) ? this.swayBlasts.count : 0;
+      gl.uniform1i(this.uBg.u_blastN, nb);
+      if (nb > 0) gl.uniform4fv(this.uBg.u_blasts, this.swayBlasts.data);
     }
     this.lights.clear();
     this.fx.collectLights(this.lights, t);
