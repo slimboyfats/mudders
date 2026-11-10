@@ -66,6 +66,8 @@ export class MaterialTable {
   readonly decayTicks = new Uint8Array(256);
   readonly decayTurns = new Uint8Array(256);
   readonly spread = new Uint8Array(256);
+  /** Flow cells run up to this many cells sideways per tick (≥ 1). */
+  readonly disperse = new Uint8Array(256).fill(1);
   readonly contactDamage = new Uint8Array(256);
   /** Ticks per sunk cell (0 = tanks do not sink) and the deepest a tank sinks. */
   readonly sinkTicks = new Uint8Array(256);
@@ -189,6 +191,7 @@ export class MaterialTable {
         this.spread[c] = m.spread;
         this.active[c] = this.active[c]! | ACT_SPREAD;
       }
+      this.disperse[c] = m.disperse ?? 1;
       this.contactDamage[c] = m.contact?.damage ?? 0;
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;

@@ -61,6 +61,12 @@ const params = z.strictObject({
   magmaPockets: z
     .tuple([z.number().int().min(0).max(6), z.number().int().min(0).max(6)])
     .default([0, 0]),
+  /**
+   * Lakes (gen.lakeland): valleys below the mean surface plus `lakeLevel` (fraction of map height)
+   * fill with water up to that line. A spawn pad in a valley stands on a
+   * sloped island at the waterline.
+   */
+  lakeLevel: z.number().min(-0.3).max(0.3).optional(),
   /** Gas pockets buried in the soft ground per 1000 columns: [min, max] (gen.marsh: swamp gas). */
   gasPockets: z
     .tuple([z.number().int().min(0).max(40), z.number().int().min(0).max(40)])
@@ -344,6 +350,26 @@ export default defineGenerator<Params>({
         }
         for (let y = Math.max(0, from); y < Math.min(H, to); y++) {
           if (mat[y * W + x] !== rock) mat[y * W + x] = ice;
+        }
+      }
+    }
+    // Lakes in the valleys (water is persistent and levels out on its own).
+    if (p.lakeLevel !== undefined) {
+      const water = mats.cellOf('material.water');
+      const line = mean + Math.round(p.lakeLevel * H);
+      // A spawn pad in a valley gets an island: flat top at the waterline, sides sloping down.
+      const top = new Int32Array(W).fill(H);
+      for (const sx of spawns)
+        for (const d of [-1, 1])
+          for (let x = sx, t = line; x >= 0 && x < W && t < surface[x]!; x += d) {
+            if (t < top[x]!) top[x] = t;
+            if (Math.abs(x - sx) >= 12) t++;
+          }
+      for (let x = 0; x < W; x++) {
+        const s = surface[x]!;
+        for (let y = Math.max(0, line); y < s; y++) {
+          const i = y * W + x;
+          if (mat[i] === 0) mat[i] = y >= top[x]! ? dirt : water;
         }
       }
     }

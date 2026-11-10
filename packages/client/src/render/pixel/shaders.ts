@@ -238,7 +238,7 @@ void main() {
           uint mm = mat(cell);
           int sd = 0;
           for (int k = 1; k <= 3; k++) if (mat(cell - ivec2(0, k)) == 0u) { sd = k; break; }
-          if (sd > 0 && charrable(mm) && texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r == 0u) {
+          if (sd > 0 && charrable(mm) && (texelFetch(u_grassMask, cell - ivec2(0, sd - 1), 0).r - 1u) >= 2u) {
             float cool = age / 600.0;
             float h = hash(cell + ivec2(13, 77));
             int st = int(floor(u_time / (5.0 + h * 9.0) + h * 31.0));
@@ -317,14 +317,15 @@ void main() {
       if (u_grass.a > 0.0) {
         uint b1 = mat(cell + ivec2(0, 1));
         float h = hash(cell + ivec2(5, 9));
-        bool grown = cell.y + 1 < int(u_map.y) && texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r != 0u;
+        // mask 1 grass, 2 withered; 3 (burnt) grows nothing
+        bool grown = cell.y + 1 < int(u_map.y) && (texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r - 1u) < 2u;
         if (topsoil(b1) && grown && texelFetch(u_coat, cell + ivec2(0, 1), 0).r == 0u && h > 0.42) {
           // withered by gas (mask 2): dry straw tufts, fewer of them
           bool dry = texelFetch(u_grassMask, cell + ivec2(0, 1), 0).r == 2u;
           if (!dry) c = u_grass.rgb * (h > 0.8 ? 1.12 : 0.92);
           else if (h > 0.62) c = vec3(0.6, 0.5, 0.24) * (h > 0.85 ? 1.1 : 0.9);
         } else if (b1 == 0u && topsoil(mat(cell + ivec2(0, 2))) && cell.y + 2 < int(u_map.y) &&
-                   texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r != 0u && hash(cell + ivec2(5, 10)) > 0.86 &&
+                   (texelFetch(u_grassMask, cell + ivec2(0, 2), 0).r - 1u) < 2u && hash(cell + ivec2(5, 10)) > 0.86 &&
                    hash(cell + ivec2(2, 3)) > 0.45) {
           c = u_grass.rgb * 0.8;
         }
@@ -716,7 +717,11 @@ void main() {
   }
   // grass a gas cloud crept over (mask 2) is withered: dry, yellow-brown, no flowers
   bool dry = gmask == 2u;
+  // grass a flame licked (mask 3) is burnt: the same blades and turf, charred black-brown with a
+  // few ashen flecks, so a fire leaves a scorched skin where it went instead of a cut to bare dirt
+  bool burnt = gmask == 3u;
   vec3 grassRgb = dry ? mix(u_grass.rgb, vec3(0.58, 0.47, 0.2), 0.8) : u_grass.rgb;
+  vec3 charRgb = hash(c + ivec2(41, 7)) > 0.85 ? vec3(0.34, 0.31, 0.29) : vec3(0.2, 0.13, 0.09);
   // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
   // that dithers back into the plain soil a dozen cells down
   float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
@@ -803,13 +808,14 @@ void main() {
     float stroke = bl > 0.66 ? 1.1 : bl > 0.33 ? 0.97 : 0.86;
     float len = 3.0 + floor(hash(ivec2(c.x, 402)) * 4.0);
     float h = hash(c + ivec2(3, 8));
-    if (gsd == 1 && !buried) col = gr * (h > 0.6 ? 1.3 : 1.16);
+    if (burnt && float(gsd) <= len + 2.0) col = charRgb * (gsd == 1 ? 1.2 : stroke);
+    else if (gsd == 1 && !buried) col = gr * (h > 0.6 ? 1.3 : 1.16);
     else if (float(gsd) <= len) col = gr * stroke;
     else if (float(gsd) <= len + 2.0) col = gr * (stroke * 0.72);
     else if (h > 0.55) col = gr * 0.6;
     else col = turf(gr, ap, 0.0);
     // flowers: a single bright art pixel with a darker cell under it
-    if (u_flowers > 0.0 && !buried && sd <= 3 && !dry) {
+    if (u_flowers > 0.0 && !buried && sd <= 3 && !dry && !burnt) {
       float f = hash(ivec2(c.x >> 1, 503));
       if (f > 1.0 - u_flowers * 0.08) {
         float pick = hash(ivec2(c.x >> 1, 504));

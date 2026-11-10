@@ -7,8 +7,8 @@ describe('material.fire', () => {
     const f = w.mats.cellOf('material.fire');
     for (let x = 190; x < 200; x++) w.grid.set(x, 149, f);
     w.grid.set(205, 149, f);
-    w.grid.set(206, 149, w.mats.cellOf('material.water'));
-    w.grid.markDirty(189, 148, 207, 150);
+    w.grid.set(205, 148, w.mats.cellOf('material.water'));
+    w.grid.markDirty(189, 147, 207, 150);
     w.step();
     w.step();
     expect(w.grid.get(205, 149)).not.toBe(f);

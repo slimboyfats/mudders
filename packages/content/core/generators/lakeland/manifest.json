@@ -1,0 +1,14 @@
+{
+  "id": "gen.lakeland",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lakeland",
+    "description": "Rolling hills with deep lakes in every valley. Craters by the shore drain them, lava shots boil them into steam, and the water turns the dirt it sits on to mud.",
+    "since": "core@0.63.0"
+  },
+  "extends": "gen.hills",
+  "amplitude": 0.22,
+  "sandChance": 0.25,
+  "lakeLevel": 0.02,
+  "temperature": 16
+}

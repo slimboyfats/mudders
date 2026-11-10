@@ -39,6 +39,7 @@ export function settleStep(
   const kind = mats.settle;
   const density = mats.density;
   const spread = mats.spread;
+  const disperse = mats.disperse;
   const act = mats.active;
   const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
@@ -127,6 +128,12 @@ export function settleStep(
             (spread[m] === 0 || (state[idx]! & AGE_MASK) < spread[m]!)
           ) {
             dst = idx + d;
+            // a runny liquid keeps running along the surface, up to `disperse` cells, and stops
+            // over a drop so it falls from there next tick
+            for (let r = 1, nx2 = nx + d; r < disperse[m]!; r++, nx2 += d) {
+              if (nx2 < 0 || nx2 >= W || mat[dst + d] !== 0 || mat[dst + W] === 0) break;
+              dst += d;
+            }
           }
         }
         if (dst >= 0) vel[dst] = 1;

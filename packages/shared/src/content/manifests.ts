@@ -183,6 +183,11 @@ export const MaterialSchema = z.strictObject({
     .optional(),
   /** Flow materials: ticks a cell may keep spreading sideways after it last fell (≤ 63). */
   spread: z.number().int().min(1).max(63).optional(),
+  /**
+   * Flow materials: cells a liquid may run sideways along a surface in one tick (water runs,
+   * lava creeps). Default 1.
+   */
+  disperse: z.number().int().min(1).max(8).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
   /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */

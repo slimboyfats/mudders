@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { countCells, dropAt, flatWorld } from '../../../src/testing';
 
 describe('weapon.flood', () => {
-  it('washes a sand dune down, then soaks away so the turn can end', () => {
+  it('washes a sand dune down, then settles flat so the turn can end', () => {
     const w = flatWorld();
     const sand = w.mats.cellOf('material.sand');
     for (let x = 230; x < 290; x++)
@@ -13,6 +13,7 @@ describe('weapon.flood', () => {
     const n = dropAt(w, 'weapon.flood', 225, 3000);
     expect(n).toBeLessThan(3000);
     expect(countCells(w, 'material.sand')).toBeLessThan(s0 - 20);
-    expect(countCells(w, 'material.water')).toBe(0);
+    // water stays as a pond now, but it goes still so the turn ends
+    expect(countCells(w, 'material.water')).toBeGreaterThan(500);
   });
 });
