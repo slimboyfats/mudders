@@ -65,6 +65,8 @@ export const ScenarioSchema = z.strictObject({
       windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),
       turnCap: z.number().int().min(1).optional(),
+      /** Swallow flocks over the map (off unless set). */
+      birds: z.boolean().optional(),
     })
     .optional(),
   inputs: z.array(TimedInputSchema),

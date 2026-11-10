@@ -133,6 +133,7 @@ const api: CaptureApi = {
         temperature: w.temperature,
         deathZone: w.deathZone,
         preview: w.preview,
+        birds: w.birds,
       };
       if (init0?.audio) {
         step = {

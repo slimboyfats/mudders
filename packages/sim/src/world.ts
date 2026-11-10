@@ -59,6 +59,7 @@ import { Groups } from './groups';
 import { Hasher } from './hash';
 import { MaterialTable, damageTypeIndex } from './materials';
 import { Prng } from './prng';
+import { Flocks, type BirdWorld } from './birds';
 import { Scratch } from './scratch';
 import { supportPass } from './support';
 import { settleStep } from './settle';
@@ -101,6 +102,11 @@ export interface MatchRules {
   windType?: WindType | undefined;
   startingCash?: number | undefined;
   turnCap?: number | undefined;
+  /**
+   * Swallow flocks over the map (kernel 0.35.0): a shell that hits one goes off there, blasts tear
+   * them apart. Off unless set, so scenarios and tests keep their results.
+   */
+  birds?: boolean | undefined;
 }
 
 export interface RoundResult {
@@ -539,6 +545,24 @@ export class World implements SimApi {
   readonly grid: Grid;
   readonly mats: MaterialTable;
   readonly rng: Prng;
+  /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
+  readonly birds = new Flocks();
+  private readonly birdsOn: boolean;
+  private readonly birdWorld: BirdWorld = ((w: World): BirdWorld => ({
+    get width() {
+      return w.grid.width;
+    },
+    get height() {
+      return w.grid.height;
+    },
+    solid: (x, y) =>
+      x >= 0 &&
+      y >= 0 &&
+      x < w.grid.width &&
+      y < w.grid.height &&
+      w.grid.material[y * w.grid.width + x] !== 0,
+    emit: (type, x, y, radius, params) => w.emit(type, x, y, radius, params),
+  }))(this);
   readonly scratch: Scratch;
   readonly tanks: Tank[] = [];
   readonly weapons: RtWeapon[] = [];
@@ -664,6 +688,7 @@ export class World implements SimApi {
     if (options.wind !== undefined) this.wind = this.windBase = toFixed(options.wind);
 
     const rules = options.rules ?? {};
+    this.birdsOn = rules.birds === true;
     this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
     this.turnCap = Math.max(1, rules.turnCap ?? mode.turnCap);
     this.turnTimerTicks = Math.round((rules.turnTimer ?? mode.turnTimer) * TICK_RATE);
@@ -1155,6 +1180,7 @@ export class World implements SimApi {
     this.modeB.onRoundStart(this.modeApi, this.modeParams);
     this.turnPos = 0;
     this.turn = 0;
+    if (this.birdsOn) this.birds.reset(this.birdWorld, this.options.seed, this.round, this.tick);
     if (firstTurn) this.beginTurn();
   }
 
@@ -1339,6 +1365,11 @@ export class World implements SimApi {
     this.weatherB?.onTick?.(this, this.weatherParams);
 
     this.stepProjectiles();
+    if (this.birdsOn) {
+      // the wind carries the birds a little (a quarter cell a tick in a strong wind)
+      const drift = Math.max(-(FP >> 1), Math.min(FP >> 1, this.wind * 25));
+      this.birds.step(this.birdWorld, this.tick, drift);
+    }
     this.stepOps();
     if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
@@ -1718,6 +1749,7 @@ export class World implements SimApi {
       angle: t.angle,
       weapon: fired,
     });
+    if (this.birdsOn) this.birds.startle(Math.floor(x / FP), Math.floor(y / FP), 40);
   }
 
   /** Launch speed (fixed-point) for `power` 0–1000 from this tank's muzzle. */
@@ -2087,6 +2119,17 @@ export class World implements SimApi {
 
       // a shell flying through an armed tripwire sets it off and goes off with it
       if (this.wires > 0 && sig !== 'skip' && this.wireCatch(p, px, py)) continue;
+      // a shell that flies into a bird goes off right there
+      if (this.birdsOn && sig !== 'skip') {
+        const b = this.birds.catch(px, py, p.x, p.y);
+        if (b >= 0) {
+          const bx = Math.max(0, Math.min(this.grid.width - 1, Math.floor(this.birds.x[b]! / FP)));
+          const by = Math.max(0, Math.min(H - 1, Math.floor(this.birds.y[b]! / FP)));
+          this.birds.hit(this.birdWorld, b, p.vx, p.vy);
+          this.impact(p, bx, by);
+          continue;
+        }
+      }
 
       if (sig === 'pulse') {
         const cx = Math.max(0, Math.min(this.grid.width - 1, Math.floor(p.x / FP)));
@@ -3042,6 +3085,11 @@ export class World implements SimApi {
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     if (e.pressure > e.radius && this.mats.anyBlowOff && this.fronts.length < 64)
       this.fronts.push({ x, y, full: e.radius, reach: e.pressure, front: 0 });
+    // the pressure front tears apart the birds it reaches; further out they scatter
+    if (this.birdsOn) {
+      const reach = Math.max(e.pressure, e.radius);
+      this.birds.blast(x, y, reach, reach * 2 + 40, this.tick);
+    }
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     const shooter = owner >= 0 ? this.tanks[owner] : undefined;
     const mine = shooter !== undefined && owner === this.activePlayer && this.phase === 'resolve';
@@ -4181,6 +4229,7 @@ export class World implements SimApi {
       temperature: this.temperature,
       deathZone: this.edge,
       preview: this.previewPath() ?? undefined,
+      ...(this.birdsOn ? { birds: this.birds.view() } : {}),
       theme: 'theme.default',
       weather: this.weather
         ? {
@@ -4275,6 +4324,8 @@ export class World implements SimApi {
       h.num(this.fronts.length);
       for (const p of this.fronts) h.num(p.x).num(p.y).num(p.full).num(p.reach).num(p.front);
     }
+    // swallows (kernel 0.35.0): only hashed in matches that have them
+    if (this.birdsOn) this.birds.hash(h);
     const d = this.debris;
     h.num(d.count);
     for (let i = 0; i < d.count; i++) {

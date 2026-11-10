@@ -48,6 +48,8 @@ export interface WireSnapshot {
   temperature?: number;
   deathZone?: number;
   preview?: number[];
+  /** Swallows: x, y, vx, vy (1/256 cell), panic, per bird. */
+  birds?: number[];
 }
 
 export interface CaptureApi {

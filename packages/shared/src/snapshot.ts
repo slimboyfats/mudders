@@ -195,6 +195,11 @@ export interface RenderSnapshot {
    * Spotter Flare's aim preview; unset otherwise.
    */
   preview?: number[] | undefined;
+  /**
+   * Swallows in the sky (matches with birds on): five numbers per bird, x and y in 1/256 cell,
+   * vx and vy in 1/256 cell per tick, and ticks left fleeing.
+   */
+  birds?: readonly number[] | undefined;
   theme: string;
   /** Match weather (renderer: what falls and how wet the ground looks); unset = clear. */
   weather?: { id: string; kind: string; density: number; color: string; wet: number } | undefined;
