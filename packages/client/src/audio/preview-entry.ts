@@ -38,7 +38,8 @@ const api = {
       const on = { ...zero };
       for (const k of PROCESS_KINDS) if (i === n - 1 || PROCESS_KINDS[i] === k) on[k] = 1;
       // a small fire first, then a big one
-      const half = Object.fromEntries(PROCESS_KINDS.map((k) => [k, on[k] * 0.4])) as ProcessCounts;
+      const half = { ...zero };
+      for (const k of PROCESS_KINDS) half[k] = on[k] * 0.4;
       scape.set(half, at);
       scape.set(on, at + seconds * 0.35);
       scape.set(zero, at + seconds * 0.7);
