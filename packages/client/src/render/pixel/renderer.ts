@@ -216,6 +216,10 @@ export class PixelRenderer implements Renderer {
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
   private coatTex!: WebGLTexture;
+  /** Gas layer (R8UI), refreshed over the snapshot's `gasRect`. */
+  private gasTex!: WebGLTexture;
+  /** Any gas on the map at the last snapshot. */
+  private gasOn = false;
   /** Where grass may grow (R8UI, 1 = round-start surface), seeded once per round. */
   private grassTex!: WebGLTexture;
   private readonly grassMask: Uint8Array;
@@ -259,6 +263,8 @@ export class PixelRenderer implements Renderer {
       | 'u_vignette'
       | 'u_terrain'
       | 'u_coat'
+      | 'u_gas'
+      | 'u_gasOn'
       | 'u_look'
       | 'u_palette'
       | 'u_time'
@@ -487,6 +493,8 @@ export class PixelRenderer implements Renderer {
       'u_vignette',
       'u_terrain',
       'u_coat',
+      'u_gas',
+      'u_gasOn',
       'u_look',
       'u_palette',
       'u_time',
@@ -539,6 +547,18 @@ export class PixelRenderer implements Renderer {
       this.terrain,
     );
     this.coatTex = texture(gl);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R8UI,
+      this.mapWidth,
+      this.mapHeight,
+      0,
+      gl.RED_INTEGER,
+      gl.UNSIGNED_BYTE,
+      new Uint8Array(this.mapWidth * this.mapHeight),
+    );
+    this.gasTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -663,8 +683,9 @@ export class PixelRenderer implements Renderer {
       look[l.cell * 4 + 1] = Math.max(1, Math.min(255, l.ticks));
       // b: 255 hot, 96 glint (the shader tells them apart by range)
       look[l.cell * 4 + 2] = l.hot ? 255 : l.glint ? 96 : 0;
-      // a: 255 topsoil, 128 char-only
-      look[l.cell * 4 + 3] = l.topsoil ? 255 : l.char ? 128 : 0;
+      // a: 255 topsoil, 128 char-only; for a gas, its cover (gas never sits in the terrain)
+      look[l.cell * 4 + 3] =
+        l.cover !== undefined ? Math.round(l.cover * 255) : l.topsoil ? 255 : l.char ? 128 : 0;
       for (let i = 0; i < n; i++) {
         const o = ((1 + i) * 256 + l.cell) * 4;
         const c = l.cycle[i]!;
@@ -794,6 +815,29 @@ export class PixelRenderer implements Renderer {
     this.water.setTerrain(s.terrain);
     this.liquid.setTerrain(s.terrain);
     this.coating = s.coating;
+    const gr = s.gasRect;
+    if (gr && gr.w > 0 && gr.h > 0) {
+      gl.bindTexture(gl.TEXTURE_2D, this.gasTex);
+      gl.pixelStorei(gl.UNPACK_ROW_LENGTH, s.width);
+      gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, gr.x);
+      gl.pixelStorei(gl.UNPACK_SKIP_ROWS, gr.y);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gr.x,
+        gr.y,
+        gr.w,
+        gr.h,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        s.gas,
+      );
+      gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+      gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+      gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+      gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
+    }
+    this.gasOn = gr !== null;
     // grass belongs to the ground a round starts with: craters dug later stay bare. The round
     // number goes up when a round ends; the next map arrives later as one whole-map rect.
     const round = Math.floor(s.turn / 1000);
@@ -1857,8 +1901,12 @@ export class PixelRenderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.burnTex);
     gl.activeTexture(gl.TEXTURE8);
     gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
+    gl.activeTexture(gl.TEXTURE9);
+    gl.bindTexture(gl.TEXTURE_2D, this.gasTex);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.uBg.u_heat, 8);
+    gl.uniform1i(this.uBg.u_gas, 9);
+    gl.uniform1f(this.uBg.u_gasOn, this.gasOn ? 1 : 0);
     gl.uniform1f(this.uBg.u_heatOn, this.heatOn ? 1 : 0);
     this.lights.clear();
     this.fx.collectLights(this.lights, t);
@@ -3086,6 +3134,7 @@ export class PixelRenderer implements Renderer {
     this.additive.dispose();
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
+    gl.deleteTexture(this.gasTex);
     gl.deleteTexture(this.heatTex);
     gl.deleteTexture(this.paletteTex);
     gl.deleteTexture(this.lookTex);

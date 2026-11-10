@@ -42,6 +42,11 @@
       "with": "material.lava",
       "into": "material.burning-tar",
       "chance": 0.3
+    },
+    {
+      "with": "#hot",
+      "into": "material.burning-tar",
+      "chance": 0.14
     }
   ],
   "look": {

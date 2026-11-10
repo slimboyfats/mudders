@@ -39,6 +39,11 @@
       "with": "material.napalm",
       "into": "material.reactor-lit",
       "chance": 0.3
+    },
+    {
+      "with": "#hot",
+      "into": "material.reactor-lit",
+      "chance": 0.25
     }
   ],
   "look": {

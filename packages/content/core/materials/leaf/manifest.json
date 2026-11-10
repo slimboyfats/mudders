@@ -19,5 +19,6 @@
     "corrosive": 0.3
   },
   "cohesion": 0,
-  "coating": false
+  "coating": false,
+  "tags": ["burns"]
 }

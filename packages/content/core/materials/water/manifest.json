@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Water",
-    "description": "Flows downhill and pools for a few seconds before it soaks away. Washes sand and ash away, erodes the dirt it runs over, puts out fire and quenches lava into rock.",
+    "description": "Flows downhill and pools for a few seconds before it soaks away. Washes sand and ash away, erodes the dirt it runs over, puts out fire and quenches lava into rock, boiling off as steam where it touches anything hot.",
     "since": "core@0.4.0",
     "color": "#3a78c8"
   },
@@ -19,10 +19,11 @@
   },
   "cohesion": -0.5,
   "coating": false,
+  "tags": ["wet"],
   "reactions": [
     {
       "with": "material.lava",
-      "into": "air",
+      "into": "material.steam",
       "other": "material.rock",
       "chance": 0.6
     },
@@ -40,6 +41,11 @@
       "with": "material.dirt",
       "other": "material.liquid-dirt",
       "chance": 0.01
+    },
+    {
+      "with": "#hot",
+      "into": "material.steam",
+      "chance": 0.05
     }
   ],
   "decay": {

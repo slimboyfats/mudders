@@ -1,0 +1,33 @@
+{
+  "id": "material.marsh-gas",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Marsh gas",
+    "description": "A sickly green haze of rot gas. It seeps out of burst gas pockets, creeps upward very slowly and collects under overhangs. It does nothing on its own, but any flame, lava or burning thing that touches it sets the whole cloud off in a rolling chain of flares.",
+    "since": "core@0.61.0",
+    "color": "#9ab84a"
+  },
+  "cell": 32,
+  "settle": "gas",
+  "gas": {
+    "lift": 1,
+    "rise": 0.12,
+    "drift": 0.4
+  },
+  "density": 1,
+  "strength": {},
+  "cohesion": 0,
+  "coating": false,
+  "reactions": [
+    {
+      "with": "#hot",
+      "into": "material.gas-flare",
+      "chance": 0.7
+    }
+  ],
+  "look": {
+    "cycle": ["#9ab84a", "#86a63c", "#b0c860", "#7a9636"],
+    "cycleTicks": 9,
+    "cover": 0.35
+  }
+}

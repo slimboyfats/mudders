@@ -33,6 +33,11 @@
       "with": "material.napalm",
       "into": "material.burning-oil",
       "chance": 0.5
+    },
+    {
+      "with": "#hot",
+      "into": "material.burning-oil",
+      "chance": 0.35
     }
   ]
 }

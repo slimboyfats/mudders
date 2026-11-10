@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["hot"],
   "decay": {
     "into": "air",
     "ticks": 160
@@ -43,9 +44,9 @@
       "chance": 0.05
     },
     {
-      "with": "material.wood",
+      "with": "#burns",
       "other": "material.fire",
-      "chance": 0.06
+      "chance": 0.07
     }
   ],
   "look": {

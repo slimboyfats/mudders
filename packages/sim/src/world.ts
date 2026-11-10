@@ -11,6 +11,7 @@ import {
   type Impact,
   type Input,
   type ModeManifest,
+  type Rect,
   type RenderSnapshot,
   type WallRule,
   type WeatherManifest,
@@ -61,6 +62,7 @@ import { Scratch } from './scratch';
 import { supportPass } from './support';
 import { settleStep } from './settle';
 import { reactStep, turnDecay } from './reactions';
+import { gasStep } from './gas';
 import { KEEP, SETTLE_FLOW } from './materials';
 
 /**
@@ -1178,6 +1180,29 @@ export class World implements SimApi {
     return sd !== null && Math.floor(this.turn / Math.max(1, this.tanks.length)) >= sd.fromTurn - 1;
   }
 
+  /** Gas region at the last snapshot, so the renderer also clears where gas has left. */
+  private lastGas: Rect | null = null;
+
+  /** The rect of the gas layer a renderer must refresh: where gas is now plus where it was. */
+  private gasRect(): Rect | null {
+    const g = this.grid;
+    const now: Rect | null = g.gassy
+      ? { x: g.gasMinX, y: g.gasMinY, w: g.gasMaxX - g.gasMinX + 1, h: g.gasMaxY - g.gasMinY + 1 }
+      : null;
+    const was = this.lastGas;
+    this.lastGas = now;
+    if (!was) return now;
+    if (!now) return was;
+    const x = Math.min(was.x, now.x);
+    const y = Math.min(was.y, now.y);
+    return {
+      x,
+      y,
+      w: Math.max(was.x + was.w, now.x + now.w) - x,
+      h: Math.max(was.y + was.h, now.y + now.h) - y,
+    };
+  }
+
   /** Nothing moving: no projectiles, ops, settling, falling tanks or pending deaths. */
   get quiet(): boolean {
     return (
@@ -1277,6 +1302,7 @@ export class World implements SimApi {
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap);
     reactStep(this.grid, this.mats, this.tick);
+    gasStep(this.grid, this.mats, this.tick, this.wind);
     if (this.grid.burstCount > 0) this.bursts();
     if (this.grid.pocketCount > 0) this.burstPockets();
     if (this.groups.any) {
@@ -3278,7 +3304,9 @@ export class World implements SimApi {
       for (let y = Math.max(0, t.y - t.h); y <= Math.min(g.height - 1, t.y); y++) {
         const row = y * g.width;
         for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
-          const d = cd[g.material[row + x]!]!;
+          const m = g.material[row + x]!;
+          // gas only sits over air: a tank in a cloud of it is touching it
+          const d = cd[m === 0 ? g.gas[row + x]! : m]!;
           if (d > worst) worst = d;
         }
       }
@@ -3962,6 +3990,8 @@ export class World implements SimApi {
       height: this.grid.height,
       terrain: this.grid.material,
       coating: this.grid.coating,
+      gas: this.grid.gas,
+      gasRect: this.gasRect(),
       dirtyRects: this.grid.takeRenderRects(),
       entities,
       effectEvents,
@@ -3999,7 +4029,7 @@ export class World implements SimApi {
     for (const o of this.order) h.num(o);
     for (const p of this.prices) h.num(p);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
-    h.bytes(g.material).bytes(g.coating).bytes(g.cellState).bytes(g.fallVel);
+    h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
     h.bytes(g.group).bytes(g.groupMat);
     this.groups.hash(h);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);

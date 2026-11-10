@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["wet"],
   "sink": {
     "ticks": 18,
     "depth": 4

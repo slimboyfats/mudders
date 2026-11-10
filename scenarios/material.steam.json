@@ -1,0 +1,106 @@
+{
+  "id": "material.steam",
+  "schemaVersion": 1,
+  "description": "weapon.magma-bomb leaves a lava pool by the far tank, then weapon.flood pours water on it: the lava quenches to rock and boils off clouds of steam.",
+  "subject": "material.steam",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.magma-bomb": 3,
+        "weapon.flood": 3
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.magma-bomb"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 250
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.flood"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 240
+  }
+}

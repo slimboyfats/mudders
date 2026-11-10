@@ -1,0 +1,12 @@
+{
+  "id": "terrainop.gas-cloud",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gas cloud",
+    "description": "Lets a cloud of gas loose in the air cells of a disc. The gas then rises, drifts with the wind and reacts with whatever it meets.",
+    "since": "core@0.61.0"
+  },
+  "behaviour": "terrainop.gas-cloud",
+  "gas": "material.marsh-gas",
+  "fill": 0.8
+}

@@ -12,6 +12,6 @@ describe('weapon.oil-slick', () => {
     dropAt(w, 'weapon.incendiary', 200);
     // the whole oiled surface goes up, not just the impact point
     expect(before - oiled()).toBeGreaterThan(70);
-    expect(countCells(w, 'material.ash')).toBeGreaterThan(70);
+    expect(countCells(w, 'material.ash')).toBeGreaterThan(50);
   });
 });

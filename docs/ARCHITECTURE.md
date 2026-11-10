@@ -129,6 +129,26 @@ wears off). Coatings with tick `decay` wear off with chance 1/ticks per tick. Th
 finaliser of (cell, tick, k); a plain multiplicative hash correlated across cells on one tick and
 broke ignition chains.
 
+Reactions are a pair table (`MaterialTable.pairRule`, one `Uint16` per cell × neighbour pair). A
+rule's `with` may be a material id or a `#tag` (materials carry `tags` such as `burns`, `hot`,
+`wet`); tags are expanded into the table at load, an id rule beats a tag rule for the same pair, and
+a tag never matches its own material. Each neighbour with a rule rolls its own chance and the first
+hit reacts, except that a spawn-only rule (fire throwing flames) fires at most once per tick and
+does not stop the cell's other reactions.
+
+**Gas** (`sim/src/gas.ts`, Noita feel, docs/NOITA-FEEL.md): materials with `settle: "gas"` live in a
+separate `Grid.gas` layer, only over air cells, so everything that treats air as empty (shells,
+tanks, settle, ops) passes through them. `gasStep` runs after `reactStep` over the gas region:
+each cell may end (its tick `decay` is a mean lifetime, chance 1/ticks per tick, with an optional
+`detonate`), react with its neighbours through the pair table (marsh gas + `#hot` → gas flare),
+then drift sideways with the wind, rise (`lift` 1, chance `rise`) or sink (`lift` -1), diagonally
+when blocked, and bubble up through liquids by trading places. Settling terrain that falls into gas
+pushes the gas up into the cell it left. Reactions place a gas result through `place()`, which
+writes the gas layer instead of the terrain. Gas never holds a turn (`quiet` ignores it), it is
+hashed, and the snapshot carries `gas` plus a `gasRect` (where gas is plus where it was) that the
+renderer re-uploads to an `R8UI` texture and draws per cell with the material's look and `cover`
+as an ordered dither. `terrainop.gas-cloud` releases a cloud.
+
 ### 3.2c Props and integrity groups (milestone 3)
 
 A `prop` item (`house`, `tree`, `boulder`) is an ASCII `shape` with a legend mapping characters to

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Gas pocket burst",
-    "description": "The blast of an uncovered gas pocket: a fiery burst that blows the hollow open and chars the walls around it.",
+    "description": "The blast of an uncovered gas pocket: a fiery burst that blows the hollow open, chars the walls around it and leaves a cloud of marsh gas hanging over the hole, waiting for a spark.",
     "category": "submunition",
     "since": "core@0.21.0"
   },
@@ -40,6 +40,15 @@
         "expandTicks": 6
       },
       "radius": 22,
+      "damageType": "heat"
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.gas-cloud",
+        "gas": "material.marsh-gas",
+        "fill": 0.55
+      },
+      "radius": 26,
       "damageType": "heat"
     }
   ],

@@ -27,7 +27,10 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         flames: m.look.flames,
         char: m.look.char,
         glint: m.look.glint,
+        ...(m.settle === 'gas' ? { cover: m.look.cover } : {}),
       });
+    } else if (m.settle === 'gas') {
+      looks.push({ cell: m.cell, cycle: [], ticks: 1, hot: false, cover: 1 });
     }
   }
   const themes: Record<string, PixelTheme> = {};

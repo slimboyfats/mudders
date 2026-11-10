@@ -90,6 +90,8 @@ export interface MaterialLook {
   flames?: boolean;
   /** Crystalline: scattered cells glint white for a moment (frost). */
   glint?: boolean;
+  /** Gas only: share of its cells drawn, as an ordered dither. */
+  cover?: number;
 }
 
 export interface RendererOptions {

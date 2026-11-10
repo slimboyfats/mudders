@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["hot"],
   "spread": 30,
   "decay": {
     "into": "material.glass",
@@ -44,7 +45,7 @@
       "chance": 0.1
     },
     {
-      "with": "material.wood",
+      "with": "#burns",
       "other": "material.fire",
       "chance": 0.09
     }

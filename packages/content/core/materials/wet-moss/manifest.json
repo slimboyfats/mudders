@@ -20,6 +20,7 @@
   },
   "cohesion": 0.6,
   "coating": false,
+  "tags": ["wet"],
   "decay": {
     "into": "material.moss",
     "turns": 3

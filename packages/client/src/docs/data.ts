@@ -127,6 +127,7 @@ const SETTLE_LABELS: Record<string, string> = {
   fall: 'Loose (falls)',
   slide: 'Thick (slides)',
   flow: 'Liquid (flows)',
+  gas: 'Gas (rises and drifts)',
 };
 
 const TRIGGER_LABELS: Record<string, string> = {
@@ -136,8 +137,17 @@ const TRIGGER_LABELS: Record<string, string> = {
   onApex: 'top of its arc',
 };
 
+/** Player-facing names for reaction tags. */
+const TAG_NAMES: Readonly<Record<string, string>> = {
+  burns: 'anything that burns',
+  hot: 'anything hot',
+  wet: 'anything wet',
+};
+
 function nameOf(c: ResolvedContent, id: string): string {
   if (id === 'air') return 'air';
+  // a reaction tag: "anything that burns", "anything hot", …
+  if (id.startsWith('#')) return TAG_NAMES[id.slice(1)] ?? `anything tagged ${id.slice(1)}`;
   const raw = c.raw(id);
   const meta = raw?.['meta'];
   if (meta && typeof meta === 'object' && 'name' in meta && typeof meta.name === 'string')

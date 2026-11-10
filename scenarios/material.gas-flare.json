@@ -1,0 +1,107 @@
+{
+  "id": "material.gas-flare",
+  "schemaVersion": 1,
+  "description": "A missile bursts a marsh gas pocket and napalm sets the leftover gas off in a chain of flares.",
+  "subject": "material.gas-flare",
+  "mode": "mode.classic",
+  "seed": 3,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.marsh"
+  },
+  "tanks": [
+    {
+      "x": 72,
+      "inventory": {
+        "weapon.missile": 5,
+        "weapon.napalm": 3
+      }
+    },
+    {
+      "x": 728
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 18,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 250
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.napalm"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 18,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 240
+  }
+}

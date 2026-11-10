@@ -42,6 +42,11 @@
       "with": "material.burning-oil",
       "into": "material.lit-gunpowder",
       "chance": 0.5
+    },
+    {
+      "with": "#hot",
+      "into": "material.lit-gunpowder",
+      "chance": 0.45
     }
   ],
   "look": {

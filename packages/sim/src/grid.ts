@@ -14,6 +14,11 @@ export class Grid {
   readonly size: number;
   readonly material: Uint8Array;
   readonly coating: Uint8Array;
+  /**
+   * Gas layer: a gas material per cell (0 = none), only ever in cells whose `material` is air, so
+   * everything that treats air as empty (shells, tanks, settle) flies straight through it.
+   */
+  readonly gas: Uint8Array;
   readonly cellState: Uint8Array;
   /** Settle fall speed per cell (cells/tick). Kernel-owned. */
   readonly fallVel: Uint8Array;
@@ -55,6 +60,11 @@ export class Grid {
   reactMaxX = -1;
   reactMinY = 0;
   reactMaxY = -1;
+  /** Gas region (inclusive rect): where gas cells are, stepped by `gasStep`. */
+  gasMinX = 0;
+  gasMaxX = -1;
+  gasMinY = 0;
+  gasMaxY = -1;
   /** Bounding box of cells with turn-based decay (lava cooling), checked once per turn. */
   turnMinX = 0;
   turnMaxX = -1;
@@ -77,6 +87,7 @@ export class Grid {
     this.size = width * height;
     this.material = new Uint8Array(this.size);
     this.coating = new Uint8Array(this.size);
+    this.gas = new Uint8Array(this.size);
     this.cellState = new Uint8Array(this.size);
     this.fallVel = new Uint8Array(this.size);
     this.group = new Uint8Array(this.size);
@@ -87,6 +98,8 @@ export class Grid {
   reset(): void {
     this.material.fill(0);
     this.coating.fill(0);
+    this.gas.fill(0);
+    this.gasMaxX = -1;
     this.cellState.fill(0);
     this.fallVel.fill(0);
     this.group.fill(0);
@@ -100,6 +113,31 @@ export class Grid {
     this.clearReact();
     this.turnMaxX = -1;
     this.renderRects = [];
+  }
+
+  get gassy(): boolean {
+    return this.gasMaxX >= this.gasMinX && this.gasMaxY >= this.gasMinY;
+  }
+
+  /** Grow the gas region to include a cell. */
+  extendGas(x: number, y: number): void {
+    if (!this.gassy) {
+      this.gasMinX = this.gasMaxX = x;
+      this.gasMinY = this.gasMaxY = y;
+      return;
+    }
+    if (x < this.gasMinX) this.gasMinX = x;
+    if (x > this.gasMaxX) this.gasMaxX = x;
+    if (y < this.gasMinY) this.gasMinY = y;
+    if (y > this.gasMaxY) this.gasMaxY = y;
+  }
+
+  /** Put gas `g` into air cell `i` (no-op unless the cell is air). */
+  putGas(i: number, g: number): void {
+    if (this.material[i] !== 0) return;
+    this.gas[i] = g;
+    const x = i % this.width;
+    this.extendGas(x, (i - x) / this.width);
   }
 
   get reacting(): boolean {
@@ -166,6 +204,7 @@ export class Grid {
     this.leaveGroup(i);
     this.material[i] = 0;
     this.coating[i] = 0;
+    this.gas[i] = 0;
     this.cellState[i] = 0;
     this.fallVel[i] = 0;
   }

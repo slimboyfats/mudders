@@ -20,6 +20,7 @@
   },
   "cohesion": 0.5,
   "coating": false,
+  "tags": ["burns"],
   "reactions": [
     {
       "with": "material.water",
