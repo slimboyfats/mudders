@@ -1,20 +1,21 @@
 {
   "id": "material.water",
   "schemaVersion": 1,
-  "description": "weapon.flood fired at the far tank on a small map.",
+  "description": "Lakeland: a missile straight into the middle of the lake throws a crown of water that rains back down and runs off, then a second one closer to the shore splashes over the bank.",
   "subject": "material.water",
   "mode": "mode.classic",
   "seed": 7,
   "players": 2,
   "map": {
     "width": 800,
-    "height": 400
+    "height": 400,
+    "generator": "gen.lakeland"
   },
   "tanks": [
     {
       "x": 150,
       "inventory": {
-        "weapon.flood": 5
+        "weapon.missile": 5
       }
     },
     {
@@ -29,7 +30,7 @@
       "player": 0,
       "action": {
         "type": "selectWeapon",
-        "weapon": "weapon.flood"
+        "weapon": "weapon.missile"
       }
     },
     {
@@ -38,7 +39,47 @@
       "action": {
         "type": "aim",
         "angle": 55,
-        "power": 605
+        "power": 615
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 250
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 630
       }
     },
     {
@@ -50,8 +91,8 @@
     }
   ],
   "capture": {
-    "maxTicks": 2500,
+    "maxTicks": 3000,
     "untilSettled": true,
-    "extraTicks": 45
+    "extraTicks": 120
   }
 }
