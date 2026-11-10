@@ -8,8 +8,11 @@
  * for a grid with solid cells: velocity and dye are zero inside the terrain, so smoke pools under
  * overhangs, pours out of craters and climbs cliff faces instead of passing through them.
  *
- * Three dyes ride the velocity field: smoke, heat (which lifts the air around it and tints the
- * smoke orange) and gas (which sinks). Effects feed them through {@link FluidSink.splat}, in tick
+ * Four dyes ride the velocity field: smoke, heat (which lifts the air around it and tints the
+ * smoke orange), gas (which sinks) and fire. Fire is burning gas: it swells (a source in the
+ * pressure solve, so a blast shoves the air away from itself and off the ground instead of
+ * drawing a disc), climbs hard, and burns out into heat and soot. A fireball is therefore a hot
+ * bubble that rolls up into a pair of vortices, one each side, like a real one. Effects feed them through {@link FluidSink.splat}, in tick
  * order; the passes are deferred to draw time and run one tick at a time, so a capture replays
  * exactly. The field draws as hard colour bands dithered on the map grid (see {@link GpuFluid.draw}).
  *
@@ -35,7 +38,13 @@ export interface FluidSink {
     heat: number,
     gas?: number,
     radial?: boolean,
+    fire?: number,
   ): void;
+  /**
+   * Spin the air about (x, y) within radius r: a vortex turning at up to `spin` cells/tick,
+   * clockwise on screen when positive. Blasts set one each side of their fireball.
+   */
+  swirl?(x: number, y: number, r: number, spin: number): void;
 }
 
 /** Per quality: grid cells per fluid cell, and pressure iterations per tick. */
@@ -47,6 +56,18 @@ export const QUALITY_FLUID = {
 
 /** Most splats one tick keeps (the rest are dropped; a nuke's are first in line). */
 const MAX_SPLATS = 24;
+
+/**
+ * Fire, as numbers (GLSL float literals). Lift per unit of fire per tick; how much each unit
+ * swells the air per tick; what is left of it each tick, less the snuff; and the soot and heat a
+ * burnt unit leaves behind.
+ */
+const FIRE_LIFT = '0.03';
+const FIRE_SWELL = '0.07';
+const FIRE_KEEP = 0.985;
+const FIRE_SNUFF = '0.007';
+const FIRE_SOOT = '0.3';
+const FIRE_HEAT = '0.3';
 
 const FULL_VS = `#version 300 es
 precision highp float;
@@ -86,6 +107,7 @@ uniform sampler2D u_dye;
 uniform int u_n;
 uniform vec4 u_sA[${MAX_SPLATS}]; // x, y (fluid cells), r (negative = radial), gas
 uniform vec4 u_sB[${MAX_SPLATS}]; // vx, vy (or strength), smoke, heat
+uniform vec2 u_sC[${MAX_SPLATS}]; // fire, spin
 layout(location = 0) out vec4 oVel;
 layout(location = 1) out vec4 oDye;
 void main() {
@@ -103,10 +125,13 @@ void main() {
     float w = 1.0 - smoothstep(0.0, r, dist);
     if (a.z < 0.0) v += (dist > 0.01 ? off / dist : vec2(0.0)) * b.x * w;
     else v += b.xy * w;
-    d.xyz += vec3(b.z, b.w, a.w) * w;
+    vec2 c = u_sC[i];
+    // spin: a vortex about the centre, strongest part-way out (positive = clockwise on screen)
+    if (c.y != 0.0) v += vec2(-off.y, off.x) / r * c.y * w * (1.0 - w) * 4.0;
+    d += vec4(b.z, b.w, a.w, c.x) * w;
   }
   oVel = vec4(v, 0.0, 1.0);
-  oDye = vec4(min(d.xyz, vec3(3.0)), 1.0);
+  oDye = min(d, vec4(3.0));
 }`;
 
 /** Semi-Lagrangian advection of a field by the velocity, with per-channel dissipation. */
@@ -115,12 +140,23 @@ const ADVECT_FS =
   `uniform sampler2D u_vel;
 uniform sampler2D u_src;
 uniform vec4 u_keep;
+uniform float u_burn; // 1 on the dye pass: fire burns out into heat and soot
 out vec4 o;
 void main() {
   if (solidAt(v_uv)) { o = vec4(0.0); return; }
   vec2 v = texture(u_vel, v_uv).xy;
   vec2 from = v_uv - v / u_size;
-  o = texture(u_src, from) * u_keep;
+  vec4 s = texture(u_src, from);
+  o = s * u_keep;
+  if (u_burn > 0.5) {
+    // thin flame goes out at once (crisp tongues, no haze); what burns leaves heat and soot
+    // and it thins as it swells, by as much as the pressure solve lets it spread
+    float f = max(0.0, s.w * u_keep.w * (1.0 - min(0.5, s.w * ${FIRE_SWELL} * 0.6)) - ${FIRE_SNUFF});
+    float burnt = s.w - f;
+    o.w = f;
+    o.x = min(3.0, o.x + burnt * ${FIRE_SOOT});
+    o.y = min(3.0, o.y + burnt * ${FIRE_HEAT});
+  }
 }`;
 
 const CURL_FS =
@@ -160,14 +196,16 @@ void main() {
   vec2 v = texture(u_vel, v_uv).xy + force;
   vec4 d = texture(u_dye, v_uv);
   // hot air climbs, smoke drifts up a little on its own, gas sinks
-  v.y -= d.y * 0.07 + d.x * 0.01 - d.z * 0.01;
-  v.x += u_wind;
+  v.y -= d.y * 0.07 + d.x * 0.01 - d.z * 0.01 + d.w * ${FIRE_LIFT};
+  // the wind leans on what hangs in the air; clear air stays still, so the field holds only
+  // what blasts and heat stirred up (particles ride it, and have their own wind)
+  v.x += u_wind * min(1.0, (d.x + d.y + d.z + d.w) * 4.0);
   // a whisper of turbulence, so a symmetric blast still curls into eddies
-  if (d.x + d.y + d.z > 0.02) {
+  if (d.x + d.y + d.z + d.w > 0.02) {
     vec2 c = floor(v_uv * u_size);
     float h = fract(sin(dot(c + u_jit, vec2(12.9898, 78.233))) * 43758.5453);
     float h2 = fract(sin(dot(c + u_jit, vec2(39.3467, 11.135))) * 24634.6345);
-    v += (vec2(h, h2) - 0.5) * 0.16 * min(1.0, d.y * 2.0 + d.x);
+    v += (vec2(h, h2) - 0.5) * 0.16 * min(1.0, d.y * 2.0 + d.x + d.w * 2.0);
   }
   float sp = length(v);
   if (sp > 2.5) v *= 2.5 / sp;
@@ -177,6 +215,7 @@ void main() {
 const DIV_FS =
   HEAD +
   `uniform sampler2D u_vel;
+uniform sampler2D u_dye;
 out vec4 o;
 void main() {
   vec2 t = 1.0 / u_size;
@@ -185,7 +224,9 @@ void main() {
   float R = solidAt(f + ivec2(1, 0)) ? 0.0 : texture(u_vel, v_uv + vec2(t.x, 0.0)).x;
   float T = solidAt(f - ivec2(0, 1)) ? 0.0 : texture(u_vel, v_uv - vec2(0.0, t.y)).y;
   float B = solidAt(f + ivec2(0, 1)) ? 0.0 : texture(u_vel, v_uv + vec2(0.0, t.y)).y;
-  o = vec4(0.5 * (R - L + B - T), 0.0, 0.0, 1.0);
+  // burning gas swells: a source, so the solve pushes the air out of the fireball's way
+  float swell = solidAt(f) ? 0.0 : texture(u_dye, v_uv).w * ${FIRE_SWELL};
+  o = vec4(0.5 * (R - L + B - T) - swell, 0.0, 0.0, 1.0);
 }`;
 
 /** One Jacobi step; a solid neighbour takes this cell's pressure (no flow through the wall). */
@@ -250,7 +291,7 @@ void main() {
   if (cell.x < 0 || cell.y < 0 || cell.x >= u_map.x || cell.y >= u_map.y) discard;
   if (texelFetch(u_terrain, cell, 0).r != 0u) discard;
   vec2 uv = (cellF + 0.5) / (u_fsize * float(u_div));
-  vec3 d = texture(u_dye, uv).xyz;
+  vec4 d = texture(u_dye, uv);
   // a coarse checker dither between bands (hard bands, a one-cell checker seam), crawling a
   // cell every few ticks so a still cloud still shimmers
   int ox = int(mod(floor(u_tick / 3.0), 2.0));
@@ -266,17 +307,8 @@ void main() {
     col = b < 2.0 ? vec3(0.17, 0.35, 0.16) : b < 3.0 ? vec3(0.31, 0.54, 0.23) : vec3(0.48, 0.72, 0.29);
     alpha = b < 2.0 ? 0.45 : b < 3.0 ? 0.65 : 0.8;
   } else {
-    float b = floor(min(smoke, 1.2) * 3.4 + dither);
-    if (b < 1.0) discard;
-    // soot bands: thin skirts a dark haze, the body a mid grey, the thickest a lit pale top
-    col = b < 2.0 ? vec3(0.13, 0.11, 0.12) : b < 3.0 ? vec3(0.27, 0.24, 0.26) : b < 4.0 ? vec3(0.45, 0.42, 0.45) : vec3(0.64, 0.61, 0.64);
-    alpha = b < 2.0 ? 0.55 : b < 3.0 ? 0.75 : b < 4.0 ? 0.88 : 0.95;
-    // heat lights the smoke from inside, in three steps
-    float h = floor(min(heat, 1.0) * 3.0 + dither * 0.999);
-    if (h >= 3.0) col = vec3(1.0, 0.75, 0.25);
-    else if (h >= 2.0) col = vec3(0.88, 0.38, 0.12);
-    else if (h >= 1.0) col = mix(col, vec3(0.54, 0.23, 0.06), 0.7);
-    if (h >= 1.0) alpha = max(alpha, 0.6 + h * 0.1);
+    // smoke and fire are not drawn here: they are single cells riding this field (air.ts)
+    discard;
   }
   o = vec4(col * alpha, alpha);
 }`;
@@ -284,6 +316,8 @@ void main() {
 interface Splat {
   a: [number, number, number, number];
   b: [number, number, number, number];
+  fire: number;
+  spin: number;
 }
 
 interface Step {
@@ -318,6 +352,7 @@ export class GpuFluid implements FluidSink {
   private tick = 0;
   private readonly sA = new Float32Array(MAX_SPLATS * 4);
   private readonly sB = new Float32Array(MAX_SPLATS * 4);
+  private readonly sC = new Float32Array(MAX_SPLATS * 2);
   /** Set once anything has been poured in; until then every pass is skipped. */
   private live = false;
 
@@ -382,11 +417,11 @@ export class GpuFluid implements FluidSink {
         u[n] = gl.getUniformLocation(p, n);
       this.uni[name] = u;
     };
-    mk('splat', SPLAT_FS, ['u_vel', 'u_dye', 'u_n', 'u_sA', 'u_sB']);
-    mk('advect', ADVECT_FS, ['u_vel', 'u_src', 'u_keep']);
+    mk('splat', SPLAT_FS, ['u_vel', 'u_dye', 'u_n', 'u_sA', 'u_sB', 'u_sC']);
+    mk('advect', ADVECT_FS, ['u_vel', 'u_src', 'u_keep', 'u_burn']);
     mk('curl', CURL_FS, ['u_vel']);
     mk('force', FORCE_FS, ['u_vel', 'u_curl', 'u_dye', 'u_eps', 'u_wind', 'u_jit']);
-    mk('div', DIV_FS, ['u_vel']);
+    mk('div', DIV_FS, ['u_vel', 'u_dye']);
     mk('pressure', PRESSURE_FS, ['u_pressure', 'u_divergence']);
     mk('gradient', GRADIENT_FS, ['u_pressure', 'u_vel']);
     const draw = compile(gl, FULL_VS, DRAW_FS);
@@ -418,6 +453,7 @@ export class GpuFluid implements FluidSink {
     heat: number,
     gas = 0,
     radial = false,
+    fire = 0,
   ): void {
     if (!this.ok) return;
     this.ensureStep();
@@ -427,6 +463,23 @@ export class GpuFluid implements FluidSink {
     splats.push({
       a: [x / d, y / d, (Math.max(1, r) / d) * (radial ? -1 : 1), gas],
       b: [vx / d, vy / d, smoke, heat],
+      fire,
+      spin: 0,
+    });
+    this.live = true;
+  }
+
+  swirl(x: number, y: number, r: number, spin: number): void {
+    if (!this.ok) return;
+    this.ensureStep();
+    const splats = this.pending[this.pending.length - 1]!.splats;
+    if (splats.length >= MAX_SPLATS) return;
+    const d = this.div;
+    splats.push({
+      a: [x / d, y / d, Math.max(1, r) / d, 0],
+      b: [0, 0, 0, 0],
+      fire: 0,
+      spin: spin / d,
     });
     this.live = true;
   }
@@ -521,10 +574,13 @@ export class GpuFluid implements FluidSink {
       for (let i = 0; i < n; i++) {
         this.sA.set(s.splats[i]!.a, i * 4);
         this.sB.set(s.splats[i]!.b, i * 4);
+        this.sC[i * 2] = s.splats[i]!.fire;
+        this.sC[i * 2 + 1] = s.splats[i]!.spin;
       }
       gl.uniform1i(u.u_n!, n);
       gl.uniform4fv(u.u_sA!, this.sA);
       gl.uniform4fv(u.u_sB!, this.sB);
+      gl.uniform2fv(u.u_sC!, this.sC);
       this.bind(0, vel[cur]!.tex, u.u_vel!);
       this.bind(1, dye[cur]!.tex, u.u_dye!);
       this.target(this.pair![nxt]!);
@@ -551,6 +607,7 @@ export class GpuFluid implements FluidSink {
     {
       const u = this.use('div');
       this.bind(0, vel[nxt]!.tex, u.u_vel!);
+      this.bind(2, dye[cur]!.tex, u.u_dye!);
       this.target(this.div1.fbo);
     }
     {
@@ -574,12 +631,19 @@ export class GpuFluid implements FluidSink {
       this.bind(0, vel[cur]!.tex, u.u_vel!);
       this.bind(1, vel[cur]!.tex, u.u_src!);
       gl.uniform4f(u.u_keep!, 0.992, 0.992, 1, 1);
+      gl.uniform1f(u.u_burn!, 0);
       this.target(vel[nxt]!.fbo);
       this.bind(1, dye[cur]!.tex, u.u_src!);
-      gl.uniform4f(u.u_keep!, 0.997, 0.96, 0.998, 1);
+      gl.uniform4f(u.u_keep!, 0.997, 0.96, 0.998, FIRE_KEEP);
+      gl.uniform1f(u.u_burn!, 1);
       this.target(dye[nxt]!.fbo);
     }
     this.cur = nxt;
+  }
+
+  /** The velocity field (fluid cells per tick, RG), for particles that ride the flow. */
+  get velocity(): WebGLTexture | null {
+    return this.ok && this.live ? this.vel![this.cur]!.tex : null;
   }
 
   /** Draw the field over the scene. Blending is set here and left disabled. */
