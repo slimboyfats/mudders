@@ -1,5 +1,5 @@
 {
-  "contentHash": "65a940c315f26538",
+  "contentHash": "a33e5b4eafc8d47a",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 488,
@@ -467,7 +467,7 @@
     },
     "gen.glacier": {
       "ticks": 182,
-      "hash": "d423779c073394c2"
+      "hash": "1d652ab04d7f8dbb"
     },
     "gen.hills": {
       "ticks": 11,
@@ -478,8 +478,8 @@
       "hash": "7db798e0230cb4f7"
     },
     "gen.lakeland": {
-      "ticks": 1200,
-      "hash": "ea9a9027ad16d78f"
+      "ticks": 1251,
+      "hash": "4fe7c8e2b1caadf4"
     },
     "gen.marsh": {
       "ticks": 377,
@@ -487,7 +487,7 @@
     },
     "gen.village": {
       "ticks": 158,
-      "hash": "093b9ad43dc2be2e"
+      "hash": "920cc7d9d4bbb342"
     },
     "kaiju.dug-out": {
       "ticks": 623,
@@ -497,9 +497,17 @@
       "ticks": 318,
       "hash": "25884e7e90bdb274"
     },
+    "material.amber-leaf": {
+      "ticks": 236,
+      "hash": "57780f7ee1fabd72"
+    },
     "material.ash": {
       "ticks": 387,
       "hash": "2777d026e69da9c7"
+    },
+    "material.birch-bark": {
+      "ticks": 235,
+      "hash": "8cceca667804c3b9"
     },
     "material.brick": {
       "ticks": 165,
@@ -583,11 +591,11 @@
     },
     "material.ice-shards": {
       "ticks": 182,
-      "hash": "d423779c073394c2"
+      "hash": "1d652ab04d7f8dbb"
     },
     "material.ice": {
       "ticks": 182,
-      "hash": "d423779c073394c2"
+      "hash": "1d652ab04d7f8dbb"
     },
     "material.lance-slag": {
       "ticks": 324,
@@ -636,6 +644,10 @@
     "material.napalm": {
       "ticks": 387,
       "hash": "2777d026e69da9c7"
+    },
+    "material.needles": {
+      "ticks": 235,
+      "hash": "6e7c4fbfcaeae38f"
     },
     "material.obsidian": {
       "ticks": 324,
@@ -714,8 +726,8 @@
       "hash": "0c1edb9b51a16b39"
     },
     "material.water": {
-      "ticks": 1261,
-      "hash": "170e10d185680729"
+      "ticks": 1029,
+      "hash": "c598002d69eedd5c"
     },
     "material.wet-clay": {
       "ticks": 540,
@@ -741,9 +753,17 @@
       "ticks": 764,
       "hash": "513fe5fb743a7de2"
     },
+    "prop.birch": {
+      "ticks": 298,
+      "hash": "260ba66f2bbc8ac7"
+    },
     "prop.boulder": {
       "ticks": 483,
       "hash": "a099ae83c0cf5d12"
+    },
+    "prop.bush": {
+      "ticks": 231,
+      "hash": "bfc3837712dc4ab1"
     },
     "prop.cave-roof": {
       "ticks": 91,
@@ -752,6 +772,18 @@
     "prop.house": {
       "ticks": 541,
       "hash": "3ca0cc1fe7fdd582"
+    },
+    "prop.maple": {
+      "ticks": 288,
+      "hash": "8f19c84a504821a4"
+    },
+    "prop.pine": {
+      "ticks": 314,
+      "hash": "816d8636eedebdb3"
+    },
+    "prop.poplar": {
+      "ticks": 328,
+      "hash": "72c77dea45557657"
     },
     "prop.rock-arch": {
       "ticks": 1008,
@@ -772,6 +804,10 @@
     "prop.tree": {
       "ticks": 325,
       "hash": "0538125f340aacf8"
+    },
+    "prop.willow": {
+      "ticks": 282,
+      "hash": "de492db46443a072"
     },
     "shockwave.fling-nuke": {
       "ticks": 577,
@@ -807,7 +843,7 @@
     },
     "showcase.snowstorm": {
       "ticks": 5000,
-      "hash": "f802e0937f870945"
+      "hash": "18ffc461b3c4a517"
     },
     "showcase.tank-drive": {
       "ticks": 838,
@@ -821,9 +857,13 @@
       "ticks": 40,
       "hash": "be63d02315865d82"
     },
+    "showcase.tree-sway": {
+      "ticks": 300,
+      "hash": "a397fc97dc5704fd"
+    },
     "structure.ice-shelf": {
       "ticks": 752,
-      "hash": "9903a3690cd87483"
+      "hash": "d3a035dbb5a7599c"
     },
     "structure.undermined-house": {
       "ticks": 215,

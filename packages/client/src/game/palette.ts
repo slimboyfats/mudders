@@ -27,6 +27,8 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
         flames: m.look.flames,
         char: m.look.char,
         glint: m.look.glint,
+        ...(m.look.sway !== undefined ? { sway: m.look.sway } : {}),
+        ...(m.look.limb ? { limb: true } : {}),
         ...(m.settle === 'gas' ? { cover: m.look.cover } : {}),
         ...(m.look.emit ? { emit: parseHex(m.look.emit, 0xffffff) } : {}),
       });

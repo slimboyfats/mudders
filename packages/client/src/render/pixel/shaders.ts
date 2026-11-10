@@ -4,6 +4,7 @@
  */
 
 import { HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
+import { SWAY_LEAF, SWAY_REACH, SWAY_UNIT } from './sway';
 
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
 const NOISE = `
@@ -95,6 +96,10 @@ uniform float u_heatOn;
 uniform usampler2D u_glow;   // the glowing material that nearest source is made of
 uniform float u_reach;       // cells glow lights (further in the dark)
 uniform float u_dark;        // 0–1: unlit ground falls toward black, glow and blasts light it
+uniform usampler2D u_sway;   // trees in the wind (sway.ts): 0 none, 1 look around, 2+ sways
+uniform float u_swayOn;
+uniform vec4 u_swayWind;     // lean (cells at full bend), rock amplitude, rustle chance, rock speed
+uniform float u_swayK;       // phase per column: gusts roll across the map with the wind
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -118,6 +123,21 @@ vec3 glowAt(ivec2 cell, uint hd, vec4 ec, float k) {
   float e = f * f * fl * k;
   float q = floor(e * ${LIGHT_BANDS}.0 + bayer(cell) - 0.5) / ${LIGHT_BANDS}.0;
   return ec.rgb * max(q, 0.0);
+}
+// whole cells a swaying cell is drawn from home this frame: a lean with the wind plus a slow
+// rock rolling across the map, times its bend; canopy cells now and then flick one cell more
+int swayD(ivec2 q, uint v) {
+  float wgt = float((v & ${SWAY_LEAF - 1}u) - 2u) / ${SWAY_UNIT}.0;
+  float ph = u_time * u_swayWind.w - float(q.x) * u_swayK + float(q.y) * 0.03;
+  float a = u_swayWind.x + u_swayWind.y * (sin(ph) + 0.35 * sin(ph * 2.3 + 1.7));
+  int d = int(floor(a * wgt + 0.5));
+  if ((v & ${SWAY_LEAF}u) != 0u && wgt > 0.05) {
+    float h = hash(q + ivec2(23, 61));
+    int st = int(floor(u_time / (5.0 + h * 6.0) + h * 37.0));
+    float f = hash(q + ivec2(st * 7, st * 13 + 5));
+    if (f < u_swayWind.z) d += f < u_swayWind.z * 0.5 ? 1 : -1;
+  }
+  return clamp(d, -${SWAY_REACH}, ${SWAY_REACH});
 }
 bool topsoil(uint m) { return m != 0u && look(m).a > 0.75; }
 // chars black and smoulders after a blast: topsoil, plus char materials (alpha 0.5)
@@ -179,6 +199,24 @@ void main() {
       cell.y = Hm - 1 - (k < 48 ? k : 95 - k);
       cell.y = max(cell.y, 0);
     }
+    // trees in the wind: draw whichever swaying cell lands here this frame (the nearest one
+    // wins); a swaying cell that moved off and left nothing behind shows the sky
+    bool swayGone = false;
+    if (u_swayOn > 0.0) {
+      uint own = texelFetch(u_sway, cell, 0).r;
+      if (own >= 2u || (own == 1u && mat(cell) == 0u)) {
+        bool hit = false;
+        for (int i = 0; i <= ${2 * SWAY_REACH}; i++) {
+          int dx = (i & 1) == 0 ? i / 2 : -(i + 1) / 2;
+          ivec2 q = ivec2(cell.x + dx, cell.y);
+          if (q.x < 0 || q.x >= W) continue;
+          uint v = texelFetch(u_sway, q, 0).r;
+          if (v < 2u) continue;
+          if (swayD(q, v) == -dx) { cell = q; hit = true; break; }
+        }
+        swayGone = !hit && own >= 2u;
+      }
+    }
     // heat haze: air over lava, burning napalm and fresh craters shimmers. Rising pockets push
     // the cells sideways (and now and then up a cell) by whole cells, strongest near the source
     float heat = 0.0;
@@ -220,6 +258,7 @@ void main() {
     }
     // the cache was rendered through a y-flipped viewport: map row r lives in texel row H-1-r
     vec4 t = texelFetch(u_color, ivec2(cell.x, int(u_map.y) - 1 - cell.y), 0);
+    if (swayGone) t.a = 0.0;
     if (t.a > 0.5) {
       c = t.rgb;
       if (u_anim > 0.0) {

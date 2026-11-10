@@ -1,0 +1,37 @@
+{
+  "id": "prop.bush",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bush",
+    "description": "A low, round shrub. Rustles in the wind, burns quickly and blows apart in a blast.",
+    "since": "core@0.67.0"
+  },
+  "shape": [
+    "   LLLLLL",
+    "  LLLLLLLLL",
+    " LLLLLLLLLLLL",
+    "LLLLLLLLLLLLLL",
+    "LLLLLLLLLLLLLL",
+    " LLLLLLLLLLLL",
+    "   LLL LLLL"
+  ],
+  "legend": {
+    "L": "leaves"
+  },
+  "materials": {
+    "leaves": "material.leaf"
+  },
+  "groups": [
+    {
+      "name": "canopy",
+      "roles": ["leaves"],
+      "integrity": 14
+    }
+  ],
+  "placement": {
+    "maxSlope": 6,
+    "clearance": 12,
+    "roughen": 1,
+    "mirror": true
+  }
+}

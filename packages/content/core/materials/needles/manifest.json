@@ -1,0 +1,18 @@
+{
+  "id": "material.needles",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Pine needles",
+    "description": "A pine's dark needles. Like leaves they are held up by their tree, drift down when it falls and are torn off by blast pressure, though they cling a little harder; resin makes them flare up fast.",
+    "color": "#2d5a3c",
+    "since": "core@0.67.0"
+  },
+  "extends": "material.leaf",
+  "cell": 91,
+  "blowOff": {
+    "chance": 0.6
+  },
+  "look": {
+    "sway": 0.9
+  }
+}

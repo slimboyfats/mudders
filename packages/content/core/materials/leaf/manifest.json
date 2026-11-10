@@ -23,5 +23,8 @@
   "tags": ["burns"],
   "blowOff": {
     "chance": 0.9
+  },
+  "look": {
+    "sway": 1
   }
 }

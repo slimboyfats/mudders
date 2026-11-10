@@ -1,0 +1,16 @@
+{
+  "id": "material.birch-bark",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Birch wood",
+    "description": "A birch's pale, papery trunk and branches. Timber like any other wood: shrugs off small blasts, splinters when its tree breaks and catches fire easily.",
+    "color": "#d8d3c3",
+    "since": "core@0.67.0"
+  },
+  "extends": "material.wood",
+  "cell": 92,
+  "look": {
+    "sway": 1,
+    "limb": true
+  }
+}

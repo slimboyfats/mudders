@@ -1,0 +1,37 @@
+{
+  "id": "prop.maple",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Autumn maple",
+    "description": "A round maple in autumn colours. Its forked branches hold a dense crown of amber leaves that a blast scatters like confetti.",
+    "since": "core@0.67.0"
+  },
+  "extends": "prop.pine",
+  "shape": [
+    "        LLLLLLL",
+    "     LLLLLLLLLLLLL",
+    "   LLLLLLLLLLLLLLLLL",
+    "  LLLLLLLLLLLLLLLLLLL",
+    " LLLLLLLTLLLLLTLLLLLLL",
+    " LLLLLLLLTLLLLTLLLLLLL",
+    "LLLLLLLLLTLLLTLLLLLLLLL",
+    "LLLLLLLLLLTLTLLLLLLLLLL",
+    " LLLL LLLLLTTLLLL LLLL",
+    "  LL   LLLTTTLL    LL",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "          TTT",
+    "         TTTTT"
+  ],
+  "materials": {
+    "trunk": "material.wood",
+    "leaves": "material.amber-leaf"
+  }
+}

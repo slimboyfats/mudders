@@ -1,0 +1,57 @@
+{
+  "id": "prop.pine",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Pine",
+    "description": "A tall conifer in stacked tiers of dark needles. Stands straighter than a broadleaf and bends less in the wind; resin makes it go up like a torch.",
+    "since": "core@0.67.0"
+  },
+  "extends": "prop.tree",
+  "shape": [
+    "          L",
+    "          L",
+    "         LLL",
+    "         LLL",
+    "        LLLLL",
+    "       LLLLLLL",
+    "      L LLLLL L",
+    "         LLL",
+    "        LLLLL",
+    "       LLLLLLL",
+    "      LLLLLLLLL",
+    "     LLLLLLLLLLL",
+    "    L  LLLLLLL  L",
+    "        LLTLL",
+    "       LLLTLLL",
+    "      LLLLTLLLL",
+    "     LLLLLTLLLLL",
+    "    LLLLLLTLLLLLL",
+    "   LLLLLLLTLLLLLLL",
+    "  L  LLLLLTLLLLL  L",
+    "       LLLTLLL",
+    "      LLLLTLLLL",
+    "     LLLLLTLLLLL",
+    "    LLLLLLTLLLLLL",
+    "   LLLLLLLTLLLLLLL",
+    "  LLLLLLLLTLLLLLLLL",
+    " LLLLLLLLLTLLLLLLLLL",
+    "L  LLLLLLTTTLLLLLL  L",
+    "         TTT",
+    "         TTT",
+    "         TTT",
+    "         TTT",
+    "         TTT",
+    "         TTT",
+    "         TTT"
+  ],
+  "materials": {
+    "trunk": "material.wood",
+    "leaves": "material.needles"
+  },
+  "placement": {
+    "maxSlope": 10,
+    "clearance": 16,
+    "roughen": 1,
+    "mirror": true
+  }
+}
