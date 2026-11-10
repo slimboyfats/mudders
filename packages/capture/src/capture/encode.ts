@@ -51,6 +51,36 @@ export function encodeMp4(pattern: string, fps: number, out: string): void {
   ]);
 }
 
+/** Mux a mono 16-bit 44.1 kHz PCM soundtrack into an MP4 (video copied as is). */
+export function muxAudio(mp4: string, pcm: string, out: string): void {
+  ffmpeg([
+    '-i',
+    mp4,
+    '-f',
+    's16le',
+    '-ar',
+    '44100',
+    '-ac',
+    '1',
+    '-i',
+    pcm,
+    '-map',
+    '0:v',
+    '-map',
+    '1:a',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-shortest',
+    '-movflags',
+    '+faststart',
+    out,
+  ]);
+}
+
 /** Stack PNG frames vertically into one contact sheet. */
 export function encodeSheet(frames: string[], out: string): void {
   const inputs = frames.flatMap((f) => ['-i', f]);

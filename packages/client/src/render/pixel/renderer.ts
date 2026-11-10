@@ -20,6 +20,7 @@ import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } fr
 import { drawDeathWall } from './deathwall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { drawStorm, stormFor, type StormKind } from './storm';
+import { ProcessMeter } from './process-meter';
 import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { QuadBatch, Shape } from './batch';
@@ -356,6 +357,9 @@ export class PixelRenderer implements Renderer {
   /** Water splashes and ripples (cosmetic, watches the snapshots). */
   private water!: WaterFx;
   private onCues: ((events: readonly EffectEvent[]) => void) | undefined;
+  private onProcesses: RendererOptions['onProcesses'];
+  /** Burning, molten, flowing and gas amounts for the soundscape (only with `onProcesses`). */
+  private meter: ProcessMeter | null = null;
 
   /** Latest snapshot state the renderer mirrors (read-only views). */
   private terrain: Uint8Array;
@@ -437,6 +441,8 @@ export class PixelRenderer implements Renderer {
     this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
     this.onCues = options.onCues;
+    this.onProcesses = options.onProcesses;
+    this.meter = options.onProcesses ? new ProcessMeter(this.mapWidth, this.mapHeight) : null;
     this.water = new WaterFx(
       this.mapWidth,
       this.mapHeight,
@@ -676,6 +682,7 @@ export class PixelRenderer implements Renderer {
     }
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 9, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
+    this.meter?.setLooks(this.lookFlags, this.palette.liquids ?? []);
   }
 
   setQuality(quality: Quality): void {
@@ -909,6 +916,10 @@ export class PixelRenderer implements Renderer {
     this.updateTrails(s);
     const cues = this.water.drainCues();
     if (cues.length > 0) this.onCues?.(cues);
+    if (this.meter) {
+      if (fresh) this.meter.reset();
+      this.onProcesses?.(this.meter.update(s, this.anyHot || this.flameN > 0));
+    }
   }
 
   /** Drop every cosmetic left over from the last round, so a new map starts clean. */

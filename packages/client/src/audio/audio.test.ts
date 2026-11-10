@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '@mudders/content';
 import type { EffectEvent, SynthVoice } from '@mudders/shared';
-import { soundMap, soundsFor } from './engine';
+import { soundMap, soundsFor } from './sounds';
 import { patchLength, radiusScale, UNIT, voiceGain, voicePitch } from './synth';
 
 const ev = (type: string, params: Record<string, number> = {}, radius = 24): EffectEvent => ({
