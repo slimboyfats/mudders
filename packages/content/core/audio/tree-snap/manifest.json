@@ -1,0 +1,51 @@
+{
+  "id": "audio.tree-snap",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tree snap",
+    "description": "A sharp wooden crack as a tree trunk gives way.",
+    "since": "core@0.69.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2400,
+        "to": 900,
+        "release": 0.08,
+        "volume": 0.35
+      },
+      {
+        "wave": "square",
+        "freq": 220,
+        "to": 90,
+        "release": 0.12,
+        "volume": 0.18
+      },
+      {
+        "wave": "pulse25",
+        "freq": 160,
+        "to": 110,
+        "hold": 0.05,
+        "release": 0.35,
+        "volume": 0.12,
+        "vibrato": {
+          "rate": 14,
+          "depth": 1.2
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "treeSnap"
+    }
+  ],
+  "gap": 0.15
+}

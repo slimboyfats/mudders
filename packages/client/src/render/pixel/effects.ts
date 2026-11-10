@@ -873,6 +873,49 @@ export class EffectSystem {
         }
         break;
       }
+      case 'treeSnap': {
+        // the trunk gives way: a puff of bark dust and chips flying off the break
+        const rng = this.rngFor(e, 31);
+        const dir = e.params.dir ?? 1;
+        const n = Math.round(10 * this.mult) + 3;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: e.x + rng.range(-2, 3),
+            y: e.y + rng.range(-1, 1),
+            vx: dir * rng.range(-0.2, 0.9),
+            vy: -rng.range(0.3, 1.1),
+            life: rng.range(20, 40),
+            size: rng.range(1, 3),
+            color: 0x9a6a3c,
+            kind: PKind.Dust,
+          });
+        }
+        break;
+      }
+      case 'treeFall': {
+        // it hits the ground: dust and leaves thrown up all along the trunk, and a thump
+        const rng = this.rngFor(e, 37);
+        const len = Math.max(8, e.params.len ?? e.radius * 2);
+        const dir = e.params.dir ?? 1;
+        const n = Math.round(40 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          const t = rng.range(-0.6, 0.6);
+          const x = e.x + t * len;
+          const y = e.y + rng.range(-2, 2);
+          this.particles.add({
+            x,
+            y,
+            vx: dir * rng.range(0, 0.5) + rng.range(-0.3, 0.3),
+            vy: -rng.range(0.15, 0.9) * (1 - Math.abs(t)),
+            life: rng.range(30, 75),
+            size: rng.range(2, 5),
+            color: this.dustColor(Math.round(x), Math.round(y)),
+            kind: PKind.Dust,
+          });
+        }
+        this.kick(Math.min(5, 2 + len / 16), e.tick);
+        break;
+      }
       case 'bolt':
         this.bolt(e);
         break;

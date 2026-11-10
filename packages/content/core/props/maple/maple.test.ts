@@ -10,8 +10,10 @@ describe('prop.maple', () => {
     w.run(200);
     expect(countCells(w, 'material.amber-leaf')).toBe(leaves);
     dropAt(w, 'weapon.heavy-shockwave', 225);
+    for (let n = 0; n < 1500 && !w.quiet; n++) w.step();
     expect(groupCells(w)).toBe(0);
-    expect(countCells(w, 'material.splinter')).toBeGreaterThan(5);
+    // blown to bits or felled: splinters, or a log lying beside the stump
+    expect(countCells(w, 'material.splinter') + countCells(w, 'material.log')).toBeGreaterThan(5);
   });
 
   it('burns from an incendiary hit', () => {
