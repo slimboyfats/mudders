@@ -33,6 +33,23 @@ describe('weapon.tripwire-net', () => {
     expect(m.x2).toBeGreaterThan(200);
   });
 
+  it('lands right beside a cliff without freezing (stakes settle at their shortest)', () => {
+    for (const side of [-1, 1]) {
+      const w = flatWorld(150);
+      const dirt = w.mats.cellOf('material.dirt');
+      // a wall of ground rising 50 cells, starting two cells to one side of the impact
+      const x0 = side < 0 ? 150 : 203;
+      for (let y = 100; y < 150; y++) {
+        for (let x = x0; x < x0 + 48; x++) w.grid.material[y * 400 + x] = dirt;
+      }
+      w.grid.clearSettle();
+      dropAt(w, WIRE, 200);
+      expect(w.mines).toHaveLength(1);
+      const m = w.mines[0]!;
+      expect(m.x2 - m.x).toBeGreaterThanOrEqual(6);
+    }
+  });
+
   it('a tank driving into the wire snaps it: a bang and a net that pins it', () => {
     const w = flatWorld(150, { tankColumns: [40, 300] });
     dropAt(w, WIRE, 230);

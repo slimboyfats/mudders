@@ -2309,11 +2309,11 @@ export class World implements SimApi {
         if (wy >= 0 && g.material[wy * g.width + c] !== 0) cut = c < x ? -1 : 1;
       }
       if (cut === 0) return [x1, y1, x2, y2];
-      if (cut < 0) a -= 2;
-      else b -= 2;
-      if (a < 3) a = 3;
-      if (b < 3) b = 3;
-      if (a === 3 && b === 3) return [x1, y1, x2, y2];
+      // the cut side is already as short as a stake gets: settle for this span (a cliff right
+      // beside the impact used to spin here forever, freezing the game)
+      if ((cut < 0 ? a : b) <= 3) return [x1, y1, x2, y2];
+      if (cut < 0) a = Math.max(3, a - 2);
+      else b = Math.max(3, b - 2);
     }
   }
 
