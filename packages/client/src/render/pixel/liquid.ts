@@ -35,7 +35,7 @@ const WAVE = [
 /** Ticks between surface rescans (the terrain only changes a little between them). */
 const SCAN_EVERY = 4;
 const MAX_BUBBLES = 48;
-const MAX_H = 4;
+const MAX_H = 7;
 
 interface Bubble {
   x: number;
@@ -194,7 +194,7 @@ export class LiquidSurface {
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d > R) continue;
       const k = 1 - d / R;
-      const push = (dy < 0 ? 1 : -1) * k * r * 0.05;
+      const push = (dy < 0 ? 1 : -1) * k * r * 0.14;
       this.v[cx] = this.v[cx]! + push;
       sum += push;
       n++;

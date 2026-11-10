@@ -14,7 +14,7 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 5,
+  version: 6,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
@@ -199,7 +199,7 @@ export default defineTerrainOp<z.infer<typeof params>>({
 });
 
 /** Rows of a splashing liquid a blast blows out from its surface; deeper liquid stays put. */
-const SPLASH_DEPTH = 5;
+const SPLASH_DEPTH = 7;
 
 /** Rows of splashing liquid from cell `i` up to open air (counting `i`), capped past SPLASH_DEPTH. */
 function liquidDepth(mat: Uint8Array, splash: Uint16Array, i: number, W: number): number {
