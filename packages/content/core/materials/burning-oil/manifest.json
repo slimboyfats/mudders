@@ -13,6 +13,7 @@
   "strength": {},
   "cohesion": 0.2,
   "coating": true,
+  "tags": ["hot"],
   "decay": {
     "into": "air",
     "ticks": 60
@@ -20,7 +21,7 @@
   "reactions": [
     {
       "with": "air",
-      "spawn": "material.fire",
+      "spawn": "material.flame",
       "chance": 0.12
     }
   ],

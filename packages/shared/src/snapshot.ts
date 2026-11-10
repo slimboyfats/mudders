@@ -158,6 +158,10 @@ export interface RenderSnapshot {
   terrain: Uint8Array;
   /** Coating id per cell (0 = none). Read-only. */
   coating: Uint8Array;
+  /** Gas id per cell (0 = none), only over air cells. Read-only. */
+  gas: Uint8Array;
+  /** The part of `gas` to refresh: where gas is now plus where it was last snapshot; null = none. */
+  gasRect: Rect | null;
   /**
    * Cosmetic grain shade per cell (0 = never moved: shade by position). Moves with the cell, so
    * falling and flowing grains keep their colour. Not part of the state. Read-only.

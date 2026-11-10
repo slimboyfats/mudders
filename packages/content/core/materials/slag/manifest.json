@@ -20,6 +20,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["hot"],
   "decay": {
     "into": "material.meteorite",
     "turns": 2

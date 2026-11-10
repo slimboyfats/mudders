@@ -6,12 +6,11 @@ import {
   ACT_SPREAD,
   AGE_MASK,
   KEEP,
-  MAX_REACTIONS,
   type MaterialTable,
 } from './materials';
 
 /** Order-free per-cell randomness for reactions: no RNG draws, identical on every engine. */
-function roll(i: number, tick: number, k: number): number {
+export function roll(i: number, tick: number, k: number): number {
   // murmur3 finaliser over a mix of all three inputs, so neighbouring cells on the same tick
   // don't roll alike
   let h =
@@ -28,9 +27,19 @@ function setCell(grid: Grid, i: number, m: number): void {
   // a reaction (fire, quench) consumes a prop cell outright: it leaves its group
   grid.leaveGroup(i);
   grid.material[i] = m;
+  grid.gas[i] = 0;
   grid.cellState[i] = 0;
   grid.fallVel[i] = 0;
   if (m === 0) grid.coating[i] = 0;
+}
+
+/** Put `m` in cell `i`: a gas goes into the gas layer over air, anything else into the terrain. */
+export function place(grid: Grid, mats: MaterialTable, i: number, m: number): void {
+  if (m !== 0 && mats.gasLift[m] !== 0) {
+    setCell(grid, i, 0);
+    grid.putGas(i, m);
+    if (mats.wet[m] !== 0) grid.quenched++;
+  } else setCell(grid, i, m);
 }
 
 function dirty(grid: Grid, i: number): void {
@@ -39,63 +48,90 @@ function dirty(grid: Grid, i: number): void {
   grid.markDirty(x, y, x, y);
 }
 
-/** Try the reactions of `src` (the cell's material, or its coating) against its neighbours. */
-function react(
+/** What a reaction source is: a terrain cell, a coating on one, or a gas cell. */
+export const SRC_CELL = 0;
+export const SRC_COATING = 1;
+export const SRC_GAS = 2;
+
+/**
+ * Try the reactions of `src` (the cell's material, its coating, or its gas) against its
+ * neighbours: one lookup in the pair table per neighbour, and each neighbour with a rule rolls
+ * its own chance; the first that hits reacts. A neighbour that is air with gas in it matches as that gas (or as air without a rule).
+ */
+export function react(
   grid: Grid,
   mats: MaterialTable,
   i: number,
   src: number,
-  coating: boolean,
+  kind: number,
   tick: number,
 ): boolean {
   const W = grid.width;
   const mat = grid.material;
+  const gas = grid.gas;
+  const pair = mats.pairRule;
+  const base = src * 256;
   const x = i % W;
   const y = (i - x) / W;
-  for (let k = 0; k < MAX_REACTIONS; k++) {
-    const r = src * MAX_REACTIONS + k;
-    const chance = mats.reactChance[r]!;
-    if (chance === 0) break;
-    const w = mats.reactWith[r]!;
-    // coatings creep along surfaces, so they also see diagonal neighbours (fire running along an
-    // oiled slope sits diagonally above the next coated cell)
-    for (let n = 0; n < (coating ? 8 : 4); n++) {
-      const nx = n === 0 || n === 4 || n === 6 ? x - 1 : n === 1 || n === 5 || n === 7 ? x + 1 : x;
-      const ny = n === 2 || n === 4 || n === 5 ? y - 1 : n === 3 || n === 6 || n === 7 ? y + 1 : y;
-      if (nx < 0 || ny < 0 || nx >= W || ny >= grid.height) continue;
-      const j = ny * W + nx;
-      // a coating's reaction also matches the neighbour's coating (burning oil spreading along oil)
-      if (mat[j] !== w && !(coating && w !== 0 && grid.coating[j] === w)) continue;
-      if (roll(i, tick, k) >= chance) return false;
-      const into = mats.reactInto[r]!;
-      const other = mats.reactOther[r]!;
-      const spawn = mats.reactSpawn[r]!;
-      if (into !== KEEP) {
-        if (coating) grid.coating[i] = into;
-        else setCell(grid, i, into);
-      }
-      if (other !== KEEP) {
-        setCell(grid, j, other);
-        dirty(grid, j);
-      }
-      if (spawn !== KEEP) {
-        // into the first air neighbour, up first (flames rise)
-        for (let s = 0; s < 4; s++) {
-          const sx = s === 2 ? x - 1 : s === 3 ? x + 1 : x;
-          const sy = s === 0 ? y - 1 : s === 1 ? y + 1 : y;
-          if (sx < 0 || sy < 0 || sx >= W || sy >= grid.height) continue;
-          const a = sy * W + sx;
-          if (mat[a] !== 0) continue;
-          setCell(grid, a, spawn);
-          dirty(grid, a);
-          break;
-        }
-      }
-      dirty(grid, i);
-      return true;
+  const coating = kind === SRC_COATING;
+  let spawned = false;
+  // coatings creep along surfaces, so they also see diagonal neighbours (fire running along an
+  // oiled slope sits diagonally above the next coated cell)
+  for (let n = 0; n < (coating ? 8 : 4); n++) {
+    const nx = n === 0 || n === 4 || n === 6 ? x - 1 : n === 1 || n === 5 || n === 7 ? x + 1 : x;
+    const ny = n === 2 || n === 4 || n === 5 ? y - 1 : n === 3 || n === 6 || n === 7 ? y + 1 : y;
+    if (nx < 0 || ny < 0 || nx >= W || ny >= grid.height) continue;
+    const j = ny * W + nx;
+    const mj = mat[j]!;
+    let r = 0;
+    let viaGas = false;
+    if (mj === 0 && gas[j] !== 0) {
+      r = pair[base + gas[j]!]!;
+      viaGas = r !== 0;
     }
+    if (r === 0) r = pair[base + mj]!;
+    // a coating's reaction also matches the neighbour's coating (burning oil spreading along oil)
+    if (r === 0 && coating && mj !== 0 && grid.coating[j] !== 0) r = pair[base + grid.coating[j]!]!;
+    if (r === 0) continue;
+    const into = mats.ruleInto[r]!;
+    const other = mats.ruleOther[r]!;
+    const spawn = mats.ruleSpawn[r]!;
+    // a rule that only gives something off (fire throwing flames) fires at most once per tick
+    // and never keeps the cell from its other reactions (the wood next to it)
+    const spawnOnly = into === KEEP && other === KEEP;
+    if (spawnOnly && spawned) continue;
+    if (roll(i, tick, n) >= mats.ruleChance[r]!) continue;
+    if (into !== KEEP) {
+      if (coating) grid.coating[i] = into;
+      else place(grid, mats, i, into);
+    }
+    if (other !== KEEP) {
+      if (viaGas && other === 0) gas[j] = 0;
+      else place(grid, mats, j, other);
+      dirty(grid, j);
+    }
+    if (spawn !== KEEP) {
+      // into the first free air neighbour, up first (flames rise)
+      const isGas = mats.gasLift[spawn] !== 0;
+      for (let s = 0; s < 4; s++) {
+        const sx = s === 2 ? x - 1 : s === 3 ? x + 1 : x;
+        const sy = s === 0 ? y - 1 : s === 1 ? y + 1 : y;
+        if (sx < 0 || sy < 0 || sx >= W || sy >= grid.height) continue;
+        const a = sy * W + sx;
+        if (mat[a] !== 0 || (isGas && gas[a] !== 0)) continue;
+        place(grid, mats, a, spawn);
+        if (!isGas) dirty(grid, a);
+        break;
+      }
+    }
+    if (spawnOnly) {
+      spawned = true;
+      continue;
+    }
+    if (kind !== SRC_GAS || into !== KEEP) dirty(grid, i);
+    return true;
   }
-  return false;
+  return spawned;
 }
 
 /**
@@ -138,7 +174,7 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
             grid.bursts[grid.burstCount++] = i;
             grid.bursts[grid.burstCount++] = m;
           }
-          setCell(grid, i, mats.decayInto[m]!);
+          place(grid, mats, i, mats.decayInto[m]!);
           dirty(grid, i);
           continue;
         }
@@ -171,8 +207,8 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
         if (grid.pocketCount < grid.pockets.length) grid.pockets[grid.pocketCount++] = i;
         else alive = true;
       }
-      if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, false, tick);
-      if (fc & ACT_REACT && c !== 0 && mat[i] !== 0) react(grid, mats, i, c, true, tick);
+      if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, SRC_CELL, tick);
+      if (fc & ACT_REACT && c !== 0 && mat[i] !== 0) react(grid, mats, i, c, SRC_COATING, tick);
       if (alive) {
         if (x < aMinX) aMinX = x;
         if (x > aMaxX) aMaxX = x;
@@ -203,7 +239,7 @@ export function turnDecay(grid: Grid, mats: MaterialTable): void {
       if (m === 0 || need === 0) continue;
       const t = (state[i]! >> 6) + 1;
       if (t >= need) {
-        setCell(grid, i, mats.decayInto[m]!);
+        place(grid, mats, i, mats.decayInto[m]!);
         grid.markDirty(x, y, x, y);
       } else {
         state[i] = (state[i]! & AGE_MASK) | (t << 6);

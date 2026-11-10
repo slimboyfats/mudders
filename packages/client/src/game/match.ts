@@ -183,7 +183,8 @@ export abstract class SimMatch implements SnapshotStream {
 
   protected fullSnapshot(): RenderSnapshot {
     const s = this.world.snapshot();
-    return { ...s, dirtyRects: [{ x: 0, y: 0, w: s.width, h: s.height }] };
+    const all = { x: 0, y: 0, w: s.width, h: s.height };
+    return { ...s, dirtyRects: [all], gasRect: all };
   }
 
   /** Tell every subscriber about the current state (after a step, or a full map after a resync). */

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Fire",
-    "description": "Flames. Spread to wood, leaves, splinters and oil next to them, burn tanks they touch, and leave ash behind. Water puts them out.",
+    "description": "Burning ground. Throws flames up into the air, spreads to anything that burns next to it, burns tanks it touches and leaves ash behind. Water puts it out in a puff of steam.",
     "since": "core@0.4.0",
     "color": "#ffb43a"
   },
@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["hot"],
   "decay": {
     "into": "material.ash",
     "ticks": 48
@@ -44,8 +45,18 @@
     },
     {
       "with": "material.water",
-      "into": "air",
+      "into": "material.steam",
       "chance": 1
+    },
+    {
+      "with": "#burns",
+      "other": "material.fire",
+      "chance": 0.06
+    },
+    {
+      "with": "air",
+      "spawn": "material.flame",
+      "chance": 0.3
     }
   ],
   "look": {

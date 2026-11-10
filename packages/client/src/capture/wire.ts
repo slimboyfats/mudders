@@ -36,6 +36,9 @@ export interface WireSnapshot {
   turn: number;
   /** [x, y, w, h, base64 of the w×h material bytes, same for coating bytes or '' if none]. */
   patches: [number, number, number, number, string, string][];
+  /** The gas layer's refresh rect and its bytes, [x, y, w, h, base64], when there is any. */
+  gas?: [number, number, number, number, string];
+  processes?: RenderSnapshot['processes'];
   entities: EntityView[];
   effectEvents: EffectEvent[];
   debris: { x: number[]; y: number[]; vx: number[]; m: number[] };

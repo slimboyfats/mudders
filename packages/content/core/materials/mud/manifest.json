@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["wet"],
   "compact": {
     "into": "material.packed-mud",
     "ratio": 1,

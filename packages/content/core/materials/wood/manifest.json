@@ -20,5 +20,6 @@
   },
   "cohesion": 0,
   "span": 2,
-  "coating": false
+  "coating": false,
+  "tags": ["burns"]
 }

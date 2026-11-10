@@ -105,7 +105,14 @@ export const MaterialRefSchema = z.union([
   ContentIdSchema.refine((id) => id.startsWith('material.'), 'must be a material.* id or "air"'),
 ]);
 
-export const SettleRuleSchema = z.enum(['static', 'fall', 'slide', 'flow']);
+/**
+ * How a cell moves: `gas` cells never enter the terrain layer; they live in the grid's gas layer,
+ * in air cells only, so shells fly through them and tanks don't stand on them.
+ */
+/** `#tag`: every material carrying that tag. */
+export const TagRefSchema = z.string().regex(/^#[a-z][a-z0-9-]*$/, 'must be #tag');
+
+export const SettleRuleSchema = z.enum(['static', 'fall', 'slide', 'flow', 'gas']);
 export type SettleRule = z.infer<typeof SettleRuleSchema>;
 
 export const MaterialSchema = z.strictObject({
@@ -129,21 +136,43 @@ export const MaterialSchema = z.strictObject({
   /** Coatings live in the secondary layer on top of a base material (§4b). */
   coating: z.boolean(),
   /**
-   * Adjacency rules (§4b), checked on recently changed cells: when this cell touches `with`, with
+   * Kinds this material belongs to (`burns`, `hot`, `wet`, …). A reaction's `with` may name a tag
+   * as `#tag` and then matches every material carrying it; a rule naming the material's id wins
+   * over a tag rule for the same pair.
+   */
+  tags: z
+    .array(z.string().regex(/^[a-z][a-z0-9-]*$/))
+    .max(8)
+    .optional(),
+  /**
+   * Gas cells (settle `gas`): `lift` 1 rises, -1 sinks into hollows (heavy gas); `rise` is the
+   * chance per tick of a step up (or down); `drift` the chance of a sideways step, which leans
+   * with the wind. A gas's tick `decay` is a mean lifetime: each tick it ends with chance 1/ticks.
+   */
+  gas: z
+    .strictObject({
+      lift: z.union([z.literal(1), z.literal(-1)]),
+      rise: z.number().min(0).max(1).default(1),
+      drift: z.number().min(0).max(1),
+    })
+    .optional(),
+  /**
+   * Adjacency rules (§4b), checked on recently changed cells: when this cell touches `with` (an id,
+   * or `#tag` for every material with that tag; gas cells count as neighbours too), with
    * probability `chance` per tick it becomes `into`, the neighbour becomes `other`, and/or `spawn`
    * is placed in an air cell next to it. For a coating, `into` replaces the coating. "air" clears.
    */
   reactions: z
     .array(
       z.strictObject({
-        with: MaterialRefSchema,
+        with: z.union([MaterialRefSchema, TagRefSchema]),
         into: MaterialRefSchema.optional(),
         other: MaterialRefSchema.optional(),
         spawn: MaterialRefSchema.optional(),
         chance: z.number().min(0).max(1),
       }),
     )
-    .max(4)
+    .max(8)
     .optional(),
   /** Timed conversion (§4b): after `ticks` ticks (busy, keeps the shot resolving) or `turns` turns. */
   decay: z
@@ -267,6 +296,8 @@ export const MaterialSchema = z.strictObject({
       flames: z.boolean().default(false),
       /** Crystalline: scattered cells glint white for a moment, in whole-cell steps (frost). */
       glint: z.boolean().default(false),
+      /** Gas: share of its cells drawn (ordered dither), so thin gas reads as a haze of pixels. */
+      cover: z.number().min(0).max(1).default(1),
       /**
        * Glows: lights the ground and air around it in this colour, in hard dithered bands
        * (plasma violet, reactor green). Hot and flaming cells without it glow warm orange.

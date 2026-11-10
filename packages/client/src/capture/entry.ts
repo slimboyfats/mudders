@@ -12,6 +12,7 @@ let renderer: PixelRenderer | undefined;
 let canvas: HTMLCanvasElement | undefined;
 let terrain = new Uint8Array(0);
 let coating = new Uint8Array(0);
+let gas = new Uint8Array(0);
 let mapW = 0;
 let init0: WireInit | null = null;
 let mapH = 0;
@@ -40,6 +41,7 @@ const api: CaptureApi = {
     mapH = init.mapHeight;
     terrain = new Uint8Array(mapW * mapH);
     coating = new Uint8Array(mapW * mapH);
+    gas = new Uint8Array(mapW * mapH);
     canvas?.remove();
     canvas = document.createElement('canvas');
     canvas.style.width = `${init.cssWidth}px`;
@@ -97,6 +99,14 @@ const api: CaptureApi = {
         }
         dirtyRects.push({ x, y, w: pw, h: ph });
       }
+      let gasRect: RenderSnapshot['gasRect'] = null;
+      if (w.gas) {
+        const [x, y, pw, ph, b64] = w.gas;
+        const bytes = decode(b64);
+        for (let row = 0; row < ph; row++)
+          gas.set(bytes.subarray(row * pw, (row + 1) * pw), (y + row) * mapW + x);
+        gasRect = { x, y, w: pw, h: ph };
+      }
       const snap: RenderSnapshot = {
         tick: w.tick,
         turn: w.turn,
@@ -104,6 +114,9 @@ const api: CaptureApi = {
         height: mapH,
         terrain,
         coating,
+        gas,
+        gasRect,
+        ...(w.processes ? { processes: w.processes } : {}),
         dirtyRects,
         entities: w.entities,
         effectEvents: w.effectEvents,

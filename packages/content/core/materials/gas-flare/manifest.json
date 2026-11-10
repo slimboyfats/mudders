@@ -1,0 +1,62 @@
+{
+  "id": "material.gas-flare",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Gas flare",
+    "description": "Marsh gas going up in flames: a blinding flash of fire that leaps from cell to cell through the cloud, burns tanks caught in it, lights what it touches and now and then bangs.",
+    "since": "core@0.62.0",
+    "color": "#fff0a0"
+  },
+  "cell": 33,
+  "settle": "gas",
+  "gas": {
+    "lift": 1,
+    "rise": 0.7,
+    "drift": 0.3
+  },
+  "density": 1,
+  "strength": {},
+  "cohesion": 0,
+  "coating": false,
+  "tags": ["hot"],
+  "decay": {
+    "into": "air",
+    "ticks": 6
+  },
+  "contact": {
+    "damage": 15
+  },
+  "detonate": {
+    "explosion": {
+      "use": "explosion.standard",
+      "radius": 7,
+      "damage": 12,
+      "damageType": "heat",
+      "effects": {
+        "burst": {
+          "count": 8
+        },
+        "flash": {
+          "strength": 0.5
+        },
+        "shake": {
+          "strength": 0.6
+        }
+      }
+    },
+    "chance": 0.03
+  },
+  "reactions": [
+    {
+      "with": "#burns",
+      "other": "material.fire",
+      "chance": 0.15
+    }
+  ],
+  "look": {
+    "cycle": ["#fff0a0", "#ffffff", "#ffd860", "#a8e0ff"],
+    "cycleTicks": 1,
+    "hot": true,
+    "cover": 1
+  }
+}

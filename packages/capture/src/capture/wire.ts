@@ -26,11 +26,23 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
       coated ? coat.toString('base64') : '',
     ]);
   }
+  let gas: WireSnapshot['gas'];
+  const g = s.gasRect;
+  if (g && g.w > 0 && g.h > 0) {
+    const buf = Buffer.alloc(g.w * g.h);
+    for (let row = 0; row < g.h; row++) {
+      const start = (g.y + row) * s.width + g.x;
+      buf.set(s.gas.subarray(start, start + g.w), row * g.w);
+    }
+    gas = [g.x, g.y, g.w, g.h, buf.toString('base64')];
+  }
   const n = s.debris.count;
   return {
     tick: s.tick,
     turn: s.turn,
     patches,
+    ...(gas ? { gas } : {}),
+    ...(s.processes ? { processes: s.processes } : {}),
     entities: s.entities,
     effectEvents: s.effectEvents,
     debris: {

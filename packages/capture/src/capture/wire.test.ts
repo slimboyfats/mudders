@@ -13,6 +13,8 @@ describe('toWire', () => {
       height: 3,
       terrain,
       coating: new Uint8Array(12),
+      gas: new Uint8Array(12),
+      gasRect: null,
       dirtyRects: [{ x: 1, y: 1, w: 2, h: 2 }],
       entities: [],
       effectEvents: [],

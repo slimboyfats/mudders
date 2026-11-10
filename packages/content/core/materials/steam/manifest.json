@@ -1,0 +1,31 @@
+{
+  "id": "material.steam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Steam",
+    "description": "Boiled water. Rises in a white, ragged cloud where water meets fire or lava, drifts with the wind and thins away.",
+    "since": "core@0.62.0",
+    "color": "#dfe6ee"
+  },
+  "cell": 31,
+  "settle": "gas",
+  "gas": {
+    "lift": 1,
+    "rise": 0.55,
+    "drift": 0.5
+  },
+  "density": 1,
+  "strength": {},
+  "cohesion": 0,
+  "coating": false,
+  "tags": ["wet"],
+  "decay": {
+    "into": "air",
+    "ticks": 110
+  },
+  "look": {
+    "cycle": ["#f2f5f8", "#dfe6ee", "#c8d2dc", "#e8edf2"],
+    "cycleTicks": 6,
+    "cover": 0.6
+  }
+}

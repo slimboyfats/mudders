@@ -1,0 +1,47 @@
+{
+  "id": "weapon.bog-flask",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bog Flask",
+    "description": "A glass jug of marsh gas. It smashes into a green haze that does nothing at all, hangs low and drifts with the wind, until any flame, lava or burning shot touches it and the whole cloud goes up in a rolling chain of flares.",
+    "category": "incendiary",
+    "since": "core@0.62.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 2,
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 10
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.gas-cloud",
+        "gas": "material.marsh-gas",
+        "fill": 0.85
+      },
+      "radius": 34,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 1800,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

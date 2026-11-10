@@ -89,6 +89,8 @@ uniform int u_lightCount;    // dynamic lights (lighting.ts): blasts light the f
 uniform vec4 u_lights[${MAX_LIGHTS}];  // x, y (cells), radius, strength
 uniform vec3 u_lightCol[${MAX_LIGHTS}];
 uniform usampler2D u_heat;   // cells to the nearest glowing cell, 0 = source, 255 = far
+uniform usampler2D u_gas;    // gas layer: gas id per air cell, 0 = none
+uniform float u_gasOn;
 uniform float u_heatOn;
 uniform usampler2D u_glow;   // the glowing material that nearest source is made of
 uniform float u_reach;       // cells glow lights (further in the dark)
@@ -327,6 +329,26 @@ void main() {
           c = u_grass.rgb * 0.8;
         }
       }
+      // gas (steam, flames, marsh gas): whole cells in the gas's colours, as many of them as its
+      // cover lets through an ordered dither, each stepping through the colour cycle on its own
+      // beat, and thinner where the cloud is ragged (fewer gas neighbours)
+      if (u_gasOn > 0.0) {
+        uint gm = texelFetch(u_gas, cell, 0).r;
+        if (gm != 0u) {
+          vec4 gl = look(gm);
+          int nb = 0;
+          if (texelFetch(u_gas, clamp(cell + ivec2(1, 0), ivec2(0), ivec2(u_map) - 1), 0).r != 0u) nb++;
+          if (texelFetch(u_gas, clamp(cell - ivec2(1, 0), ivec2(0), ivec2(u_map) - 1), 0).r != 0u) nb++;
+          if (texelFetch(u_gas, clamp(cell + ivec2(0, 1), ivec2(0), ivec2(u_map) - 1), 0).r != 0u) nb++;
+          if (texelFetch(u_gas, clamp(cell - ivec2(0, 1), ivec2(0), ivec2(u_map) - 1), 0).r != 0u) nb++;
+          float cover = gl.a * (nb >= 3 ? 1.0 : nb == 2 ? 0.75 : 0.5);
+          if (bayer(cell) < cover) {
+            int n = int(gl.r * 255.0 + 0.5);
+            float h = hash(cell + ivec2(17, 3));
+            int st = int(floor(u_time / max(1.0, gl.g * 255.0) + h * 5.0));
+            c = n >= 2 ? texelFetch(u_look, ivec2(int(gm), 1 + st % n), 0).rgb
+                       : texelFetch(u_palette, ivec2(int(gm), 0), 0).rgb;
+          }
       // in the dark the open air and the cave walls behind it go black too
       c *= 1.0 - u_dark * 0.82;
       // the air around a glowing cell catches a little of its colour (much more in the dark),

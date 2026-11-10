@@ -4,12 +4,14 @@ export const SETTLE_STATIC = 0;
 export const SETTLE_FALL = 1;
 export const SETTLE_SLIDE = 2;
 export const SETTLE_FLOW = 3;
+/** Gas: lives in the grid's gas layer, never in `material` (see `gas.ts`). */
+export const SETTLE_GAS = 4;
 
 export const NUM_DAMAGE_TYPES = DAMAGE_TYPES.length;
 /** Strength is stored ×256 (256 = 1.0, dirt baseline). */
 export const STRENGTH_ONE = 256;
-/** Reaction slots per material. */
-export const MAX_REACTIONS = 4;
+/** Reaction rules per material (manifest limit). */
+export const MAX_REACTIONS = 8;
 /** "No change" in reaction/decay tables (0 is air, a real target). */
 export const KEEP = 255;
 
@@ -42,13 +44,24 @@ export class MaterialTable {
   readonly isCoating = new Uint8Array(256);
   /** ACT_* bits. */
   readonly active = new Uint8Array(256);
-  /** reaction k of cell c at c * MAX_REACTIONS + k; `reactWith` 0 = unused slot. */
-  readonly reactWith = new Uint8Array(256 * MAX_REACTIONS);
-  readonly reactInto = new Uint8Array(256 * MAX_REACTIONS).fill(KEEP);
-  readonly reactOther = new Uint8Array(256 * MAX_REACTIONS).fill(KEEP);
-  readonly reactSpawn = new Uint8Array(256 * MAX_REACTIONS).fill(KEEP);
+  /**
+   * Reaction rule for a pair at `cell * 256 + neighbour` (0 = none): an index into the `rule*`
+   * arrays. Tags are expanded here at load, so the hot loop is one lookup per neighbour.
+   */
+  readonly pairRule = new Uint16Array(256 * 256);
+  readonly ruleInto = new Uint8Array(256 * MAX_REACTIONS + 1).fill(KEEP);
+  readonly ruleOther = new Uint8Array(256 * MAX_REACTIONS + 1).fill(KEEP);
+  readonly ruleSpawn = new Uint8Array(256 * MAX_REACTIONS + 1).fill(KEEP);
   /** Chance per tick ×65536. */
-  readonly reactChance = new Uint32Array(256 * MAX_REACTIONS);
+  readonly ruleChance = new Uint32Array(256 * MAX_REACTIONS + 1);
+  /** Gas cells: 1 rises, 255 (-1) sinks, 0 = not a gas. */
+  readonly gasLift = new Int8Array(256);
+  /** Tagged `hot` / `wet` (process counters for the renderer and the soundscape; not sim rules). */
+  readonly hot = new Uint8Array(256);
+  readonly wet = new Uint8Array(256);
+  /** Gas vertical and sideways step chances per tick ×65536. */
+  readonly gasRise = new Uint32Array(256);
+  readonly gasDrift = new Uint32Array(256);
   readonly decayInto = new Uint8Array(256).fill(KEEP);
   readonly decayTicks = new Uint8Array(256);
   readonly decayTurns = new Uint8Array(256);
@@ -110,7 +123,14 @@ export class MaterialTable {
             ? SETTLE_FALL
             : m.settle === 'slide'
               ? SETTLE_SLIDE
-              : SETTLE_FLOW;
+              : m.settle === 'flow'
+                ? SETTLE_FLOW
+                : SETTLE_GAS;
+      if (m.settle === 'gas') {
+        this.gasLift[c] = m.gas?.lift ?? 1;
+        this.gasRise[c] = Math.round((m.gas?.rise ?? 1) * 65536);
+        this.gasDrift[c] = Math.round((m.gas?.drift ?? 0.3) * 65536);
+      }
       this.density[c] = m.density;
       if (m.span !== undefined) this.span[c] = m.span;
       this.cohesion[c] = Math.round(m.cohesion * 256);
@@ -124,17 +144,40 @@ export class MaterialTable {
     this.cells = cells;
     this.ids = ids;
     const ref = (id: string) => (id === 'air' ? 0 : this.cellOf(id));
+    // tag → cells carrying it, in manifest order (deterministic)
+    const tagged: Record<string, number[]> = {};
+    for (const m of materials) {
+      for (const t of m.tags ?? []) (tagged[t] ??= []).push(m.cell);
+      if (m.tags?.includes('hot')) this.hot[m.cell] = 1;
+      if (m.tags?.includes('wet')) this.wet[m.cell] = 1;
+    }
+    // 1 = set by a tag rule, 2 = set by an id rule (an id rule beats any tag rule)
+    const by = new Uint8Array(256 * 256);
+    let rule = 0;
     for (const m of materials) {
       const c = m.cell;
-      (m.reactions ?? []).forEach((r, k) => {
-        const i = c * MAX_REACTIONS + k;
-        this.reactWith[i] = ref(r.with);
-        if (r.into) this.reactInto[i] = ref(r.into);
-        if (r.other) this.reactOther[i] = ref(r.other);
-        if (r.spawn) this.reactSpawn[i] = ref(r.spawn);
-        this.reactChance[i] = Math.round(r.chance * 65536);
+      for (const r of m.reactions ?? []) {
+        const k = ++rule;
+        if (r.into) this.ruleInto[k] = ref(r.into);
+        if (r.other) this.ruleOther[k] = ref(r.other);
+        if (r.spawn) this.ruleSpawn[k] = ref(r.spawn);
+        this.ruleChance[k] = Math.round(r.chance * 65536);
         this.active[c] = this.active[c]! | ACT_REACT;
-      });
+        if (r.with.startsWith('#')) {
+          for (const w of tagged[r.with.slice(1)] ?? []) {
+            const p = c * 256 + w;
+            // a tag never matches the material itself, and the first rule for a pair wins
+            if (w === c || by[p] !== 0) continue;
+            this.pairRule[p] = k;
+            by[p] = 1;
+          }
+        } else {
+          const p = c * 256 + ref(r.with);
+          if (by[p] === 2) continue;
+          this.pairRule[p] = k;
+          by[p] = 2;
+        }
+      }
       if (m.decay) {
         this.decayInto[c] = ref(m.decay.into);
         if ('ticks' in m.decay) {

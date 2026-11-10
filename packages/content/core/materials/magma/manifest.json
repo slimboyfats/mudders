@@ -19,6 +19,7 @@
   },
   "cohesion": 0,
   "coating": false,
+  "tags": ["hot"],
   "reactions": [
     {
       "with": "air",

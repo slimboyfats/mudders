@@ -31,6 +31,7 @@ export function settleStep(
   const H = grid.height;
   const mat = grid.material;
   const coat = grid.coating;
+  const gas = grid.gas;
   const state = grid.cellState;
   const vel = grid.fallVel;
   const group = grid.group;
@@ -136,6 +137,12 @@ export function settleStep(
       mat[idx] = 0;
       coat[dst] = coat[idx]!;
       coat[idx] = 0;
+      // falling into gas pushes the gas up into the cell it left (bubbles rise through water)
+      if (gas[dst] !== 0) {
+        gas[idx] = gas[dst]!;
+        gas[dst] = 0;
+        grid.extendGas(x, y);
+      }
       shade[dst] = grid.shadeOf(idx);
       // moved reactive cells (lava, napalm, burning things) must be re-checked where they land
       if (act[m] !== 0 || turns[m] !== 0 || act[coat[dst]!] !== 0) {

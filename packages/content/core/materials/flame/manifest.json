@@ -1,0 +1,47 @@
+{
+  "id": "material.flame",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Flame",
+    "description": "A tongue of fire in the air. Burning ground throws flames up that flicker and rise for a moment before they go out. They light anything that burns, singe tanks they lick and turn to steam on water.",
+    "since": "core@0.62.0",
+    "color": "#ffb43a"
+  },
+  "cell": 30,
+  "settle": "gas",
+  "gas": {
+    "lift": 1,
+    "rise": 0.85,
+    "drift": 0.35
+  },
+  "density": 1,
+  "strength": {},
+  "cohesion": 0,
+  "coating": false,
+  "tags": ["hot"],
+  "decay": {
+    "into": "air",
+    "ticks": 9
+  },
+  "contact": {
+    "damage": 6
+  },
+  "reactions": [
+    {
+      "with": "material.water",
+      "into": "material.steam",
+      "chance": 0.9
+    },
+    {
+      "with": "#burns",
+      "other": "material.fire",
+      "chance": 0.05
+    }
+  ],
+  "look": {
+    "cycle": ["#ffd860", "#ffb43a", "#ff8a20", "#ff6a1a", "#fff0a0"],
+    "cycleTicks": 2,
+    "hot": true,
+    "cover": 0.9
+  }
+}
