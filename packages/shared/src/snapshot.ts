@@ -158,6 +158,11 @@ export interface RenderSnapshot {
   terrain: Uint8Array;
   /** Coating id per cell (0 = none). Read-only. */
   coating: Uint8Array;
+  /**
+   * Cosmetic grain shade per cell (0 = never moved: shade by position). Moves with the cell, so
+   * falling and flowing grains keep their colour. Not part of the state. Read-only.
+   */
+  shade?: Uint8Array;
   /** Rects of `terrain`/`coating` changed since the previous snapshot. */
   dirtyRects: Rect[];
   entities: EntityView[];
@@ -166,7 +171,15 @@ export interface RenderSnapshot {
    * Sim debris particles (cells in flight that become terrain where they land). Positions are
    * fixed-point (divide by FP); only the first `count` entries are valid. Read-only.
    */
-  debris: { count: number; x: Int32Array; y: Int32Array; vx: Int32Array; material: Uint8Array };
+  debris: {
+    count: number;
+    x: Int32Array;
+    y: Int32Array;
+    vx: Int32Array;
+    material: Uint8Array;
+    /** Cosmetic grain shade per particle (see `shade`). */
+    shade?: Uint8Array;
+  };
   /** Wind in px/tick² (positive blows right). */
   wind: number;
   /** Air temperature, whole °C (§3.4). */

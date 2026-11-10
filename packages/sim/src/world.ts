@@ -1223,6 +1223,7 @@ export class World implements SimApi {
         m,
         g.coating[cellIndex]!,
         g.cellState[cellIndex]!,
+        g.shadeOf(cellIndex),
       )
     ) {
       return false;
@@ -3962,6 +3963,7 @@ export class World implements SimApi {
       height: this.grid.height,
       terrain: this.grid.material,
       coating: this.grid.coating,
+      shade: this.grid.shade,
       dirtyRects: this.grid.takeRenderRects(),
       entities,
       effectEvents,
@@ -3971,6 +3973,7 @@ export class World implements SimApi {
         y: this.debris.y,
         vx: this.debris.vx,
         material: this.debris.mat,
+        shade: this.debris.shade,
       },
       wind: this.wind / FP,
       temperature: this.temperature,

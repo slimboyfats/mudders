@@ -67,6 +67,28 @@ describe('heatField', () => {
     expect(heatFalloff(HEAT_REACH + 1)).toBe(0);
   });
 
+  it('tells which glowing material each cell is nearest to', () => {
+    const w = 100;
+    const h = 10;
+    const terrain = new Uint8Array(w * h);
+    const coating = new Uint8Array(w * h);
+    const flags = new Uint8Array(256);
+    flags[5] = 2; // hot (lava)
+    flags[90] = 8; // emits (plasma)
+    terrain[5 * w + 5] = 5;
+    coating[5 * w + 90] = 90;
+    const out = new Uint8Array(w * h);
+    const src = new Uint8Array(w * h);
+    expect(heatField(terrain, coating, flags, w, h, out, src)).toBe(true);
+    expect(src[5 * w + 5]).toBe(5);
+    expect(src[5 * w + 12]).toBe(5);
+    expect(src[2 * w + 84]).toBe(90);
+    expect(src[5 * w + 90]).toBe(90);
+    // beyond the glow reach of both: no source
+    expect(out[5 * w + 47]).toBe(HEAT_NONE);
+    expect(src[5 * w + 47]).toBe(0);
+  });
+
   it('reports no sources on a cold map', () => {
     const out = new Uint8Array(4);
     const z = new Uint8Array(4);

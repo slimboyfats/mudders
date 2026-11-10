@@ -21,6 +21,7 @@
   "cohesion": 0,
   "coating": false,
   "look": {
-    "glint": true
+    "glint": true,
+    "emit": "#c8a8ff"
   }
 }

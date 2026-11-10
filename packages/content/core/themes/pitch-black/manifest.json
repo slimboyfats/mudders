@@ -1,0 +1,23 @@
+{
+  "id": "theme.pitch-black",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Pitch Black",
+    "description": "No sun, no moon, no stars. The only light is what burns or glows: lava and fire light the rock orange, plasma violet, crystal lilac and reactor cores green, and every blast lights up the dark for a moment. Best on the Caves map.",
+    "since": "core@0.61.0"
+  },
+  "sky": {
+    "top": "#010103",
+    "bottom": "#07060b"
+  },
+  "letterbox": "#000000",
+  "light": "#0e0c10",
+  "trail": "#ffd8a0",
+  "grain": 0.15,
+  "vignette": 0.42,
+  "dark": 0.92,
+  "scenery": {
+    "ranges": [],
+    "ground": "#9a98a8"
+  }
+}

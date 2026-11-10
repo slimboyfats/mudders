@@ -1,5 +1,5 @@
 import { FP } from '@mudders/shared';
-import type { Grid } from './grid';
+import { grainShade, type Grid } from './grid';
 import type { MaterialTable } from './materials';
 
 /** Upper bound on simultaneous debris particles. */
@@ -21,8 +21,13 @@ export class DebrisPool {
   readonly mat = new Uint8Array(DEBRIS_CAP);
   readonly coat = new Uint8Array(DEBRIS_CAP);
   readonly state = new Uint8Array(DEBRIS_CAP);
+  /** Cosmetic grain shade (`Grid.shade`) the cell lands with; not part of the state. */
+  readonly shade = new Uint8Array(DEBRIS_CAP);
 
-  /** Returns false when the pool is full (the caller leaves the cell in place). */
+  /**
+   * Returns false when the pool is full (the caller leaves the cell in place). `shade` is the
+   * cell's cosmetic grain (`Grid.shadeOf`); without it the spawn position picks one.
+   */
   spawn(
     x: number,
     y: number,
@@ -31,6 +36,7 @@ export class DebrisPool {
     m: number,
     coat: number,
     state: number,
+    shade = 0,
   ): boolean {
     const i = this.count;
     if (i >= DEBRIS_CAP) return false;
@@ -41,6 +47,7 @@ export class DebrisPool {
     this.mat[i] = m;
     this.coat[i] = coat;
     this.state[i] = state;
+    this.shade[i] = shade !== 0 ? shade : grainShade(Math.floor(x / FP), Math.floor(y / FP));
     this.count = i + 1;
     return true;
   }
@@ -55,6 +62,7 @@ export class DebrisPool {
     this.mat[i] = this.mat[last]!;
     this.coat[i] = this.coat[last]!;
     this.state[i] = this.state[last]!;
+    this.shade[i] = this.shade[last]!;
   }
 
   /**
@@ -127,6 +135,7 @@ export class DebrisPool {
         m[t] = this.mat[i]!;
         grid.coating[t] = this.coat[i]!;
         grid.cellState[t] = this.state[i]!;
+        grid.shade[t] = this.shade[i]!;
         grid.fallVel[t] = 0;
         // Landed cells rest on solid ground by construction; only one that ran out of roll
         // steps mid-air needs the settle pass. Render-wise the whole landing box is dirty.

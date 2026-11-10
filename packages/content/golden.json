@@ -1,5 +1,5 @@
 {
-  "contentHash": "67e4fb6dc1e0020b",
+  "contentHash": "0e9466bf047f9360",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 479,
@@ -980,6 +980,10 @@
     "theme.inferno": {
       "ticks": 577,
       "hash": "b7298934960510ee"
+    },
+    "theme.pitch-black": {
+      "ticks": 1500,
+      "hash": "9423bc0079768ace"
     },
     "theme.snow": {
       "ticks": 577,
