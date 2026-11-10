@@ -47,6 +47,7 @@ import { drawPsiAura, drawPsiShell, drawPsiTether } from './psi';
 import { GpuParticles } from './gpu-particles';
 import {
   BG_FS,
+  BURIED_REACH,
   CUT_REACH,
   FULLSCREEN_VS,
   HAZE_TICKS,
@@ -885,7 +886,10 @@ export class PixelRenderer implements Renderer {
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
         d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + CUT_REACH));
-        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, r.y + r.h + 32));
+        d[3] = Math.min(
+          this.mapHeight,
+          Math.max(clean ? -Infinity : d[3]!, r.y + r.h + BURIED_REACH),
+        );
       }
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
@@ -1143,7 +1147,7 @@ export class PixelRenderer implements Renderer {
     d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - 1));
     d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, y0 - 1));
     d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + 2));
-    d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + 34));
+    d[3] = Math.min(h, Math.max(clean ? -Infinity : d[3]!, y1 + BURIED_REACH + 2));
   }
 
   /** A dirt wave rolled over these columns: the ground it leaves behind is bare, so no grass. */
@@ -1486,7 +1490,7 @@ export class PixelRenderer implements Renderer {
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, x0 - CUT_REACH));
         d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, by0 - 1));
         d[2] = Math.min(w, Math.max(clean ? -Infinity : d[2]!, x1 + CUT_REACH));
-        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + 32));
+        d[3] = Math.min(this.mapHeight, Math.max(clean ? -Infinity : d[3]!, y1 + BURIED_REACH));
       }
     }
   }

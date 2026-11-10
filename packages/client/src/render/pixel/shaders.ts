@@ -349,6 +349,8 @@ void main() {
             c = n >= 2 ? texelFetch(u_look, ivec2(int(gm), 1 + st % n), 0).rgb
                        : texelFetch(u_palette, ivec2(int(gm), 0), 0).rgb;
           }
+        }
+      }
       // in the dark the open air and the cave walls behind it go black too
       c *= 1.0 - u_dark * 0.82;
       // the air around a glowing cell catches a little of its colour (much more in the dark),
@@ -591,6 +593,9 @@ void main() {
 /** Cells beside a crater wall (horizontally) that lose their turf; the renderer widens dirty
  * rects by this much. */
 export const CUT_REACH = 16;
+/** Rows up a cell looks for the old grass surface buried under a heap; the renderer widens dirty
+ * rects downward by this much. */
+export const BURIED_REACH = 64;
 
 export const TERRAIN_FS = `#version 300 es
 precision highp float;
@@ -694,9 +699,11 @@ void main() {
   // a straight wall: the old surface is still there underneath, so its grass, turf and topsoil
   // carry on under the heap as a buried, darker layer, and the loose ground sits on top of it
   bool buried = false;
-  if (!soil && still && lk.a > 0.75 && sd > 2) {
-    for (int k = 1; k <= 40; k++) {
-      if (k >= sd - 1) break;
+  // (deeper than the 32-row surface scan, sd is 0: look the full reach for those too)
+  if (!soil && still && lk.a > 0.75 && (sd > 2 || sd == 0)) {
+    for (int k = 1; k <= ${BURIED_REACH}; k++) {
+      if (sd > 0 && k >= sd - 1) break;
+      if (c.y - k < 0) break;
       uint bm = texelFetch(u_grassMask, c - ivec2(0, k), 0).r;
       if (bm != 0u) {
         gmask = bm;
@@ -781,19 +788,10 @@ void main() {
     // with depth and dithering into the topsoil at its foot
     float k = float(gsd - 10) / 14.0;
     if (gsd < 19 || bayer(ap) > (float(gsd) - 19.0) / 6.0) col = turf(grassRgb, ap, k);
-    if (buried) col *= 0.82;
   }
-  if (buried && u_grass.a > 0.0 && gsd > 0 && gsd <= 9) {
-    // buried grass: pressed flat under the heap, a dark green-brown seam with roots dithered
-    // into the turf below; no blades, tips or flowers
-    float h = hash(c + ivec2(3, 8));
-    vec3 pressed = mix(grassRgb, vec3(0.36, 0.3, 0.16), 0.45);
-    if (gsd <= 3) col = pressed * (h > 0.6 ? 0.62 : 0.5);
-    else if (gsd <= 6 || h > 0.5) col = turf(pressed, ap, 0.3) * 0.85;
-    else col = turf(grassRgb, ap, 0.0) * 0.8;
-    rim *= 0.35;
-  }
-  if (soil && !buried && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
+  // buried grass is drawn exactly like the grass beside it (only without lit tips or flowers),
+  // so the layers run on under a heap with no seam
+  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && gsd > 0 && gsd <= 9) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
@@ -805,13 +803,13 @@ void main() {
     float stroke = bl > 0.66 ? 1.1 : bl > 0.33 ? 0.97 : 0.86;
     float len = 3.0 + floor(hash(ivec2(c.x, 402)) * 4.0);
     float h = hash(c + ivec2(3, 8));
-    if (sd == 1) col = gr * (h > 0.6 ? 1.3 : 1.16);
-    else if (float(sd) <= len) col = gr * stroke;
-    else if (float(sd) <= len + 2.0) col = gr * (stroke * 0.72);
+    if (gsd == 1 && !buried) col = gr * (h > 0.6 ? 1.3 : 1.16);
+    else if (float(gsd) <= len) col = gr * stroke;
+    else if (float(gsd) <= len + 2.0) col = gr * (stroke * 0.72);
     else if (h > 0.55) col = gr * 0.6;
     else col = turf(gr, ap, 0.0);
     // flowers: a single bright art pixel with a darker cell under it
-    if (u_flowers > 0.0 && sd <= 3 && !dry) {
+    if (u_flowers > 0.0 && !buried && sd <= 3 && !dry) {
       float f = hash(ivec2(c.x >> 1, 503));
       if (f > 1.0 - u_flowers * 0.08) {
         float pick = hash(ivec2(c.x >> 1, 504));
