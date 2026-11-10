@@ -688,6 +688,25 @@ void main() {
   // ground stays bare dirt (render-only, the sim never sees it)
   uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
   bool soil = gmask != 0u;
+  // rows below the grass, counted from the round-start surface the column grew it on
+  int gsd = sd;
+  // ground dumped on top of the grass (dirt bombs, slides, heaps of debris) doesn't cut it off in
+  // a straight wall: the old surface is still there underneath, so its grass, turf and topsoil
+  // carry on under the heap as a buried, darker layer, and the loose ground sits on top of it
+  bool buried = false;
+  if (!soil && still && lk.a > 0.75 && sd > 2) {
+    for (int k = 1; k <= 40; k++) {
+      if (k >= sd - 1) break;
+      uint bm = texelFetch(u_grassMask, c - ivec2(0, k), 0).r;
+      if (bm != 0u) {
+        gmask = bm;
+        soil = true;
+        buried = true;
+        gsd = k + 1;
+        break;
+      }
+    }
+  }
   // grass a gas cloud crept over (mask 2) is withered: dry, yellow-brown, no flowers
   bool dry = gmask == 2u;
   vec3 grassRgb = dry ? mix(u_grass.rgb, vec3(0.58, 0.47, 0.2), 0.8) : u_grass.rgb;
@@ -702,7 +721,7 @@ void main() {
   // surface row, so the scan up that air column finds no grass mask there. Each direction tests
   // only the first air cell it meets.
   int cut = 0;
-  if (soil && sd > 2 && u_grass.a > 0.0) {
+  if (soil && !buried && sd > 2 && u_grass.a > 0.0) {
     ivec2 dirs[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(-1, -1), ivec2(1, -1));
     int open = 0; // bit per direction: already met air (or the map edge)
     for (int d = 1; d <= ${CUT_REACH} && cut == 0; d++) {
@@ -748,8 +767,8 @@ void main() {
       }
     }
     // topsoil: a dark rich band under the turf, fading through dither into the subsoil
-    if (soil && sd > 0 && sd <= 30) {
-      float k = sd <= 22 ? 1.0 : (bayer(ap) > float(sd - 22) / 9.0 ? 1.0 : 0.0);
+    if (soil && gsd > 0 && gsd <= 30) {
+      float k = gsd <= 22 ? 1.0 : (bayer(ap) > float(gsd - 22) / 9.0 ? 1.0 : 0.0);
       col = mix(col, col * vec3(0.72, 0.66, 0.62), k);
     }
   }
@@ -757,13 +776,24 @@ void main() {
     col = mix(col, vec3(0.7, 0.8, 0.9) * (0.85 + g) * (sd <= 4 ? 1.12 : 1.0), sd <= 4 ? 0.8 : 0.6);
   }
   float rim = lit + side;
-  if (soil && !bare && u_grass.a > 0.0 && sd > 9 && sd <= 24) {
+  if (soil && !bare && u_grass.a > 0.0 && gsd > 9 && gsd <= 24) {
     // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
     // with depth and dithering into the topsoil at its foot
-    float k = float(sd - 10) / 14.0;
-    if (sd < 19 || bayer(ap) > (float(sd) - 19.0) / 6.0) col = turf(grassRgb, ap, k);
+    float k = float(gsd - 10) / 14.0;
+    if (gsd < 19 || bayer(ap) > (float(gsd) - 19.0) / 6.0) col = turf(grassRgb, ap, k);
+    if (buried) col *= 0.82;
   }
-  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
+  if (buried && u_grass.a > 0.0 && gsd > 0 && gsd <= 9) {
+    // buried grass: pressed flat under the heap, a dark green-brown seam with roots dithered
+    // into the turf below; no blades, tips or flowers
+    float h = hash(c + ivec2(3, 8));
+    vec3 pressed = mix(grassRgb, vec3(0.36, 0.3, 0.16), 0.45);
+    if (gsd <= 3) col = pressed * (h > 0.6 ? 0.62 : 0.5);
+    else if (gsd <= 6 || h > 0.5) col = turf(pressed, ap, 0.3) * 0.85;
+    else col = turf(grassRgb, ap, 0.0) * 0.8;
+    rim *= 0.35;
+  }
+  if (soil && !buried && (!bare || sd <= 2) && u_grass.a > 0.0 && sd > 0 && sd <= 9) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));
@@ -807,6 +837,30 @@ void main() {
     else if (lv >= 2 && hash(ap + ivec2(41, 17)) > 0.94) b *= 0.8;
     if (lv <= 5) col = b;
     rim *= 0.2;
+  }
+  // where loose ground meets the grass at about the same height, the grass creeps a few cells
+  // onto it, thinning out in dither, so the turf doesn't end in a ruled vertical line
+  if (!soil && still && lk.a > 0.75 && sd > 0 && sd <= 3 && u_grass.a > 0.0) {
+    int near = 0;
+    for (int d = 1; d <= 6 && near == 0; d++) {
+      for (int s = -1; s <= 1; s += 2) {
+        ivec2 n = c + ivec2(s * d, 0);
+        for (int k = -3; k <= 3; k++) {
+          ivec2 m = n + ivec2(0, k);
+          if (m.x < 0 || m.y < 1 || m.x >= int(u_map.x) || m.y >= int(u_map.y)) continue;
+          if (texelFetch(u_grassMask, m, 0).r == 1u && mat(m) != 0u && mat(m - ivec2(0, 1)) == 0u) {
+            near = d;
+            break;
+          }
+        }
+        if (near != 0) break;
+      }
+    }
+    if (near > 0 && bayer(ap) > float(near) / 7.0) {
+      float h = hash(c + ivec2(3, 8));
+      col = sd == 1 ? u_grass.rgb * (h > 0.6 ? 1.2 : 1.06) : u_grass.rgb * (sd == 2 ? 0.86 : 0.62);
+      rim *= 0.35;
+    }
   }
   if (still) col *= u_ground;
   col += u_light * rim;
