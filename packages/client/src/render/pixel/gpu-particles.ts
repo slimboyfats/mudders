@@ -1,6 +1,6 @@
 import { QUAD_FS } from './shaders';
 import { compile } from './gl';
-import { PKind, type Emit, type ParticleSink } from './particles';
+import { PKind, type Emit, type ParticleSink, type Vortex } from './particles';
 
 /**
  * GPU particle engine (§2a): the cosmetic particles live in GPU buffers and are stepped by a
@@ -35,6 +35,14 @@ export interface KindPhysics {
   sway: number;
   /** Pull of the swirling turbulence field (cells per tick), so streams curl instead of marching. */
   swirl: number;
+  /**
+   * How hard the air carries it: the share of the gap to the smoke fluid's velocity closed each
+   * tick (0 = ignores the air, 1 = moves as the air does). Blast wind, fireball roll and rising
+   * heat all reach particles through this.
+   */
+  flow: number;
+  /** Random walk, cells per tick: smoke and fire spread out to fill the eddies they ride. */
+  jitter: number;
   /** Per-particle spread of lift and drag (0 = every particle the same). */
   spread: number;
   /** Collides with terrain. */
@@ -58,6 +66,8 @@ const K = (p: Partial<KindPhysics>): KindPhysics => ({
   maxFall: 0,
   sway: 0,
   swirl: 0,
+  flow: 0,
+  jitter: 0,
   spread: 0.4,
   collide: false,
   bounce: 0,
@@ -70,6 +80,7 @@ const K = (p: Partial<KindPhysics>): KindPhysics => ({
 export const KINDS: readonly KindPhysics[] = [
   // Spark: hot bits that skitter and hop along the ground
   K({
+    flow: 0.06,
     gravity: 0.6,
     dragX: 0.97,
     dragY: 0.97,
@@ -80,15 +91,42 @@ export const KINDS: readonly KindPhysics[] = [
     swirl: 0.006,
   }),
   // Chunk: a clod that thuds, bounces once or twice and settles
-  K({ gravity: 1, dragX: 0.99, collide: true, bounce: 0.3, friction: 0.55, siblings: 2 }),
+  K({
+    flow: 0.015,
+    gravity: 1,
+    dragX: 0.99,
+    collide: true,
+    bounce: 0.3,
+    friction: 0.55,
+    siblings: 2,
+  }),
   // Smoke: rises and drifts, flattens under overhangs
-  K({ dragX: 0.94, dragY: 0.94, lift: 0.012, wind: 4, collide: true, friction: 0.9, swirl: 0.03 }),
+  K({
+    flow: 0.35,
+    dragX: 0.94,
+    dragY: 0.94,
+    lift: 0.012,
+    wind: 4,
+    collide: true,
+    friction: 0.9,
+    swirl: 0.03,
+  }),
   // Dust: hugs the ground, no collision
-  K({ dragX: 0.9, dragY: 0.9, lift: 0.004, swirl: 0.03 }),
+  K({ flow: 0.3, dragX: 0.9, dragY: 0.9, lift: 0.004, swirl: 0.03 }),
   // Flame: licks upward and along ceilings
-  K({ dragX: 0.92, dragY: 0.95, lift: 0.02, wind: 3, collide: true, friction: 0.85, swirl: 0.05 }),
+  K({
+    flow: 0.4,
+    dragX: 0.92,
+    dragY: 0.95,
+    lift: 0.02,
+    wind: 3,
+    collide: true,
+    friction: 0.85,
+    swirl: 0.05,
+  }),
   // Snow: sways down and lands on the ground
   K({
+    flow: 0.3,
     gravity: 0.04,
     dragX: 0.95,
     wind: 3,
@@ -102,6 +140,7 @@ export const KINDS: readonly KindPhysics[] = [
   K({ dragY: 0.9, wind: 2 }),
   // Glitter: firework star, brakes in the air and pings off the ground
   K({
+    flow: 0.08,
     gravity: 0.25,
     dragX: 0.93,
     dragY: 0.93,
@@ -113,6 +152,7 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Plume: smoke-column puff, buoyant while young, leans downwind with height
   K({
+    flow: 0.3,
     dragX: 0.985,
     dragY: 0.985,
     lift: 0.0036,
@@ -124,9 +164,10 @@ export const KINDS: readonly KindPhysics[] = [
     swirl: 0.005,
   }),
   // Cloud: a mushroom-cloud mote, carried by its emitter's motion and the swirl
-  K({ dragX: 0.95, dragY: 0.95, swirl: 0.006, spread: 0.3 }),
+  K({ flow: 0.1, dragX: 0.95, dragY: 0.95, swirl: 0.006, spread: 0.3 }),
   // Ember: rides the heat up, wanders on the swirl, pings off the ground
   K({
+    flow: 0.3,
     gravity: 0.02,
     dragX: 0.97,
     dragY: 0.97,
@@ -140,6 +181,7 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Ash: sails down slowly, swaying, and settles where it lands
   K({
+    flow: 0.35,
     gravity: 0.03,
     dragX: 0.95,
     maxFall: 0.12,
@@ -151,6 +193,7 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Rain: falls at its terminal speed, leans with the wind, hops once off the ground and is gone
   K({
+    flow: 0.03,
     gravity: 1,
     dragX: 0.9,
     maxFall: 5.5,
@@ -162,6 +205,7 @@ export const KINDS: readonly KindPhysics[] = [
   }),
   // Flake: weather snow, heavier and gustier than frost, swings wide and settles
   K({
+    flow: 0.25,
     gravity: 0.08,
     dragX: 0.96,
     wind: 7,
@@ -172,9 +216,10 @@ export const KINDS: readonly KindPhysics[] = [
     swirl: 0.02,
   }),
   // Plasma: energy wisps, no weight, torn into filaments by a strong swirl
-  K({ dragX: 0.975, dragY: 0.975, swirl: 0.11, sway: 0.035, spread: 0.6 }),
+  K({ flow: 0.25, dragX: 0.975, dragY: 0.975, swirl: 0.11, sway: 0.035, spread: 0.6 }),
   // Leaf: flung out, brakes, then flutters down on the wind, swaying wide, and lies where it lands
   K({
+    flow: 0.3,
     gravity: 0.05,
     dragX: 0.93,
     dragY: 0.9,
@@ -186,9 +231,47 @@ export const KINDS: readonly KindPhysics[] = [
     collide: true,
     friction: 0,
   }),
+  // Fire: a cell of burning gas, all but weightless: it goes where the air goes
+  K({
+    flow: 0.95,
+    jitter: 0.5,
+    dragX: 0.96,
+    dragY: 0.96,
+    lift: 0.004,
+    swirl: 0.008,
+    spread: 0.5,
+    collide: true,
+    friction: 0.9,
+  }),
+  // Wisp: a cell of smoke or gas, the same but it also leans on the wind
+  K({
+    flow: 0.8,
+    jitter: 0.5,
+    dragX: 0.95,
+    dragY: 0.95,
+    lift: 0.003,
+    wind: 2,
+    swirl: 0.012,
+    spread: 0.5,
+    collide: true,
+    friction: 0.9,
+  }),
 ];
 
 const NK = KINDS.length;
+
+/** Most vortices turning at once (the oldest gives way), and how fast their drift dies. */
+const MAX_VORTEX = 8;
+const VORTEX_COAST = '0.95';
+
+/** The smoke fluid's velocity texture and its grid, for particles that ride the air. */
+export interface FlowField {
+  tex: WebGLTexture;
+  /** Fluid cells across and down, and map cells per fluid cell. */
+  w: number;
+  h: number;
+  div: number;
+}
 
 /** Kind flag: a single-cell piece of a broken-up puff or clod. */
 export const MOTE = 0x80;
@@ -223,7 +306,11 @@ uniform float u_wind;
 uniform vec4 u_kA[${NK}]; // gravity, dragX, dragY, lift
 uniform vec4 u_kB[${NK}]; // liftFade, wind, windAge, maxFall
 uniform vec4 u_kC[${NK}]; // sway, collide, bounce, friction
-uniform vec4 u_kD[${NK}]; // swirl, spread
+uniform vec4 u_kD[${NK}]; // swirl, spread, flow, jitter
+uniform vec4 u_vA[${MAX_VORTEX}]; // vortex: eye x, y, drift vx, vy
+uniform vec4 u_vB[${MAX_VORTEX}]; // radius (0 = none), spin, birth tick, life
+uniform sampler2D u_flow;  // the smoke fluid's velocity, fluid cells per tick
+uniform vec3 u_flowK;     // 1 / (fluid cells * div) across and down, then div (0 = no fluid)
 // value noise and its curl: a divergence-free swirl field drifting with time
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
@@ -275,9 +362,43 @@ void main() {
   v.x += u_wind * (B.y + B.z * t);
   if (B.w > 0.0) v.y = min(v.y, B.w);
   if (C.x > 0.0) v.x += sin(age * 0.11 + float(gl_VertexID) * 1.7) * C.x;
+  // the air carries it: close part of the gap to the fluid's velocity here
+  if (D.z > 0.0 && u_flowK.z > 0.0) {
+    vec2 air = textureLod(u_flow, p * u_flowK.xy, 0.0).xy * u_flowK.z;
+    float sp = dot(air, air);
+    // still air leaves it alone, so calm-weather motion is exactly what it was
+    if (sp > 0.0004) v += (air - v) * D.z * (1.0 + h * D.y) * min(1.0, sp * 40.0);
+  }
+  // vortices: rolls of turning air set going by blasts. Inside one the air goes round the eye
+  // and a little inward, and light things go with it
+  if (D.z > 0.0) {
+    for (int i = 0; i < ${MAX_VORTEX}; i++) {
+      vec4 va = u_vA[i];
+      vec4 vb = u_vB[i];
+      float ag = u_tick - vb.z;
+      if (vb.x <= 0.0 || ag < 0.0 || ag >= vb.w) continue;
+      // the eye coasts and slows: drift * (1 - k^age) / (1 - k)
+      float kk = pow(${VORTEX_COAST}, ag);
+      vec2 eye = va.xy + va.zw * (1.0 - kk) / (1.0 - ${VORTEX_COAST});
+      vec2 off = p - eye;
+      float len = length(off);
+      float d = len / vb.x;
+      if (d > 1.5 || len < 0.01) continue;
+      float fade = 1.0 - ag / vb.w;
+      // fastest three quarters of the way out, still at the eye, gone by 1.5 radii
+      float prof = d * (1.5 - d) * 1.78;
+      vec2 dir = off / len;
+      vec2 air = va.zw * kk + (vec2(-dir.y, dir.x) * vb.y - dir * abs(vb.y) * 0.16) * prof * fade;
+      v += (air - v) * D.z * min(1.0, (1.5 - d) * 4.0) * (0.35 + 0.65 * fade);
+    }
+  }
   // swirl grows as smoke ages and spreads into bigger eddies
   if (D.x > 0.0) v += curl(p, u_tick) * D.x * (0.4 + t);
   vec2 q = p + v;
+  if (D.w > 0.0) {
+    float ja = hash(vec2(float(gl_VertexID) * 0.37, u_tick * 1.31)) * 6.2831853;
+    q += vec2(cos(ja), sin(ja)) * D.w;
+  }
   // terrain: only from open air, so bits spawned inside fresh rubble still fly out
   if (C.y > 0.5 && solid(q) && !solid(p)) {
     float bounce = C.z;
@@ -404,6 +525,26 @@ void main() {
                   : mix(col, shade(col, 1.3), x);
     }
     show = show && th < cover;
+  } else if (k == ${PKind.Fire}) {
+    // burns through the fire ramp in its first third, then is soot that pales and thins
+    float x = stepT(t, th, 12.0);
+    if (x < 0.3) {
+      float f = x / 0.3;
+      col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
+                    : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), SOOT, f * 2.0 - 1.0);
+    } else {
+      col = ramp3(SOOT, vec3(0.4, 0.37, 0.39), vec3(0.64, 0.61, 0.64), (x - 0.3) / 0.7);
+    }
+    show = show && th < (t < 0.45 ? 1.0 : (1.0 - t) / 0.55);
+    if (u_pass == 1) {
+      // the hot cells also light up: one hard additive cell each
+      show = show && x < 0.16;
+      col = vec3(1.0, 0.816, 0.376);
+      alpha = 0.4;
+    }
+  } else if (k == ${PKind.Wisp}) {
+    show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.35 ? 1.0 : (1.0 - t) / 0.65);
+    col = ramp3(shade(col, 0.6), col, shade(col, 1.5), stepT(t, th, 6.0));
   } else if (k == ${PKind.Ember}) {
     // flickers: each ember blinks off now and then, on its own beat
     float fl = fract(sin(floor(age / 3.0) * 7.13 + th * 91.7) * 4375.85);
@@ -574,6 +715,9 @@ export class GpuParticles implements ParticleSink {
   readonly cap: number;
   /** Ticks stepped so far (the update shader's clock). */
   private tick = 0;
+  private readonly vA = new Float32Array(MAX_VORTEX * 4);
+  private readonly vB = new Float32Array(MAX_VORTEX * 4);
+  private vNext = 0;
   /** Update passes owed to {@link draw}. */
   private passes = 0;
   /** Next ring slot to fill, and the highest slot in use + 1. */
@@ -634,6 +778,10 @@ export class GpuParticles implements ParticleSink {
       'u_kB',
       'u_kC',
       'u_kD',
+      'u_flow',
+      'u_vA',
+      'u_vB',
+      'u_flowK',
       'u_terrain',
       'u_map',
     ]) {
@@ -651,7 +799,7 @@ export class GpuParticles implements ParticleSink {
       a.set([k.gravity, k.dragX, k.dragY, k.lift], i * 4);
       b.set([k.liftFade, k.wind, k.windAge, k.maxFall], i * 4);
       c.set([k.sway, k.collide ? 1 : 0, k.bounce, k.friction], i * 4);
-      d.set([k.swirl, k.spread, 0, 0], i * 4);
+      d.set([k.swirl, k.spread, k.flow, k.jitter], i * 4);
     });
     gl.useProgram(this.updProg);
     gl.uniform4fv(this.uUpd.u_kA!, a);
@@ -695,6 +843,13 @@ export class GpuParticles implements ParticleSink {
   /** Slots that may hold a live particle (the range each pass touches). */
   get n(): number {
     return this.count;
+  }
+
+  vortex(v: Vortex): void {
+    const i = this.vNext * 4;
+    this.vNext = (this.vNext + 1) % MAX_VORTEX;
+    this.vA.set([v.x, v.y, v.vx, v.vy], i);
+    this.vB.set([v.r, v.spin, this.tick, v.life], i);
   }
 
   /** Add a particle in the next ring slot; when full, the oldest is overwritten. */
@@ -890,7 +1045,7 @@ export class GpuParticles implements ParticleSink {
   }
 
   /** Run owed update passes against the terrain texture. */
-  private update(terrain: WebGLTexture, mapW: number, mapH: number): void {
+  private update(terrain: WebGLTexture, mapW: number, mapH: number, flow: FlowField | null): void {
     const passes = Math.min(this.passes, MAX_PASSES);
     // a long stall: age the clock without moving (they died off-screen anyway)
     this.passes = 0;
@@ -904,6 +1059,14 @@ export class GpuParticles implements ParticleSink {
     gl.uniform2i(this.uUpd.u_map!, mapW, mapH);
     gl.uniform1f(this.uUpd.u_gravity!, this.gravity);
     gl.uniform1f(this.uUpd.u_wind!, this.wind);
+    gl.uniform4fv(this.uUpd.u_vA!, this.vA);
+    gl.uniform4fv(this.uUpd.u_vB!, this.vB);
+    gl.activeTexture(gl.TEXTURE8);
+    gl.bindTexture(gl.TEXTURE_2D, flow ? flow.tex : null);
+    gl.uniform1i(this.uUpd.u_flow!, 8);
+    if (flow)
+      gl.uniform3f(this.uUpd.u_flowK!, 1 / (flow.w * flow.div), 1 / (flow.h * flow.div), flow.div);
+    else gl.uniform3f(this.uUpd.u_flowK!, 0, 0, 0);
     gl.enable(gl.RASTERIZER_DISCARD);
     gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, this.tf);
     const first = this.tick - passes + 1;
@@ -946,9 +1109,10 @@ export class GpuParticles implements ParticleSink {
     view: [number, number],
     origin: [number, number],
     scale: number,
+    flow: FlowField | null = null,
   ): void {
     this.upload();
-    this.update(terrain, mapW, mapH);
+    this.update(terrain, mapW, mapH, flow);
     if (this.count === 0) return;
     const gl = this.gl;
     const segs = this.segments();
@@ -992,6 +1156,7 @@ export class GpuParticles implements ParticleSink {
   }
 
   clear(): void {
+    this.vB.fill(0);
     this.head = 0;
     this.tail = 0;
     this.count = 0;

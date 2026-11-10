@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { EffectEvent } from '@mudders/shared';
 import type { QuadBatch } from './batch';
 import { EffectSystem, SMOKE_COLUMN_MIN_R } from './effects';
-import { Particles } from './particles';
+import { Particles, PKind } from './particles';
 
 /** Flat ground at row 150 on a 400×200 map. */
 const probe = {
@@ -98,11 +98,13 @@ describe('smoke columns', () => {
     // a tank death throws a dozen grey puffs: pooled into a splat or two, not particles
     fx.handle({ type: 'tankDeath', tick: 0, x: 200, y: 140, radius: 10, params: {} });
     const before = p.n;
+    const puffs = p.count(PKind.Smoke);
     fx.tick(0);
     const pooled = splats.filter((s) => s.smoke > 0 && Math.abs(s.x - 200) < 30);
     expect(pooled.length).toBeGreaterThan(0);
     expect(pooled.length).toBeLessThanOrEqual(8);
-    expect(p.n).toBe(before);
+    // (the tick lets go fire cells for the blast's two rolls; no smoke puffs)
+    expect(p.count(PKind.Smoke)).toBe(puffs);
     // frost mist is pale and stays a particle
     fx.handle({ type: 'frostBlast', tick: 1, x: 300, y: 140, radius: 20, params: {} });
     expect(p.n).toBeGreaterThan(before);

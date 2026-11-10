@@ -58,6 +58,17 @@ export const PKind = {
    * it tumbles; it lies still where it lands and winks out cell by cell. GPU only.
    */
   Leaf: 15,
+  /**
+   * One cell of a fireball: burning gas carried by the air (the smoke fluid's velocity), so a
+   * blast's fire rolls and curls with the flow. Burns white → yellow → orange → red, then goes
+   * on as soot that pales and winks out cell by cell. Its own colour is ignored. GPU only.
+   */
+  Fire: 16,
+  /**
+   * One cell of smoke, steam or gas, carried by the air like {@link PKind.Fire}: dark when
+   * fresh, its own colour, then paler as it thins out cell by cell. GPU only.
+   */
+  Wisp: 17,
 } as const;
 export type PKind = (typeof PKind)[keyof typeof PKind];
 
@@ -81,6 +92,25 @@ export interface Emit {
 /** Anything particles can be spawned into: the GPU engine in the renderer, this CPU model in tests. */
 export interface ParticleSink {
   add(e: Emit): void;
+  /** Set a vortex turning in the air from now on (GPU engine only; see {@link Vortex}). */
+  vortex?(v: Vortex): void;
+}
+
+/**
+ * A roll of turning air that carries light particles round with it: fire, smoke, embers, dust,
+ * leaves. Its eye starts at (x, y), coasts off at (vx, vy) cells per tick and slows to a stop;
+ * the air turns about it at up to `spin` cells per tick (positive = clockwise on screen) out to
+ * about radius `r`, drawing what it carries slowly in toward the eye, so a sheet of fire fed
+ * into it winds up into a spiral. It dies away over `life` ticks.
+ */
+export interface Vortex {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  r: number;
+  spin: number;
+  life: number;
 }
 
 /**
@@ -140,6 +170,13 @@ export class Particles implements ParticleSink {
     this.size[i] = e.size;
     this.color[i] = e.color;
     this.kind[i] = e.kind;
+  }
+
+  /** How many live particles are of this kind. */
+  count(kind: PKind): number {
+    let c = 0;
+    for (let i = 0; i < this.n; i++) if (this.kind[i] === kind) c++;
+    return c;
   }
 
   /** One sim tick of cosmetic motion. */

@@ -1,0 +1,78 @@
+{
+  "id": "showcase.blast-swirls",
+  "schemaVersion": 1,
+  "description": "Two missiles on the hills: one lobbed in steep, one fired flat. Each blast sheets out along the ground and winds up into a swirl of fire on each side; the flat shot's downrange swirl is the big one.",
+  "subject": "mode.classic",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 78,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 520
+      }
+    },
+    {
+      "t": 1,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 150
+  }
+}

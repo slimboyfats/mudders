@@ -20,6 +20,7 @@ import { birdHit, birdPulp, drawBirds } from './birds';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
+import { PixelAir } from './air';
 import { drawStorm, stormFor, type StormKind } from './storm';
 import { ProcessMeter } from './process-meter';
 import { WaterFx } from './splash';
@@ -388,6 +389,13 @@ export class PixelRenderer implements Renderer {
   private particles!: GpuParticles;
   /** The smoke and gas field (off where float render targets are missing). */
   private fluid!: GpuFluid;
+  /** The fluid as effects pour into it: every splat of soot also spawns the pixels that show it. */
+  private air!: PixelAir;
+  /** Shells by id: last position, per-tick motion and the tick seen (for blast lean). */
+  private readonly shells = new Map<
+    number,
+    { x: number; y: number; vx: number; vy: number; tick: number }
+  >();
   /** Waves, glints and bubbles along every liquid surface. */
   private liquid!: LiquidSurface;
   private fx!: EffectSystem;
@@ -405,7 +413,7 @@ export class PixelRenderer implements Renderer {
   private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
   /** V3 rockets and their spent stages (`rocket` / `stage` shell looks). */
   private readonly rockets = new Rockets({ add: (e) => this.particles.add(e) }, () =>
-    this.fluid?.ok ? this.fluid : null,
+    this.fluid?.ok ? this.air : null,
   );
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
@@ -815,7 +823,8 @@ export class PixelRenderer implements Renderer {
       this.fluid?.dispose();
       this.particles = new GpuParticles(this.gl, cap, q.mult);
       this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
-      this.fx = new EffectSystem(this.particles, this.fluid, {
+      this.air = new PixelAir(this.fluid.ok ? this.fluid : null, this.particles, q.mult);
+      this.fx = new EffectSystem(this.particles, this.air, {
         width: this.mapWidth,
         height: this.mapHeight,
         material: (x, y) =>
@@ -1028,6 +1037,22 @@ export class PixelRenderer implements Renderer {
     if (this.fxTick < 0) this.fxTick = s.tick;
     // catch cosmetic time up to this snapshot before spawning its events
     while (this.fxTick < s.tick) this.stepFx();
+    this.fx.incoming = [...this.shells.values()];
+    // then bring the shells up to this snapshot (the ones that just burst are gone from it)
+    const seen = this.shells;
+    for (const e of s.entities) {
+      if (e.kind !== 'projectile') continue;
+      const was = seen.get(e.id);
+      const dt = was ? Math.max(1, s.tick - was.tick) : 1;
+      seen.set(e.id, {
+        x: e.x,
+        y: e.y,
+        vx: was ? (e.x - was.x) / dt : 0,
+        vy: was ? (e.y - was.y) / dt : 0,
+        tick: s.tick,
+      });
+    }
+    for (const [id, sh] of seen) if (sh.tick !== s.tick) seen.delete(id);
     for (const e of s.effectEvents) {
       this.fx.handle(e);
       if (e.type === 'birdHit') birdHit(e, this.particles);
@@ -1479,7 +1504,7 @@ export class PixelRenderer implements Renderer {
         kind: PKind.Flame,
       });
       // the fire breathes heat and soot into the smoke field
-      if ((r & 3) === 2) this.fluid.splat(x, y - 2, 5, 0, -0.4, 0.22, 0.5);
+      if ((r & 3) === 2) this.air.splat(x, y - 2, 5, 0, -0.4, 0.22, 0.5);
       // embers lift off the fire and ride the wind, more in a gust
       if ((r & 3) === 1 && (r >> 2) % 3 < (lick > 1 ? 2 : 1)) {
         this.particles.add({
@@ -2128,7 +2153,16 @@ export class PixelRenderer implements Renderer {
     gl.disable(gl.BLEND);
     // the smoke field sits over the ground and under the particles, sparks and shells
     this.fluid.draw(this.terrainTex, view, origin, scale);
-    this.particles.draw(this.terrainTex, this.mapWidth, this.mapHeight, view, origin, scale);
+    const air = this.fluid.velocity;
+    this.particles.draw(
+      this.terrainTex,
+      this.mapWidth,
+      this.mapHeight,
+      view,
+      origin,
+      scale,
+      air ? { tex: air, w: this.fluid.w, h: this.fluid.h, div: this.fluid.div } : null,
+    );
     this.liquid.draw(this.normal, this.additive, t);
     this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
