@@ -34,8 +34,11 @@ export interface WireInit {
 export interface WireSnapshot {
   tick: number;
   turn: number;
-  /** [x, y, w, h, base64 of the w×h material bytes, same for coating bytes or '' if none]. */
-  patches: [number, number, number, number, string, string][];
+  /**
+   * [x, y, w, h, base64 of the w×h material bytes, same for coating bytes or '' if none, same
+   * for the grain shade of moved cells or '' if none].
+   */
+  patches: [number, number, number, number, string, string, string][];
   /** The gas layer's refresh rect and its bytes, [x, y, w, h, base64], when there is any. */
   gas?: [number, number, number, number, string];
   processes?: RenderSnapshot['processes'];

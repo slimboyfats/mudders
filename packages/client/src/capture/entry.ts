@@ -12,6 +12,7 @@ let renderer: PixelRenderer | undefined;
 let canvas: HTMLCanvasElement | undefined;
 let terrain = new Uint8Array(0);
 let coating = new Uint8Array(0);
+let shade = new Uint8Array(0);
 let gas = new Uint8Array(0);
 let mapW = 0;
 let init0: WireInit | null = null;
@@ -41,6 +42,7 @@ const api: CaptureApi = {
     mapH = init.mapHeight;
     terrain = new Uint8Array(mapW * mapH);
     coating = new Uint8Array(mapW * mapH);
+    shade = new Uint8Array(mapW * mapH);
     gas = new Uint8Array(mapW * mapH);
     canvas?.remove();
     canvas = document.createElement('canvas');
@@ -88,14 +90,17 @@ const api: CaptureApi = {
     if (!renderer || !canvas) throw new Error('capture page not initialised');
     for (const w of snaps) {
       const dirtyRects = [];
-      for (const [x, y, pw, ph, b64, c64] of w.patches) {
+      for (const [x, y, pw, ph, b64, c64, s64] of w.patches) {
         const bytes = decode(b64);
         const cb = c64 ? decode(c64) : null;
+        const sb = s64 ? decode(s64) : null;
         for (let row = 0; row < ph; row++) {
           const at = (y + row) * mapW + x;
           terrain.set(bytes.subarray(row * pw, (row + 1) * pw), at);
           if (cb) coating.set(cb.subarray(row * pw, (row + 1) * pw), at);
           else coating.fill(0, at, at + pw);
+          if (sb) shade.set(sb.subarray(row * pw, (row + 1) * pw), at);
+          else shade.fill(0, at, at + pw);
         }
         dirtyRects.push({ x, y, w: pw, h: ph });
       }
@@ -114,6 +119,7 @@ const api: CaptureApi = {
         height: mapH,
         terrain,
         coating,
+        shade,
         gas,
         gasRect,
         ...(w.processes ? { processes: w.processes } : {}),
