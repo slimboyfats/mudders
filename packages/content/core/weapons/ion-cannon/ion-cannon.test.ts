@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectsOf, flatWorld, launchAt } from '../../../src/testing';
+import { dropAt, effectsOf, flatWorld, launchAt, makeWorld } from '../../../src/testing';
 
 const big = { map: { width: 1200, height: 600 } };
 
@@ -40,5 +40,20 @@ describe('weapon.ion-cannon', () => {
     launchAt(nuke, 'weapon.heavy-nuke', 600, 290, 0, 1);
     expect(nuke.tanks[1]!.health).toBeGreaterThan(80);
     expect(ion.tanks[1]!.health).toBeLessThan(20);
+  });
+
+  it('ends the turn while a breached lake is still draining into the crater', () => {
+    // Lakeland seed 4: the strike opens a lake that drains down the crater wall for minutes
+    const w = makeWorld({
+      seed: 4,
+      players: 4,
+      map: { generator: 'gen.lakeland' },
+      rules: { turnTimer: 0, suddenDeath: false },
+    });
+    const ticks = dropAt(w, 'weapon.ion-cannon', 840, 3000);
+    expect(w.phase).toBe('aim');
+    expect(ticks).toBeLessThan(1000);
+    // the water is still running, into the next player's turn
+    expect(w.quiet).toBe(false);
   });
 });
