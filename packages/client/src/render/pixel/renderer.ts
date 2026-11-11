@@ -77,6 +77,18 @@ import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
 import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
+/** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
+const SAW_RIM: readonly (readonly [number, number])[] = [
+  [0, -2],
+  [2, -2],
+  [2, 0],
+  [2, 2],
+  [0, 2],
+  [-2, 2],
+  [-2, 0],
+  [-2, -2],
+];
+
 /** 3×5 pixel digits 1–9, one row per entry, bit 2 = left column. */
 const DIGITS: Record<number, readonly number[]> = {
   1: [0b010, 0b110, 0b010, 0b010, 0b111],
@@ -1927,6 +1939,39 @@ export class PixelRenderer implements Renderer {
           }
           continue;
         }
+        if (look === 'hornet') {
+          // a hornet spits a thin line of hot sparks behind it
+          if ((r >>> 20) & 1) {
+            this.particles.add({
+              x: e.x,
+              y: e.y,
+              vx: (((r >>> 8) & 7) - 3.5) * 0.04,
+              vy: (((r >>> 12) & 7) - 3.5) * 0.04,
+              life: 5 + ((r >>> 16) & 3),
+              size: 1,
+              color: (r >>> 24) & 1 ? 0xffc040 : 0xfff0c0,
+              kind: PKind.Spark,
+            });
+          }
+          continue;
+        }
+        if (look === 'saw') {
+          // a spinning blade throws a fan of white-hot sparks up and back off its teeth
+          for (let i = 0; i < 2; i++) {
+            const r2 = Math.imul(r + i * 131, 2246822519) >>> 0 || 1;
+            this.particles.add({
+              x: e.x + (((r2 >>> 4) & 3) - 1.5),
+              y: e.y + 1,
+              vx: (((r2 >>> 8) & 15) - 7.5) * 0.09,
+              vy: -0.4 - ((r2 >>> 12) & 7) * 0.12,
+              life: 6 + ((r2 >>> 16) & 7),
+              size: 1,
+              color: (r2 >>> 20) % 3 === 0 ? 0xffffff : 0xffc060,
+              kind: PKind.Spark,
+            });
+          }
+          continue;
+        }
         if (look === 'star') {
           // a burning star sheds a strobing glitter tail in its colour
           if ((r >>> 20) & 1) {
@@ -3437,6 +3482,30 @@ export class PixelRenderer implements Renderer {
         this.drawVapor(e.x, e.y, e.id);
         continue;
       }
+      if (look?.shell === 'shard') {
+        // a splinter of shrapnel: one white-hot cell, a hot orange cell flickering beside it
+        const x = Math.floor(e.x) + 0.5;
+        const y = Math.floor(e.y) + 0.5;
+        const k = (this.fxTick + e.id) & 3;
+        this.normal.push(
+          x + (k === 0 ? 1 : k === 2 ? -1 : 0),
+          y + (k === 1 ? 1 : 0),
+          1,
+          1,
+          0xff9a30,
+          1,
+        );
+        g.push(x, y, 1, 1, 0xfff4d0, 1);
+        continue;
+      }
+      if (look?.shell === 'hornet') {
+        this.drawHornet(e.id, e.x, e.y);
+        continue;
+      }
+      if (look?.shell === 'saw') {
+        this.drawSaw(e.id, e.x, e.y);
+        continue;
+      }
       if (look?.shell === 'rail') {
         // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
         const x = Math.floor(e.x) + 0.5;
@@ -3527,6 +3596,62 @@ export class PixelRenderer implements Renderer {
       g.push(x + sx, y + sy, 1, 1, 0xffe0a0, 0.9);
       g.push(x, y, 1, 1, 0xffffff, 1);
     }
+  }
+
+  /**
+   * A Hornet dart: a 3-cell body pointed along its flight (black head, amber body, black sting),
+   * a pale wing cell that flicks from side to side every tick (the buzz) and a hot exhaust cell
+   * behind. The heading comes from the shell's trail (last position), so nothing is stored here.
+   */
+  private drawHornet(id: number, ex: number, ey: number): void {
+    const tr = this.trails.find((t) => t.id === id);
+    let dx = tr && !Number.isNaN(tr.lx) ? ex - tr.lx : 0;
+    let dy = tr && !Number.isNaN(tr.ly) ? ey - tr.ly : -1;
+    const len = Math.hypot(dx, dy);
+    if (len < 0.01) {
+      dx = 0;
+      dy = -1;
+    } else {
+      dx /= len;
+      dy /= len;
+    }
+    const cell = (k: number, side: number): [number, number] => [
+      Math.floor(ex - dx * k - dy * side) + 0.5,
+      Math.floor(ey - dy * k + dx * side) + 0.5,
+    ];
+    const b = this.normal;
+    const g = this.additive;
+    const t = this.fxTick + id;
+    const [hx, hy] = cell(0, 0);
+    const [bx, by] = cell(1, 0);
+    const [sx, sy] = cell(2, 0);
+    const [fx, fy] = cell(3, 0);
+    g.push(fx, fy, 1, 1, (t & 1) === 0 ? 0xffffff : 0xffa030, 1);
+    b.push(sx, sy, 1, 1, 0x1c1810, 1);
+    b.push(bx, by, 1, 1, 0xf0b020, 1);
+    b.push(hx, hy, 1, 1, 0x1c1810, 1);
+    const [wx, wy] = cell(1, (t & 1) === 0 ? 1 : -1);
+    g.push(wx, wy, 1, 1, 0xd8f0ff, 0.8);
+  }
+
+  /**
+   * A Buzzsaw blade: a 5×5 toothed disc. Eight rim cells turn round a dark hub two steps a tick,
+   * every other one a lit tooth, so the spin reads in whole cells; a white glint rides the top.
+   */
+  private drawSaw(id: number, ex: number, ey: number): void {
+    const b = this.normal;
+    const g = this.additive;
+    const x = Math.floor(ex) + 0.5;
+    const y = Math.floor(ey) + 0.5;
+    b.push(x, y, 3, 3, 0x6a7078, 1);
+    b.push(x, y, 1, 1, 0x202428, 1);
+    const ph = (this.fxTick + id) & 7;
+    for (let i = 0; i < 8; i++) {
+      const [ox, oy] = SAW_RIM[(i + ph) & 7]!;
+      b.push(x + ox, y + oy, 1, 1, (i & 1) === 0 ? 0xd8dce0 : 0x8a9098, 1);
+    }
+    const [gx, gy] = SAW_RIM[ph]!;
+    g.push(x + gx, y + gy, 1, 1, 0xffffff, 1);
   }
 
   /**

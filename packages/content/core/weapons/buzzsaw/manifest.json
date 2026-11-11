@@ -1,0 +1,72 @@
+{
+  "id": "weapon.buzzsaw",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Buzzsaw",
+    "description": "A spinning blade. It lands, then saws along the ground the way it was fired, cutting a groove and through small hills, until it bites into a tank and bursts.",
+    "category": "roller",
+    "since": "core@0.73.0"
+  },
+  "flight": {
+    "use": "flight.saw",
+    "maxRun": 60
+  },
+  "triggers": ["onSolid", "onTank"],
+  "pulse": [
+    {
+      "terrainOp": {
+        "use": "terrainop.carve"
+      },
+      "radius": 3,
+      "damageType": "blast"
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 2,
+        "damage": 0,
+        "damageType": "kinetic",
+        "terrainOp": null,
+        "effects": {
+          "burst": {
+            "count": 3
+          }
+        }
+      }
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 22,
+        "damage": 100,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 56
+          },
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 2.5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 7500,
+    "pack": 3,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 70,
+    "terrainValue": 0.3
+  },
+  "look": {
+    "shell": "saw",
+    "trail": false
+  }
+}

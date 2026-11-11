@@ -17,7 +17,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 6,
-        "damage": 45,
+        "damage": 65,
         "damageType": "heat",
         "falloff": "flat",
         "effects": {
@@ -52,7 +52,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 40,
+    "expectedDamage": 55,
     "terrainValue": 0.3
   },
   "audio": {

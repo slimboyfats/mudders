@@ -1,0 +1,57 @@
+{
+  "id": "weapon.frag-shell",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Frag Shell at player 1 across the hills: a sharp bang and a spray of white-hot shrapnel peppering the ground around the tank.",
+  "subject": "weapon.frag-shell",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.frag-shell": 3
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.frag-shell"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

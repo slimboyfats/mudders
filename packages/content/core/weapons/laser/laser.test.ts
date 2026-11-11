@@ -13,6 +13,6 @@ describe('weapon.laser', () => {
   it('stops at the first tank in its path and hurts it', () => {
     const w = flatWorld(150, { tankColumns: [20, 300] });
     launchAt(w, 'weapon.laser', 100, 145, 1, 0);
-    expect(w.tanks[1]!.health).toBe(55);
+    expect(w.tanks[1]!.health).toBe(35);
   });
 });

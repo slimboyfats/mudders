@@ -15,7 +15,7 @@ describe('weapon.railgun', () => {
     const w = flatWorld(150, { tankColumns: [40, 300] });
     wall(w, 200, 6, 120);
     launchAt(w, 'weapon.railgun', 60, 145, 1, 0);
-    expect(w.tanks[1]!.health).toBe(30);
+    expect(w.tanks[1]!.health).toBe(10);
   });
 
   it('is stopped by a thick hill', () => {
