@@ -31,7 +31,7 @@ import { apronSize, buildApron, type Apron } from './apron';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
-import { compile, rgb, texture, uniforms } from './gl';
+import { compile, rgb, texture, uniforms, uploadChanged } from './gl';
 import {
   FLAG_EMIT,
   FLAG_FLAMES,
@@ -347,6 +347,12 @@ export class PixelRenderer implements Renderer {
    * pass skips cycling and the haze search entirely when nothing needs them (cheap on SwiftShader
    * and low-end phones). */
   private anyCycle = false;
+  /**
+   * Terrain or coating changed since the last {@link scanLooks}. The scan (three whole-map
+   * passes and two or three whole-map texture uploads) is a function of those cells alone, so
+   * a still map skips it: on a wooded map it cost ~17 ms every 20 ticks here.
+   */
+  private looksStale = true;
   private anyHot = false;
   /** This frame's point lights (blasts, fireballs), see lighting.ts. */
   private readonly lights = new Lights();
@@ -357,6 +363,10 @@ export class PixelRenderer implements Renderer {
   private heatOn = false;
   /** The glowing material each cell's nearest glow source is made of (R8UI), with `heat`. */
   private glowSrc = new Uint8Array(0);
+  /** What the heat, glow and sway textures hold, so a rebuild uploads only what changed. */
+  private heatShown = new Uint8Array(0);
+  private glowShown = new Uint8Array(0);
+  private swayShown = new Uint8Array(0);
   private glowTex!: WebGLTexture;
   /** Trees in the wind (sway.ts): the per-cell field, its texture, and what sways. */
   private sway = new Uint8Array(0);
@@ -447,6 +457,8 @@ export class PixelRenderer implements Renderer {
   private water!: WaterFx;
   private onCues: ((events: readonly EffectEvent[]) => void) | undefined;
   private onProcesses: RendererOptions['onProcesses'];
+  /** Most ticks of GPU fluid/particle work per frame ({@link RendererOptions.catchUp}). */
+  private catchUp = Infinity;
   /** Burning, molten, flowing and gas amounts for the soundscape (only with `onProcesses`). */
   private meter: ProcessMeter | null = null;
 
@@ -544,6 +556,7 @@ export class PixelRenderer implements Renderer {
     this.shakeOn = options.shake ?? true;
     this.onCues = options.onCues;
     this.onProcesses = options.onProcesses;
+    this.catchUp = options.catchUp ?? Infinity;
     this.meter = options.onProcesses ? new ProcessMeter(this.mapWidth, this.mapHeight) : null;
     this.water = new WaterFx(
       this.mapWidth,
@@ -728,6 +741,7 @@ export class PixelRenderer implements Renderer {
       this.burn,
     );
     this.heat = new Uint8Array(this.mapWidth * this.mapHeight).fill(HEAT_NONE);
+    this.heatShown = this.heat.slice();
     this.heatTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -741,6 +755,7 @@ export class PixelRenderer implements Renderer {
       this.heat,
     );
     this.glowSrc = new Uint8Array(this.mapWidth * this.mapHeight);
+    this.glowShown = new Uint8Array(this.mapWidth * this.mapHeight);
     this.glowTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -754,6 +769,7 @@ export class PixelRenderer implements Renderer {
       this.glowSrc,
     );
     this.sway = new Uint8Array(this.mapWidth * this.mapHeight);
+    this.swayShown = new Uint8Array(this.mapWidth * this.mapHeight);
     this.swayRun = new Int32Array(this.mapHeight);
     this.swayTex = texture(gl);
     gl.texImage2D(
@@ -933,6 +949,8 @@ export class PixelRenderer implements Renderer {
       this.fluid?.dispose();
       this.particles = new GpuParticles(this.gl, cap, q.mult);
       this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
+      this.fluid.maxSteps = this.catchUp;
+      if (Number.isFinite(this.catchUp)) this.particles.maxPasses = this.catchUp;
       this.air = new PixelAir(this.fluid.ok ? this.fluid : null, this.particles, q.mult);
       this.fx = new EffectSystem(this.particles, this.air, {
         width: this.mapWidth,
@@ -1057,7 +1075,7 @@ export class PixelRenderer implements Renderer {
     }
     this.terrain = s.terrain;
     this.water.setTerrain(s.terrain);
-    this.liquid.setTerrain(s.terrain);
+    this.liquid.setTerrain(s.terrain, s.dirtyRects);
     this.coating = s.coating;
     const gr = s.gasRect;
     if (gr && gr.w > 0 && gr.h > 0) {
@@ -1116,7 +1134,11 @@ export class PixelRenderer implements Renderer {
       // flames, shield and battery flashes)
       this.clearRoundFx();
     }
-    if (s.tick % 20 === 0 || this.fxTick < 0) this.scanLooks();
+    if (s.dirtyRects.length > 0) this.looksStale = true;
+    if ((s.tick % 20 === 0 || this.fxTick < 0) && this.looksStale) {
+      this.looksStale = false;
+      this.scanLooks();
+    }
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
     this.zones = [];
@@ -1570,9 +1592,7 @@ export class PixelRenderer implements Renderer {
     const h = this.mapHeight;
     this.swayOn = swayField(this.terrain, w, h, this.swayLooks, this.sway, this.swayRun);
     if (!this.swayOn && !was) return;
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.swayTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.sway);
+    uploadChanged(this.gl, this.swayTex, this.sway, this.swayShown, w, h);
   }
 
   /** Rebuild and upload the heat field lava and flames light the ground from. */
@@ -1583,11 +1603,8 @@ export class PixelRenderer implements Renderer {
     this.heatOn =
       any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat, this.glowSrc);
     if (!this.heatTex) return;
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.heatTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.heat);
-    gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RED_INTEGER, gl.UNSIGNED_BYTE, this.glowSrc);
+    uploadChanged(this.gl, this.heatTex, this.heat, this.heatShown, w, h);
+    uploadChanged(this.gl, this.glowTex, this.glowSrc, this.glowShown, w, h);
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */

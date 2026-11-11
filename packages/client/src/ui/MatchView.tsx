@@ -164,6 +164,8 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           shake: settings.shake,
           onCues: effectSounds,
           onProcesses: processSounds,
+          // a late frame never pays GPU smoke/particle passes for more than two ticks
+          catchUp: 2,
         });
         rendererRef.current = r;
         const size = () => {
