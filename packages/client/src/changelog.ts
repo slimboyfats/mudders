@@ -19,9 +19,9 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Real damage for less money, and big money matches',
-    pack: 'core@0.72.0',
-    newSince: 'core@0.72.0',
+    title: 'Real damage for less money, supply drops and big money matches',
+    pack: 'core@0.72.0 – 0.73.0',
+    newSince: 'core@0.73.0',
     items: [
       'New weapon: Frag Shell, a sharp bang that bursts into white-hot shrapnel, so a near miss still hurts',
       'New weapon: Hornet Swarm, pops at the top of its arc into five darts that each hunt the nearest enemy',
@@ -29,6 +29,12 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'New weapon: Tandem Charge, a first charge knocks shields flat and cracks the ground, the main charge goes off in the hole',
       'New weapon: Buzzsaw, lands and saws along the ground the way it was fired, cutting through small hills, and bites into the tank it meets',
       'Harder hitting for their price: Smart Bomb, Laser, Roller, Heat Seeker (now cheaper too), Lightning, Drill Torpedo, Railgun and Heavy Laser all do clearly more than a plain Missile now',
+      'Supply drops: every few turns a wooden crate parachutes in somewhere away from the tank whose turn it is, with a weapon, gear, health, fuel or cash inside. Its badge shows which kind',
+      'Any tank that touches a crate takes it: drive to it, fall onto it, or use Teleport Shell, Swap Ray or Portal Pair to get there first',
+      'Crates are real objects: they swing under the canopy and drift with the wind, tip over edges and tumble down slopes, float on water and burn in fire',
+      'Blasts throw crates about and a close one smashes them to splinters; a shell through the canopy drops the crate like a stone, so you can deny one to your enemy',
+      'Bots drive to a crate when one lies within reach',
+      'New Rules option: Supply drops Off, Rare, Normal or Often (Normal by default, works online too)',
       'Rules: start with up to 100,000 cash',
       'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
     ],

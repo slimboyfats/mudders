@@ -5,7 +5,7 @@
     "name": "Frag Shell",
     "description": "A sharp bang that bursts its casing into a spray of white-hot shrapnel. The splinters pepper everything within about forty cells, so a near miss still hurts.",
     "category": "explosive",
-    "since": "core@0.72.0"
+    "since": "core@0.73.0"
   },
   "flight": {
     "use": "flight.ballistic"

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Classic",
-    "description": "Sequential turns in a random order, wind that changes every turn, last tank standing wins the round. Three rounds with a shop between them; sudden death from each player's 8th turn.",
+    "description": "Sequential turns in a random order, wind that changes every turn, last tank standing wins the round. Three rounds with a shop between them; sudden death from each player's 8th turn. With supply drops on, crates parachute in every few turns with weapons, gear, health, fuel or cash for whoever reaches them.",
     "since": "core@0.1.0"
   },
   "behaviour": "mode.classic",
@@ -88,5 +88,104 @@
     "moneyPerPoint": 30,
     "interest": 0.05,
     "priceJitter": 0.15
+  },
+  "drops": {
+    "every": 3,
+    "first": 1,
+    "max": 3,
+    "fall": 0.8,
+    "hp": 30,
+    "margin": 40,
+    "avoid": 120,
+    "debris": "material.splinter",
+    "loot": [
+      {
+        "kind": "weapon",
+        "item": "weapon.nuke",
+        "amount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.mirv",
+        "amount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.heavy-nuke",
+        "amount": 1,
+        "weight": 1
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.napalm",
+        "amount": 2,
+        "weight": 4
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.heavy-shockwave",
+        "amount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.lightning",
+        "amount": 2,
+        "weight": 3
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.meteor-shower",
+        "amount": 1,
+        "weight": 2
+      },
+      {
+        "kind": "weapon",
+        "item": "weapon.teleport-shell",
+        "amount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "gear",
+        "item": "gear.heavy-shield",
+        "amount": 1,
+        "weight": 3
+      },
+      {
+        "kind": "gear",
+        "item": "gear.shield",
+        "amount": 1,
+        "weight": 4
+      },
+      {
+        "kind": "gear",
+        "item": "gear.battery",
+        "amount": 2,
+        "weight": 4
+      },
+      {
+        "kind": "gear",
+        "item": "gear.parachute",
+        "amount": 2,
+        "weight": 2
+      },
+      {
+        "kind": "health",
+        "amount": 40,
+        "weight": 5
+      },
+      {
+        "kind": "fuel",
+        "amount": 120,
+        "weight": 4
+      },
+      {
+        "kind": "cash",
+        "amount": 3000,
+        "weight": 4
+      }
+    ]
   }
 }

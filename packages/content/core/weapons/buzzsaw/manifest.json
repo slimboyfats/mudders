@@ -5,7 +5,7 @@
     "name": "Buzzsaw",
     "description": "A spinning blade. It lands, then saws along the ground the way it was fired, cutting a groove and through small hills, until it bites into a tank and bursts.",
     "category": "roller",
-    "since": "core@0.72.0"
+    "since": "core@0.73.0"
   },
   "flight": {
     "use": "flight.saw",

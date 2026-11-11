@@ -238,6 +238,41 @@ export function moveForShot(
 }
 
 /**
+ * Supply drops (§3.8): the nearest spot I can drive to this turn where my hull would touch a crate
+ * lying on the ground, keeping `keepFuel`; -1 when none is in reach. A crate is worth a detour:
+ * bots take it before thinking about the shot.
+ */
+export function dropInReach(api: AiApi, keepFuel = 0): number {
+  const drops = api.drops;
+  if (!drops || drops.length === 0) return -1;
+  const m = me(api);
+  const budget = Math.max(0, Math.min(api.driveLeft, api.fuel - keepFuel));
+  if (budget <= 0) return -1;
+  let best = -1;
+  let bestDist = Infinity;
+  for (const dir of [-1, 1] as const) {
+    const r = api.reach(dir).slice(0, budget);
+    for (let k = 0; k < r.length; k++) {
+      const s = r[k]!;
+      let hit = false;
+      for (const d of drops) {
+        if (!d.resting) continue;
+        // hull (and a hand's reach) and crate (8 wide) overlap, the crate at about the same height
+        if (Math.abs(s.x - d.x) < m.half + 5 && d.y - s.y <= 12 && s.y - d.y <= 8) hit = true;
+      }
+      if (!hit) continue;
+      const dist = Math.abs(s.x - m.x);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = s.x;
+      }
+      break;
+    }
+  }
+  return best;
+}
+
+/**
  * The far end of my reach in `dir` (keeping `keepFuel`), or my own column if I can't move that
  * way.
  */

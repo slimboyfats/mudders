@@ -1,5 +1,5 @@
 {
-  "contentHash": "6b4267905c71bdf1",
+  "contentHash": "47b3e000c2c26e5e",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 654,
@@ -52,6 +52,22 @@
     "audio.collapse": {
       "ticks": 162,
       "hash": "d326c32a76541407"
+    },
+    "audio.crate-break": {
+      "ticks": 46,
+      "hash": "cf38d4bbcf93e60e"
+    },
+    "audio.crate-chute": {
+      "ticks": 46,
+      "hash": "cf38d4bbcf93e60e"
+    },
+    "audio.crate-land": {
+      "ticks": 46,
+      "hash": "cf38d4bbcf93e60e"
+    },
+    "audio.crate-pickup": {
+      "ticks": 46,
+      "hash": "cf38d4bbcf93e60e"
     },
     "audio.creak": {
       "ticks": 162,
@@ -876,6 +892,10 @@
     "showcase.snowstorm": {
       "ticks": 5000,
       "hash": "6b6062868b2bbc81"
+    },
+    "showcase.supply-drops": {
+      "ticks": 1040,
+      "hash": "43cb69eb3b67c4fa"
     },
     "showcase.tank-drive": {
       "ticks": 913,

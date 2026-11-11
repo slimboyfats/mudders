@@ -119,7 +119,27 @@ export interface DecoyView {
   maxHp: number;
 }
 
-export type EntityView = TankView | ProjectileView | ZoneView | MineView | DecoyView;
+/** What a supply crate holds, by its look (the exact item shows once someone takes it). */
+export type DropLook = 'weapon' | 'gear' | 'health' | 'fuel' | 'cash';
+
+/** A supply crate (§3.8): coming down under its canopy, flying, tumbling or lying on the map. */
+export interface DropView {
+  kind: 'drop';
+  /** Stable while the crate lives. */
+  id: number;
+  /** Centre, cells (fractional while it moves). */
+  x: number;
+  y: number;
+  /** Rotation in degrees, clockwise (y down). */
+  angle: number;
+  look: DropLook;
+  /** Hanging under its canopy: the canopy's centre column (its bottom hangs above the crate). */
+  chute?: number | undefined;
+  hp: number;
+  maxHp: number;
+}
+
+export type EntityView = TankView | ProjectileView | ZoneView | MineView | DecoyView | DropView;
 
 /**
  * How much of each ongoing process the world holds right now, for the soundscape (§8b): the

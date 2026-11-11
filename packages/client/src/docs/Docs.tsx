@@ -64,7 +64,7 @@ export function Docs({ data }: { data: DocsData }) {
     objects: data.props.length,
     materials: data.materials.length,
     tanks: data.tanks.length,
-    gear: data.gear.length,
+    gear: data.gear.length + (data.drops ? 1 : 0),
     new: CHANGELOG.length,
   };
 
@@ -99,6 +99,29 @@ export function Docs({ data }: { data: DocsData }) {
         {tab === 'objects' && <Objects data={data} q={q} />}
         {tab === 'materials' && <Materials data={data} q={q} />}
         {tab === 'tanks' && <Tanks tanks={data.tanks} q={q} />}
+        {tab === 'gear' && data.drops && matches(q, 'supply drops crate parachute') && (
+          <article id="gear.supply-drops" className="card">
+            <h2>Supply drops</h2>
+            <p>
+              With supply drops on in the match rules, a wooden crate comes down under a parachute
+              every few turns, somewhere away from the tank whose turn it is. It swings and drifts
+              with the wind, lands, tips over edges and tumbles down slopes, and floats on water.
+              Any tank that touches it takes what is inside: drive to it, fall onto it, or teleport
+              next to it. The badge shows what kind of thing is inside: red a weapon, blue gear,
+              green health, yellow fuel, gold cash. Blasts throw crates about and a close one
+              smashes them to splinters, fire burns them, and a shell through the canopy drops the
+              crate like a stone.
+            </p>
+            <Stats stats={data.drops.stats} />
+            <ul className="log">
+              {data.drops.loot.map((l) => (
+                <li key={l.label}>
+                  {l.id ? <a href={`#${l.id}`}>{l.label}</a> : l.label} · {l.chance}
+                </li>
+              ))}
+            </ul>
+          </article>
+        )}
         {tab === 'gear' &&
           data.gear
             .filter((g) => matches(q, g.name, g.description))

@@ -1,0 +1,47 @@
+{
+  "id": "audio.crate-land",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crate Land",
+    "description": "A hollow wooden knock and a creak of planks when a supply crate hits the ground.",
+    "since": "core@0.72.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 220,
+        "to": 90,
+        "release": 0.09,
+        "volume": 0.32
+      },
+      {
+        "wave": "noise",
+        "freq": 900,
+        "to": 300,
+        "release": 0.06,
+        "volume": 0.22
+      },
+      {
+        "wave": "triangle",
+        "freq": 330,
+        "to": 300,
+        "delay": 0.07,
+        "hold": 0.05,
+        "release": 0.1,
+        "volume": 0.1
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "dropLand"
+    }
+  ]
+}

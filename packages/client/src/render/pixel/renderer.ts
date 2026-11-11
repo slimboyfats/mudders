@@ -17,6 +17,7 @@ import type {
   Vec2,
 } from '../types';
 import { birdHit, birdPulp, drawBirds } from './birds';
+import { DropFx, drawDrops } from './drops';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { EdgeWall } from './wall';
@@ -283,6 +284,8 @@ export class PixelRenderer implements Renderer {
   private sceneryFbo!: WebGLFramebuffer;
   private sceneryW = 0;
   private sceneryH = 0;
+  /** Map rows of sky (and anything standing in it) the scenery covers above the map's top row. */
+  private sceneryTop = 0;
   private sceneryKey = '';
   private uBg!: ReturnType<
     typeof uniforms<
@@ -297,6 +300,7 @@ export class PixelRenderer implements Renderer {
       | 'u_bedrock'
       | 'u_apron'
       | 'u_apronColor'
+      | 'u_sceneryTop'
       | 'u_flash'
       | 'u_white'
       | 'u_vignette'
@@ -471,6 +475,8 @@ export class PixelRenderer implements Renderer {
   private fxTick = -1;
   /** The sim's swallows this snapshot (see `birds.ts`). */
   private birds: readonly number[] | undefined;
+  /** Canopies left behind by supply crates (see `drops.ts`). */
+  private readonly dropFx = new DropFx();
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
@@ -585,6 +591,7 @@ export class PixelRenderer implements Renderer {
       'u_bedrock',
       'u_apron',
       'u_apronColor',
+      'u_sceneryTop',
       'u_flash',
       'u_white',
       'u_vignette',
@@ -767,9 +774,12 @@ export class PixelRenderer implements Renderer {
       gl.UNSIGNED_BYTE,
       null,
     );
-    // the scenery covers the apron too, so the sky over the land past the edges is the same sky
+    // the scenery covers the apron too, so the sky over the land past the edges is the same sky,
+    // and a map height above the top row: with the camera high the parallax mountains rise above
+    // the map, and they must go on up there instead of being cut flat along row 0
     this.sceneryW = this.apron.width / 2;
-    this.sceneryH = Math.ceil(this.apron.height / 2);
+    this.sceneryTop = Math.ceil(this.mapHeight / 2) * 2;
+    this.sceneryH = Math.ceil((this.apron.height + this.sceneryTop) / 2);
     this.sceneryTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -1155,6 +1165,7 @@ export class PixelRenderer implements Renderer {
         const p = e.params;
         this.wall.absorb(p.side ?? 0, e.y, (p.vx ?? 0) / 1000, (p.vy ?? 0) / 1000);
       }
+      if (e.type.startsWith('drop')) this.dropFx.handle(e, this.particles, s.wind);
       if (e.type === 'birdHit') birdHit(e, this.particles);
       else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
@@ -2296,6 +2307,7 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE12);
     gl.bindTexture(gl.TEXTURE_2D, this.apronColorTex);
     gl.uniform1i(this.uBg.u_apronColor, 12);
+    gl.uniform1f(this.uBg.u_sceneryTop, this.sceneryTop);
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform3f(
       this.uBg.u_flash,
@@ -2385,6 +2397,8 @@ export class PixelRenderer implements Renderer {
     this.drawDebris();
     this.fx.drawChunks(this.normal);
     this.drawMines(t);
+    drawDrops(this.normal, this.entities, t, (x, y) => this.tankLight(x, y));
+    this.dropFx.draw(this.normal, t, (x, y) => this.probe.solid(x, y));
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state
@@ -2521,7 +2535,7 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(u.u_rangeCount, nr);
     gl.uniform1f(u.u_horizon, this.horizon < 0 ? mh * 0.6 : this.horizon);
     gl.uniform2f(u.u_cam, camX, camY);
-    gl.uniform2f(u.u_off, this.apron.side, 0);
+    gl.uniform2f(u.u_off, this.apron.side, this.sceneryTop);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
