@@ -22,10 +22,11 @@ export default defineTerrainOp<z.infer<typeof params>>({
     const R = c.radius;
     const r2s = R * R * 65536;
     // Rims (ice, clay, loosened dirt) can reach a few cells past the radius.
-    const RR = R + mats.rimMaxDepth;
+    const RR = R + mats.rimMaxDepth + (mats.rimLoosens ? OVER_FADE : 0);
     const x0 = Math.max(0, c.x - RR);
     const x1 = Math.min(W - 1, c.x + RR);
-    const y0 = Math.max(0, c.y - RR);
+    // (loosened ground over the crater reaches higher than the rim: see below)
+    const y0 = Math.max(0, c.y - (mats.rimLoosens ? R * OVER_REACH : RR));
     const y1 = Math.min(grid.height - 1, c.y + RR);
     const dt = c.damageTypeIndex;
     const rInto = mats.rimInto;
@@ -64,7 +65,22 @@ export default defineTerrainOp<z.infer<typeof params>>({
           if (into === keep && loosen === 0) continue;
           const e =
             s > 256 ? Math.floor((R256 * 256) / s) + rDepth[ri]! * 256 : R256 + rDepth[ri]! * 256;
-          if (d2 * 65536 > e * e) continue;
+          if (d2 * 65536 > e * e) {
+            // ...or in the ground standing over the crater: a pure `loosen` rule also shakes that
+            // loose, so what the blast undercut comes down as a slump, not as a sheer cut
+            if (into !== keep || loosen === 0 || dy >= 0) continue;
+            // (fading out over OVER_FADE columns to either side, so the slump has no ruled edge)
+            const over = Math.abs(dx) - R - rDepth[ri]!;
+            if (over > OVER_FADE) continue;
+            if (over > 0) {
+              grid.cellState[i] = Math.max(
+                1,
+                Math.trunc((loosen * (OVER_FADE - over)) / (2 * OVER_FADE)),
+              );
+              grid.fallVel[i] = 0;
+              continue;
+            }
+          }
           const ch = rChance[ri]!;
           if (
             ch < 256 &&
@@ -200,6 +216,12 @@ export default defineTerrainOp<z.infer<typeof params>>({
     return null;
   },
 });
+
+/** How far above a crater (in radii) a `loosen` rim rule shakes the ground over it loose. */
+const OVER_REACH = 4;
+
+/** Columns past the crater's side over which that loosening fades to nothing. */
+const OVER_FADE = 12;
 
 /** Rows of a splashing liquid a blast blows out from its surface; deeper liquid stays put. */
 const SPLASH_DEPTH = 7;

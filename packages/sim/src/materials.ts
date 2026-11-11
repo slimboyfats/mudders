@@ -101,6 +101,8 @@ export class MaterialTable {
   readonly rimLoosen = new Uint8Array(256 * NUM_DAMAGE_TYPES);
   /** Deepest rim of any material, so a carve knows how far past its radius to look. */
   rimMaxDepth = 0;
+  /** Whether any rim rule loosens (a carve then also looks at the ground over its crater). */
+  rimLoosens = false;
   /**
    * Cell a blast lights this material into (KEEP = not blast-lit), whether any material is, and
    * per cell a bit mask of the damage types that light it.
@@ -237,6 +239,7 @@ export class MaterialTable {
           const i = c * NUM_DAMAGE_TYPES + DAMAGE_TYPES.indexOf(d);
           if (r.into !== undefined) this.rimInto[i] = ref(r.into);
           this.rimLoosen[i] = r.loosen ?? 0;
+          if (r.loosen) this.rimLoosens = true;
           this.rimDepth[i] = r.depth;
           this.rimChance[i] = Math.round(r.chance * 256);
         }

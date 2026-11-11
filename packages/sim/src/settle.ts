@@ -230,6 +230,21 @@ export function settleStep(
           }
         }
       }
+      // A slump eats back into the slope: loose ground that slides away may shake the cell it
+      // leaned on (behind it, upslope) loose too, for half its own steps, so the edge of a slump
+      // is a ragged slope that fades into firm ground, not a sheer cut where the loosening ended.
+      if (repose[m] !== 0 && act[m] === 0 && state[dst] !== 0) {
+        const half = state[dst]! >> 1;
+        const flip = ((Math.imul(x, 2246822519) ^ Math.imul(y + tick, 3266489917)) >>> 12) & 3;
+        // sliding: the cell behind; falling: the wall it scrapes past on either side
+        for (let sd = -1; sd <= 1 && half > 0; sd += 2) {
+          if (dx !== 0 ? sd !== -dx || (flip & 1) !== 0 : ((flip >> (sd + 1)) & 1) !== 0) continue;
+          const bx = x + sd;
+          const back = idx + sd;
+          if (bx < 0 || bx >= W) continue;
+          if (mat[back] === m && state[back] === 0 && group[back] === 0) state[back] = half;
+        }
+      }
       // Grains that slide over a different loose ground churn into it: the grain may swap with
       // the one under where it lands, up to CHURN_DEPTH deep, so sand running down a dirt slope
       // (or a slumping dirt rim under a sand drift) ends up mixed instead of lying on it as a strip.
