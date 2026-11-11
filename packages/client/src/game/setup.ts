@@ -70,6 +70,8 @@ export interface MatchSetup {
   /** Each player's turn sudden death starts on (§3.1); unset = the mode's default (turn 8). */
   suddenDeathFrom?: number | undefined;
   startingCash: number;
+  /** Cash every player gets each round on top of their winnings (§3.6); unset or 0 = none. */
+  roundBonus?: number | undefined;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
@@ -105,6 +107,11 @@ export function weatherFor(pick: WeatherPick, seed: number): string | undefined 
 export const SUDDEN_DEATH_TURNS = [3, 5, 8, 10] as const;
 export const SUDDEN_DEATH_DEFAULT = 8;
 
+/** Starting cash steps in the rules picker; the default is 3,000. */
+export const STARTING_CASH_STEPS = [0, 3000, 10000, 30000, 50000, 100000] as const;
+/** Per-round bonus steps in the rules picker; 0 = off (the default). */
+export const ROUND_BONUS_STEPS = [0, 5000, 10000, 20000, 50000] as const;
+
 const KEY = 'mudders.setup.v1';
 
 export function defaultSetup(): MatchSetup {
@@ -120,6 +127,7 @@ export function defaultSetup(): MatchSetup {
     suddenDeath: true,
     suddenDeathFrom: SUDDEN_DEATH_DEFAULT,
     startingCash: 3000,
+    roundBonus: 0,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -206,6 +214,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
       : {}),
     windType: s.wind,
     startingCash: s.startingCash,
+    ...(s.roundBonus ? { roundBonus: s.roundBonus } : {}),
     // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)
     openingShop: true,
     // swallow flocks over every map (a shell that hits one goes off there)

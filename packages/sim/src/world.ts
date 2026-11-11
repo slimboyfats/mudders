@@ -105,6 +105,11 @@ export interface MatchRules {
   suddenDeathFrom?: number | undefined;
   windType?: WindType | undefined;
   startingCash?: number | undefined;
+  /**
+   * Cash every player gets at the end of each round on top of what they earned (points, interest),
+   * so the next shop has it. 0 or unset = none, so scenarios and tests keep their results.
+   */
+  roundBonus?: number | undefined;
   turnCap?: number | undefined;
   /**
    * Swallow flocks over the map (kernel 0.35.0): a shell that hits one goes off there, blasts tear
@@ -120,7 +125,7 @@ export interface RoundResult {
   winnerTeam: number;
   /** Points per player this round. */
   points: number[];
-  /** Money earned per player (points + interest). */
+  /** Money earned per player (points + interest + the rules' round bonus). */
   earned: number[];
 }
 
@@ -4102,6 +4107,7 @@ export class World implements SimApi {
     }
     const points: number[] = [];
     const earned: number[] = [];
+    const bonus = Math.max(0, Math.trunc(this.options.rules?.roundBonus ?? 0));
     for (const t of this.tanks) {
       let pts =
         Math.trunc(t.damageDealt * sc.damage) +
@@ -4111,7 +4117,8 @@ export class World implements SimApi {
       if (t.team === winnerTeam) pts += sc.roundWin;
       points.push(pts);
       t.score += pts;
-      const money = Math.trunc(t.money * eco.interest) + Math.max(0, pts) * eco.moneyPerPoint;
+      const money =
+        Math.trunc(t.money * eco.interest) + Math.max(0, pts) * eco.moneyPerPoint + bonus;
       earned.push(money);
       t.money += money;
     }
