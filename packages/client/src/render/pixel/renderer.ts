@@ -195,6 +195,11 @@ const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
 /** Ticks the death-zone wall takes to creep to its new line after sudden death moves it. */
 const ZONE_CREEP_TICKS = 180;
 
+/** A plague cloud's cells, heart to rim, and the one puff it is fed from. */
+const PLAGUE_TONES = [0x3c6a2a, 0x5f9a3a, 0x7ab84a, 0x9ccc5a] as const;
+const ACID_TONES = [0x6a9a20, 0x8cc425, 0xb8f040, 0xd4ff70] as const;
+const PLAGUE_PUFF = [0, 0];
+
 /** A toxic cloud's cells, from its dense heart out to its rim. */
 const CLOUD_TONES = [0x4a7a0c, 0x8cc81a, 0xa6e024, 0xb8ec2c] as const;
 
@@ -1444,8 +1449,17 @@ export class PixelRenderer implements Renderer {
           const r = Math.max(3, z.puffRadius ?? 10) * grow;
           this.air.cloud(pf, r, z.turns <= 1 ? 0.7 : 1, CLOUD_TONES, this.probe.solid);
         }
+        if ((z.look === 'gas' || z.look === 'acid') && !(pf && pf.length > 0)) {
+          // a standing cloud (plague, acid haze): one big puff, thicker while it has turns left
+          PLAGUE_PUFF[0] = z.x;
+          PLAGUE_PUFF[1] = z.y;
+          const thick = Math.min(1, 0.45 + z.turns * 0.2) * (z.look === 'gas' ? 1 : 0.5);
+          const tones = z.look === 'gas' ? PLAGUE_TONES : ACID_TONES;
+          this.air.cloud(PLAGUE_PUFF, z.radius * 0.8, thick, tones, this.probe.solid);
+        }
         if (z.look !== 'gas' && z.look !== 'toxic') continue;
-        this.air.splat(z.x, z.y, z.radius * 0.8, this.wind * 20, 0, 0, 0, 0.06);
+        // the dye only weighs the air down, so the cells sink and creep; no cells of its own
+        f.splat(z.x, z.y, z.radius * 0.8, this.wind * 20, 0, 0, 0, 0.06);
       }
     }
     f.step(this.wind);

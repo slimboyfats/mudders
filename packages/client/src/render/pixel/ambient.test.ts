@@ -71,7 +71,8 @@ describe('ambient layers', () => {
   });
 
   it('draws each zone look', () => {
-    for (const look of ['gas', 'acid', 'resonance', 'acid-cloud'] as const) {
+    // a gas haze draws nothing here: it is gas cells fed into the air (see air.test.ts)
+    for (const look of ['acid', 'resonance', 'acid-cloud'] as const) {
       const r = recorder();
       drawZones(
         r.batch,
