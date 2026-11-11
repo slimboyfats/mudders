@@ -1,0 +1,41 @@
+{
+  "id": "showcase.supply-drops",
+  "schemaVersion": 1,
+  "description": "Supply drops: three crates parachute in, swinging and drifting with the wind. One lands on a slope and tumbles down it, player 0 drives over to the nearest and takes it, then a missile throws another and a second one smashes the last to splinters.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [{ "x": 150, "health": 60 }, { "x": 620 }],
+  "turnOrder": [0, 1],
+  "wind": 0.004,
+  "rules": {
+    "rounds": 1,
+    "suddenDeath": false,
+    "turnTimer": 0,
+    "drops": "rare"
+  },
+  "drops": [
+    { "t": 1, "x": 168, "loot": 12 },
+    { "t": 20, "x": 330, "loot": 0 },
+    { "t": 45, "x": 470, "loot": 8 }
+  ],
+  "inputs": [
+    { "t": 330, "player": 0, "action": { "type": "drive", "dir": 1 } },
+    { "t": 470, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 470, "player": 0, "action": { "type": "aim", "angle": 55, "power": 350 } },
+    { "t": 470, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 120, "power": 360 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

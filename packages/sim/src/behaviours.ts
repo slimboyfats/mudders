@@ -360,6 +360,16 @@ export interface AiGearView {
   readonly useful: boolean;
 }
 
+/** A supply crate on the map (§3.8), for bots. */
+export interface AiDropView {
+  /** Centre column and bottom row, cells. */
+  readonly x: number;
+  readonly y: number;
+  readonly look: 'weapon' | 'gear' | 'health' | 'fuel' | 'cash';
+  /** Lying still on the ground (not under its canopy, flying or tumbling). */
+  readonly resting: boolean;
+}
+
 export interface AiApi {
   readonly rng: Prng;
   readonly me: number;
@@ -407,6 +417,8 @@ export interface AiApi {
   readonly memory: number[];
   readonly angle: number;
   readonly power: number;
+  /** Supply crates on the map (unset or empty with drops off). */
+  readonly drops?: readonly AiDropView[] | undefined;
 }
 
 export interface AiShopItem {

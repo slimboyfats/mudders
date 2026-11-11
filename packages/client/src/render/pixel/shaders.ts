@@ -84,6 +84,7 @@ uniform float u_anim;
 uniform float u_stars;
 uniform vec3 u_starColor;
 uniform sampler2D u_scenery; // sky, clouds and ranges per 2×2 cells; a = open sky
+uniform float u_sceneryTop;  // map rows the scenery reaches above the map's top row
 uniform vec4 u_grass;        // rgb, enabled
 uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
 uniform usampler2D u_burn;   // tick + 1 of the last blast over the cell, 0 = none
@@ -202,12 +203,28 @@ void main() {
   int AH = int(u_apron.w);
   float below = max(0.0, m.y - float(AH));
   vec3 c;
+  int ST = int(u_sceneryTop);
   if (m.y < 0.0) {
-    // the open sky's top colour (the scenery's top row would stretch its clouds into columns)
+    // above the map: the scenery goes on (the parallax mountains rise up here when the camera is
+    // high), and over the top of it the open sky's top colour
     c = u_top;
+    bool open = true;
+    if (wc.y >= -ST) {
+      int ex = wc.x + AS;
+      if (ex < 0 || ex >= AW) {
+        int p = 2 * AW;
+        int f = ((ex % p) + p) % p;
+        ex = f < AW ? f : p - 1 - f;
+      }
+      vec4 sc = texelFetch(u_scenery, ivec2(ex, wc.y + ST) >> 1, 0);
+      if (sc.a < 0.5) {
+        open = false;
+        c = sc.rgb * (1.0 - u_dark * 0.82);
+      }
+    }
     ivec2 sc = wc + ivec2(4096, 4096);
     float h = hash(sc + ivec2(31, 17));
-    if (u_stars > 0.0 && h > 1.0 - u_stars) {
+    if (open && u_stars > 0.0 && h > 1.0 - u_stars) {
       float tw = hash(sc + ivec2(int(u_time / 23.0 + h * 97.0), 5));
       c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
     }
@@ -239,7 +256,7 @@ void main() {
         c = t.rgb * (1.0 - u_dark * 0.86);
         c += u_flash * 0.3;
       } else {
-        vec4 sc = texelFetch(u_scenery, e >> 1, 0);
+        vec4 sc = texelFetch(u_scenery, ivec2(e.x, e.y + ST) >> 1, 0);
         c = sc.rgb;
         float k = clamp(float(e.y) / u_map.y, 0.0, 1.0);
         if (u_stars > 0.0 && k < 0.6 && sc.a > 0.5) {
@@ -398,7 +415,7 @@ void main() {
       c = min(c * (amb + L * (1.3 + 1.2 * u_dark)) + L * 0.16, vec3(1.0));
     } else {
       float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
-      vec4 sc = texelFetch(u_scenery, (cell + ivec2(int(u_apron.x), 0)) >> 1, 0);
+      vec4 sc = texelFetch(u_scenery, (cell + ivec2(int(u_apron.x), int(u_sceneryTop))) >> 1, 0);
       c = sc.rgb;
       // stars: a few open sky cells high up twinkle on and off in whole steps
       if (u_stars > 0.0 && k < 0.6 && sc.a > 0.5) {

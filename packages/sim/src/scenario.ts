@@ -32,6 +32,7 @@ export class ScenarioDriver {
       teams: scenario.teams,
       rules: scenario.rules,
       props: scenario.props,
+      dropAt: scenario.drops,
     });
     this.queue = [...scenario.inputs].sort((a, b) => a.t - b.t);
   }

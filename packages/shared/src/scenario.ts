@@ -64,10 +64,27 @@ export const ScenarioSchema = z.strictObject({
       suddenDeathFrom: z.number().int().min(1).optional(),
       windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),
+      /** Cash every player gets at the end of each round, on top of their winnings. */
+      roundBonus: z.number().int().min(0).optional(),
       turnCap: z.number().int().min(1).optional(),
       /** Swallow flocks over the map (off unless set). */
       birds: z.boolean().optional(),
+      /** Supply drops: how often crates come down (off unless set). */
+      drops: z.enum(['off', 'rare', 'normal', 'often']).optional(),
     })
+    .optional(),
+  /**
+   * Crates dropped at fixed times and columns (showcases), on top of any the rules drop. `loot`
+   * picks the mode's loot entry by index instead of drawing one. Needs drops on in `rules`.
+   */
+  drops: z
+    .array(
+      z.strictObject({
+        t: z.number().int().min(0),
+        x: z.number().int().min(0),
+        loot: z.number().int().min(0).optional(),
+      }),
+    )
     .optional(),
   inputs: z.array(TimedInputSchema),
   capture: z.strictObject({

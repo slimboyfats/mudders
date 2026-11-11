@@ -1,0 +1,44 @@
+{
+  "id": "audio.crate-chute",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crate Chute",
+    "description": "A cloth snap and a long soft whistle as a supply crate's canopy opens high above the map.",
+    "since": "core@0.72.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "noise",
+        "freq": 2200,
+        "to": 900,
+        "release": 0.1,
+        "volume": 0.3
+      },
+      {
+        "wave": "triangle",
+        "freq": 1500,
+        "to": 700,
+        "delay": 0.05,
+        "hold": 0.5,
+        "release": 0.8,
+        "volume": 0.16,
+        "vibrato": {
+          "rate": 4,
+          "depth": 0.5
+        }
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "dropSpawn"
+    }
+  ]
+}

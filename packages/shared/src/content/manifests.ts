@@ -796,6 +796,37 @@ export const ModeSchema = z.looseObject({
     })
     .nullable()
     .default(null),
+  /**
+   * Supply drops (§3.8): with drops on in the match rules, a crate comes down under a parachute
+   * every `every` turns (Rare doubles it, Often halves it), over open sky at least `avoid` cells
+   * from the tank whose turn it is and `margin` from the map edges, at most `max` on the map at
+   * once. It sinks at `fall` cells/tick, has `hp` hit points against blasts, fire and hard
+   * landings, and breaks into `debris` grains. Its loot is drawn from `loot` by weight: a weapon
+   * or gear item (`item`, `amount` of it), or health, fuel or cash (`amount`).
+   */
+  drops: z
+    .strictObject({
+      every: z.number().int().min(1).max(20),
+      first: z.number().int().min(0).max(20).default(1),
+      max: z.number().int().min(1).max(6),
+      fall: z.number().positive().max(4),
+      hp: z.number().int().min(1).max(1000),
+      margin: z.number().int().min(0).max(512),
+      avoid: z.number().int().min(0).max(1024),
+      debris: ContentIdSchema,
+      loot: z
+        .array(
+          z.strictObject({
+            kind: z.enum(['weapon', 'gear', 'health', 'fuel', 'cash']),
+            item: ContentIdSchema.optional(),
+            amount: z.number().int().min(1).max(100000),
+            weight: z.number().int().min(1).max(1000),
+          }),
+        )
+        .min(1),
+    })
+    .nullable()
+    .default(null),
   /** Points per round (§3.5): per hp dealt, per kill, per hp of self-damage (subtracted), bonuses. */
   scoring: z
     .strictObject({

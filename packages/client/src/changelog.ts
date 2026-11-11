@@ -19,10 +19,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Weapons that really hurt',
-    pack: 'core@0.72.0',
-    newSince: 'core@0.62.0',
+    title: 'Supply drops, big money and weapons that really hurt',
+    pack: 'core@0.72.0 – 0.73.0',
     items: [
+      'Supply drops: every few turns a wooden crate parachutes in somewhere away from the tank whose turn it is, with a weapon, gear, health, fuel or cash inside. Its badge shows which kind',
+      'Any tank that touches a crate takes it: drive to it, fall onto it, or use Teleport Shell, Swap Ray or Portal Pair to get there first',
+      'Crates are real objects: they swing under the canopy and drift with the wind, tip over edges and tumble down slopes, float on water and burn in fire',
+      'Blasts throw crates about and a close one smashes them to splinters; a shell through the canopy drops the crate like a stone, so you can deny one to your enemy',
+      'Bots drive to a crate when one lies within reach',
+      'New Rules option: Supply drops Off, Rare, Normal or Often (Normal by default, works online too)',
+      'Rules: start with up to 100,000 cash',
+      'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
       'Shockwaves throw tanks much farther and higher, hurl more dirt and blow trees and buildings apart harder. A tank thrown into a hillside takes a slam hit, harder the faster it flew',
       'Falls hurt twice as much: a tank that drops or is thrown without a parachute takes 2 damage per cell it falls past the first four. Parachutes still land you unhurt',
       'Napalm and fire keep burning: a tank sitting in burning jelly or flames takes damage the whole time it burns, not just once at the end of the turn. Napalm now does about 60 on a direct hit instead of 15, Hot Napalm about 80',

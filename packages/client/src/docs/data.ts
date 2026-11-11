@@ -101,8 +101,16 @@ export interface GearDoc {
   stats: Stat[];
 }
 
+/** Supply drops (§3.8), from the classic mode's `drops`. */
+export interface DropsDoc {
+  stats: Stat[];
+  /** What a crate can hold and how likely, best first; `id` links to the item's card. */
+  loot: { label: string; chance: string; id?: string | undefined }[];
+}
+
 export interface DocsData {
   version: string;
+  drops: DropsDoc | null;
   weapons: WeaponDoc[];
   materials: MaterialDoc[];
   props: PropDoc[];
@@ -514,8 +522,42 @@ export function docsData(c: ResolvedContent): DocsData {
     ],
   }));
 
+  const dr = c.get('mode', 'mode.classic').drops;
+  let drops: DropsDoc | null = null;
+  if (dr) {
+    const total = dr.loot.reduce((n, l) => n + l.weight, 0);
+    drops = {
+      stats: [
+        { label: 'Normal', value: `a crate every ${dr.every} turns` },
+        { label: 'Rare', value: `every ${dr.every * 2} turns` },
+        {
+          label: 'Often',
+          value: `every ${Math.max(1, dr.every >> 1)} turn${dr.every >> 1 > 1 ? 's' : ''}`,
+        },
+        { label: 'On the map', value: `up to ${dr.max} at once` },
+        { label: 'Crate', value: `${dr.hp} hp` },
+        { label: 'Lands', value: `at least ${dr.avoid} cells from the tank whose turn it is` },
+      ],
+      loot: [...dr.loot]
+        .sort((a, b) => b.weight - a.weight)
+        .map((l) => ({
+          label:
+            l.kind === 'weapon' || l.kind === 'gear'
+              ? `${names[l.item ?? ''] ?? l.item ?? ''} ×${l.amount}`
+              : l.kind === 'health'
+                ? `+${l.amount} health`
+                : l.kind === 'fuel'
+                  ? `+${l.amount} fuel`
+                  : `$${l.amount.toLocaleString('en')}`,
+          chance: `${Math.round((l.weight * 100) / total)}%`,
+          id: l.item,
+        })),
+    };
+  }
+
   return {
     version: c.packs.map((p) => `${p.name}@${p.version}`).join(', '),
+    drops,
     weapons,
     materials,
     props: props

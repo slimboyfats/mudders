@@ -75,7 +75,9 @@ function rulesOf(): LobbyRules {
     weather: s.weather,
     suddenDeath: s.suddenDeath,
     suddenDeathFrom: s.suddenDeathFrom,
+    drops: s.drops,
     startingCash: s.startingCash,
+    roundBonus: s.roundBonus ?? 0,
     teams: s.teams,
   };
 }
