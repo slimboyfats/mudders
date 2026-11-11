@@ -2301,6 +2301,7 @@ export class PixelRenderer implements Renderer {
       origin,
       scale,
       air ? { tex: air, w: this.fluid.w, h: this.fluid.h, div: this.fluid.div } : null,
+      this.lights,
     );
     this.liquid.draw(this.normal, this.additive, t);
     this.water.draw(this.normal, t);
