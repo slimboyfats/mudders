@@ -783,6 +783,12 @@ export class GpuParticles implements ParticleSink {
   private vNext = 0;
   /** Update passes owed to {@link draw}. */
   private passes = 0;
+  /**
+   * Most update passes one {@link draw} runs; the rest age the clock without moving. Live play
+   * sets a small number so a late frame doesn't pay a GPU pass for every tick it caught up on
+   * (which makes the next frame later still); captures keep the long-stall limit.
+   */
+  maxPasses = MAX_PASSES;
   /** Next ring slot to fill, and the highest slot in use + 1. */
   private head = 0;
   /** The live window is the ring range [tail, tail + count): older slots have all died. */
@@ -1118,7 +1124,7 @@ export class GpuParticles implements ParticleSink {
 
   /** Run owed update passes against the terrain texture. */
   private update(terrain: WebGLTexture, mapW: number, mapH: number, flow: FlowField | null): void {
-    const passes = Math.min(this.passes, MAX_PASSES);
+    const passes = Math.min(this.passes, this.maxPasses);
     // a long stall: age the clock without moving (they died off-screen anyway)
     this.passes = 0;
     if (passes === 0 || this.count === 0) return;

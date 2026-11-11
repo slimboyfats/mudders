@@ -64,3 +64,62 @@ export class FxRng {
     return a + (b - a) * this.next();
   }
 }
+
+/**
+ * Upload only the box of an R8UI map texture where `next` differs from `shown` (what the texture
+ * holds), then copy that box into `shown`. Whole-map fields are rebuilt on the CPU but usually
+ * change in one crater's worth of cells, and a full-map upload stalls a phone's GPU queue.
+ * Returns whether anything was uploaded.
+ */
+export function uploadChanged(
+  gl: WebGL2RenderingContext,
+  tex: WebGLTexture,
+  next: Uint8Array,
+  shown: Uint8Array,
+  w: number,
+  h: number,
+): boolean {
+  let y0 = -1;
+  let y1 = -1;
+  let x0 = w;
+  let x1 = -1;
+  for (let y = 0; y < h; y++) {
+    const o = y * w;
+    let a = -1;
+    for (let x = 0; x < w; x++) {
+      if (next[o + x] !== shown[o + x]) {
+        a = x;
+        break;
+      }
+    }
+    if (a < 0) continue;
+    let b = w - 1;
+    while (next[o + b] === shown[o + b]) b--;
+    if (y0 < 0) y0 = y;
+    y1 = y;
+    if (a < x0) x0 = a;
+    if (b > x1) x1 = b;
+  }
+  if (y0 < 0) return false;
+  for (let y = y0; y <= y1; y++) shown.set(next.subarray(y * w + x0, y * w + x1 + 1), y * w + x0);
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
+  gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
+  gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
+  gl.texSubImage2D(
+    gl.TEXTURE_2D,
+    0,
+    x0,
+    y0,
+    x1 - x0 + 1,
+    y1 - y0 + 1,
+    gl.RED_INTEGER,
+    gl.UNSIGNED_BYTE,
+    next,
+  );
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+  gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+  gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+  return true;
+}

@@ -36,6 +36,29 @@ function make(mat: number): LiquidSurface {
 }
 
 describe('liquid surface', () => {
+  it('rescans only the columns a snapshot changed, and finds the change there', () => {
+    const t = terrain(3);
+    const l = new LiquidSurface(W, H, [WATER], [], [], new Uint32Array(256));
+    l.setTerrain(t);
+    const p = new Particles(100);
+    l.tick(0, 0, p);
+    expect(l.surfaceAt(12)).toBe(-1);
+    // water floods columns 10..14 in place; the snapshot says which cells changed
+    for (let x = 10; x <= 14; x++) t[10 * W + x] = WATER;
+    l.setTerrain(t, [{ x: 10, w: 5 }]);
+    l.tick(1, 0, p);
+    expect(l.surfaceAt(12)).toBe(10);
+    // a change outside every reported rect is not looked for (the sim always reports its edits)
+    t[10 * W + 40] = WATER;
+    l.setTerrain(t, []);
+    l.tick(2, 0, p);
+    expect(l.surfaceAt(40)).toBe(-1);
+    // and a new array is read in full
+    l.setTerrain(t.slice(), []);
+    l.tick(3, 0, p);
+    expect(l.surfaceAt(40)).toBe(10);
+  });
+
   it('finds the surface row and stays flat when nothing touches it', () => {
     const l = make(WATER);
     const p = new Particles(100);

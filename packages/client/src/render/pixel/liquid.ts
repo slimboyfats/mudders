@@ -32,8 +32,6 @@ const WAVE = [
   { c2: 0.06, damp: 0.9, decay: 0.98, glint: 0.015 },
 ] as const;
 
-/** Ticks between surface rescans (the terrain only changes a little between them). */
-const SCAN_EVERY = 4;
 const MAX_BUBBLES = 48;
 const MAX_H = 7;
 
@@ -65,7 +63,14 @@ export class LiquidSurface {
   private hn: Float32Array;
   private readonly v: Float32Array;
   private bubbles: Bubble[] = [];
-  private scanned = -1;
+  /**
+   * Columns whose cells changed since the last scan (from the snapshot's dirty rects), or all of
+   * them. A column's surface depends only on its own cells, so the others keep their answer:
+   * rescanning the whole map every tick cost ~1 ms a tick here and several on a phone.
+   */
+  private readonly dirtyCol: Uint8Array;
+  private allDirty = true;
+  private needScan = true;
   /** Any liquid surface at all after the last scan. */
   private any = false;
   /** Particle budget scale from the quality level. */
@@ -89,6 +94,7 @@ export class LiquidSurface {
     this.h = new Float32Array(width);
     this.hn = new Float32Array(width);
     this.v = new Float32Array(width);
+    this.dirtyCol = new Uint8Array(width);
   }
 
   get enabled(): boolean {
@@ -96,9 +102,23 @@ export class LiquidSurface {
     return false;
   }
 
-  setTerrain(t: Uint8Array): void {
-    this.terrain = t;
-    this.scanned = -1;
+  /**
+   * The cells to read. `changed` (the snapshot's dirty rects) limits the next rescan to the
+   * columns they touch; without it, or with a new array, every column is rescanned.
+   */
+  setTerrain(t: Uint8Array, changed?: readonly { x: number; w: number }[]): void {
+    if (t !== this.terrain || !changed) {
+      this.terrain = t;
+      this.allDirty = true;
+      this.needScan = true;
+      return;
+    }
+    const cols = this.dirtyCol;
+    for (const r of changed) {
+      const x1 = Math.min(this.width, r.x + r.w);
+      for (let x = Math.max(0, r.x); x < x1; x++) cols[x] = 1;
+      if (x1 > r.x) this.needScan = true;
+    }
   }
 
   private cell(x: number, y: number): number {
@@ -116,14 +136,19 @@ export class LiquidSurface {
     return x >= 0 && x < this.width ? this.sy[x]! : -1;
   }
 
-  /** Find the top liquid cell with air above it in every column. */
+  /** Find the top liquid cell with air above it in every changed column. */
   private scan(): void {
     const w = this.width;
     const hgt = this.height;
     const t = this.terrain;
     const k = this.kinds;
-    this.any = false;
+    const all = this.allDirty;
+    const cols = this.dirtyCol;
+    this.allDirty = false;
+    this.needScan = false;
     for (let x = 0; x < w; x++) {
+      if (!all && cols[x] === 0) continue;
+      cols[x] = 0;
       let found = -1;
       let above = 0;
       for (let y = 0; y < hgt; y++) {
@@ -145,13 +170,15 @@ export class LiquidSurface {
       const m = t[found * w + x]!;
       this.mat[x] = m;
       this.kind[x] = k[m]!;
-      this.any = true;
       // a pool that moved a long way (drained, refilled) starts its waves afresh
       if (prev < 0 || Math.abs(prev - found) > 3) {
         this.h[x] = 0;
         this.v[x] = 0;
       }
     }
+    let any = false;
+    for (let x = 0; x < w && !any; x++) any = this.kind[x] !== 0;
+    this.any = any;
   }
 
   /** Whether columns a and b share a surface the waves can cross. */
@@ -212,12 +239,9 @@ export class LiquidSurface {
     }
   }
 
-  /** One sim tick: rescan now and then, run the waves, breathe the wind, blow bubbles. */
+  /** One sim tick: rescan the changed columns, run the waves, breathe the wind, blow bubbles. */
   tick(t: number, wind: number, sink: ParticleSink): void {
-    if (this.scanned < 0 || t - this.scanned >= SCAN_EVERY) {
-      this.scan();
-      this.scanned = t;
-    }
+    if (this.needScan) this.scan();
     if (!this.any) return;
     const w = this.width;
     const h = this.h;
@@ -385,6 +409,7 @@ export class LiquidSurface {
     this.h.fill(0);
     this.v.fill(0);
     this.bubbles = [];
-    this.scanned = -1;
+    this.allDirty = true;
+    this.needScan = true;
   }
 }

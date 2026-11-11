@@ -59,6 +59,13 @@ export const QUALITY_FLUID = {
 const MAX_SPLATS = 24;
 
 /**
+ * Ticks with nothing poured in before the field goes to sleep (cleared, every pass skipped until
+ * the next splat). By then the slowest dye channel (gas, kept 0.998 a tick) is under 1%, so the
+ * clear is invisible, and a quiet map stops paying ~19 full-field GPU passes a tick for nothing.
+ */
+export const FLUID_SLEEP_TICKS = 2400;
+
+/**
  * Fire, as numbers (GLSL float literals). Lift per unit of fire per tick; how much each unit
  * swells the air per tick; what is left of it each tick, less the snuff; and the soot and heat a
  * burnt unit leaves behind.
@@ -308,6 +315,15 @@ export class GpuFluid implements FluidSink {
   private readonly sC = new Float32Array(MAX_SPLATS * 2);
   /** Set once anything has been poured in; until then every pass is skipped. */
   private live = false;
+  /** Queued ticks in a row with nothing poured in (see {@link FLUID_SLEEP_TICKS}). */
+  private quiet = 0;
+  /**
+   * Most queued ticks one {@link update} runs. Live play sets a small number so a late frame
+   * (which queues several ticks) doesn't pay for all of them on the GPU and make the next frame
+   * later still; the dropped ticks' splats are poured into the first tick that runs. Captures
+   * leave it unbounded so frames replay the same however they are drawn.
+   */
+  maxSteps = Infinity;
 
   constructor(gl: WebGL2RenderingContext, mapW: number, mapH: number, div: number, iters: number) {
     this.gl = gl;
@@ -437,6 +453,7 @@ export class GpuFluid implements FluidSink {
     if (!this.ok) return;
     this.pending = [];
     this.live = false;
+    this.quiet = 0;
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     for (const f of [...this.vel!, ...this.dye!, ...this.pressure!, this.div1, this.curl]) {
@@ -452,11 +469,28 @@ export class GpuFluid implements FluidSink {
    */
   update(terrain: WebGLTexture): void {
     if (!this.ok) return;
-    const steps = this.pending;
+    let steps = this.pending;
     this.pending = [];
+    for (const s of steps) this.quiet = s.splats.length > 0 ? 0 : this.quiet + 1;
+    if (this.live && this.quiet >= FLUID_SLEEP_TICKS) {
+      // long quiet: what is left is invisible, so stop stepping it (the next splat wakes it)
+      this.clear();
+      steps = [];
+    }
     if (!this.live) {
       this.tick += steps.length;
       return;
+    }
+    if (steps.length > this.maxSteps) {
+      // a late frame: run only the last few ticks, with everything poured in the dropped ones
+      const keep = steps.slice(steps.length - this.maxSteps);
+      const into = keep[0]!.splats;
+      for (let i = steps.length - this.maxSteps - 1; i >= 0 && into.length < MAX_SPLATS; i--) {
+        const from = steps[i]!.splats;
+        for (let j = 0; j < from.length && into.length < MAX_SPLATS; j++) into.push(from[j]!);
+      }
+      this.tick += steps.length - keep.length;
+      steps = keep;
     }
     const gl = this.gl;
     gl.disable(gl.BLEND);
