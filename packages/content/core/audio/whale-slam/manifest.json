@@ -1,0 +1,28 @@
+{
+  "id": "audio.whale-slam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Whale Slam",
+    "description": "The Cloud Whale bursting into a flood: a huge low chip thud and a long rushing splash of noise.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      { "wave": "square", "freq": 120, "to": 30, "hold": 0.2, "release": 0.6, "volume": 0.4 },
+      { "wave": "noise", "freq": 4000, "to": 400, "hold": 0.4, "release": 1.2, "volume": 0.45 },
+      { "wave": "triangle", "freq": 900, "to": 200, "delay": 0.1, "release": 0.6, "volume": 0.15 }
+    ]
+  },
+  "on": [
+    {
+      "event": "whaleBurst"
+    }
+  ],
+  "gap": 0.6
+}

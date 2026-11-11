@@ -1,0 +1,59 @@
+{
+  "id": "audio.upfall-hum",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Upfall Hum",
+    "description": "A rising chip warble as an Upfall column opens and gravity flips: a pulse sweeping up over a wobbling triangle and an airy hiss.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "pulse25",
+        "freq": 80,
+        "to": 640,
+        "attack": 0.4,
+        "hold": 0.4,
+        "release": 0.6,
+        "volume": 0.2,
+        "vibrato": {
+          "rate": 7,
+          "depth": 2
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 160,
+        "to": 960,
+        "attack": 0.5,
+        "hold": 0.3,
+        "release": 0.7,
+        "volume": 0.24,
+        "vibrato": {
+          "rate": 13,
+          "depth": 4
+        }
+      },
+      {
+        "wave": "noise",
+        "freq": 300,
+        "to": 3000,
+        "attack": 0.5,
+        "release": 0.6,
+        "volume": 0.12
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "upfallOpen"
+    }
+  ],
+  "gap": 0.5
+}

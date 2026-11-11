@@ -1,0 +1,21 @@
+{
+  "id": "terrainop.cloud-whale",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cloud Whale",
+    "description": "A whale made of storm cloud pops out of a shell in mid-air (or a little above the spot where the shell landed), hangs there a moment, then free-falls, tipping nose down. Where it hits ground or a tank it slams a crater and bursts into a ball of water that floods it, puts out fires and quenches lava.",
+    "since": "core@0.75.0"
+  },
+  "behaviour": "terrainop.cloud-whale",
+  "slam": "weapon.cloud-whale-slam",
+  "material": "material.water",
+  "burst": 22,
+  "burstAfter": 4,
+  "lift": 70,
+  "hang": 14,
+  "tilt": 60,
+  "tiltRate": 1.2,
+  "maxFall": 6,
+  "half": 48,
+  "belly": 14
+}

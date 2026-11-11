@@ -1,0 +1,51 @@
+{
+  "id": "audio.upfall-crash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Upfall Crash",
+    "description": "The Upfall column shutting: a falling chip whistle into a long gritty landslide of noise as everything comes back down.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 900,
+        "to": 90,
+        "hold": 0.3,
+        "release": 0.5,
+        "volume": 0.2
+      },
+      {
+        "wave": "noise",
+        "freq": 1800,
+        "to": 120,
+        "delay": 0.4,
+        "hold": 0.9,
+        "release": 1.1,
+        "volume": 0.42
+      },
+      {
+        "wave": "square",
+        "freq": 110,
+        "to": 35,
+        "delay": 0.5,
+        "hold": 0.4,
+        "release": 0.8,
+        "volume": 0.3
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "upfallDrop"
+    }
+  ],
+  "gap": 0.6
+}

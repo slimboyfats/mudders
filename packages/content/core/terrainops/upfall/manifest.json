@@ -1,0 +1,20 @@
+{
+  "id": "terrainop.upfall",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Upfall",
+    "description": "Gravity flips inside a tall column for a few seconds. Loose ground, water, lava, trees and houses at the top of it are torn up and fall into the sky, tanks standing in it float up, and shells flying through are pulled up and away. It all hangs churning high above, then comes crashing back down at once when the column shuts. Stone and bedrock stay put.",
+    "since": "core@0.75.0"
+  },
+  "behaviour": "terrainop.upfall",
+  "open": 40,
+  "ticks": 220,
+  "half": 34,
+  "height": 110,
+  "depth": 16,
+  "perTick": 50,
+  "cells": 3600,
+  "rise": 1.1,
+  "tankLift": 30,
+  "tankEvery": 2
+}

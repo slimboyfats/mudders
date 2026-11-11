@@ -1,0 +1,48 @@
+{
+  "id": "weapon.cloud-whale",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cloud Whale",
+    "description": "Fire it like a shell, then press FIRE again while it flies: a huge whale made of storm cloud pops out of the shell right there, hangs for a heartbeat and then free-falls, slamming nose first into whatever is below. A big crater, a shockwave that throws tanks, and the whale bursts into a flood of water that fills the crater and puts out any fire. Never pressed? The whale drops onto the spot where the shell lands.",
+    "since": "core@0.75.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank", "onCommand"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 0,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.cloud-whale"
+      },
+      "radius": 40,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 22000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 100,
+    "terrainValue": 0.6
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

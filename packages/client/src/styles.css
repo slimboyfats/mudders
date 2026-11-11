@@ -3362,3 +3362,15 @@ a.button {
     padding: 5px 7px;
   }
 }
+
+/* Cloud Whale in flight: fire again to drop it (hard two-tone blink, no glow) */
+.fire.command {
+  background: #2a6ad6;
+  border-color: #8ab8f0;
+  animation: fire-command 0.5s steps(1) infinite;
+}
+@keyframes fire-command {
+  50% {
+    background: #4a8cf0;
+  }
+}
