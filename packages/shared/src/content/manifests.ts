@@ -465,8 +465,12 @@ export type EmbeddedExplosion = z.infer<typeof EmbeddedExplosionSchema>;
 
 // ── weapon ──────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * When a shell goes off. `onCommand`: when its shooter presses fire again while it flies (the
+ * same `fire` input, sent during the shot), e.g. a Cloud Whale dropped from wherever the shell is.
+ */
 export const TriggerSchema = z.union([
-  z.enum(['onSolid', 'onTank', 'onWall', 'onApex']),
+  z.enum(['onSolid', 'onTank', 'onWall', 'onApex', 'onCommand']),
   z.strictObject({ onTimer: z.number().int().min(1) }),
 ]);
 export type Trigger = z.infer<typeof TriggerSchema>;

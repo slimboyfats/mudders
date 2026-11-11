@@ -1,0 +1,69 @@
+{
+  "id": "audio.whale-song",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Whale Song",
+    "description": "The Cloud Whale popping out of its shell: a long, low chip moan that slides up and back down with a slow wobble, over a soft breathy hiss.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "triangle",
+        "freq": 180,
+        "to": 420,
+        "attack": 0.4,
+        "hold": 0.6,
+        "release": 0.6,
+        "volume": 0.3,
+        "vibrato": {
+          "rate": 4,
+          "depth": 6
+        }
+      },
+      {
+        "wave": "triangle",
+        "freq": 520,
+        "to": 140,
+        "delay": 1.1,
+        "attack": 0.2,
+        "hold": 0.6,
+        "release": 0.8,
+        "volume": 0.26,
+        "vibrato": {
+          "rate": 5,
+          "depth": 8
+        }
+      },
+      {
+        "wave": "pulse12",
+        "freq": 90,
+        "to": 120,
+        "attack": 0.5,
+        "hold": 1,
+        "release": 0.8,
+        "volume": 0.1
+      },
+      {
+        "wave": "noise",
+        "freq": 600,
+        "to": 300,
+        "attack": 0.6,
+        "release": 0.8,
+        "volume": 0.06
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "whalePop"
+    }
+  ],
+  "gap": 1
+}

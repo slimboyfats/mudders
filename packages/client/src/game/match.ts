@@ -108,6 +108,10 @@ export interface HudState {
   winnerTeam: number;
   results: RoundResult[];
   shop: ShopItem[];
+  /**
+   * Player who may press fire now to set off their shell in flight (Cloud Whale), or -1.
+   */
+  command: number;
   /** A supply crate someone just took (shown for a few seconds), or null. */
   pickup: { player: number; text: string; tick: number } | null;
 }
@@ -253,6 +257,7 @@ export abstract class SimMatch implements SnapshotStream {
       winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
       results: w.results,
       pickup: this.pickupOf(w),
+      command: w.commandable(),
       shop: [
         ...this.gearItems,
         ...this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
@@ -337,7 +342,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.phase}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

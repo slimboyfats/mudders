@@ -1,0 +1,36 @@
+{
+  "id": "weapon.upfall",
+  "schemaVersion": 1,
+  "description": "Player 0 drops an Upfall next to player 1 on a wooded hill: the ground, trees and player 1 fall up into the sky, hang there churning, then everything crashes back down.",
+  "subject": "weapon.upfall",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.upfall": 1
+      }
+    },
+    {
+      "x": 560
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.upfall" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 560 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

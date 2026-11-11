@@ -548,6 +548,8 @@ interface RtWeapon {
   onTank: boolean;
   onWall: boolean;
   onApex: boolean;
+  /** Goes off when its shooter presses fire again in flight. */
+  onCommand: boolean;
   onTimer: number;
   impacts: RtImpact[];
   pulse: RtImpact[];
@@ -806,6 +808,7 @@ export class World implements SimApi {
         onTank: named.includes('onTank'),
         onWall: named.includes('onWall'),
         onApex: named.includes('onApex'),
+        onCommand: named.includes('onCommand'),
         onTimer,
         impacts: w.impact.map((imp) => this.bindImpact(imp, w.id)),
         pulse: w.pulse.map((imp) => this.bindImpact(imp, w.id)),
@@ -1331,6 +1334,25 @@ export class World implements SimApi {
    * (Telepathy) while the link holds (caster still alive). Inputs from this player move the active
    * tank, and the caster's bot plays it when the caster is a bot.
    */
+  /**
+   * Player who pressed fire again this tick to set off their shells in flight (`onCommand`), or
+   * -1. Set by an input and cleared once the shells have moved, so it is never part of the state.
+   */
+  private command = -1;
+
+  /**
+   * The player who may press fire now to set off a shell in flight (`onCommand` trigger), or -1:
+   * the controller while one of their such shells is in the air.
+   */
+  commandable(): number {
+    if (this.phase !== 'resolve') return -1;
+    const c = this.controller;
+    for (const p of this.projectiles) {
+      if (p.alive && p.owner === c && this.weapons[p.weapon]?.onCommand) return c;
+    }
+    return -1;
+  }
+
   get controller(): number {
     const p = this.activePlayer;
     const t = this.tanks[p];
@@ -1499,6 +1521,7 @@ export class World implements SimApi {
     this.weatherB?.onTick?.(this, this.weatherParams);
 
     this.stepProjectiles();
+    this.command = -1;
     if (this.birdsOn) {
       // the wind carries the birds a little (a quarter cell a tick in a strong wind)
       const drift = Math.max(-(FP >> 1), Math.min(FP >> 1, this.wind * 25));
@@ -1568,6 +1591,11 @@ export class World implements SimApi {
       if (input.type === 'ready') t.ready = true;
       else if (input.type === 'buyFuel') this.buyFuel(t, input.packs);
       else this.buy(t, input.item, input.packs);
+      return;
+    }
+    // fire again while the shot flies: shells that go off on command do (Cloud Whale)
+    if (input.type === 'fire' && this.phase === 'resolve') {
+      if (player === this.controller && t.bot < 0 && this.commandable() >= 0) this.command = player;
       return;
     }
     if (this.phase !== 'aim' || player !== this.controller || t.bot >= 0) return;
@@ -2360,6 +2388,8 @@ export class World implements SimApi {
         if (res === 'pulse') this.runImpacts(w.pulse, p, hit.x, hit.y);
       }
       if (w.onApex && pvy < 0 && p.vy >= 0) {
+        this.impactHere(p);
+      } else if (w.onCommand && this.command >= 0 && p.owner === this.command) {
         this.impactHere(p);
       } else if (w.onTimer > 0 && p.age >= w.onTimer) {
         this.impactHere(p);

@@ -1,0 +1,48 @@
+{
+  "id": "weapon.crystal-bloom",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal Bloom",
+    "description": "Plants a seed crystal that bursts into a fan of huge violet spires, growing up out of the ground in a second or two. Any tank in the way is skewered and lifted high on a spire's tip. The spires stay: lasers bounce off them, blasts shatter them into flying shards, and a spire dug out from under can snap off and topple.",
+    "since": "core@0.75.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 10,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 12
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.crystal-bloom"
+      },
+      "radius": 96,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 9000,
+    "pack": 1,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 50,
+    "terrainValue": 0
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

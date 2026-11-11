@@ -1,0 +1,57 @@
+{
+  "id": "weapon.cloud-whale-slam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cloud Whale slam",
+    "description": "The Cloud Whale hitting the ground nose first: a wide crater and a shockwave that throws tanks.",
+    "category": "submunition",
+    "since": "core@0.75.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 1
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 40,
+        "damage": 95,
+        "damageType": "shock",
+        "effects": {
+          "burst": {
+            "count": 60
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    },
+    {
+      "explosion": {
+        "use": "explosion.shockwave",
+        "radius": 90,
+        "damage": 20,
+        "effects": {
+          "burst": {
+            "count": 0
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}
