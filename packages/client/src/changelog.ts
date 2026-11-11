@@ -19,9 +19,17 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Supply drops, big money and weapons that really hurt',
-    pack: 'core@0.72.0 – 0.73.0',
+    title:
+      'Real damage for less money, weapons that really hurt, supply drops and big money matches',
+    pack: 'core@0.72.0 – 0.74.0',
+    newSince: 'core@0.73.0',
     items: [
+      'New weapon: Frag Shell, a sharp bang that bursts into white-hot shrapnel, so a near miss still hurts',
+      'New weapon: Hornet Swarm, pops at the top of its arc into five darts that each hunt the nearest enemy',
+      'New weapon: Concussion Shell, a small crater but a wide pressure blast that hits tanks twenty or thirty cells away',
+      'New weapon: Tandem Charge, a first charge knocks shields flat and cracks the ground, the main charge goes off in the hole',
+      'New weapon: Buzzsaw, lands and saws along the ground the way it was fired, cutting through small hills, and bites into the tank it meets',
+      'Harder hitting for their price: Smart Bomb, Laser, Roller, Heat Seeker (now cheaper too), Lightning, Drill Torpedo, Railgun and Heavy Laser all do clearly more than a plain Missile now',
       'Supply drops: every few turns a wooden crate parachutes in somewhere away from the tank whose turn it is, with a weapon, gear, health, fuel or cash inside. Its badge shows which kind',
       'Any tank that touches a crate takes it: drive to it, fall onto it, or use Teleport Shell, Swap Ray or Portal Pair to get there first',
       'Crates are real objects: they swing under the canopy and drift with the wind, tip over edges and tumble down slopes, float on water and burn in fire',
