@@ -10,7 +10,7 @@
   },
   "triggers": ["onCommand", "onSolid", "onTank"],
   "shop": {
-    "price": 7000,
+    "price": 6000,
     "pack": 2,
     "tier": 2
   },

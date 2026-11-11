@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 60,
-        "damage": 5,
+        "damage": 35,
         "damageType": "shock",
         "terrainOp": {
           "use": "terrainop.liquefy"

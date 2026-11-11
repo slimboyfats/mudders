@@ -1,0 +1,57 @@
+{
+  "id": "weapon.airburst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Airburst",
+    "description": "A flak shell you set off yourself: press DROP! and it bursts in mid-air in a wide ring of shrapnel and pressure. Barely marks the ground, but hits tanks hiding behind walls and in trenches from above. Never pressed, it goes off where it lands.",
+    "category": "explosive",
+    "since": "core@0.77.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onCommand", "onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 46,
+        "damage": 80,
+        "damageType": "shock",
+        "terrainOp": null,
+        "effects": {
+          "flash": {
+            "strength": 1.1
+          },
+          "burst": {
+            "count": 60
+          },
+          "shake": {
+            "strength": 3
+          },
+          "ripple": {
+            "strength": 0.8
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.frag-shard",
+        "count": 10,
+        "inherit": 0.2,
+        "spread": 6.28,
+        "jitter": 0.6
+      }
+    }
+  ],
+  "shop": {
+    "price": 4500,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 55,
+    "terrainValue": 0.05
+  }
+}

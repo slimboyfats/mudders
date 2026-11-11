@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Decoy Tank",
-    "description": "Lob it where you want the enemy to look. It lands softly and unfolds into a dummy tank in your colours. Bots can't tell it from the real thing and shoot at it, and homing warheads (Heat Seeker, Smart Bomb, V3 Rocket, Plasma Orb) lock on to it first. It soaks 50 damage, then pops in a burst of scrap.",
+    "description": "Lob it where you want the enemy to look. It lands softly and unfolds into a dummy tank in your colours. Bots can't tell it from the real thing and shoot at it, and homing warheads (Heat Seeker, V3 Rocket, Plasma Orb) lock on to it first. It soaks 50 damage, then pops in a burst of scrap.",
     "category": "guided",
     "since": "core@0.59.0"
   },

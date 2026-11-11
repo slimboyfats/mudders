@@ -1,0 +1,43 @@
+{
+  "id": "weapon.tunnel-rat",
+  "schemaVersion": 1,
+  "extends": "weapon.digger",
+  "meta": {
+    "name": "Tunnel Rat",
+    "description": "A digging charge that keeps boring along its flight line until you press DROP!, then blows up right where it is: under a bunker, below a tank on a ledge, or deep in a hill to cave it in. Left alone it goes off at the end of its tunnel.",
+    "category": "digger",
+    "since": "core@0.77.0"
+  },
+  "flight": {
+    "use": "flight.digger",
+    "length": 110
+  },
+  "triggers": ["onCommand", "onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 26,
+        "damage": 80,
+        "damageType": "blast",
+        "effects": {
+          "burst": {
+            "count": 40
+          },
+          "shake": {
+            "strength": 3
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 45,
+    "terrainValue": 0.7
+  }
+}
