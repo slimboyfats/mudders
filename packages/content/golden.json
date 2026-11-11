@@ -1,5 +1,5 @@
 {
-  "contentHash": "37b2d0b56a4d0448",
+  "contentHash": "00bae94cbd58006c",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 488,
@@ -850,8 +850,8 @@
       "hash": "1bb5f0948dca0895"
     },
     "showcase.death-zone": {
-      "ticks": 817,
-      "hash": "a751bb61f45e89ec"
+      "ticks": 703,
+      "hash": "6d596677c32122cb"
     },
     "showcase.gusty-wind": {
       "ticks": 747,
@@ -888,6 +888,10 @@
     "showcase.tree-sway": {
       "ticks": 300,
       "hash": "765c7728214cebf7"
+    },
+    "showcase.wall-absorb": {
+      "ticks": 900,
+      "hash": "b1a546c670ebf369"
     },
     "structure.ice-shelf": {
       "ticks": 752,

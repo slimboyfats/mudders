@@ -2032,6 +2032,10 @@ export class World implements SimApi {
           return { x: p.x < 0 ? 0 : this.grid.width - 1, y, tank: -1, ticks: i, landed: false };
         }
       }
+      if (this.intoZone(px, p.x) >= 0) {
+        const y = Math.floor(p.y / FP);
+        return { x: Math.floor(p.x / FP), y, tank: -1, ticks: i, landed: false };
+      }
       if (sig !== 'skip' && this.trace(px, py, p, w)) {
         // Contact handlers only move the shell (no rng, no world changes), so they are safe here.
         const res = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
@@ -2049,6 +2053,32 @@ export class World implements SimApi {
       ticks: max,
       landed: false,
     };
+  }
+
+  /**
+   * Which side's sudden-death wall a shell moving from `px` to `x` (fixed point) flew into: 0 the
+   * left, 1 the right, -1 neither. Only crossing the face counts, so a shell fired from inside
+   * the zone flies on.
+   */
+  private intoZone(px: number, x: number): number {
+    const e = this.edge * FP;
+    if (e <= 0) return -1;
+    const R = this.grid.width * FP - e;
+    if (px >= e && x < e) return 0;
+    if (px < R && x >= R) return 1;
+    return -1;
+  }
+
+  /** The wall swallows the shell whole: no blast, just an event for the renderer's splash. */
+  private absorb(p: Projectile, side: number, y: number): void {
+    p.alive = false;
+    const x = side === 0 ? this.edge : this.grid.width - this.edge;
+    this.emit('wallAbsorb', x, y, 0, {
+      side,
+      vx: Math.trunc((p.vx * 1000) / FP),
+      vy: Math.trunc((p.vy * 1000) / FP),
+      weapon: p.weapon,
+    });
   }
 
   private tankAt(cx: number, cy: number, p: Projectile): number {
@@ -2143,7 +2173,7 @@ export class World implements SimApi {
           continue;
         }
         if (this.walls === 'absorb') {
-          p.alive = false;
+          this.absorb(p, p.x < 0 ? 0 : 1, wy);
           continue;
         }
         if (this.walls === 'bounce') {
@@ -2153,6 +2183,13 @@ export class World implements SimApi {
           p.x = ((p.x % W) + W) % W;
           px = p.x;
         }
+      }
+
+      // the sudden-death wall swallows a shell flying into its face (kernel 0.38.0)
+      const side = this.intoZone(px, p.x);
+      if (side >= 0) {
+        this.absorb(p, side, Math.floor(p.y / FP));
+        continue;
       }
 
       // a shell flying through an armed tripwire sets it off and goes off with it

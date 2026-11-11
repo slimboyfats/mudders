@@ -1,0 +1,78 @@
+{
+  "id": "showcase.wall-absorb",
+  "schemaVersion": 1,
+  "description": "Missiles fired into both edge walls: each wall swallows its shell with a splash and a rebound jet, rings run over the whole wall and the shell sinks in and cools, no blast.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 480,
+    "height": 240,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 330
+    },
+    {
+      "x": 120
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 20,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 145,
+        "power": 380
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}
