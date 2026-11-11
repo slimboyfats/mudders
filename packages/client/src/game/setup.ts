@@ -70,6 +70,8 @@ export interface MatchSetup {
   /** Each player's turn sudden death starts on (§3.1); unset = the mode's default (turn 8). */
   suddenDeathFrom?: number | undefined;
   startingCash: number;
+  /** Supply drops (§3.8): how often crates parachute in; unset (older saves, older hosts) = off. */
+  drops?: DropRate | undefined;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
@@ -92,6 +94,10 @@ export function defaultTeams(n: number): number[] {
 }
 
 export const WEATHER_PICKS = ['clear', 'rain', 'snow', 'random'] as const;
+
+/** Supply drop rates for the rules picker. */
+export const DROP_RATES = ['off', 'rare', 'normal', 'often'] as const;
+export type DropRate = (typeof DROP_RATES)[number];
 export type WeatherPick = (typeof WEATHER_PICKS)[number];
 
 /** The `weather.*` id a pick plays with (random: drawn from the seed, so every peer agrees). */
@@ -120,6 +126,7 @@ export function defaultSetup(): MatchSetup {
     suddenDeath: true,
     suddenDeathFrom: SUDDEN_DEATH_DEFAULT,
     startingCash: 3000,
+    drops: 'normal',
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -133,6 +140,7 @@ export function loadSetup(): MatchSetup {
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
       if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
       if (!s.weather || !WEATHER_PICKS.includes(s.weather)) s.weather = 'clear';
+      if (!s.drops || !DROP_RATES.includes(s.drops)) s.drops = 'normal';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
       const tanks: unknown = s.tanks;
       s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
@@ -210,6 +218,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     openingShop: true,
     // swallow flocks over every map (a shell that hits one goes off there)
     birds: true,
+    ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
   };
   return {
     seed,

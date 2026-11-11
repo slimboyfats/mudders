@@ -30,6 +30,7 @@ import {
   AI_FUEL,
   type AiApi,
   type AiBehaviour,
+  type AiDropView,
   type AiGearView,
   type AiSpot,
   type AiShopApi,
@@ -60,12 +61,13 @@ import { Hasher } from './hash';
 import { MaterialTable, damageTypeIndex } from './materials';
 import { Prng } from './prng';
 import { Flocks, type BirdWorld } from './birds';
+import { DROP_CHUTE, DROP_FREE, DROP_REST, DROP_SIZE, Drops, type DropWorld } from './drops';
 import { Scratch } from './scratch';
 import { supportPass } from './support';
 import { settleStep } from './settle';
 import { reactStep, roll, turnDecay } from './reactions';
 import { gasStep } from './gas';
-import { KEEP, SETTLE_FLOW } from './materials';
+import { KEEP, SETTLE_FLOW, SETTLE_GAS } from './materials';
 
 /**
  * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
@@ -111,6 +113,29 @@ export interface MatchRules {
    * them apart. Off unless set, so scenarios and tests keep their results.
    */
   birds?: boolean | undefined;
+  /**
+   * Supply drops (§3.8, kernel 0.40.0): crates under parachutes, every few turns from the mode's
+   * `drops` (Rare: half as often, Often: twice). Off unless set.
+   */
+  drops?: 'off' | 'rare' | 'normal' | 'often' | undefined;
+}
+
+/** A pickup a tank made, for the HUD (not part of the state). */
+export interface DropPickup {
+  tick: number;
+  player: number;
+  kind: 'weapon' | 'gear' | 'health' | 'fuel' | 'cash';
+  /** Weapon or gear index (-1 for the others). */
+  item: number;
+  amount: number;
+}
+
+/** A loot entry bound to weapon/gear indices. */
+interface RtLoot {
+  kind: DropPickup['kind'];
+  item: number;
+  amount: number;
+  weight: number;
 }
 
 export interface RoundResult {
@@ -131,6 +156,8 @@ export interface WorldOptions {
   map?:
     | { generator?: string | undefined; width?: number | undefined; height?: number | undefined }
     | undefined;
+  /** Crates dropped at fixed ticks and columns (showcases); needs `rules.drops` on. */
+  dropAt?: readonly { t: number; x: number; loot?: number | undefined }[] | undefined;
   /** Force tank columns instead of the generator's spawns. */
   tankColumns?: readonly number[] | undefined;
   /** Per-player overrides (scenarios, sandbox): starting health and inventory by weapon id. */
@@ -554,6 +581,47 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Supply crates (see `drops.ts`); only stepped and hashed while `dropsOn`. */
+  readonly drops = new Drops();
+  private readonly dropsOn: boolean;
+  /** Turns between drops (the mode's `every`, scaled by the rule). */
+  private readonly dropEvery: number;
+  private readonly dropLoot: RtLoot[] = [];
+  private readonly dropCell: number;
+  private dropForced = 0;
+  /** The last pickup (HUD toast); not hashed. */
+  lastPickup: DropPickup | null = null;
+  private readonly dropWorld: DropWorld = ((w: World): DropWorld => {
+    const solidAt = (x: number, y: number): boolean => {
+      if (x < 0 || x >= w.grid.width || y >= w.grid.height) return true;
+      if (y < 0) return false;
+      const m = w.grid.material[y * w.grid.width + x]!;
+      if (m === 0) return false;
+      const k = w.mats.settle[m]!;
+      return k !== SETTLE_FLOW && k !== SETTLE_GAS;
+    };
+    return {
+      get width() {
+        return w.grid.width;
+      },
+      get height() {
+        return w.grid.height;
+      },
+      solid: solidAt,
+      liquid: (x, y) => {
+        if (x < 0 || y < 0 || x >= w.grid.width || y >= w.grid.height) return false;
+        return w.mats.settle[w.grid.material[y * w.grid.width + x]!] === SETTLE_FLOW;
+      },
+      hot: (x, y) => {
+        if (x < 0 || y < 0 || x >= w.grid.width || y >= w.grid.height) return false;
+        return w.mats.hot[w.grid.material[y * w.grid.width + x]!] !== 0;
+      },
+      emit: (type, x, y, radius, params) => {
+        w.emit(type, x, y, radius, params);
+        if (type === 'dropBreak') w.splinter(x, y, params?.vx ?? 0, params?.vy ?? 0);
+      },
+    };
+  })(this);
   private readonly birdWorld: BirdWorld = ((w: World): BirdWorld => ({
     get width() {
       return w.grid.width;
@@ -754,6 +822,28 @@ export class World implements SimApi {
       });
     }
     this.deathExplosion = this.bindExplosion(mode.deathExplosion);
+    // supply drops (§3.8): the mode's loot table, bound to weapon and gear indices
+    const dr = mode.drops;
+    this.dropsOn = dr !== null && rules.drops !== undefined && rules.drops !== 'off';
+    this.dropEvery = !dr
+      ? 0
+      : rules.drops === 'rare'
+        ? dr.every * 2
+        : rules.drops === 'often'
+          ? Math.max(1, dr.every >> 1)
+          : dr.every;
+    this.dropCell = dr ? this.mats.cellOf(dr.debris) : 0;
+    for (const l of dr?.loot ?? []) {
+      let item = -1;
+      if (l.kind === 'weapon' || l.kind === 'gear') {
+        const table = l.kind === 'weapon' ? this.weaponIndex : this.gearIndex;
+        if (!l.item || !Object.hasOwn(table, l.item)) {
+          throw new Error(`${mode.id}: drop loot ${l.item ?? '(none)'} is not a loaded ${l.kind}`);
+        }
+        item = table[l.item]!;
+      }
+      this.dropLoot.push({ kind: l.kind, item, amount: l.amount, weight: l.weight });
+    }
     for (let c = 1; c < 256; c++) {
       const id = this.mats.burstWeapon[c]!;
       if (id === '') continue;
@@ -1192,6 +1282,8 @@ export class World implements SimApi {
     this.turnPos = 0;
     this.turn = 0;
     if (this.birdsOn) this.birds.reset(this.birdWorld, this.options.seed, this.round, this.tick);
+    if (this.dropsOn) this.drops.reset(this.options.seed, this.round, this.mode.drops!.first);
+    this.lastPickup = null;
     if (firstTurn) this.beginTurn();
   }
 
@@ -1299,6 +1391,7 @@ export class World implements SimApi {
       this.debris.count === 0 &&
       !this.groups.toppling &&
       this.pendingDeaths.length === 0 &&
+      !(this.dropsOn && this.drops.moving) &&
       !this.tanks.some((t) => t.falling || (t.alive && t.glue === 0 && this.slipDir(t) !== 0))
     );
   }
@@ -1427,6 +1520,7 @@ export class World implements SimApi {
     this.stepTanks();
     if (this.lures.length > 0) this.stepLures();
     if (this.mines.length > 0) this.stepMines();
+    if (this.dropsOn) this.stepDrops();
 
     if (this.phase === 'resolve' && this.shotSettled()) {
       // Contact damage (lava, napalm) once the shot has settled; deaths may need resolving first.
@@ -1904,7 +1998,24 @@ export class World implements SimApi {
       memory: charmed ? [] : t.aiMem,
       angle: t.angle,
       power: t.power,
+      ...(this.dropsOn && this.drops.count > 0 ? { drops: this.dropViews() } : {}),
     };
+  }
+
+  /** Crates on the map, for bots. */
+  private dropViews(): AiDropView[] {
+    const d = this.drops;
+    const out: AiDropView[] = [];
+    for (let i = 0; i < d.state.length; i++) {
+      if (d.state[i] === DROP_FREE) continue;
+      out.push({
+        x: Math.floor(d.x[i]! / FP),
+        y: Math.floor(d.y[i]! / FP) + (DROP_SIZE >> 1),
+        look: this.dropLoot[d.loot[i]!]?.kind ?? 'weapon',
+        resting: d.state[i] === DROP_REST,
+      });
+    }
+    return out;
   }
 
   /** What gear a tank carries, for its bot (§5.1). */
@@ -2203,6 +2314,17 @@ export class World implements SimApi {
           const by = Math.max(0, Math.min(H - 1, Math.floor(this.birds.y[b]! / FP)));
           this.birds.hit(this.birdWorld, b, p.vx, p.vy);
           this.impact(p, bx, by);
+          continue;
+        }
+      }
+
+      // a shell that flies into a supply crate goes off on it; through the canopy, it tears it
+      if (this.dropsOn && sig !== 'skip' && w.onSolid && this.drops.count > 0) {
+        const d = this.drops.catchShell(this.dropWorld, px, py, p.x, p.y);
+        if (d >= 0) {
+          const dx = Math.max(0, Math.min(this.grid.width - 1, Math.floor(this.drops.x[d]! / FP)));
+          const dy = Math.max(0, Math.min(H - 1, Math.floor(this.drops.y[d]! / FP)));
+          this.impact(p, dx, dy);
           continue;
         }
       }
@@ -3293,6 +3415,10 @@ export class World implements SimApi {
       }
     }
     if (e.damage > 0 && this.mines.length > 0) this.tripMines(x, y, e.radius);
+    if (this.dropsOn && this.drops.count > 0) {
+      const reach = Math.max(e.radius + (e.radius >> 1), e.pressure, e.push > 0 ? e.radius * 2 : 0);
+      this.drops.blast(this.dropWorld, x, y, e.radius, reach, Math.trunc(e.damage * scale));
+    }
   }
 
   /**
@@ -3840,6 +3966,157 @@ export class World implements SimApi {
     }
   }
 
+  // ── supply drops (§3.8) ─────────────────────────────────────────────────────────────────
+
+  /** At a turn's start: when the countdown runs out a crate comes down somewhere awkward. */
+  private turnDrop(): void {
+    const d = this.drops;
+    if (d.wait > 0) {
+      d.wait--;
+      return;
+    }
+    const cfg = this.mode.drops!;
+    // a turn later or earlier now and then, so drops can't be counted to the turn
+    d.wait = Math.max(0, this.dropEvery - 1 + d.rng.range(-1, 1));
+    if (d.count >= cfg.max) return;
+    const col = this.dropColumn();
+    if (col >= 0) this.spawnDrop(col, -1);
+  }
+
+  /**
+   * A column for the next crate: of a few drawn at random (clear of the edges and any sudden-death
+   * zone, `avoid` cells from the tank whose turn it is), the one farthest from its nearest tank, so
+   * it lands in no one's lap and someone has to go out of their way for it.
+   */
+  private dropColumn(): number {
+    const cfg = this.mode.drops!;
+    const d = this.drops;
+    const W = this.grid.width;
+    const lo = Math.max(DROP_SIZE, cfg.margin, this.edge + DROP_SIZE);
+    const hi = Math.min(W - DROP_SIZE, W - cfg.margin, W - this.edge - DROP_SIZE);
+    if (hi <= lo) return -1;
+    const active = this.tanks[this.activePlayer];
+    let best = -1;
+    let bestScore = -1;
+    for (let k = 0; k < 5; k++) {
+      const x = lo + d.rng.int(hi - lo);
+      if (active?.alive && Math.abs(active.x - x) < cfg.avoid) continue;
+      if (d.startRow(this.dropWorld, x) < 0) continue;
+      let near = W;
+      for (const t of this.tanks) if (t.alive) near = Math.min(near, Math.abs(t.x - x));
+      if (near > bestScore) {
+        bestScore = near;
+        best = x;
+      }
+    }
+    return best;
+  }
+
+  /** Drop a crate over column `x` with loot entry `loot` (-1 = drawn by weight). */
+  private spawnDrop(x: number, loot: number): void {
+    const d = this.drops;
+    let pick = loot;
+    if (pick < 0 || pick >= this.dropLoot.length) {
+      let total = 0;
+      for (const l of this.dropLoot) total += l.weight;
+      let r = d.rng.int(total);
+      pick = 0;
+      while (pick < this.dropLoot.length - 1 && r >= this.dropLoot[pick]!.weight) {
+        r -= this.dropLoot[pick]!.weight;
+        pick++;
+      }
+    }
+    d.spawn(this.dropWorld, x, pick, this.mode.drops!.hp);
+  }
+
+  private stepDrops(): void {
+    const d = this.drops;
+    const forced = this.options.dropAt;
+    if (forced) {
+      while (this.dropForced < forced.length && forced[this.dropForced]!.t <= this.tick) {
+        const f = forced[this.dropForced++]!;
+        this.spawnDrop(f.x, f.loot ?? -1);
+      }
+    }
+    if (d.count === 0) return;
+    d.step(
+      this.dropWorld,
+      { fall: toFixed(this.mode.drops!.fall), gravity: this.gravity, hp: this.mode.drops!.hp },
+      this.wind,
+      this.tick,
+    );
+    // a tank that touches a crate takes it: driving into it, landing on it, warping next to it
+    for (const t of this.tanks) {
+      if (!t.alive) continue;
+      // a hand's reach round the hull, and a little below its tracks (a crate in a dip)
+      const i = d.touching(t.x - t.half - 2, t.y - t.h, t.x + t.half + 2, t.y + 5);
+      if (i >= 0) this.takeDrop(t, i);
+    }
+  }
+
+  private takeDrop(t: Tank, i: number): void {
+    const d = this.drops;
+    const l = this.dropLoot[d.loot[i]!]!;
+    const x = Math.floor(d.x[i]! / FP);
+    const y = Math.floor(d.y[i]! / FP);
+    d.take(i);
+    let amount = l.amount;
+    if (l.kind === 'weapon') {
+      const have = t.inventory[l.item] ?? 0;
+      if (have >= 0) t.inventory[l.item] = have + amount;
+    } else if (l.kind === 'gear') {
+      const g = this.gear[l.item]!;
+      const have = t.gear[l.item] ?? 0;
+      // a full hold takes what fits; the rest is worth its price in cash
+      const fits = Math.max(0, Math.min(amount, g.max - have));
+      t.gear[l.item] = have + fits;
+      if (fits < amount) t.money += Math.trunc(((amount - fits) * g.price) / Math.max(1, g.pack));
+    } else if (l.kind === 'health') {
+      const was = t.health;
+      t.health = Math.min(t.maxHealth, t.health + amount);
+      amount = t.health - was;
+    } else if (l.kind === 'fuel') {
+      const was = t.fuel;
+      t.fuel = Math.min(this.mode.drive.fuelMax, t.fuel + amount);
+      amount = t.fuel - was;
+    } else {
+      t.money += amount;
+    }
+    this.lastPickup = { tick: this.tick, player: t.player, kind: l.kind, item: l.item, amount };
+    this.emit('dropPickup', x, y, DROP_SIZE >> 1, {
+      id: d.id[i]!,
+      player: t.player,
+      loot: d.loot[i]!,
+      look: ['weapon', 'gear', 'health', 'fuel', 'cash'].indexOf(l.kind),
+      amount,
+      tx: t.x,
+      ty: t.y - (t.h >> 1),
+    });
+  }
+
+  /** A smashed crate: its planks fly apart as real grains of wood that land as splinters. */
+  private splinter(cx: number, cy: number, vx100: number, vy100: number): void {
+    if (this.dropCell === 0) return;
+    const d = this.drops;
+    const half = DROP_SIZE >> 1;
+    for (let k = 0; k < 14; k++) {
+      const ox = d.rng.range(-half, half - 1);
+      const oy = d.rng.range(-half, half - 1);
+      const vx = Math.trunc((vx100 * FP) / 100) + ox * (FP >> 3) + d.rng.range(-FP >> 2, FP >> 2);
+      const vy = Math.trunc((vy100 * FP) / 100) - FP + oy * (FP >> 4) - d.rng.int(FP);
+      this.debris.spawn(
+        (cx + ox) * FP + (FP >> 1),
+        (cy + oy) * FP + (FP >> 1),
+        vx,
+        vy,
+        this.dropCell,
+        0,
+        0,
+        0,
+      );
+    }
+  }
+
   /** Index of the live decoy covering cell (cx, cy), or -1. */
   private lureAt(cx: number, cy: number): number {
     for (let i = 0; i < this.lures.length; i++) {
@@ -3941,6 +4218,7 @@ export class World implements SimApi {
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
     this.weatherB?.onTurnStart?.(this, this.weatherParams);
     if (this.suddenDeathActive) this.growZone();
+    if (this.dropsOn) this.turnDrop();
     const t = this.tanks[this.activePlayer];
     if (t?.alive && this.suddenDeath && this.inDeathZone(t)) {
       // the wasteland eats at a tank that starts its turn inside it; no one gets the credit
@@ -4320,6 +4598,23 @@ export class World implements SimApi {
         ...(m.wireH > 0 ? { wire: { x2: m.x2, y2: m.y2, height: m.wireH } } : {}),
       });
     }
+    if (this.dropsOn) {
+      const d = this.drops;
+      for (let i = 0; i < d.state.length; i++) {
+        if (d.state[i] === DROP_FREE) continue;
+        entities.push({
+          kind: 'drop',
+          id: d.id[i]!,
+          x: d.x[i]! / FP,
+          y: d.y[i]! / FP,
+          angle: d.ang[i]! / 10,
+          look: this.dropLoot[d.loot[i]!]?.kind ?? 'weapon',
+          ...(d.state[i] === DROP_CHUTE ? { chute: d.ax[i]! / FP } : {}),
+          hp: d.hp[i]!,
+          maxHp: this.mode.drops?.hp ?? 1,
+        });
+      }
+    }
     const effectEvents = this.effects;
     this.effects = [];
     return {
@@ -4447,6 +4742,7 @@ export class World implements SimApi {
     }
     // swallows (kernel 0.35.0): only hashed in matches that have them
     if (this.birdsOn) this.birds.hash(h);
+    if (this.dropsOn) this.drops.hash(h.num(this.dropForced));
     const d = this.debris;
     h.num(d.count);
     for (let i = 0; i < d.count; i++) {

@@ -1,0 +1,39 @@
+{
+  "id": "audio.crate-break",
+  "schemaVersion": 1,
+  "description": "Crate Break: crates parachute in over the hills with supply drops on, so the sound plays on dropBreak.",
+  "subject": "audio.crate-break",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "rules": {
+    "drops": "normal",
+    "turnTimer": 0
+  },
+  "drops": [
+    {
+      "t": 1,
+      "x": 400
+    }
+  ]
+}

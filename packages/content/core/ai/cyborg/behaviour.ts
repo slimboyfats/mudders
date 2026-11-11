@@ -1,6 +1,7 @@
 import { z } from '@mudders/shared';
 import { defineAi, type AiApi, type AiTankView } from '@mudders/sim';
 import {
+  dropInReach,
   buyByValue,
   enemies,
   me,
@@ -62,6 +63,8 @@ export default defineAi<z.infer<typeof params>>({
   version: 3,
   params,
   move(api, p) {
+    const crate = dropInReach(api, 0);
+    if (crate >= 0) return crate;
     const best = ranked(api, 1)[0] ?? api.weapons[0]!;
     return moveForShot(api, prey(api), [best.index], p.angles.slice(0, 4), p.step, 0, 3);
   },

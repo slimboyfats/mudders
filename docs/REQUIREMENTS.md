@@ -261,6 +261,15 @@ AI decisions run inside the deterministic simulation so all peers compute the sa
 
 ---
 
+### 3.8 Supply drops
+
+A match rule (Off / Rare / Normal / Often; Normal by default) drops wooden crates under parachutes during a round, so moving matters and mobility weapons (Teleport Shell, Swap Ray, Portal Pair, driving) have something to go for. The mode's `drops` block sets the pace (a crate every `every` turns, half or twice as often for Rare and Often, a turn either way at random), how many lie on the map at once, the crate's hit points and the weighted loot table (a weapon or gear item, health, fuel or cash).
+
+- **Where**: over open sky, clear of the map edges and any sudden-death zone, at least `avoid` cells from the tank whose turn it is; of a few random columns the one farthest from its nearest tank, so it lands in no one's lap.
+- **A real object** (kernel, deterministic, own PRNG so drops off keeps every result): it swings under its canopy and drifts with the wind, lands and lets go of the canopy, tips over an edge and tumbles down a slope a quarter turn at a time (only ever downhill), floats on water, burns in fire. Blasts throw and spin it and a close one smashes it into wood grains; a hard landing hurts it; a shell flying into the crate goes off on it, a shell through the canopy tears it and the crate drops free.
+- **Pickup**: any tank whose hull touches a crate takes it, whenever that happens (driving, falling, teleporting). A full gear hold turns the extra into its price in cash. The HUD names what was found; the crate's badge colour tells the kind of loot before that.
+- **Bots** drive to a resting crate when one is within their reach this turn.
+
 ## 4. Terrain ("particle-based maps")
 
 ### 4.1 Representation

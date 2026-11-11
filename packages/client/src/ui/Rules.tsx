@@ -130,6 +130,18 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Supply drops
+        <select
+          value={value.drops ?? 'off'}
+          onChange={(e) => onChange({ drops: e.target.value as MatchSetup['drops'] })}
+        >
+          <option value="off">Off</option>
+          <option value="rare">Rare</option>
+          <option value="normal">Normal</option>
+          <option value="often">Often</option>
+        </select>
+      </label>
+      <label>
         Sudden death
         <select
           value={value.suddenDeath ? String(value.suddenDeathFrom ?? SUDDEN_DEATH_DEFAULT) : 'off'}

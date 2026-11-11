@@ -18,6 +18,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-11',
+    title: 'Supply drops',
+    pack: 'core@0.72.0',
+    items: [
+      'Supply drops: every few turns a wooden crate parachutes in somewhere away from the tank whose turn it is, with a weapon, gear, health, fuel or cash inside. Its badge shows which kind',
+      'Any tank that touches a crate takes it: drive to it, fall onto it, or use Teleport Shell, Swap Ray or Portal Pair to get there first',
+      'Crates are real objects: they swing under the canopy and drift with the wind, tip over edges and tumble down slopes, float on water and burn in fire',
+      'Blasts throw crates about and a close one smashes them to splinters; a shell through the canopy drops the crate like a stone, so you can deny one to your enemy',
+      'Bots drive to a crate when one lies within reach',
+      'New Rules option: Supply drops Off, Rare, Normal or Often (Normal by default, works online too)',
+    ],
+  },
+  {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
     pack: 'core@0.61.0 – 0.71.0',
