@@ -18,6 +18,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-12',
+    title: 'DROP! weapons: you decide in mid-air',
+    pack: 'core@0.76.0',
+    newSince: 'core@0.75.0',
+    items: [
+      'New: some shells have a second press. After firing, the FIRE button turns into a flashing DROP! (or press Space/Enter) and the shell does its trick right where it is',
+      'New weapon: Anvil, stops dead in the air and drops straight down like a stone',
+      'New weapon: Split Now, a MIRV that splits into five warheads the moment you press',
+      'New weapon: Afterburner, lights a rocket in mid-air and blasts off twice as fast',
+      'New weapon: Boomerang, a spinning blade that turns round and flies back when you press',
+      'New weapon: Storm Seed, bursts into a thundercloud right there that cracks lightning down for three turns',
+      'New weapon: Blink, your own tank jumps to the ground under the shell when you press',
+      'New weapon: Flock Call, six black birds burst out of the shell and dive-bomb the nearest enemies',
+      'Cloud Whale now condenses out of a swirl of vapour and swells to full size before it drops',
+      'Crystal Bloom spires are about twice as thick',
+    ],
+  },
+  {
     date: '2026-11-11',
     title:
       'Real damage for less money, weapons that really hurt, supply drops, big money matches and weird weapons',

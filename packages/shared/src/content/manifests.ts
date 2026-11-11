@@ -705,6 +705,7 @@ export const WeaponSchema = z.strictObject({
           'shard',
           'hornet',
           'saw',
+          'bird',
         ])
         .default('spark'),
       trail: z.boolean().default(true),

@@ -1,0 +1,45 @@
+{
+  "id": "weapon.boomerang-return",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Boomerang return",
+    "description": "The Boomerang on its way back: a spinning blade that bites into what it hits.",
+    "category": "submunition",
+    "since": "core@0.76.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 14,
+        "damage": 62,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 22
+          },
+          "shake": {
+            "strength": 1.5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "saw",
+    "trail": true
+  }
+}

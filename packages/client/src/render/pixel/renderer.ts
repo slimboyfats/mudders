@@ -481,6 +481,8 @@ export class PixelRenderer implements Renderer {
   /** Canopies left behind by supply crates (see `drops.ts`). */
   private readonly dropFx = new DropFx();
   private trails: Trail[] = [];
+  /** Flock Call birds: last position and facing per shell id. */
+  private readonly birdFace = new Map<number, { x: number; f: number }>();
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
   /** Per ripple slot: twist in radians at the centre for a swirl lens (0 = a ring wave). */
@@ -2405,7 +2407,7 @@ export class PixelRenderer implements Renderer {
     this.fx.drawKaijus(this.normal, this.additive, t);
     this.fx.drawPortals(this.normal, t);
     this.fx.drawUpfalls(this.additive, t);
-    this.fx.drawWhales(this.normal, t);
+    this.fx.drawWhales(this.normal, this.additive, t);
     this.drawDebris();
     this.fx.drawChunks(this.normal);
     this.drawMines(t);
@@ -3518,6 +3520,10 @@ export class PixelRenderer implements Renderer {
         this.drawSaw(e.id, e.x, e.y);
         continue;
       }
+      if (look?.shell === 'bird') {
+        this.drawBird(e.id, e.x, e.y);
+        continue;
+      }
       if (look?.shell === 'rail') {
         // a railgun slug: a white-hot cell in a cyan glint that flickers between a bar and a plus
         const x = Math.floor(e.x) + 0.5;
@@ -3615,6 +3621,36 @@ export class PixelRenderer implements Renderer {
    * a pale wing cell that flicks from side to side every tick (the buzz) and a hot exhaust cell
    * behind. The heading comes from the shell's trail (last position), so nothing is stored here.
    */
+  /**
+   * A Flock Call bird: a black swallow-ish silhouette facing where it flies, its wings beating
+   * between up, level and down in hard frames, a pale cell of beak at the front.
+   */
+  private drawBird(id: number, ex: number, ey: number): void {
+    // which way it faces: from where it was last frame (birds draw no trail to read it from)
+    const was = this.birdFace.get(id);
+    let f = was?.f ?? 1;
+    if (was && Math.abs(ex - was.x) > 0.05) f = ex > was.x ? 1 : -1;
+    if (this.birdFace.size > 64) this.birdFace.clear();
+    this.birdFace.set(id, { x: ex, f });
+    const x = Math.floor(ex) + 0.5;
+    const y = Math.floor(ey) + 0.5;
+    const b = this.normal;
+    const ink = 0x101018;
+    // body: three cells, a forked tail
+    b.push(x, y, 1, 1, ink, 1);
+    b.push(x - f, y, 1, 1, ink, 1);
+    b.push(x + f, y, 1, 1, ink, 1);
+    b.push(x + 2 * f, y, 1, 1, 0xd8c890, 1);
+    b.push(x - 2 * f, y - 1, 1, 1, ink, 1);
+    b.push(x - 2 * f, y + 1, 1, 1, ink, 1);
+    // wings: up, level, down
+    const k = ((this.fxTick + id * 3) >> 2) % 4;
+    const wy = k === 0 ? -2 : k === 1 || k === 3 ? -1 : 1;
+    b.push(x, y + wy, 1, 1, ink, 1);
+    b.push(x - f, y + wy + (wy < 0 ? -1 : 1), 1, 1, ink, 1);
+    if (k === 0) b.push(x + f, y - 1, 1, 1, ink, 1);
+  }
+
   private drawHornet(id: number, ex: number, ey: number): void {
     const tr = this.trails.find((t) => t.id === id);
     let dx = tr && !Number.isNaN(tr.lx) ? ex - tr.lx : 0;

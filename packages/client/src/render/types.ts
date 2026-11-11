@@ -68,7 +68,8 @@ export interface ShellLook {
     | 'vapor'
     | 'shard'
     | 'hornet'
-    | 'saw';
+    | 'saw'
+    | 'bird';
   trail: boolean;
   /** Scale of a meteor head and streak. */
   size?: number;

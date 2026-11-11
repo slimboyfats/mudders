@@ -1,0 +1,49 @@
+{
+  "id": "weapon.flock-bird",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Flock bird",
+    "description": "One bird of a Flock Call: it hunts the nearest enemy tank and dives into it.",
+    "category": "submunition",
+    "since": "core@0.76.0"
+  },
+  "flight": {
+    "use": "flight.homing",
+    "armTicks": 14,
+    "accel": 0.16,
+    "range": 320,
+    "maxSpeed": 3.4,
+    "gravityScale": 0.15
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 9,
+        "damage": 20,
+        "effects": {
+          "burst": {
+            "count": 12
+          },
+          "shake": {
+            "strength": 0.8
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "bird",
+    "trail": false
+  }
+}
