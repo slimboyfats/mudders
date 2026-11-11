@@ -45,7 +45,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Blasts throw real dirt: the ground dug out of a crater sprays from its edge as single grains in the colour of that ground, most landing close and a few flying far, more of it the way the shell was heading',
       'The edge walls are alive: the whole wall churns like a dark liquid with its face rolling in waves, and a shell flying into it is swallowed instead of going off. It splashes, throws a jet back out, sends rings across the whole wall and sinks in, cooling as it goes. The sudden-death wall swallows shells where it stands too',
       'Fire lights its surroundings: while a fireball burns, the smoke and flying dirt around it glow warm and the crater edge stays lit, dimming in steps as the fire dies',
-      'Crater walls slump: a blast shakes the dirt around its crater loose, and the steep rim slides down into a natural bowl instead of standing as a sheer cut. Tunnels, laser cuts and dirt pillars keep their walls',
+      'Craters slump: a blast shakes the ground around and above its crater loose, and it slides down into an open bowl instead of standing as a sheer cut. Sliding sand drags dirt along and mixes with it, the turf travels with the ground it grew on, and tunnels, laser cuts and dirt pillars keep their walls',
+      'Blast smoke clears sooner, thinning out pixel by pixel',
     ],
   },
   {
