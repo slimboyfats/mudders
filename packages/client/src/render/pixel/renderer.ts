@@ -277,6 +277,7 @@ export class PixelRenderer implements Renderer {
       | 'u_top'
       | 'u_bottom'
       | 'u_letterbox'
+      | 'u_bedrock'
       | 'u_flash'
       | 'u_white'
       | 'u_vignette'
@@ -347,6 +348,8 @@ export class PixelRenderer implements Renderer {
   /** Dirty bounding box awaiting re-shade: x0, y0, x1, y1 (exclusive); x0 > x1 when clean. */
   private dirty = [0, 0, 0, 0];
   private paletteTex!: WebGLTexture;
+  private readonly bedrock = new Float32Array(3);
+  private bedrockOf: Uint8Array | null = null;
   private sceneTex!: WebGLTexture;
   private sceneFbo!: WebGLFramebuffer;
   private sceneW = 0;
@@ -544,6 +547,7 @@ export class PixelRenderer implements Renderer {
       'u_top',
       'u_bottom',
       'u_letterbox',
+      'u_bedrock',
       'u_flash',
       'u_white',
       'u_vignette',
@@ -1978,6 +1982,36 @@ export class PixelRenderer implements Renderer {
   }
 
   /** Material of the nearest solid cell around (x, y), or 0. */
+  /**
+   * Colour of the solid ground the view shows below the map: the commonest non-liquid material
+   * in the map's bottom rows, worked out once per terrain (it never mirrors the map, so lakes and
+   * islands near the bottom edge do not reflect into it).
+   */
+  private bedrockColor(): Float32Array {
+    if (this.bedrockOf === this.terrain) return this.bedrock;
+    this.bedrockOf = this.terrain;
+    const W = this.mapWidth;
+    const H = this.mapHeight;
+    const counts = new Uint32Array(256);
+    const liquid = new Uint8Array(256);
+    for (const l of this.palette.liquids ?? []) if (l > 0 && l < 256) liquid[l] = 1;
+    for (let y = Math.max(0, H - 4); y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const m = this.terrain[y * W + x] ?? 0;
+        if (m !== 0 && liquid[m] === 0) counts[m]!++;
+      }
+    }
+    let best = 0;
+    for (let m = 1; m < 256; m++) if (counts[m]! > counts[best]!) best = m;
+    const hex = best === 0 ? 0x6a5038 : (this.palette.materials[best] ?? 0x6a5038);
+    const c = rgb(hex);
+    // deep ground is shaded dark; match it roughly where no bottom cell can be sampled
+    this.bedrock[0] = c[0] * 0.42;
+    this.bedrock[1] = c[1] * 0.42;
+    this.bedrock[2] = c[2] * 0.42;
+    return this.bedrock;
+  }
+
   private groundCellNear(x: number, y: number): number {
     const W = this.mapWidth;
     for (let r = 1; r <= 2; r++) {
@@ -2077,6 +2111,7 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uBg.u_top, rgb(th.skyTop));
     gl.uniform3fv(this.uBg.u_bottom, rgb(th.skyBottom));
     gl.uniform3fv(this.uBg.u_letterbox, rgb(th.letterbox));
+    gl.uniform3fv(this.uBg.u_bedrock, this.bedrockColor());
     gl.uniform3f(
       this.uBg.u_flash,
       sky[0] + storm * 0.55,
