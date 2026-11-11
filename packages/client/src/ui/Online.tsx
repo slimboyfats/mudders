@@ -76,6 +76,7 @@ function rulesOf(): LobbyRules {
     suddenDeath: s.suddenDeath,
     suddenDeathFrom: s.suddenDeathFrom,
     startingCash: s.startingCash,
+    roundBonus: s.roundBonus ?? 0,
     teams: s.teams,
   };
 }

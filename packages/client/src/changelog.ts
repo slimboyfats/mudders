@@ -19,7 +19,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Real damage for less money',
+    title: 'Real damage for less money, and big money matches',
     pack: 'core@0.72.0',
     newSince: 'core@0.72.0',
     items: [
@@ -29,6 +29,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'New weapon: Tandem Charge, a first charge knocks shields flat and cracks the ground, the main charge goes off in the hole',
       'New weapon: Buzzsaw, lands and saws along the ground the way it was fired, cutting through small hills, and bites into the tank it meets',
       'Harder hitting for their price: Smart Bomb, Laser, Roller, Heat Seeker (now cheaper too), Lightning, Drill Torpedo, Railgun and Heavy Laser all do clearly more than a plain Missile now',
+      'Rules: start with up to 100,000 cash',
+      'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
     ],
   },
   {

@@ -1,6 +1,8 @@
 import {
   PRESETS,
   PRESET_NAMES,
+  ROUND_BONUS_STEPS,
+  STARTING_CASH_STEPS,
   SUDDEN_DEATH_DEFAULT,
   SUDDEN_DEATH_TURNS,
   estimateMinutes,
@@ -122,9 +124,22 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           value={value.startingCash}
           onChange={(e) => onChange({ startingCash: Number(e.target.value) })}
         >
-          {[0, 3000, 10000, 30000, 50000].map((c) => (
+          {STARTING_CASH_STEPS.map((c) => (
             <option key={c} value={c}>
               {c.toLocaleString('en')}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Cash per round
+        <select
+          value={value.roundBonus ?? 0}
+          onChange={(e) => onChange({ roundBonus: Number(e.target.value) })}
+        >
+          {ROUND_BONUS_STEPS.map((c) => (
+            <option key={c} value={c}>
+              {c === 0 ? 'Off' : `+${c.toLocaleString('en')}`}
             </option>
           ))}
         </select>
