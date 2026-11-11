@@ -5226,7 +5226,7 @@ export class EffectSystem {
             y: sy,
             vx: Math.cos(a) * 0.25 + f.jx * 0.3,
             vy: Math.sin(a) * 0.25 + f.jy * rng.range(0.2, 0.6),
-            life: rng.range(170, 420),
+            life: rng.range(130, 310),
             size: 1,
             color: SMOKE_TONES[Math.floor(rng.next() * SMOKE_TONES.length)]!,
             kind: PKind.Wisp,

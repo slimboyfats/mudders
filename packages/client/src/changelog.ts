@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
-    pack: 'core@0.61.0 – 0.70.0',
+    pack: 'core@0.61.0 – 0.71.0',
     newSince: 'core@0.62.0',
     items: [
       'Real gas in the world: steam, flames, marsh gas and gas flares rise, drift with the wind and bubble up through water',
@@ -45,6 +45,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Blasts throw real dirt: the ground dug out of a crater sprays from its edge as single grains in the colour of that ground, most landing close and a few flying far, more of it the way the shell was heading',
       'The edge walls are alive: the whole wall churns like a dark liquid with its face rolling in waves, and a shell flying into it is swallowed instead of going off. It splashes, throws a jet back out, sends rings across the whole wall and sinks in, cooling as it goes. The sudden-death wall swallows shells where it stands too',
       'Fire lights its surroundings: while a fireball burns, the smoke and flying dirt around it glow warm and the crater edge stays lit, dimming in steps as the fire dies',
+      'Crater walls slump: a blast shakes the dirt around its crater loose, and the steep rim slides down into a natural bowl instead of standing as a sheer cut. Tunnels, laser cuts and dirt pillars keep their walls',
     ],
   },
   {

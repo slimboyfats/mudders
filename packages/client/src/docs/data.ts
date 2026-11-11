@@ -335,10 +335,12 @@ function materialTraits(c: ResolvedContent, m: MaterialManifest): string[] {
       `Shatters: about ${Math.round(m.shatter.keep * 100)}% flies out as ${nameOf(c, m.shatter.into)}`,
     );
   if (m.burst) t.push(`Bursts when opened to the air: ${nameOf(c, m.burst.weapon)}`);
-  for (const r of m.rim ?? [])
-    t.push(
-      `${r.damage.map((d) => DAMAGE_LABELS[d] ?? d).join('/')} craters turn the rim into ${nameOf(c, r.into)}`,
-    );
+  for (const r of m.rim ?? []) {
+    const by = r.damage.map((d) => DAMAGE_LABELS[d] ?? d).join('/');
+    if (r.into !== undefined) t.push(`${by} craters turn the rim into ${nameOf(c, r.into)}`);
+    if (r.loosen !== undefined)
+      t.push(`${by} craters shake the rim loose: it slumps into a bowl instead of standing sheer`);
+  }
   if (m.ignite) t.push(`Lit by explosions: becomes ${nameOf(c, m.ignite.into)}`);
   if (m.detonate)
     t.push(

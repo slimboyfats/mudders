@@ -68,7 +68,7 @@ export class PixelAir implements FluidSink {
         y: y + uy * d,
         vx: (radial ? 0 : vx * 0.5) + ux * out + (this.rand() - 0.5) * 0.2,
         vy: (radial ? 0 : vy * 0.5) + uy * out + (this.rand() - 0.5) * 0.2,
-        life: 160 + this.rand() * 240,
+        life: 140 + this.rand() * 200,
         size: 1,
         color: SOOT_TONES[Math.floor(this.rand() * SOOT_TONES.length)]!,
         kind: PKind.Wisp,

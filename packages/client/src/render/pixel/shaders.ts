@@ -697,6 +697,8 @@ void main() {
  */
 /** Cells beside a crater wall (horizontally) that lose their turf; the renderer widens dirty
  * rects by this much. */
+/** Rows a column's surface may sag below its round-start surface and keep its turf. */
+export const SAG_REACH = 10;
 export const CUT_REACH = 16;
 /** Rows up a cell looks for the old grass surface buried under a heap; the renderer widens dirty
  * rects downward by this much. */
@@ -798,6 +800,20 @@ void main() {
   // grass, turf and the dark topsoil band belong to the round-start surface only: freshly blasted
   // ground stays bare dirt (render-only, the sim never sees it)
   uint gmask = still && lk.a > 0.75 && sd > 0 ? texelFetch(u_grassMask, c + ivec2(0, 1 - sd), 0).r : 0u;
+  // 4 = a blast took the grass here (kept apart from 0 so the turf cut still finds the old surface)
+  if (gmask == 4u) gmask = 0u;
+  // ground that sagged a little (its footing slid into a crater, a drift slid off it) keeps the
+  // turf it carried down: the round-start surface is found a few rows up the open air above. A
+  // blast clears the mask inside its crater, so a crater floor never finds one.
+  if (gmask == 0u && still && lk.a > 0.75 && sd > 0) {
+    ivec2 top = c + ivec2(0, 1 - sd);
+    for (int k = 1; k <= ${SAG_REACH}; k++) {
+      if (top.y - k < 0) break;
+      uint gm = texelFetch(u_grassMask, top - ivec2(0, k), 0).r;
+      if (gm == 4u) break;
+      if (gm != 0u) { gmask = gm; break; }
+    }
+  }
   bool soil = gmask != 0u;
   // rows below the grass, counted from the round-start surface the column grew it on
   int gsd = sd;
@@ -811,7 +827,7 @@ void main() {
       if (sd > 0 && k >= sd - 1) break;
       if (c.y - k < 0) break;
       uint bm = texelFetch(u_grassMask, c - ivec2(0, k), 0).r;
-      if (bm != 0u) {
+      if (bm != 0u && bm != 4u) {
         gmask = bm;
         soil = true;
         buried = true;
@@ -850,7 +866,11 @@ void main() {
         open |= 1 << i;
         for (int k = 2; k <= 34; k++) {
           if (k > sd + 2 || n.y - k < 0) break;
-          if (texelFetch(u_grassMask, n - ivec2(0, k), 0).r != 0u) { cut = d; break; }
+          uint cm = texelFetch(u_grassMask, n - ivec2(0, k), 0).r;
+          // air a little under the old surface is ground that sagged, not a cut, unless a blast
+          // made it (mask 4)
+          if (cm == 4u || (cm != 0u && k > ${SAG_REACH} + 2)) { cut = d; break; }
+          if (cm != 0u) break;
         }
         if (cut != 0) break;
       }
