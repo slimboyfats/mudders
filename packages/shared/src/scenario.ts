@@ -64,6 +64,8 @@ export const ScenarioSchema = z.strictObject({
       suddenDeathFrom: z.number().int().min(1).optional(),
       windType: WindTypeSchema.optional(),
       startingCash: z.number().int().min(0).optional(),
+      /** Cash every player gets at the end of each round, on top of their winnings. */
+      roundBonus: z.number().int().min(0).optional(),
       turnCap: z.number().int().min(1).optional(),
       /** Swallow flocks over the map (off unless set). */
       birds: z.boolean().optional(),
