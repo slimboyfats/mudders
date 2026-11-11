@@ -73,7 +73,8 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
-uniform vec3 u_bedrock;      // solid ground the view shows below the map
+uniform vec4 u_apron;        // the land past the edges (apron.ts): side, below, width, height
+uniform sampler2D u_apronColor; // its shaded colour, rows flipped like u_color
 uniform vec3 u_flash;
 uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
@@ -190,15 +191,16 @@ void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
   ivec2 wc = ivec2(floor(m));
-  // the view never runs out of world: past the left and right edges the battlefield goes on as
-  // its own mirror image (under the death wall, drawn as particles in deathwall.ts), above the
-  // map the sky goes on with its stars, and below it solid ground goes on: a ragged seam of the
-  // bottom row, then grainy bedrock darkening with depth (never a reflection of the map, so lakes
-  // and islands near the bottom edge don't mirror into it)
+  // the view never runs out of world: above the map the sky goes on with its stars, and to the
+  // left, right and below it the land goes on (apron.ts: real ground grown out from the map's
+  // edges, shaded like the map, never a reflection). Past the apron's sides the view folds back
+  // into it; below it, its bottom rows carry on as grainy bedrock darkening with depth.
   int W = int(u_map.x);
   int Hm = int(u_map.y);
-  int mx = wc.x < 0 ? min(-wc.x - 1, W - 1) : wc.x >= W ? max(2 * W - 1 - wc.x, 0) : wc.x;
-  float below = max(0.0, m.y - u_map.y);
+  int AS = int(u_apron.x);
+  int AW = int(u_apron.z);
+  int AH = int(u_apron.w);
+  float below = max(0.0, m.y - float(AH));
   vec3 c;
   if (m.y < 0.0) {
     // the open sky's top colour (the scenery's top row would stretch its clouds into columns)
@@ -210,23 +212,49 @@ void main() {
       c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
     }
     c += u_flash;
-  } else if (wc.y >= Hm + int(hash(ivec2(wc.x + 8192, 911)) * 3.0)) {
-    // bedrock: the shaded ground of the map's bottom rows, picked per 2×2 clump from a few cells
-    // around (so it reads as grain, never as a reflection), in three hard tones with the odd
-    // lighter pebble. Where the bottom row is open, the commonest bottom material stands in
-    ivec2 g = ivec2(wc.x + 8192, wc.y);
-    ivec2 cl = g >> 1;
-    int sx = clamp(mx + int(hash(cl + ivec2(7, 3)) * 7.0) - 3, 0, W - 1);
-    int sy = Hm - 1 - int(hash(cl + ivec2(5, 29)) * 4.0);
-    vec4 bt = texelFetch(u_color, ivec2(sx, int(u_map.y) - 1 - max(sy, 0)), 0);
-    vec3 base = bt.a > 0.5 && mat(ivec2(sx, max(sy, 0))) != 0u ? bt.rgb : u_bedrock;
-    float h = hash(cl + ivec2(3, 41));
-    c = base * (h < 0.3 ? 0.88 : h < 0.82 ? 1.0 : 1.08);
-    if (hash(g + ivec2(19, 7)) > 0.975) c = base * 1.25;
-    c *= 1.0 - u_dark * 0.86;
-    c += u_flash * 0.3;
+  } else if (wc.x < 0 || wc.x >= W || wc.y >= Hm) {
+    ivec2 e = ivec2(wc.x + AS, wc.y);
+    // past the apron's sides: fold back into it (it is its own rolling land, so this reads as
+    // more of the same, not as the map mirrored)
+    if (e.x < 0 || e.x >= AW) {
+      int p = 2 * AW;
+      int f = ((e.x % p) + p) % p;
+      e.x = f < AW ? f : p - 1 - f;
+    }
+    if (e.y >= AH) {
+      // under the apron: its bottom rows, picked per 2×2 clump from a few cells around, so it
+      // reads as grain
+      ivec2 g = ivec2(wc.x + 8192, wc.y);
+      ivec2 cl = g >> 1;
+      int sx = clamp(e.x + int(hash(cl + ivec2(7, 3)) * 7.0) - 3, 0, AW - 1);
+      int sy = AH - 1 - int(hash(cl + ivec2(5, 29)) * 4.0);
+      vec4 bt = texelFetch(u_apronColor, ivec2(sx, AH - 1 - sy), 0);
+      float h = hash(cl + ivec2(3, 41));
+      c = bt.a > 0.5 ? bt.rgb * (h < 0.3 ? 0.88 : h < 0.82 ? 1.0 : 1.08) : u_letterbox;
+      c *= 1.0 - u_dark * 0.86;
+      c += u_flash * 0.3;
+    } else {
+      vec4 t = texelFetch(u_apronColor, ivec2(e.x, AH - 1 - e.y), 0);
+      if (t.a > 0.5) {
+        c = t.rgb * (1.0 - u_dark * 0.86);
+        c += u_flash * 0.3;
+      } else {
+        vec4 sc = texelFetch(u_scenery, e >> 1, 0);
+        c = sc.rgb;
+        float k = clamp(float(e.y) / u_map.y, 0.0, 1.0);
+        if (u_stars > 0.0 && k < 0.6 && sc.a > 0.5) {
+          float h = hash(e + ivec2(31, 17));
+          if (h > 1.0 - u_stars) {
+            float tw = hash(e + ivec2(int(u_time / 23.0 + h * 97.0), 5));
+            c = mix(c, u_starColor, (tw > 0.25 ? 0.75 : 0.3) * (1.0 - k / 0.6));
+          }
+        }
+        c *= 1.0 - u_dark * 0.82;
+        c += u_flash;
+      }
+    }
   } else {
-    ivec2 cell = ivec2(mx, min(wc.y, Hm - 1));
+    ivec2 cell = wc;
     // trees in the wind: draw whichever swaying cell lands here this frame (the nearest one
     // wins); a swaying cell that moved off and left nothing behind shows the sky
     bool swayGone = false;
@@ -370,7 +398,7 @@ void main() {
       c = min(c * (amb + L * (1.3 + 1.2 * u_dark)) + L * 0.16, vec3(1.0));
     } else {
       float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
-      vec4 sc = texelFetch(u_scenery, cell >> 1, 0);
+      vec4 sc = texelFetch(u_scenery, (cell + ivec2(int(u_apron.x), 0)) >> 1, 0);
       c = sc.rgb;
       // stars: a few open sky cells high up twinkle on and off in whole steps
       if (u_stars > 0.0 && k < 0.6 && sc.a > 0.5) {
@@ -445,7 +473,7 @@ void main() {
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }
-  // the ground below the map darkens with depth in hard steps
+  // the bedrock under the apron darkens with depth in hard steps
   if (below > 0.0) c *= 1.0 - min(floor(below / 16.0) * 0.07 + 0.05, 0.42);
   if (u_vignette > 0.0) {
     vec2 q = v_uv - 0.5;
@@ -476,6 +504,7 @@ uniform vec3 u_ranges[3];    // far to near
 uniform int u_rangeCount;
 uniform float u_horizon;     // mean ground row
 uniform vec2 u_cam;          // camera centre in map cells
+uniform vec2 u_off;          // map cells the target starts left of the map (the apron's side)
 out vec4 o;
 ${NOISE}
 // cumulus built from puffs on a flat base: per slot along x, a cloud of up to seven overlapping
@@ -624,7 +653,7 @@ vec4 ranges(vec2 p, ivec2 tx, vec4 c, vec3 sky, int from, int to) {
 }
 void main() {
   ivec2 tx = ivec2(floor(gl_FragCoord.xy));
-  vec2 p = vec2(tx) * 2.0;   // map cells, y down (the target is drawn y-down via the texel row)
+  vec2 p = vec2(tx) * 2.0 - u_off;   // map cells, y down (the target is drawn y-down via the texel row)
   float k = clamp(p.y / u_map.y, 0.0, 1.0);
   // banded gradient: 24 hard steps with a narrow ordered-dither seam between neighbours
   float q = floor((k * k * (3.0 - 2.0 * k)) * 24.0 + narrow(tx)) / 24.0;
@@ -692,6 +721,7 @@ uniform vec3 u_ground;       // theme tint multiplied into still ground
 uniform float u_flowers;     // flower specks in the grass, 0–1
 uniform usampler2D u_grassMask; // 1 = surface row at round start: grass grows only there
 uniform usampler2D u_shade;  // grain a moved cell carries (tone << 2 | fleck), 0 = never moved
+uniform float u_rows;        // the map's height: rows darken by it (the apron pass runs deeper)
 out vec4 o;
 
 uint mat(ivec2 c) {
@@ -738,7 +768,7 @@ void main() {
   // dithered hard bands
   float deep = sd == 0 ? 1.0 : float(sd - 1) / 31.0;
   float band = floor(deep * 3.0 + narrow(ap)) / 3.0;
-  float yk = clamp(v_map.y / u_map.y, 0.0, 1.0);
+  float yk = clamp(v_map.y / u_rows, 0.0, 1.0);
   float yb = floor(yk * 5.0 + narrow(ap)) / 5.0;
   float depth = -0.42 * yb - 0.14 * band;
   vec3 col = base * (1.0 + g + under + depth);

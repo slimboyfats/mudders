@@ -25,6 +25,7 @@ import { drawStorm, stormFor, type StormKind } from './storm';
 import { ProcessMeter } from './process-meter';
 import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
+import { apronSize, buildApron, type Apron } from './apron';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -101,6 +102,7 @@ const SCENERY_UNIFORMS = [
   'u_rangeCount',
   'u_horizon',
   'u_cam',
+  'u_off',
 ] as const;
 /** How long fresh char smoulders after a blast (ticks; keep in step with the shader). */
 const EMBER_TICKS = 600;
@@ -278,6 +280,8 @@ export class PixelRenderer implements Renderer {
       | 'u_bottom'
       | 'u_letterbox'
       | 'u_bedrock'
+      | 'u_apron'
+      | 'u_apronColor'
       | 'u_flash'
       | 'u_white'
       | 'u_vignette'
@@ -348,8 +352,14 @@ export class PixelRenderer implements Renderer {
   /** Dirty bounding box awaiting re-shade: x0, y0, x1, y1 (exclusive); x0 > x1 when clean. */
   private dirty = [0, 0, 0, 0];
   private paletteTex!: WebGLTexture;
-  private readonly bedrock = new Float32Array(3);
-  private bedrockOf: Uint8Array | null = null;
+  /** The land past the map edges (apron.ts), shaded once a round into `apronColorTex`. */
+  private apron: Apron;
+  private apronTerrainTex!: WebGLTexture;
+  private apronGrassTex!: WebGLTexture;
+  private apronZeroTex!: WebGLTexture;
+  private apronColorTex!: WebGLTexture;
+  private apronFbo!: WebGLFramebuffer;
+  private apronDirty = true;
   private sceneTex!: WebGLTexture;
   private sceneFbo!: WebGLFramebuffer;
   private sceneW = 0;
@@ -376,6 +386,7 @@ export class PixelRenderer implements Renderer {
       | 'u_flowers'
       | 'u_grassMask'
       | 'u_shade'
+      | 'u_rows'
     >
   >;
   private uPost!: ReturnType<
@@ -471,6 +482,12 @@ export class PixelRenderer implements Renderer {
     this.camera = new Camera(mapWidth, mapHeight);
     this.terrain = new Uint8Array(mapWidth * mapHeight);
     this.grassMask = new Uint8Array(mapWidth * mapHeight);
+    {
+      const { side, below } = apronSize(mapWidth, mapHeight);
+      const width = mapWidth + side * 2;
+      const height = mapHeight + below;
+      this.apron = { side, below, width, height, cells: new Uint8Array(width * height) };
+    }
     this.burn = new Uint32Array(mapWidth * mapHeight);
     this.probe = {
       width: mapWidth,
@@ -519,6 +536,7 @@ export class PixelRenderer implements Renderer {
 
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
     this.uTer = uniforms(gl, this.terrainProg, [
+      'u_rows',
       'u_view',
       'u_origin',
       'u_scale',
@@ -548,6 +566,8 @@ export class PixelRenderer implements Renderer {
       'u_bottom',
       'u_letterbox',
       'u_bedrock',
+      'u_apron',
+      'u_apronColor',
       'u_flash',
       'u_white',
       'u_vignette',
@@ -730,8 +750,9 @@ export class PixelRenderer implements Renderer {
       gl.UNSIGNED_BYTE,
       null,
     );
-    this.sceneryW = Math.ceil(this.mapWidth / 2);
-    this.sceneryH = Math.ceil(this.mapHeight / 2);
+    // the scenery covers the apron too, so the sky over the land past the edges is the same sky
+    this.sceneryW = this.apron.width / 2;
+    this.sceneryH = Math.ceil(this.apron.height / 2);
     this.sceneryTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -753,6 +774,48 @@ export class PixelRenderer implements Renderer {
       this.sceneryTex,
       0,
     );
+    {
+      const a = this.apron;
+      const r8 = (data: Uint8Array): WebGLTexture => {
+        const t = texture(gl);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.R8UI,
+          a.width,
+          a.height,
+          0,
+          gl.RED_INTEGER,
+          gl.UNSIGNED_BYTE,
+          data,
+        );
+        return t;
+      };
+      this.apronTerrainTex = r8(a.cells);
+      this.apronGrassTex = r8(new Uint8Array(a.width * a.height));
+      this.apronZeroTex = r8(new Uint8Array(a.width * a.height));
+      this.apronColorTex = texture(gl);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        a.width,
+        a.height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        null,
+      );
+      this.apronFbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.apronFbo);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        this.apronColorTex,
+        0,
+      );
+    }
     this.colorFbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.colorFbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.colorTex, 0);
@@ -994,6 +1057,7 @@ export class PixelRenderer implements Renderer {
     if (fresh && s.width === this.mapWidth && s.height === this.mapHeight) {
       this.grassRound = round;
       grassMask(s.terrain, s.width, s.height, this.grassMask);
+      this.buildApron(s.terrain);
       gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
       gl.texSubImage2D(
         gl.TEXTURE_2D,
@@ -1702,6 +1766,7 @@ export class PixelRenderer implements Renderer {
       this.stormKind === 'snow' ? q : 0,
     );
     this.dirty = [0, 0, this.mapWidth, this.mapHeight];
+    this.apronDirty = true;
   }
 
   /** Ease the storm towards the temperature's; a change of kind dies down before it turns. */
@@ -1982,34 +2047,41 @@ export class PixelRenderer implements Renderer {
   }
 
   /** Material of the nearest solid cell around (x, y), or 0. */
-  /**
-   * Colour of the solid ground the view shows below the map: the commonest non-liquid material
-   * in the map's bottom rows, worked out once per terrain (it never mirrors the map, so lakes and
-   * islands near the bottom edge do not reflect into it).
-   */
-  private bedrockColor(): Float32Array {
-    if (this.bedrockOf === this.terrain) return this.bedrock;
-    this.bedrockOf = this.terrain;
-    const W = this.mapWidth;
-    const H = this.mapHeight;
-    const counts = new Uint32Array(256);
+  /** Grow the round's fresh map into the land past its edges (apron.ts) and upload it. */
+  private buildApron(terrain: Uint8Array): void {
+    const top = new Uint8Array(256);
+    for (const l of this.palette.looks ?? [])
+      if (l.topsoil && l.cell > 0 && l.cell < 256) top[l.cell] = 1;
     const liquid = new Uint8Array(256);
     for (const l of this.palette.liquids ?? []) if (l > 0 && l < 256) liquid[l] = 1;
-    for (let y = Math.max(0, H - 4); y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const m = this.terrain[y * W + x] ?? 0;
-        if (m !== 0 && liquid[m] === 0) counts[m]!++;
-      }
+    const a = buildApron(terrain, this.mapWidth, this.mapHeight, top, liquid, this.apron);
+    const gl = this.gl;
+    const mask = new Uint8Array(a.width * a.height);
+    grassMask(a.cells, a.width, a.height, mask);
+    // the map's own grass carries over exactly, so the seam matches
+    for (let y = 0; y < this.mapHeight; y++) {
+      mask.set(
+        this.grassMask.subarray(y * this.mapWidth, (y + 1) * this.mapWidth),
+        y * a.width + a.side,
+      );
     }
-    let best = 0;
-    for (let m = 1; m < 256; m++) if (counts[m]! > counts[best]!) best = m;
-    const hex = best === 0 ? 0x6a5038 : (this.palette.materials[best] ?? 0x6a5038);
-    const c = rgb(hex);
-    // deep ground is shaded dark; match it roughly where no bottom cell can be sampled
-    this.bedrock[0] = c[0] * 0.42;
-    this.bedrock[1] = c[1] * 0.42;
-    this.bedrock[2] = c[2] * 0.42;
-    return this.bedrock;
+    const up = (tex: WebGLTexture, data: Uint8Array): void => {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        a.width,
+        a.height,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        data,
+      );
+    };
+    up(this.apronTerrainTex, a.cells);
+    up(this.apronGrassTex, mask);
+    this.apronDirty = true;
   }
 
   private groundCellNear(x: number, y: number): number {
@@ -2111,7 +2183,17 @@ export class PixelRenderer implements Renderer {
     gl.uniform3fv(this.uBg.u_top, rgb(th.skyTop));
     gl.uniform3fv(this.uBg.u_bottom, rgb(th.skyBottom));
     gl.uniform3fv(this.uBg.u_letterbox, rgb(th.letterbox));
-    gl.uniform3fv(this.uBg.u_bedrock, this.bedrockColor());
+    gl.uniform4f(
+      this.uBg.u_apron,
+      this.apron.side,
+      this.apron.below,
+      this.apron.width,
+      this.apron.height,
+    );
+    gl.activeTexture(gl.TEXTURE12);
+    gl.bindTexture(gl.TEXTURE_2D, this.apronColorTex);
+    gl.uniform1i(this.uBg.u_apronColor, 12);
+    gl.activeTexture(gl.TEXTURE0);
     gl.uniform3f(
       this.uBg.u_flash,
       sky[0] + storm * 0.55,
@@ -2324,10 +2406,12 @@ export class PixelRenderer implements Renderer {
     gl.uniform1i(u.u_rangeCount, nr);
     gl.uniform1f(u.u_horizon, this.horizon < 0 ? mh * 0.6 : this.horizon);
     gl.uniform2f(u.u_cam, camX, camY);
+    gl.uniform2f(u.u_off, this.apron.side, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   private shadeTerrain(): void {
+    if (this.apronDirty) this.shadeApron();
     const d = this.dirty;
     if (d[0]! >= d[2]! || d[1]! >= d[3]!) return;
     const gl = this.gl;
@@ -2356,6 +2440,57 @@ export class PixelRenderer implements Renderer {
     gl.uniform2f(this.uTer.u_origin, 0, 0);
     gl.uniform1f(this.uTer.u_scale, 1);
     gl.uniform2f(this.uTer.u_map, mw, mh);
+    gl.uniform1f(this.uTer.u_rows, mh);
+    this.terrainUniforms();
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadeTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.activeTexture(gl.TEXTURE0);
+    d[0] = 1;
+    d[2] = 0;
+  }
+
+  /** Shade the land past the map edges with the terrain shader, as if it were map. */
+  private shadeApron(): void {
+    this.apronDirty = false;
+    const gl = this.gl;
+    const a = this.apron;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.apronFbo);
+    gl.viewport(0, 0, a.width, a.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.bindVertexArray(this.emptyVao);
+    gl.useProgram(this.terrainProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.apronTerrainTex);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.paletteTex);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.apronZeroTex);
+    gl.uniform1i(this.uTer.u_terrain, 0);
+    gl.uniform1i(this.uTer.u_palette, 1);
+    gl.uniform1i(this.uTer.u_coat, 2);
+    gl.uniform2f(this.uTer.u_view, a.width, a.height);
+    gl.uniform2f(this.uTer.u_origin, 0, 0);
+    gl.uniform1f(this.uTer.u_scale, 1);
+    gl.uniform2f(this.uTer.u_map, a.width, a.height);
+    // darkening by row follows the map's rows, so the seam matches and the ground below darkens on
+    gl.uniform1f(this.uTer.u_rows, this.mapHeight);
+    this.terrainUniforms();
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.apronGrassTex);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.apronZeroTex);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.activeTexture(gl.TEXTURE0);
+  }
+
+  /** Theme uniforms of the terrain shader, shared by the map and the apron passes. */
+  private terrainUniforms(): void {
+    const gl = this.gl;
     gl.uniform1f(this.uTer.u_grain, this.theme.grain);
     gl.uniform3fv(this.uTer.u_light, rgb(this.theme.light));
     gl.uniform1f(this.uTer.u_wet, this.theme.wet);
@@ -2367,17 +2502,8 @@ export class PixelRenderer implements Renderer {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.lookTex);
     gl.uniform1i(this.uTer.u_look, 3);
-    gl.activeTexture(gl.TEXTURE4);
-    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
     gl.uniform1i(this.uTer.u_grassMask, 4);
-    gl.activeTexture(gl.TEXTURE5);
-    gl.bindTexture(gl.TEXTURE_2D, this.shadeTex);
     gl.uniform1i(this.uTer.u_shade, 5);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    gl.disable(gl.SCISSOR_TEST);
-    gl.activeTexture(gl.TEXTURE0);
-    d[0] = 1;
-    d[2] = 0;
   }
 
   /**
@@ -3416,6 +3542,11 @@ export class PixelRenderer implements Renderer {
     gl.deleteTexture(this.glowTex);
     gl.deleteTexture(this.swayTex);
     gl.deleteTexture(this.paletteTex);
+    gl.deleteTexture(this.apronTerrainTex);
+    gl.deleteTexture(this.apronGrassTex);
+    gl.deleteTexture(this.apronZeroTex);
+    gl.deleteTexture(this.apronColorTex);
+    gl.deleteFramebuffer(this.apronFbo);
     gl.deleteTexture(this.lookTex);
     gl.deleteTexture(this.sceneTex);
     gl.deleteTexture(this.colorTex);
