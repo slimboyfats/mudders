@@ -1,5 +1,5 @@
 {
-  "contentHash": "9d13165a2286fb0e",
+  "contentHash": "37b2d0b56a4d0448",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 488,
@@ -235,7 +235,7 @@
     },
     "audio.plasma-sizzle": {
       "ticks": 900,
-      "hash": "46bb79ba4230cb49"
+      "hash": "a1916604debe09c3"
     },
     "audio.psi-wave": {
       "ticks": 461,
@@ -334,12 +334,12 @@
       "hash": "e83074f33f5b1c17"
     },
     "audio.volcano-erupt": {
-      "ticks": 1513,
-      "hash": "ec9c42ceb3911904"
+      "ticks": 1475,
+      "hash": "17db63140f1e59f2"
     },
     "audio.volcano-grow": {
-      "ticks": 1513,
-      "hash": "ec9c42ceb3911904"
+      "ticks": 1475,
+      "hash": "17db63140f1e59f2"
     },
     "audio.warp-in": {
       "ticks": 46,
@@ -494,8 +494,8 @@
       "hash": "90f4dbd77688c4d4"
     },
     "gen.lakeland": {
-      "ticks": 2744,
-      "hash": "7db6f97539da2beb"
+      "ticks": 3000,
+      "hash": "97ad2b967c52e8a8"
     },
     "gen.marsh": {
       "ticks": 377,
@@ -542,8 +542,8 @@
       "hash": "cca614fd3a8a2f43"
     },
     "material.cinder": {
-      "ticks": 1513,
-      "hash": "ec9c42ceb3911904"
+      "ticks": 1475,
+      "hash": "17db63140f1e59f2"
     },
     "material.clay": {
       "ticks": 394,
@@ -623,7 +623,7 @@
     },
     "material.lava": {
       "ticks": 1206,
-      "hash": "22fd3424a5f9cb20"
+      "hash": "dcc2f4d4fdbbef8e"
     },
     "material.leaf": {
       "ticks": 234,
@@ -687,7 +687,7 @@
     },
     "material.plasma": {
       "ticks": 900,
-      "hash": "46bb79ba4230cb49"
+      "hash": "a1916604debe09c3"
     },
     "material.rammed-earth": {
       "ticks": 402,
@@ -743,7 +743,7 @@
     },
     "material.steam": {
       "ticks": 1500,
-      "hash": "1b273b9ae1acf28f"
+      "hash": "4a2f6352771ee0b9"
     },
     "material.tar": {
       "ticks": 887,
@@ -823,7 +823,7 @@
     },
     "prop.tower": {
       "ticks": 1064,
-      "hash": "8b396e00f6f93fd7"
+      "hash": "a7f9430f139ba460"
     },
     "prop.tree": {
       "ticks": 325,
@@ -1007,7 +1007,7 @@
     },
     "terrainop.melt": {
       "ticks": 1206,
-      "hash": "22fd3424a5f9cb20"
+      "hash": "dcc2f4d4fdbbef8e"
     },
     "terrainop.portal": {
       "ticks": 46,
@@ -1054,8 +1054,8 @@
       "hash": "ca61d7e54a3a3989"
     },
     "terrainop.volcano": {
-      "ticks": 1513,
-      "hash": "ec9c42ceb3911904"
+      "ticks": 1475,
+      "hash": "17db63140f1e59f2"
     },
     "terrainop.warp": {
       "ticks": 46,
@@ -1063,19 +1063,19 @@
     },
     "theme.arcade": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "theme.day": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "theme.default": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "theme.inferno": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "theme.pitch-black": {
       "ticks": 1500,
@@ -1083,11 +1083,11 @@
     },
     "theme.snow": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "theme.storm": {
       "ticks": 900,
-      "hash": "d3b6a95b661668e6"
+      "hash": "845a3499b8a4bd27"
     },
     "trees.missile": {
       "ticks": 330,
@@ -1119,11 +1119,11 @@
     },
     "weapon.acid-drop": {
       "ticks": 159,
-      "hash": "a189ca2cbe46fa13"
+      "hash": "51a3ae54cc4b5fda"
     },
     "weapon.acid-rain": {
       "ticks": 169,
-      "hash": "8569c925f6f499bd"
+      "hash": "6ed4ce59402452b6"
     },
     "weapon.baby-digger": {
       "ticks": 158,
@@ -1367,7 +1367,7 @@
     },
     "weapon.magma-bomb": {
       "ticks": 1206,
-      "hash": "22fd3424a5f9cb20"
+      "hash": "dcc2f4d4fdbbef8e"
     },
     "weapon.magma-glob": {
       "ticks": 167,
@@ -1455,7 +1455,7 @@
     },
     "weapon.plasma-cannon": {
       "ticks": 900,
-      "hash": "46bb79ba4230cb49"
+      "hash": "a1916604debe09c3"
     },
     "weapon.plasma-orb-core": {
       "ticks": 368,
@@ -1650,8 +1650,8 @@
       "hash": "e83074f33f5b1c17"
     },
     "weapon.volcano-seed": {
-      "ticks": 1513,
-      "hash": "ec9c42ceb3911904"
+      "ticks": 1475,
+      "hash": "17db63140f1e59f2"
     },
     "weapon.water-cannon-drop": {
       "ticks": 255,

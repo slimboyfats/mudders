@@ -78,6 +78,8 @@ const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
 /** Ticks after a blast that a tree it undermined still falls away from it. */
 const HIT_LINGER = 40;
+/** Longest a turn waits on flowing or reacting ground once everything else is still (8 s). */
+const FLOW_GRACE = 480;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
 /**
@@ -657,6 +659,8 @@ export class World implements SimApi {
   private shooter = -1;
   private pendingInputs: { player: number; input: Input }[] = [];
   private contactDone = false;
+  /** Ticks the turn has waited on nothing but flowing or reacting ground (see `settled`). */
+  private flowWait = 0;
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
@@ -1278,17 +1282,38 @@ export class World implements SimApi {
 
   /** Nothing moving: no projectiles, ops, settling, falling tanks or pending deaths. */
   get quiet(): boolean {
+    return this.still && !this.grid.settling && !this.grid.reacting;
+  }
+
+  /**
+   * Nothing but the ground itself is still moving: no projectiles, ops, pressure fronts, debris,
+   * toppling props, pending deaths or falling/slipping tanks. Terrain may still be settling or
+   * reacting (a lake draining through a crater, a fire burning down).
+   */
+  private get still(): boolean {
     return (
       this.projectiles.length === 0 &&
       this.ops.length === this.idleOps &&
       this.fronts.length === 0 &&
       this.debris.count === 0 &&
       !this.groups.toppling &&
-      !this.grid.settling &&
-      !this.grid.reacting &&
       this.pendingDeaths.length === 0 &&
       !this.tanks.some((t) => t.falling || (t.alive && t.glue === 0 && this.slipDir(t) !== 0))
     );
+  }
+
+  /**
+   * Whether the shot is over. Normally that is `quiet`, but once everything else is still the
+   * turn waits at most FLOW_GRACE ticks for the ground: a breached lake can drain one cell at a
+   * time for minutes, and that water keeps running into the next turn, like gas does.
+   */
+  private shotSettled(): boolean {
+    if (!this.still) {
+      this.flowWait = 0;
+      return false;
+    }
+    if (!this.grid.settling && !this.grid.reacting) return true;
+    return ++this.flowWait >= FLOW_GRACE;
   }
 
   /** Queue an input; it is applied at the start of the next tick, in arrival order. */
@@ -1402,7 +1427,7 @@ export class World implements SimApi {
     if (this.lures.length > 0) this.stepLures();
     if (this.mines.length > 0) this.stepMines();
 
-    if (this.phase === 'resolve' && this.quiet) {
+    if (this.phase === 'resolve' && this.shotSettled()) {
       // Contact damage (lava, napalm) once the shot has settled; deaths may need resolving first.
       if (!this.contactDone) {
         this.contactDone = true;
@@ -1411,7 +1436,10 @@ export class World implements SimApi {
         this.applyRust();
         this.armMines();
       }
-      if (this.quiet) this.endTurn();
+      if (this.still) {
+        this.flowWait = 0;
+        this.endTurn();
+      }
     }
     // a tree the last blast undermined still falls away from it for a moment after
     if (this.groups.hitX >= 0 && this.tick - this.hitTick > HIT_LINGER) this.groups.hitX = -1;
@@ -4314,6 +4342,8 @@ export class World implements SimApi {
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);
     h.num(g.turnMinX).num(g.turnMaxX).num(g.turnMinY).num(g.turnMaxY);
     h.num(this.contactDone ? 1 : 0);
+    // turn-end grace for flowing ground (kernel 0.37.0): only hashed while it counts
+    if (this.flowWait !== 0) h.num(this.flowWait);
     // temperature (kernel 0.18.0)
     h.num(this.temperature).num(this.tempBase);
     // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes
