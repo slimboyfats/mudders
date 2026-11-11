@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 5,
-        "damage": 70,
+        "damage": 90,
         "damageType": "kinetic",
         "falloff": "flat",
         "effects": {
@@ -52,7 +52,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 60,
+    "expectedDamage": 85,
     "terrainValue": 0.1
   },
   "audio": {

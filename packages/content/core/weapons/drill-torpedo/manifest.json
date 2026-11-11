@@ -31,8 +31,8 @@
     {
       "explosion": {
         "use": "explosion.standard",
-        "radius": 20,
-        "damage": 60,
+        "radius": 22,
+        "damage": 85,
         "damageType": "blast",
         "effects": {
           "burst": {
@@ -54,7 +54,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 45,
+    "expectedDamage": 65,
     "terrainValue": 0.4
   },
   "audio": {

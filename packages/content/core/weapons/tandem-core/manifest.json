@@ -1,0 +1,47 @@
+{
+  "id": "weapon.tandem-core",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tandem Charge main",
+    "description": "The main charge of a Tandem Charge, going off a moment after the first.",
+    "category": "submunition",
+    "since": "core@0.72.0"
+  },
+  "flight": {
+    "use": "flight.static"
+  },
+  "triggers": [
+    {
+      "onTimer": 8
+    }
+  ],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 24,
+        "damage": 80,
+        "effects": {
+          "burst": {
+            "count": 70
+          },
+          "flash": {
+            "strength": 1.4
+          },
+          "shake": {
+            "strength": 3.5
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

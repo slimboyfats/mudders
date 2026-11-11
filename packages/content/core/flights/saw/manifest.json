@@ -1,0 +1,18 @@
+{
+  "id": "flight.saw",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Saw",
+    "description": "Flies an arc, then saws along the ground the way it was fired: it climbs small steps, follows the ground down, cuts straight through anything taller, and goes off when it bites a tank, meets something too hard to cut, or runs out of spin.",
+    "since": "core@0.72.0"
+  },
+  "behaviour": "flight.saw",
+  "gravityScale": 1,
+  "windScale": 1,
+  "maxTicks": 1500,
+  "speed": 2,
+  "maxClimb": 3,
+  "drop": 10,
+  "groove": 3,
+  "maxRun": 110
+}

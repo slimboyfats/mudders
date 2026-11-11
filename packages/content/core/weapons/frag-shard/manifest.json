@@ -1,0 +1,45 @@
+{
+  "id": "weapon.frag-shard",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Frag shard",
+    "description": "One white-hot splinter of a Frag Shell's casing.",
+    "category": "submunition",
+    "since": "core@0.72.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 15,
+        "damageType": "kinetic",
+        "effects": {
+          "burst": {
+            "count": 6
+          },
+          "flash": {
+            "strength": 0.35
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "shard",
+    "trail": false
+  }
+}

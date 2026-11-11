@@ -1,0 +1,52 @@
+{
+  "id": "weapon.hornet",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Hornet",
+    "description": "One dart of a Hornet Swarm: it hunts the nearest enemy tank.",
+    "category": "submunition",
+    "since": "core@0.72.0"
+  },
+  "flight": {
+    "use": "flight.homing",
+    "armTicks": 4,
+    "accel": 0.22,
+    "range": 260,
+    "maxSpeed": 5,
+    "gravityScale": 0.4
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 12,
+        "damage": 30,
+        "effects": {
+          "burst": {
+            "count": 18
+          },
+          "flash": {
+            "strength": 0.8
+          },
+          "shake": {
+            "strength": 1.2
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "hornet",
+    "trail": true
+  }
+}

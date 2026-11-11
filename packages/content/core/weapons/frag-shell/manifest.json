@@ -1,0 +1,53 @@
+{
+  "id": "weapon.frag-shell",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Frag Shell",
+    "description": "A sharp bang that bursts its casing into a spray of white-hot shrapnel. The splinters pepper everything within about forty cells, so a near miss still hurts.",
+    "category": "explosive",
+    "since": "core@0.72.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 22,
+        "damage": 85,
+        "effects": {
+          "burst": {
+            "count": 48
+          },
+          "flash": {
+            "strength": 1.2
+          },
+          "shake": {
+            "strength": 2.5
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.frag-shard",
+        "count": 14,
+        "inherit": 0.1,
+        "spread": 1.0,
+        "jitter": 0.3,
+        "up": 2.4
+      }
+    }
+  ],
+  "shop": {
+    "price": 5000,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 75,
+    "terrainValue": 0.25
+  }
+}

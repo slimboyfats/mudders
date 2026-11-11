@@ -19,18 +19,18 @@
     {
       "explosion": {
         "use": "explosion.standard",
-        "radius": 18,
-        "damage": 55
+        "radius": 26,
+        "damage": 90
       }
     }
   ],
   "shop": {
-    "price": 8000,
+    "price": 7000,
     "pack": 2,
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 65,
+    "expectedDamage": 80,
     "terrainValue": 0.2
   }
 }
