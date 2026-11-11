@@ -231,3 +231,30 @@ export function dropTank(world: World, player: number, depth: number, max = 600)
   }
   return n;
 }
+
+/**
+ * Fire `weapon` from player 0 (given one), let it fly `pressAt` ticks, then press fire again (an
+ * `onCommand` trigger). Returns where the shell was when the press went in, or null if it had
+ * already gone.
+ */
+export function fireAndPress(
+  world: World,
+  weapon: string,
+  angle: number,
+  power: number,
+  pressAt: number,
+): { x: number; y: number; vx: number; vy: number } | null {
+  const idx = world.weaponByIndex(weapon);
+  world.tanks[0]!.inventory[idx] = 1;
+  world.applyInput(0, { type: 'selectWeapon', weapon });
+  world.applyInput(0, { type: 'aim', angle, power });
+  world.applyInput(0, { type: 'fire' });
+  world.step();
+  for (let n = 0; n < pressAt; n++) world.step();
+  const p = world.projectiles.find((s) => s.alive && s.weapon === idx);
+  if (!p) return null;
+  const at = { x: Math.floor(p.x / 65536), y: Math.floor(p.y / 65536), vx: p.vx, vy: p.vy };
+  world.applyInput(0, { type: 'fire' });
+  world.step();
+  return at;
+}

@@ -1555,23 +1555,43 @@ export class EffectSystem {
         this.whale(e);
         break;
       case 'whalePop': {
-        // the shell bursts open into a puff of cloud as big as the whale
+        // the shell cracks open with a hard white pop, then vapour spirals in from all round and
+        // condenses into the whale (drawWhale fills it in over the same time)
         this.kick(2, e.tick);
         this.tintSky([0, 0.12, 0.2, 0.35], 0.15);
         const rng = this.rngFor(e, 153);
-        const n = Math.round(90 * this.mult) + 10;
+        const pop = Math.round(24 * this.mult) + 6;
+        for (let i = 0; i < pop; i++) {
+          const a = rng.range(0, Math.PI * 2);
+          const v = rng.range(0.8, 2.4);
+          this.particles.add({
+            x: e.x,
+            y: e.y,
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v,
+            life: rng.range(8, 16),
+            size: 1,
+            color: rng.next() < 0.6 ? 0xffffff : 0xbff4ff,
+            kind: PKind.Glitter,
+          });
+        }
+        const n = Math.round(140 * this.mult) + 20;
+        const spin = (e.params.dir ?? 1) < 0 ? -1 : 1;
         for (let i = 0; i < n; i++) {
           const a = rng.range(0, Math.PI * 2);
-          const v = rng.range(0.3, 1.6);
+          const r = rng.range(36, 84);
+          const life = rng.range(22, 36);
+          // inward fast enough to arrive as it dies, with a sideways swirl
+          const vin = r / life;
           this.particles.add({
-            x: Math.round(e.x + rng.range(-e.radius, e.radius) * 0.8),
-            y: Math.round(e.y + rng.range(-12, 12)),
-            vx: Math.cos(a) * v,
-            vy: Math.sin(a) * v * 0.5,
-            life: rng.range(30, 70),
+            x: Math.round(e.x + Math.cos(a) * r),
+            y: Math.round(e.y + Math.sin(a) * r * 0.6),
+            vx: -Math.cos(a) * vin - spin * Math.sin(a) * 0.9,
+            vy: (-Math.sin(a) * vin + spin * Math.cos(a) * 0.9) * 0.6,
+            life,
             size: 1,
-            color: rng.next() < 0.5 ? 0xffffff : 0xc8d4e6,
-            kind: PKind.Wisp,
+            color: rng.next() < 0.5 ? 0xffffff : rng.next() < 0.5 ? 0xd8e2f0 : 0x9ad0ff,
+            kind: PKind.Plasma,
           });
         }
         break;
@@ -3456,7 +3476,7 @@ export class EffectSystem {
       (g) => g.dir === dir && e.tick - g.last <= 4 && Math.abs(g.x - e.x) < 40,
     );
     if (!w) {
-      w = { x: e.x, y: e.y, dir, pitch: 0, age: 0, diving: false, last: e.tick };
+      w = { x: e.x, y: e.y, dir, pitch: 0, age: 0, diving: false, appear: 0, last: e.tick };
       this.whales.push(w);
     }
     w.x = e.x;
@@ -3464,6 +3484,7 @@ export class EffectSystem {
     w.pitch = ((pr.pitch ?? 0) / 10) * (Math.PI / 180);
     w.age = pr.age ?? 0;
     w.diving = (pr.phase ?? 0) > 0;
+    w.appear = Math.min(1, (pr.age ?? 0) / Math.max(1, pr.hang ?? 1));
     w.last = e.tick;
     const rng = this.rngFor(e, 152);
     // cloud shed off its back and tail as it swims
@@ -3513,8 +3534,8 @@ export class EffectSystem {
   }
 
   /** Cloud Whales. */
-  drawWhales(normal: QuadBatch, t: number): void {
-    for (const w of this.whales) drawWhale(w, normal, t);
+  drawWhales(normal: QuadBatch, additive: QuadBatch, t: number): void {
+    for (const w of this.whales) drawWhale(w, normal, t, additive);
   }
 
   /** Upfall columns: their walls of light and rising motes. */

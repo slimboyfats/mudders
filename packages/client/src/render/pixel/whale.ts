@@ -18,6 +18,8 @@ export interface WhaleFx {
   /** Sim age of the op (beats its tail). */
   age: number;
   diving: boolean;
+  /** How far it has condensed out of the shell, 0 → 1 (1 = whole). */
+  appear: number;
   /** Render tick of the latest event. */
   last: number;
 }
@@ -83,8 +85,21 @@ function px(b: QuadBatch, x: number, y: number, color: number): void {
 }
 
 /** Draw one whale at render time `t`. */
-export function drawWhale(w: WhaleFx, normal: QuadBatch, t: number): void {
-  const beat = Math.sin(w.age * (w.diving ? 0.32 : 0.16));
+/** Eases past 1 and settles back (a little overshoot as it swells to full size). */
+function easeOutBack(k: number): number {
+  const c = 1.9;
+  const m = k - 1;
+  return 1 + (c + 1) * m * m * m + c * m * m;
+}
+
+export function drawWhale(w: WhaleFx, normal: QuadBatch, t: number, additive?: QuadBatch): void {
+  // condensing out of the shell: it swells up from a knot of cloud, its cells filling in from the
+  // middle out with a bright seam of fresh vapour at the edge of what has formed so far
+  const ap = Math.max(0, Math.min(1, w.appear));
+  const forming = ap < 1;
+  const scale = forming ? 0.12 + 0.88 * easeOutBack(ap) : 1;
+  const fill = ap * 1.7;
+  const beat = Math.sin(w.age * (w.diving ? 0.32 : forming ? 0.45 : 0.16));
   const fin = Math.sin(w.age * 0.11 + 1);
   const cx = Math.round(w.x);
   const cy = Math.round(w.y);
@@ -96,8 +111,8 @@ export function drawWhale(w: WhaleFx, normal: QuadBatch, t: number): void {
   const fc = Math.cos(0.5 + fin * 0.25);
   const fs = Math.sin(0.5 + fin * 0.25);
   const toBody = (dx: number, dy: number): [number, number] => [
-    (dx * c + dy * s) * w.dir,
-    -dx * s + dy * c,
+    ((dx * c + dy * s) * w.dir) / scale,
+    (-dx * s + dy * c) / scale,
   ];
   for (let dy = -BOX; dy <= BOX; dy++) {
     for (let dx = -BOX; dx <= BOX; dx++) {
@@ -105,6 +120,20 @@ export function drawWhale(w: WhaleFx, normal: QuadBatch, t: number): void {
       if (bx < -60 || bx > 52 || by < -30 || by > 34) continue;
       const part = partAt(bx, by, beat, fin, fc, fs);
       if (part === 0) continue;
+      if (forming) {
+        // each cell condenses at its own moment, the middle first
+        const r = Math.min(1, Math.hypot(bx - 6, by * 2) / 60);
+        const at = (hash(Math.round(bx), Math.round(by), 7) & 255) / 255 + r;
+        if (at > fill) continue;
+        if (at > fill - 0.18) {
+          // fresh vapour: a white or pale cyan cell, lit
+          const col = (hash(Math.round(bx), Math.round(by), t) & 1) === 0 ? 0xffffff : 0xbff4ff;
+          px(normal, cx + dx, cy + dy, col);
+          if (additive)
+            additive.push(cx + dx + 0.5, cy + dy + 0.5, 1, 1, 0x9ad0ff, 0.5, Shape.Rect);
+          continue;
+        }
+      }
       // outline where a neighbour is outside
       let edge = false;
       for (let k = 0; k < 4 && !edge; k++) {

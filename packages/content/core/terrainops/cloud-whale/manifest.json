@@ -12,7 +12,7 @@
   "burst": 22,
   "burstAfter": 4,
   "lift": 70,
-  "hang": 14,
+  "hang": 36,
   "tilt": 60,
   "tiltRate": 1.2,
   "maxFall": 6,

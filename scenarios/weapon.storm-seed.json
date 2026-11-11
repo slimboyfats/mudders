@@ -1,0 +1,116 @@
+{
+  "id": "weapon.storm-seed",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Storm Seed and presses DROP! over player 1: a black thundercloud hangs there and cracks lightning down onto player 1 as the turns go by.",
+  "subject": "weapon.storm-seed",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.storm-seed": 1,
+        "weapon.missile": 3
+      }
+    },
+    {
+      "x": 560,
+      "inventory": {
+        "weapon.missile": 3
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.storm-seed"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 50,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 84,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 85,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 85,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 160,
+        "power": 300
+      }
+    },
+    {
+      "t": 85,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 86,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 86,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 20,
+        "power": 200
+      }
+    },
+    {
+      "t": 86,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

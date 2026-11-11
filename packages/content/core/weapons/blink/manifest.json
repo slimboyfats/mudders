@@ -1,0 +1,21 @@
+{
+  "id": "weapon.blink",
+  "schemaVersion": 1,
+  "extends": "weapon.teleport-shell",
+  "meta": {
+    "name": "Blink",
+    "description": "Press DROP! in flight and your own tank jumps to the spot under the shell, right then. Pick your landing in mid-air: over a wall, onto a ridge, next to a crate. If it lands first, you jump to where it landed.",
+    "category": "weird",
+    "since": "core@0.76.0"
+  },
+  "triggers": ["onCommand", "onSolid", "onTank"],
+  "shop": {
+    "price": 7000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

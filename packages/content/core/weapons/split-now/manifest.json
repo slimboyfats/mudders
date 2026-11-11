@@ -1,0 +1,21 @@
+{
+  "id": "weapon.split-now",
+  "schemaVersion": 1,
+  "extends": "weapon.mirv",
+  "meta": {
+    "name": "Split Now",
+    "description": "A MIRV you split yourself: press DROP! whenever you like while it flies and it bursts into five warheads right there. Split early to carpet a whole valley, late to drop all five on one tank.",
+    "category": "explosive",
+    "since": "core@0.76.0"
+  },
+  "triggers": ["onCommand", "onSolid", "onTank"],
+  "shop": {
+    "price": 11000,
+    "pack": 2,
+    "tier": 2
+  },
+  "ai": {
+    "expectedDamage": 110,
+    "terrainValue": 0.4
+  }
+}

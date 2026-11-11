@@ -88,7 +88,7 @@ function deluge(api: SimApi, cell: number, cx: number, cy: number, r: number): n
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.cloud-whale',
-  version: 2,
+  version: 3,
   params,
   start(api, p, c) {
     const g = api.grid;
@@ -157,6 +157,7 @@ export default defineTerrainOp<Params>({
         pitch: d[PITCH]!,
         phase: age > p.hang ? 1 : 0,
         age,
+        hang: p.hang,
       });
       // fell out of the bottom of the map
       if (Math.floor(d[Y]! / FP) > api.grid.height + p.half) return false;
