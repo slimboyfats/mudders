@@ -1,0 +1,64 @@
+{
+  "id": "weapon.tunnel-rat",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Tunnel Rat into the hill under player 1 and presses DROP! while it is boring.",
+  "subject": "weapon.tunnel-rat",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.tunnel-rat": 1
+      }
+    },
+    {
+      "x": 560
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tunnel-rat"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 50,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 130,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

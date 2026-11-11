@@ -15,8 +15,8 @@
     {
       "explosion": {
         "use": "explosion.standard",
-        "radius": 16,
-        "damage": 12,
+        "radius": 22,
+        "damage": 45,
         "damageType": "heat",
         "terrainOp": null,
         "effects": {
@@ -41,7 +41,7 @@
         "use": "terrainop.add",
         "material": "material.fire"
       },
-      "radius": 7,
+      "radius": 12,
       "damageType": "heat"
     }
   ],

@@ -59,7 +59,7 @@
       "count": 1
     },
     {
-      "weapon": "weapon.terraformer",
+      "weapon": "weapon.ice-wall",
       "count": 1
     }
   ],
@@ -143,7 +143,7 @@
       },
       {
         "kind": "weapon",
-        "item": "weapon.teleport-shell",
+        "item": "weapon.blink",
         "amount": 1,
         "weight": 3
       },

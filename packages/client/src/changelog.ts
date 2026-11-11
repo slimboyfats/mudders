@@ -19,8 +19,8 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-12',
-    title: 'DROP! weapons: you decide in mid-air',
-    pack: 'core@0.76.0',
+    title: 'DROP! weapons: you decide in mid-air, and a tidier shop',
+    pack: 'core@0.76.0 – 0.77.0',
     newSince: 'core@0.75.0',
     items: [
       'New: some shells have a second press. After firing, the FIRE button turns into a flashing DROP! (or press Space/Enter) and the shell does its trick right where it is',
@@ -33,6 +33,14 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'New weapon: Flock Call, six black birds burst out of the shell and dive-bomb the nearest enemies',
       'Cloud Whale now condenses out of a swirl of vapour and swells to full size before it drops',
       'Crystal Bloom spires are about twice as thick',
+      'New weapon: Airburst, press DROP! and it bursts in mid-air in a wide ring of shrapnel, hitting tanks behind walls and in trenches from above',
+      'New weapon: Anvil Rain, press DROP! and five anvils fall in a fan',
+      'New weapon: Tunnel Rat, a digging charge that bores on until you press DROP!, then blows up right there under the ground',
+      'New weapon: Magma Lance, a straight beam of molten rock that burns through a tank and leaves a pool of real lava',
+      'New weapon: Hailstorm, a black hail cloud gathers where it lands and pounds the ground under it with fists of ice for three turns',
+      'Shop clean-up: weapons that did almost nothing or doubled up on another one are gone from the shop: Tracer, Resonator, Oil Slick, Baby Digger, Dirt Clod, Dirt Charge, Cryo Shell, Burrower (Tunnel Rat does it better), Riot Blast, Terraformer (Ice Wall), Ton of Dirt (Dirt Bomb), Thunderstorm (Storm Seed), Teleport Shell (Blink), Plague (Toxic Gas), Smart Bomb (Heat Seeker), Concussion Shell (Airburst) and Skipper (Ricochet Ball)',
+      'Real damage now: Incendiary about 50 on a direct hit (was 19), Tectonic Charge 65, Implosion 60, Quicksand 35, Glue Bomb 40',
+      'You start each match with an Ice Wall instead of a Terraformer, and supply crates hold Blink instead of Teleport Shell',
     ],
   },
   {

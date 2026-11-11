@@ -16,7 +16,7 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 8,
-        "damage": 25,
+        "damage": 65,
         "damageType": "shock",
         "effects": {
           "shake": {

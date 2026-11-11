@@ -39,7 +39,7 @@
     }
   ],
   "shop": {
-    "price": 1200,
+    "price": 0,
     "pack": 5,
     "tier": 0
   },

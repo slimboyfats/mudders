@@ -34,7 +34,7 @@
     }
   ],
   "shop": {
-    "price": 4000,
+    "price": 0,
     "pack": 1,
     "tier": 1
   },

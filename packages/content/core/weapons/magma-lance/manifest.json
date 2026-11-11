@@ -1,0 +1,42 @@
+{
+  "id": "weapon.magma-lance",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Magma Lance",
+    "description": "A straight beam of molten rock along your aim: no arc, no wind. It burns through the first tank it reaches and leaves a pool of real lava where it hits, which keeps burning anyone who stays in it.",
+    "category": "beam",
+    "since": "core@0.77.0"
+  },
+  "flight": { "use": "flight.beam" },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 10,
+        "damage": 70,
+        "damageType": "heat",
+        "falloff": "flat",
+        "effects": { "flash": { "strength": 1.2 }, "burst": { "count": 24 } }
+      }
+    },
+    {
+      "terrainOp": { "use": "terrainop.add", "material": "material.lava" },
+      "radius": 8,
+      "damageType": "heat"
+    }
+  ],
+  "pulse": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 3,
+        "damage": 0,
+        "damageType": "heat",
+        "effects": { "burst": { "count": 3 } }
+      }
+    }
+  ],
+  "shop": { "price": 8000, "pack": 1, "tier": 2 },
+  "ai": { "expectedDamage": 70, "terrainValue": 0.3 }
+}
