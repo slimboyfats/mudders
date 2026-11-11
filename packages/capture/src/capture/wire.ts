@@ -9,12 +9,19 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
     const buf = Buffer.alloc(r.w * r.h);
     const coat = Buffer.alloc(r.w * r.h);
     let coated = false;
+    const shade = Buffer.alloc(r.w * r.h);
+    let shaded = false;
     for (let row = 0; row < r.h; row++) {
       const start = (r.y + row) * s.width + r.x;
       buf.set(s.terrain.subarray(start, start + r.w), row * r.w);
       const c = s.coating.subarray(start, start + r.w);
       coat.set(c, row * r.w);
       if (!coated && c.some((v) => v !== 0)) coated = true;
+      if (s.shade) {
+        const g = s.shade.subarray(start, start + r.w);
+        shade.set(g, row * r.w);
+        if (!shaded && g.some((v) => v !== 0)) shaded = true;
+      }
     }
     // the coating layer rides along only when the patch has any (most frames have none)
     patches.push([
@@ -24,6 +31,8 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
       r.h,
       buf.toString('base64'),
       coated ? coat.toString('base64') : '',
+      // and the grain shade of moved cells, when any moved
+      shaded ? shade.toString('base64') : '',
     ]);
   }
   let gas: WireSnapshot['gas'];

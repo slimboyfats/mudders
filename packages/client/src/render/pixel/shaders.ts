@@ -697,6 +697,8 @@ void main() {
  */
 /** Cells beside a crater wall (horizontally) that lose their turf; the renderer widens dirty
  * rects by this much. */
+/** Rows under its round-start surface a cell still counts as turf once that surface is gone. */
+export const SOD_REACH = 24;
 export const CUT_REACH = 16;
 /** Rows up a cell looks for the old grass surface buried under a heap; the renderer widens dirty
  * rects downward by this much. */
@@ -753,7 +755,7 @@ void main() {
   // moved keeps its strata, mottling and pebbles.
   uint sh = texelFetch(u_shade, c, 0).r;
   bool loose = sh != 0u;
-  float g = loose ? (float((sh >> 2u) - 1u) / 62.0 - 0.5) * u_grain * 1.5 : (hash(ap) - 0.5) * u_grain;
+  float g = loose ? (float(((sh >> 2u) & 31u) - 1u) / 30.0 - 0.5) * u_grain * 1.5 : (hash(ap) - 0.5) * u_grain;
   if (loose) g += (sh & 3u) == 3u ? 0.07 : (sh & 3u) == 0u ? -0.07 : 0.0;
   // rows down to open air above (1 = surface), 0 = deeper than 32
   int sd = 0;
@@ -801,6 +803,23 @@ void main() {
   bool soil = gmask != 0u;
   // rows below the grass, counted from the round-start surface the column grew it on
   int gsd = sd;
+  // ground whose cover slid away (a sand drift, the top of a slump) without moving itself is still
+  // the round's turf: its round-start surface is a few rows up in what is now open air. A blast
+  // marks the grass it destroyed (mask 4), so a crater floor finds none and stays bare.
+  bool sagged = false;
+  if (gmask == 4u) gmask = 0u;
+  if (gmask == 0u && still && lk.a > 0.75 && sh == 0u) {
+    for (int k = 1; k <= ${SOD_REACH}; k++) {
+      if (c.y - k < 0) break;
+      uint gm = texelFetch(u_grassMask, c - ivec2(0, k), 0).r;
+      if (gm == 4u) break;
+      if (gm != 0u) {
+        if (mat(c - ivec2(0, k)) == 0u) { gmask = gm; sagged = true; gsd = k + 1; }
+        break;
+      }
+    }
+  }
+  if (sagged) soil = true;
   // ground dumped on top of the grass (dirt bombs, slides, heaps of debris) doesn't cut it off in
   // a straight wall: the old surface is still there underneath, so its grass, turf and topsoil
   // carry on under the heap as a buried, darker layer, and the loose ground sits on top of it
@@ -811,7 +830,7 @@ void main() {
       if (sd > 0 && k >= sd - 1) break;
       if (c.y - k < 0) break;
       uint bm = texelFetch(u_grassMask, c - ivec2(0, k), 0).r;
-      if (bm != 0u) {
+      if (bm != 0u && bm != 4u) {
         gmask = bm;
         soil = true;
         buried = true;
@@ -838,7 +857,7 @@ void main() {
   // surface row, so the scan up that air column finds no grass mask there. Each direction tests
   // only the first air cell it meets.
   int cut = 0;
-  if (soil && !buried && sd > 2 && u_grass.a > 0.0) {
+  if (soil && !buried && !sagged && sd > 2 && u_grass.a > 0.0) {
     ivec2 dirs[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(-1, -1), ivec2(1, -1));
     int open = 0; // bit per direction: already met air (or the map edge)
     for (int d = 1; d <= ${CUT_REACH} && cut == 0; d++) {
@@ -850,7 +869,11 @@ void main() {
         open |= 1 << i;
         for (int k = 2; k <= 34; k++) {
           if (k > sd + 2 || n.y - k < 0) break;
-          if (texelFetch(u_grassMask, n - ivec2(0, k), 0).r != 0u) { cut = d; break; }
+          uint cm = texelFetch(u_grassMask, n - ivec2(0, k), 0).r;
+          // only a blast's own hole (mask 4) or a deep dig cuts the turf: air a little under the
+          // old surface is where the ground slumped away, and the turf there slumped with it
+          if (cm == 4u || (cm != 0u && k > ${SOD_REACH})) { cut = d; break; }
+          if (cm != 0u) break;
         }
         if (cut != 0) break;
       }
@@ -946,6 +969,15 @@ void main() {
     else if (lv >= 2 && hash(ap + ivec2(41, 17)) > 0.94) b *= 0.8;
     if (lv <= 5) col = b;
     rim *= 0.2;
+  }
+  // sod: a moved cell that began the round in the top rows of the ground (shade bit 7) takes its
+  // turf with it. Ground that slides, sags or falls stays green cell by cell, and tears and mixes
+  // with the bare dirt it tumbles through, instead of the turf ending where the surface moved.
+  if ((sh & 128u) != 0u && still && lk.a > 0.75 && !soil && u_grass.a > 0.0) {
+    float h = hash(c + ivec2(19, 77));
+    vec3 t = turf(u_grass.rgb, c, 0.2) * (1.0 + g * 1.5);
+    col = sd == 1 ? u_grass.rgb * (h > 0.6 ? 1.2 : 1.06) : sd == 2 ? t * 1.25 : t;
+    rim *= 0.35;
   }
   // where loose ground meets the grass at about the same height, the grass creeps a few cells
   // onto it, thinning out in dither, so the turf doesn't end in a ruled vertical line

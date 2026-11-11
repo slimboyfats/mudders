@@ -5,15 +5,23 @@ const MAX_RENDER_RECTS = 8;
 /**
  * The cosmetic grain shade a cell at (x, y) shows while it rests where the map put it: the same
  * integer hash the terrain shader uses on its 2×2 "art pixel" (`hash(c >> 1)` in `TERRAIN_FS`),
- * in 63 steps, packed with two bits of the cell's own hash for single-grain flecks. Never 0
- * (0 = "not moved yet, use the position").
+ * in 31 steps, packed with two bits of the cell's own hash for single-grain flecks. Never 0
+ * (0 = "not moved yet, use the position"). The top bit (`SHADE_SOD`) is left for the grid: it marks a
+ * cell that started the round in the top rows of the ground, so renderers can let the turf
+ * travel with the ground it grew on when that slides or falls.
  */
+/** Shade bit: the cell began the round within SOD_ROWS of the surface of its column. */
+export const SHADE_SOD = 0x80;
+
+/** Rows under the round-start surface whose cells carry `SHADE_SOD` when they move. */
+export const SOD_ROWS = 24;
+
 export function grainShade(x: number, y: number): number {
   const ax = x >> 1;
   const ay = y >> 1;
   let h = (Math.imul(ax, 374761393) + Math.imul(ay, 668265263)) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
-  const tone = Math.min(62, Math.floor(((h & 1023) * 63) / 1024));
+  const tone = Math.min(30, Math.floor(((h & 1023) * 31) / 1024));
   let f = (Math.imul(x, 2246822519) ^ Math.imul(y, 3266489917)) >>> 0;
   f = Math.imul(f ^ (f >>> 15), 668265263) >>> 0;
   return ((tone + 1) << 2) | ((f >>> 7) & 3);
@@ -49,6 +57,8 @@ export class Grid {
    * fixed pattern. 0 = the cell never moved. Render-only: not hashed, never read by the sim.
    */
   readonly shade: Uint8Array;
+  /** Row of each column's topmost solid cell when the round began (`markSurface`); cosmetic. */
+  readonly surface0: Int16Array;
   /** Group cells lost outside ops (burnt, collapsed edge) since the kernel last looked. */
   readonly groupLost = new Int32Array(256);
   groupLostAny = false;
@@ -124,6 +134,7 @@ export class Grid {
     this.group = new Uint8Array(this.size);
     this.groupMat = new Uint8Array(this.size);
     this.shade = new Uint8Array(this.size);
+    this.surface0 = new Int16Array(width).fill(height);
   }
 
   /** Empty every layer and region (new round). */
@@ -137,6 +148,7 @@ export class Grid {
     this.group.fill(0);
     this.groupMat.fill(0);
     this.shade.fill(0);
+    this.surface0.fill(this.height);
     this.groupLost.fill(0);
     this.groupLostAny = false;
     this.burstCount = 0;
@@ -250,12 +262,25 @@ export class Grid {
     return this.inBounds(x, y) ? this.material[y * this.width + x]! : 0;
   }
 
+  /** Note where the ground's surface is now (round start), for the sod bit of `shadeOf`. */
+  markSurface(): void {
+    const W = this.width;
+    const H = this.height;
+    for (let x = 0; x < W; x++) {
+      let y = 0;
+      while (y < H && this.material[y * W + x] === 0) y++;
+      this.surface0[x] = y;
+    }
+  }
+
   /** The shade a cell carries when it moves: its own, or the one its position gave it. */
   shadeOf(i: number): number {
     const s = this.shade[i]!;
     if (s !== 0) return s;
     const x = i % this.width;
-    return grainShade(x, (i - x) / this.width);
+    const y = (i - x) / this.width;
+    const d = y - this.surface0[x]!;
+    return grainShade(x, y) | (d >= 0 && d < SOD_ROWS ? SHADE_SOD : 0);
   }
 
   /** Raw write; call `markDirty` for the affected area afterwards. */

@@ -188,6 +188,14 @@ export const MaterialSchema = z.strictObject({
    * lava creeps). Default 1.
    */
   disperse: z.number().int().min(1).max(8).optional(),
+  /**
+   * Fall materials: the steepest stair a slope of loosened cells holds, in cells of drop per cell
+   * across (1 is 45 degrees). Firm ground stands at any slope; a cell a blast has shaken loose (a
+   * `rim` rule with `loosen`) slides down beside itself while there is open air there and at
+   * least this many open cells below that, so a crater's wall slumps into a bowl. Each slide
+   * spends one of the cell's loosen steps; at none it is firm again. Unset: never slumps.
+   */
+  repose: z.number().int().min(1).max(8).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
   /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */
@@ -262,15 +270,20 @@ export const MaterialSchema = z.strictObject({
    * this material up to `depth` cells beyond where it was carved away become `into`. Ice shatters
    * into loose shards under blasts and melts into water under heat; clay bakes into brick. With
    * `chance` below 1, a fixed per-cell hash picks which rim cells turn, for a ragged edge.
+   * `loosen` shakes the rim loose instead of (or as well as) changing it: each cell may slide
+   * that many steps down a slope steeper than the material's `repose` (dirt).
    */
   rim: z
     .array(
-      z.strictObject({
-        damage: z.array(DamageTypeSchema).min(1),
-        into: MaterialRefSchema,
-        depth: z.number().int().min(1).max(8),
-        chance: z.number().min(0).max(1).default(1),
-      }),
+      z
+        .strictObject({
+          damage: z.array(DamageTypeSchema).min(1),
+          into: MaterialRefSchema.optional(),
+          loosen: z.number().int().min(1).max(255).optional(),
+          depth: z.number().int().min(1).max(8),
+          chance: z.number().min(0).max(1).default(1),
+        })
+        .refine((r) => r.into !== undefined || r.loosen !== undefined, 'needs into or loosen'),
     )
     .max(4)
     .optional(),

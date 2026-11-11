@@ -13,11 +13,21 @@ export const MAX_FALL_SPEED = 8;
 /** How far a resting liquid looks sideways for a drop to run to. */
 const DROP_LOOK = 32;
 
+/** Loosen steps a sliding grain of sand gives the dirt it drags at (see `repose`). */
+const DRAG_STEPS = 10;
+
+/** Chance in 8 that a grain sliding over different loose-able ground drags the cell under it along. */
+const DRAG_CHANCE = 3;
+
+/** How many cells deep a sliding grain can churn into different loose ground under it. */
+const CHURN_DEPTH = 3;
+
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
  * cells accelerate downward (1 cell/tick² up to MAX_FALL_SPEED), `slide` cells also move one cell
  * diagonally when blocked, `flow` cells sideways. A `fall` cell with air on both sides (the top of a
- * one-cell spire) topples diagonally, so debris doesn't leave needles standing. Scans bottom-up so a moved cell is never moved
+ * one-cell spire) topples diagonally, so debris doesn't leave needles standing, and one a blast
+ * shook loose slumps off any slope steeper than its material's `repose`. Scans bottom-up so a moved cell is never moved
  * twice in a tick. At most `maxCells` cells move per tick; the rest continue next tick.
  *
  * Returns the number of cells moved. Shrinks the settle region to what may still move.
@@ -42,6 +52,7 @@ export function settleStep(
   const density = mats.density;
   const spread = mats.spread;
   const disperse = mats.disperse;
+  const repose = mats.repose;
   const act = mats.active;
   const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
@@ -115,6 +126,30 @@ export function settleStep(
             vel[dst] = 1;
           }
         }
+        // Loosened ground (a blast's crater rim) slumps off a slope steeper than the material
+        // holds: with open air beside it and a drop of at least `repose` cells below that, the
+        // cell slides down there, spending one of its loosen steps (its state byte).
+        const rp = repose[m]!;
+        if (dst < 0 && rp !== 0 && state[idx] !== 0 && y + rp < H) {
+          const dir = ((x * 7 + y * 13 + tick) & 2) === 0 ? 1 : -1;
+          for (let s = 0; s < 2 && dst < 0; s++) {
+            const d = s === 0 ? dir : -dir;
+            const nx = x + d;
+            if (nx < 0 || nx >= W || mat[idx + d] !== 0) continue;
+            let p = below + d;
+            let j = 0;
+            while (j < rp && mat[p] === 0) {
+              p += W;
+              j++;
+            }
+            if (j === rp) {
+              dst = below + d;
+              dy = 1;
+              vel[dst] = 1;
+              state[idx] = state[idx]! - 1;
+            }
+          }
+        }
       } else if (k >= SETTLE_SLIDE) {
         const dir = ((x * 7 + y * 13 + tick) & 2) === 0 ? 1 : -1;
         for (let s = 0; s < 2 && dst < 0; s++) {
@@ -165,6 +200,82 @@ export function settleStep(
       state[dst] = dy > 0 && spread[m] !== 0 ? state[idx]! & ~AGE_MASK : state[idx]!;
       state[idx] = 0;
       const dx = (dst % W) - x;
+      let low = y + dy;
+      // Traction: a grain sliding off loose-able ground (dirt) drags at the cell it rode over.
+      // Sand pulls it out bodily: the dirt cell is pushed down the slope in the grain's place and
+      // the grain drops into the gap, so a sand slide carries some of the slope along (and its
+      // turf with it) and ends up mixed with it. Loose dirt over firm dirt only shakes that cell
+      // loose, for fewer steps than it has itself, so the slide dies out.
+      let dragged = false;
+      if (dx !== 0 && (k === SETTLE_FALL || k === SETTLE_SLIDE) && act[m] === 0) {
+        const ub = mat[below]!;
+        if (ub !== 0 && repose[ub] !== 0 && group[below] === 0) {
+          const roll = ((Math.imul(x, 668265263) ^ Math.imul(y + tick, 374761393)) >>> 11) & 7;
+          if (ub !== m && roll < DRAG_CHANCE) {
+            mat[below] = m;
+            mat[dst] = ub;
+            const cs = coat[dst]!;
+            coat[dst] = coat[below]!;
+            coat[below] = cs;
+            const ss = state[dst]!;
+            state[dst] = state[below]! > DRAG_STEPS ? state[below]! : DRAG_STEPS;
+            state[below] = ss;
+            const sh = grid.shadeOf(dst);
+            shade[dst] = grid.shadeOf(below);
+            shade[below] = sh;
+            dragged = true;
+          } else if (ub === m && state[below] === 0 && roll < DRAG_CHANCE) {
+            const pull = Math.min(DRAG_STEPS * 2, state[dst]! >> 1);
+            if (pull > 0) state[below] = pull;
+          }
+        }
+      }
+      // A slump eats back into the slope: loose ground that slides away may shake the cell it
+      // leaned on (behind it, upslope) loose too, for half its own steps, so the edge of a slump
+      // is a ragged slope that fades into firm ground, not a sheer cut where the loosening ended.
+      if (repose[m] !== 0 && act[m] === 0 && state[dst] !== 0) {
+        const half = state[dst]! >> 1;
+        const flip = ((Math.imul(x, 2246822519) ^ Math.imul(y + tick, 3266489917)) >>> 12) & 3;
+        // sliding: the cell behind; falling: the wall it scrapes past on either side
+        for (let sd = -1; sd <= 1 && half > 0; sd += 2) {
+          if (dx !== 0 ? sd !== -dx || (flip & 1) !== 0 : ((flip >> (sd + 1)) & 1) !== 0) continue;
+          const bx = x + sd;
+          const back = idx + sd;
+          if (bx < 0 || bx >= W) continue;
+          if (mat[back] === m && state[back] === 0 && group[back] === 0) state[back] = half;
+        }
+      }
+      // Grains that slide over a different loose ground churn into it: the grain may swap with
+      // the one under where it lands, up to CHURN_DEPTH deep, so sand running down a dirt slope
+      // (or a slumping dirt rim under a sand drift) ends up mixed instead of lying on it as a strip.
+      if (!dragged && dx !== 0 && (k === SETTLE_FALL || k === SETTLE_SLIDE) && act[m] === 0) {
+        let at = dst;
+        for (let c = 0; c < CHURN_DEPTH && low < H - 1; c++) {
+          const un = at + W;
+          const o = mat[un]!;
+          const ko = kind[o]!;
+          if (o === 0 || o === m || (ko !== SETTLE_FALL && ko !== SETTLE_SLIDE)) break;
+          if (group[un] !== 0 || act[o] !== 0 || turns[o] !== 0) break;
+          if (
+            (((Math.imul(x + c * 31, 374761393) ^ Math.imul(low + tick, 668265263)) >>> 13) & 7) >=
+            3
+          )
+            break;
+          mat[un] = m;
+          mat[at] = o;
+          const cs = coat[at]!;
+          coat[at] = coat[un]!;
+          coat[un] = cs;
+          const ss = state[at]!;
+          state[at] = state[un]!;
+          state[un] = ss;
+          const sh = grid.shadeOf(at);
+          shade[at] = grid.shadeOf(un);
+          shade[un] = sh;
+          at = un;
+          low++;
+        }
+      }
       // a liquid that moved may have opened a drop for still liquid further along its surface
       // (the end of a terrace), so the next pass looks that far to either side
       const pad = dx !== 0 && spread[m] !== 0 ? DROP_LOOK : 0;
@@ -172,7 +283,7 @@ export function settleStep(
       const hi = (dx > 0 ? x + dx : x) + pad;
       if (lo < nMinX) nMinX = lo;
       if (hi > nMaxX) nMaxX = hi;
-      if (y + dy > nMaxY) nMaxY = y + dy;
+      if (low > nMaxY) nMaxY = low;
       if (y < nMinY) nMinY = y;
       if (++moved >= maxCells) {
         capped = true;

@@ -1,12 +1,12 @@
 {
   "settle-200x100": {
-    "avgMs": 0.6822500952380866,
-    "worstMs": 1.092033999999785,
+    "avgMs": 0.8,
+    "worstMs": 1.2,
     "ticks": 42
   },
   "carve-r60": {
-    "avgMs": 0.17142999999987296,
-    "worstMs": 0.17142999999987296,
+    "avgMs": 0.28,
+    "worstMs": 0.28,
     "ticks": 1
   },
   "shockwave-r90": {

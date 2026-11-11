@@ -68,6 +68,8 @@ export class MaterialTable {
   readonly spread = new Uint8Array(256);
   /** Flow cells run up to this many cells sideways per tick (≥ 1). */
   readonly disperse = new Uint8Array(256).fill(1);
+  /** Fall materials: steepest stair (cells of drop) a slope holds; 0 = stands sheer. */
+  readonly repose = new Uint8Array(256);
   readonly contactDamage = new Uint8Array(256);
   /** Ticks per sunk cell (0 = tanks do not sink) and the deepest a tank sinks. */
   readonly sinkTicks = new Uint8Array(256);
@@ -95,8 +97,12 @@ export class MaterialTable {
   readonly rimInto = new Uint8Array(256 * NUM_DAMAGE_TYPES).fill(KEEP);
   readonly rimDepth = new Uint8Array(256 * NUM_DAMAGE_TYPES);
   readonly rimChance = new Uint16Array(256 * NUM_DAMAGE_TYPES);
+  /** Slide steps a rim cell is shaken loose for (0 = stays firm); see `repose`. */
+  readonly rimLoosen = new Uint8Array(256 * NUM_DAMAGE_TYPES);
   /** Deepest rim of any material, so a carve knows how far past its radius to look. */
   rimMaxDepth = 0;
+  /** Whether any rim rule loosens (a carve then also looks at the ground over its crater). */
+  rimLoosens = false;
   /**
    * Cell a blast lights this material into (KEEP = not blast-lit), whether any material is, and
    * per cell a bit mask of the damage types that light it.
@@ -202,6 +208,8 @@ export class MaterialTable {
         this.active[c] = this.active[c]! | ACT_SPREAD;
       }
       this.disperse[c] = m.disperse ?? 1;
+      // loosen steps live in the cell's state byte, which ageing materials use for their age
+      this.repose[c] = m.settle === 'fall' && !m.decay && !m.spread ? (m.repose ?? 0) : 0;
       this.contactDamage[c] = m.contact?.damage ?? 0;
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;
@@ -229,7 +237,9 @@ export class MaterialTable {
       for (const r of m.rim ?? []) {
         for (const d of r.damage) {
           const i = c * NUM_DAMAGE_TYPES + DAMAGE_TYPES.indexOf(d);
-          this.rimInto[i] = ref(r.into);
+          if (r.into !== undefined) this.rimInto[i] = ref(r.into);
+          this.rimLoosen[i] = r.loosen ?? 0;
+          if (r.loosen) this.rimLoosens = true;
           this.rimDepth[i] = r.depth;
           this.rimChance[i] = Math.round(r.chance * 256);
         }

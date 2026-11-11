@@ -14,23 +14,25 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 6,
+  version: 7,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
     const W = grid.width;
     const R = c.radius;
     const r2s = R * R * 65536;
-    // Rims (ice, clay) can reach a few cells past the radius.
-    const RR = R + mats.rimMaxDepth;
+    // Rims (ice, clay, loosened dirt) can reach a few cells past the radius.
+    const RR = R + mats.rimMaxDepth + (mats.rimLoosens ? OVER_FADE : 0);
     const x0 = Math.max(0, c.x - RR);
     const x1 = Math.min(W - 1, c.x + RR);
-    const y0 = Math.max(0, c.y - RR);
+    // (loosened ground over the crater reaches higher than the rim: see below)
+    const y0 = Math.max(0, c.y - (mats.rimLoosens ? R * OVER_REACH : RR));
     const y1 = Math.min(grid.height - 1, c.y + RR);
     const dt = c.damageTypeIndex;
     const rInto = mats.rimInto;
     const rDepth = mats.rimDepth;
     const rChance = mats.rimChance;
+    const rLoosen = mats.rimLoosen;
     const R256 = R * 256;
     const mat = grid.material;
     const str = mats.strength;
@@ -59,18 +61,35 @@ export default defineTerrainOp<z.infer<typeof params>>({
           // Not carved: maybe on the rim, within `depth` cells of where this material gave way.
           const ri = m * nd + dt;
           const into = rInto[ri]!;
-          if (into === keep) continue;
+          const loosen = rLoosen[ri]!;
+          if (into === keep && loosen === 0) continue;
           const e =
             s > 256 ? Math.floor((R256 * 256) / s) + rDepth[ri]! * 256 : R256 + rDepth[ri]! * 256;
-          if (d2 * 65536 > e * e) continue;
+          if (d2 * 65536 > e * e) {
+            // ...or in the ground standing over the crater: a pure `loosen` rule also shakes that
+            // loose, so what the blast undercut comes down as a slump, not as a sheer cut
+            if (into !== keep || loosen === 0 || dy >= 0) continue;
+            // (fading out over OVER_FADE columns to either side, so the slump has no ruled edge)
+            const over = Math.abs(dx) - R - rDepth[ri]!;
+            if (over > OVER_FADE) continue;
+            if (over > 0) {
+              grid.cellState[i] = Math.max(
+                1,
+                Math.trunc((loosen * (OVER_FADE - over)) / (2 * OVER_FADE)),
+              );
+              grid.fallVel[i] = 0;
+              continue;
+            }
+          }
           const ch = rChance[ri]!;
           if (
             ch < 256 &&
             Math.imul(x * 374761393 + y * 668265263 + c.x * 2246822519, 3266489917) >>> 24 >= ch
           )
             continue;
-          mat[i] = into;
-          grid.cellState[i] = 0;
+          // shaken loose (dirt): the cell stays what it is and may slump for `loosen` steps
+          if (into !== keep) mat[i] = into;
+          grid.cellState[i] = loosen;
           grid.fallVel[i] = 0;
           continue;
         }
@@ -197,6 +216,12 @@ export default defineTerrainOp<z.infer<typeof params>>({
     return null;
   },
 });
+
+/** How far above a crater (in radii) a `loosen` rim rule shakes the ground over it loose. */
+const OVER_REACH = 4;
+
+/** Columns past the crater's side over which that loosening fades to nothing. */
+const OVER_FADE = 12;
 
 /** Rows of a splashing liquid a blast blows out from its surface; deeper liquid stays put. */
 const SPLASH_DEPTH = 7;

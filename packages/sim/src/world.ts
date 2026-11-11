@@ -1116,6 +1116,7 @@ export class World implements SimApi {
       gen.params.parse(behaviourParams(genItem, GEN_CORE_KEYS)),
       this.options.players,
     );
+    g.markSurface();
     // Props (§4c) go on after the terrain and before the tanks, clear of every spawn.
     this.groups.reset();
     const spawns = Array.from(

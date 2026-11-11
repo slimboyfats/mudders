@@ -582,7 +582,9 @@ void main() {
       alpha = 0.4;
     }
   } else if (k == ${PKind.Wisp}) {
-    show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.55 ? 1.0 : (1.0 - t) / 0.45);
+    // thins out cell by cell over most of its life, so a cloud fades slowly instead of hanging
+    // and then going all at once
+    show = show && u_pass == 0 && th < min(1.0, t * 8.0 + 0.4) * (t < 0.25 ? 1.0 : (1.0 - t) / 0.75);
     col = ramp3(shade(col, 0.55), col, shade(col, 1.45), stepT(t, th, 6.0));
   } else if (k == ${PKind.Gas}) {
     show = show && u_pass == 0 && th < min(1.0, t * 10.0 + 0.3) * (t < 0.6 ? 1.0 : (1.0 - t) / 0.4);
