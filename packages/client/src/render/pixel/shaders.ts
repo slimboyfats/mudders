@@ -73,6 +73,7 @@ uniform vec2 u_map;
 uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec3 u_letterbox;
+uniform vec3 u_bedrock;      // solid ground the view shows below the map
 uniform vec3 u_flash;
 uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
@@ -191,8 +192,9 @@ void main() {
   ivec2 wc = ivec2(floor(m));
   // the view never runs out of world: past the left and right edges the battlefield goes on as
   // its own mirror image (under the death wall, drawn as particles in deathwall.ts), above the
-  // map the sky goes on with its stars, and below it the ground goes on (the bottom rows,
-  // reflected back and forth and darkening with depth)
+  // map the sky goes on with its stars, and below it solid ground goes on: a ragged seam of the
+  // bottom row, then grainy bedrock darkening with depth (never a reflection of the map, so lakes
+  // and islands near the bottom edge don't mirror into it)
   int W = int(u_map.x);
   int Hm = int(u_map.y);
   int mx = wc.x < 0 ? min(-wc.x - 1, W - 1) : wc.x >= W ? max(2 * W - 1 - wc.x, 0) : wc.x;
@@ -208,13 +210,23 @@ void main() {
       c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
     }
     c += u_flash;
+  } else if (wc.y >= Hm + int(hash(ivec2(wc.x + 8192, 911)) * 3.0)) {
+    // bedrock: the shaded ground of the map's bottom rows, picked per 2×2 clump from a few cells
+    // around (so it reads as grain, never as a reflection), in three hard tones with the odd
+    // lighter pebble. Where the bottom row is open, the commonest bottom material stands in
+    ivec2 g = ivec2(wc.x + 8192, wc.y);
+    ivec2 cl = g >> 1;
+    int sx = clamp(mx + int(hash(cl + ivec2(7, 3)) * 7.0) - 3, 0, W - 1);
+    int sy = Hm - 1 - int(hash(cl + ivec2(5, 29)) * 4.0);
+    vec4 bt = texelFetch(u_color, ivec2(sx, int(u_map.y) - 1 - max(sy, 0)), 0);
+    vec3 base = bt.a > 0.5 && mat(ivec2(sx, max(sy, 0))) != 0u ? bt.rgb : u_bedrock;
+    float h = hash(cl + ivec2(3, 41));
+    c = base * (h < 0.3 ? 0.88 : h < 0.82 ? 1.0 : 1.08);
+    if (hash(g + ivec2(19, 7)) > 0.975) c = base * 1.25;
+    c *= 1.0 - u_dark * 0.86;
+    c += u_flash * 0.3;
   } else {
-    ivec2 cell = ivec2(mx, wc.y);
-    if (cell.y >= Hm) {
-      int k = (cell.y - Hm) % 96;
-      cell.y = Hm - 1 - (k < 48 ? k : 95 - k);
-      cell.y = max(cell.y, 0);
-    }
+    ivec2 cell = ivec2(mx, min(wc.y, Hm - 1));
     // trees in the wind: draw whichever swaying cell lands here this frame (the nearest one
     // wins); a swaying cell that moved off and left nothing behind shows the sky
     bool swayGone = false;
@@ -560,9 +572,10 @@ float rangeTop(float x, int style) {
   if (style == 1) return hz + H * 0.04 - H * 0.16 * (noise1(x / 52.0, 7) * 0.75 + noise1(x / 17.0, 8) * 0.25);
   return hz + H * 0.08 - H * 0.1 * (noise1(x / 36.0, 11) * 0.8 + noise1(x / 11.0, 12) * 0.2);
 }
-vec4 ranges(vec2 p, ivec2 tx, vec4 c) {
+vec4 ranges(vec2 p, ivec2 tx, vec4 c, vec3 sky, int from, int to) {
   for (int i = 0; i < 3; i++) {
-    if (i >= u_rangeCount) break;
+    if (i >= u_rangeCount || i >= to) break;
+    if (i < from) continue;
     // with fewer ranges, the nearest keeps the treeline
     int style = i + 3 - u_rangeCount;
     float par = 0.25 + 0.2 * float(style);
@@ -600,10 +613,12 @@ vec4 ranges(vec2 p, ivec2 tx, vec4 c) {
       float cap = 5.0 + floor(vnoise(vec2(lx / 6.0, 4.5)) * 7.0);
       if (peak > u_map.y * 0.13 && ly - top < cap) rc = mix(u_cloudLight, rc, sl < 0.0 ? 0.08 : 0.45);
     } else if (style == 1 && ly - top < 4.0 && sl < 0.0) rc *= 1.07;
-    // mist pooling in the valleys: hard dithered bands toward the sky colour going down
+    // mist pooling in the valleys: hard dithered bands toward the sky colour going down. Toward
+    // the sky itself, not whatever is behind the range, or the clouds and farther ridges would
+    // show through the mountains as ghosts
     float k = clamp((ly - top) / (u_map.y * 0.2), 0.0, 1.0);
     float q = floor(k * 4.0 + bayer(tx)) / 4.0;
-    c = vec4(mix(rc, c.rgb, q * (0.38 - 0.1 * float(style))), 0.0);
+    c = vec4(mix(rc, sky, q * (0.38 - 0.1 * float(style))), 0.0);
   }
   return c;
 }
@@ -623,8 +638,13 @@ void main() {
     float sx = p.x - floor((u_cam.x - u_map.x * 0.5) * 0.9 / 2.0) * 2.0 + floor(u_cloud.y * 0.25);
     if (vnoise(vec2(sx / 70.0, float(tx.y) * 0.37)) > 0.66) sky = mix(sky, u_cloudLight, 0.28);
   }
-  vec4 c = clouds(p, tx, sky);
-  o = ranges(p, tx, c);
+  // the far mountains stand behind the clouds, so their peaks vanish into the cloud decks
+  // instead of cutting through them; the nearer hills and treeline stand in front
+  int far = u_rangeCount >= 3 ? 1 : 0;
+  vec4 c = ranges(p, tx, vec4(sky, 1.0), sky, 0, far);
+  vec4 cl = clouds(p, tx, sky);
+  if (cl.a < 0.5) c = cl;
+  o = ranges(p, tx, c, sky, far, 3);
 }`;
 
 /** Terrain quad covering the map rect; interpolates map coordinates. */
