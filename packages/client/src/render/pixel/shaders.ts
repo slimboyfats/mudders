@@ -80,6 +80,9 @@ uniform float u_white;       // nuke sky whiteout 0..1
 uniform float u_vignette;
 uniform float u_time;
 uniform float u_haze;
+uniform vec4 u_dust;         // storm air (storm.ts stormAir): haze rgb, strength (0 = off)
+uniform vec4 u_dustSheet;    // gust sheet rgb, strength per step
+uniform vec4 u_dustK;        // band strength, growth per band, sheet ceiling (share of H), drift
 uniform float u_anim;
 uniform float u_stars;
 uniform vec3 u_starColor;
@@ -188,6 +191,27 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
+// the storm's air over a sky cell w (world cells, y down): four bands thickening toward the
+// ground with a narrow dithered seam between them, and gust sheets of denser haze rolling across
+// with the wind in three stepped tones, ordered-dithered per cell. Never a see-through slab.
+vec3 dusty(vec3 c, ivec2 w) {
+  float H = u_map.y;
+  float y = float(w.y);
+  float band = clamp(floor(clamp(y / H, 0.0, 1.0) * 4.0 + narrow(w) - 0.5), 0.0, 3.0);
+  c = mix(c, u_dust.rgb, u_dust.a * u_dustK.x * (1.0 + band * u_dustK.y));
+  float top = H * u_dustK.z;
+  float bot = H * 0.8;
+  if (y > top - 16.0 && y < bot + 16.0) {
+    // long low slabs: noise stretched along the wind, fading out above and below their rows
+    float gx = float(w.x) - u_dustK.w;
+    float n = vnoise(vec2(gx / 120.0, y / 18.0 + 3.0)) * 0.7 + vnoise(vec2(gx / 37.0 + 9.0, y / 7.0)) * 0.3;
+    float env = clamp(min(y - top + 16.0, bot + 16.0 - y) / 16.0, 0.0, 1.0);
+    float s = clamp((n - 0.52) / 0.26, 0.0, 1.0) * env;
+    float st = floor(s * 3.0 + bayer(w) * 0.9 + 0.05) / 3.0;
+    c = mix(c, u_dustSheet.rgb, min(1.0, u_dustSheet.a * st * 2.6));
+  }
+  return c;
+}
 void main() {
   vec2 px = vec2(v_uv.x, 1.0 - v_uv.y) * u_view;
   vec2 m = (px - u_origin) / u_scale;
@@ -228,6 +252,7 @@ void main() {
       float tw = hash(sc + ivec2(int(u_time / 23.0 + h * 97.0), 5));
       c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
     }
+    if (u_dust.a > 0.0) c = dusty(c, wc);
     c += u_flash;
   } else if (wc.x < 0 || wc.x >= W || wc.y >= Hm) {
     ivec2 e = ivec2(wc.x + AS, wc.y);
@@ -266,6 +291,7 @@ void main() {
             c = mix(c, u_starColor, (tw > 0.25 ? 0.75 : 0.3) * (1.0 - k / 0.6));
           }
         }
+        if (u_dust.a > 0.0) c = dusty(c, wc);
         c *= 1.0 - u_dark * 0.82;
         c += u_flash;
       }
@@ -442,6 +468,8 @@ void main() {
           c = u_grass.rgb * 0.8;
         }
       }
+      // the storm's haze and gust sheets in the open air (pockets under arches and ledges too)
+      if (u_dust.a > 0.0) c = dusty(c, wc);
       // gas (steam, flames, marsh gas): whole cells in the gas's colours, as many of them as its
       // cover lets through an ordered dither, each stepping through the colour cycle on its own
       // beat, and thinner where the cloud is ragged (fewer gas neighbours)
@@ -651,6 +679,15 @@ vec4 ranges(vec2 p, ivec2 tx, vec4 c, vec3 sky, int from, int to) {
     float sl = rangeTop(lx + 1.0, style) - rangeTop(lx - 1.0, style);
     // faceted faces: slopes toward the sun lit, the others shaded; snowy light on the high peaks
     if (style == 0) {
+      // ridgelines: the line between a lit and a shaded face runs down and away from each crest
+      // on a slant, not straight down, and the small facets only crease the rock just under the
+      // ridge, so no narrow facet runs down the whole mountain as a straight-sided pale bar
+      float dep = ly - top;
+      float sx = lx + dep * 0.5;
+      sl = (lin1((sx + 1.0) / 70.0, 3) - lin1((sx - 1.0) / 70.0, 3)) * 0.68 +
+           (lin1((sx + 1.0) / 27.0, 5) - lin1((sx - 1.0) / 27.0, 5)) * 0.24;
+      if (dep < 8.0) sl += (lin1((lx + 1.0) / 9.0, 6) - lin1((lx - 1.0) / 9.0, 6)) * 0.08;
+      sl = -sl;
       rc *= sl < 0.0 ? 1.18 : 0.8;
       // rock streaks running down the faces, and light caught on the high peaks
       float st = mod(lx * (sl < 0.0 ? 0.5 : -0.5) + ly, 10.0);

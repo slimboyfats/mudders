@@ -57,7 +57,9 @@ export class ScenarioDriver {
       const shopInput = next.action.type === 'buy' || next.action.type === 'ready';
       const ready =
         w.phase === 'over' ||
-        (shopInput ? w.phase === 'shop' : w.phase === 'aim' && w.controller === next.player);
+        (shopInput ? w.phase === 'shop' : w.phase === 'aim' && w.controller === next.player) ||
+        // fire again while a shell that goes off on command flies (Cloud Whale)
+        (next.action.type === 'fire' && w.commandable() === next.player);
       if (!ready) {
         i++;
         continue;

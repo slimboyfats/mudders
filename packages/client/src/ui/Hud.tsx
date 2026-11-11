@@ -572,14 +572,25 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           disabled={!canAim}
           onSelect={(weapon) => send({ type: 'selectWeapon', weapon })}
         />
-        <button
-          className="fire"
-          disabled={!canAim}
-          onClick={() => send({ type: 'fire' })}
-          data-testid="fire"
-        >
-          FIRE
-        </button>
+        {hud.command >= 0 && controls(hud.command) ? (
+          <button
+            className="fire command"
+            onClick={() => send({ type: 'fire' })}
+            data-testid="fire"
+            title="Press again: let it go now"
+          >
+            DROP!
+          </button>
+        ) : (
+          <button
+            className="fire"
+            disabled={!canAim}
+            onClick={() => send({ type: 'fire' })}
+            data-testid="fire"
+          >
+            FIRE
+          </button>
+        )}
       </div>
     </>
   );

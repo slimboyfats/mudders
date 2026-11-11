@@ -19,6 +19,8 @@ import { PKind, type Emit, type ParticleSink } from './particles';
 import { shade } from './theme';
 import type { FluidSink } from './fluid';
 import { drawFunnel, funnelWidth, makeFunnel, type Funnel } from './tornado';
+import { drawUpfall, type UpfallFx } from './upfall';
+import { drawWhale, whalePoint, type WhaleFx } from './whale';
 
 /** Hard shade bands for cosmetic dirt clods. */
 const DIRT_BANDS = [0.62, 0.8, 1, 1.18, 1.32] as const;
@@ -382,6 +384,10 @@ export class EffectSystem {
   private kaijus: KaijuFx[] = [];
   /** Portal Pairs (weapon.portal-pair), one per resident op. */
   private portals: PortalFx[] = [];
+  /** Upfall columns (weapon.upfall) while gravity is flipped. */
+  private upfalls: UpfallFx[] = [];
+  /** Cloud Whales (weapon.cloud-whale) swimming in and diving. */
+  private whales: WhaleFx[] = [];
   /** Lingering smoke columns over big impacts. */
   readonly columns: SmokeColumn[] = [];
   /** The shake playing now: peak amplitude in cells, start and length in presentation ticks. */
@@ -1526,6 +1532,152 @@ export class EffectSystem {
           maxR: e.radius * 1.4,
           width: 10,
           strength: 1,
+        });
+        break;
+      case 'upfall':
+        this.upfall(e);
+        break;
+      case 'upfallOpen':
+        this.kick(2, e.tick);
+        this.dirtPop(e, 16);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: e.radius * 2,
+          width: 8,
+          strength: 0.5,
+        });
+        this.tintSky([0, 0.25, 0.1, 0.45], 0.2);
+        break;
+      case 'whale':
+        this.whale(e);
+        break;
+      case 'whalePop': {
+        // the shell bursts open into a puff of cloud as big as the whale
+        this.kick(2, e.tick);
+        this.tintSky([0, 0.12, 0.2, 0.35], 0.15);
+        const rng = this.rngFor(e, 153);
+        const n = Math.round(90 * this.mult) + 10;
+        for (let i = 0; i < n; i++) {
+          const a = rng.range(0, Math.PI * 2);
+          const v = rng.range(0.3, 1.6);
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-e.radius, e.radius) * 0.8),
+            y: Math.round(e.y + rng.range(-12, 12)),
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v * 0.5,
+            life: rng.range(30, 70),
+            size: 1,
+            color: rng.next() < 0.5 ? 0xffffff : 0xc8d4e6,
+            kind: PKind.Wisp,
+          });
+        }
+        break;
+      }
+      case 'whaleBurst': {
+        this.whales = this.whales.filter((w) => Math.abs(w.x - e.x) > 140);
+        this.kick(5, e.tick);
+        this.tintSky([0, 0.2, 0.35, 0.6], 0.3);
+        // the whale bursts: a crown of water and cloud flung out of the crater
+        const rng = this.rngFor(e, 151);
+        const n = Math.round(160 * this.mult) + 20;
+        for (let i = 0; i < n; i++) {
+          const a = rng.range(-Math.PI * 0.95, -Math.PI * 0.05);
+          const v = rng.range(0.8, 3.6);
+          const cloud = rng.next() < 0.35;
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-e.radius, e.radius)),
+            y: Math.round(e.y - rng.range(0, e.radius)),
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v,
+            life: rng.range(24, 60),
+            size: 1,
+            color: cloud
+              ? rng.next() < 0.5
+                ? 0xffffff
+                : 0xc8d4e6
+              : rng.next() < 0.5
+                ? 0x9ad0ff
+                : 0x4a90e0,
+            kind: cloud ? PKind.Wisp : PKind.Spark,
+          });
+        }
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 30,
+          maxR: e.radius * 5,
+          width: 12,
+          strength: 0.8,
+        });
+        break;
+      }
+      case 'bloomStart':
+        this.kick(3, e.tick);
+        this.dirtPop(e, 30);
+        this.tintSky([0, 0.3, 0.15, 0.5], 0.18);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 26,
+          maxR: 60,
+          width: 8,
+          strength: 0.6,
+        });
+        break;
+      case 'bloomTip': {
+        // glints shed by a growing tip: white and violet cells that flick out and wink away
+        const rng = this.rngFor(e, 141);
+        const done = (e.params.done ?? 0) > 0;
+        const n = Math.round((done ? 10 : 2) * this.mult) + 1;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-1.5, 1.5)),
+            y: Math.round(e.y + rng.range(-1.5, 1.5)),
+            vx: rng.range(-0.8, 0.8) * (done ? 1.5 : 1),
+            vy: rng.range(-0.9, 0.3) * (done ? 1.5 : 1),
+            life: rng.range(10, 26),
+            size: 1,
+            color: rng.next() < 0.4 ? 0xffffff : rng.next() < 0.5 ? 0xd8c0ff : 0x9a6ee0,
+            kind: PKind.Glitter,
+          });
+        }
+        if (!done && (e.tick & 3) === 0) this.dirtPop(e, 2);
+        break;
+      }
+      case 'bloomImpale': {
+        this.kick(2.5, e.tick);
+        const rng = this.rngFor(e, 142);
+        const n = Math.round(18 * this.mult) + 4;
+        for (let i = 0; i < n; i++) {
+          this.particles.add({
+            x: Math.round(e.x + rng.range(-3, 3)),
+            y: Math.round(e.y + rng.range(-3, 1)),
+            vx: rng.range(-1.6, 1.6),
+            vy: -rng.range(0.4, 2),
+            life: rng.range(14, 30),
+            size: 1,
+            color: rng.next() < 0.3 ? 0xffe070 : rng.next() < 0.5 ? 0xffffff : 0xb48cff,
+            kind: PKind.Spark,
+          });
+        }
+        break;
+      }
+      case 'upfallDrop':
+        this.kick(3 + Math.min(4, (e.params.lifted ?? 0) / 600), e.tick);
+        this.tintSky([0, 0.25, 0.15, 0.5], 0.3);
+        this.ripples.push({
+          x: e.x,
+          y: e.y,
+          start: e.tick,
+          dur: 24,
+          maxR: e.radius * 2.5,
+          width: 10,
+          strength: 0.7,
         });
         break;
       case 'kaijuQuake': {
@@ -3263,6 +3415,111 @@ export class EffectSystem {
     f.down = (pr.down ?? 100) / 100;
     f.last = e.tick;
     if ((e.tick & 7) === 0) f.dust = this.dustColor(e.x, e.y + 2);
+  }
+
+  /** Update (or start) the Upfall column an event belongs to: one event per column per tick. */
+  private upfall(e: EffectEvent): void {
+    const pr = e.params;
+    let f = this.upfalls.find((g) => g.x === e.x && e.tick - g.last <= 4);
+    if (!f) {
+      f = { x: e.x, ground: e.y, half: e.radius, top: e.y, age: 0, on: false, left: 0, last: 0 };
+      this.upfalls.push(f);
+    }
+    f.ground = e.y;
+    f.half = e.radius;
+    f.top = pr.top ?? e.y;
+    f.age = pr.age ?? 0;
+    f.on = (pr.on ?? 0) > 0;
+    f.left = pr.left ?? 0;
+    f.last = e.tick;
+    // dust kicked off the ground as it lets go of it
+    if (f.on && (e.tick & 3) === 0) {
+      const rng = this.rngFor(e, 131);
+      this.particles.add({
+        x: Math.round(e.x + rng.range(-e.radius, e.radius)),
+        y: e.y - 1,
+        vx: rng.range(-0.1, 0.1),
+        vy: -rng.range(0.4, 1.2),
+        life: rng.range(20, 40),
+        size: 1,
+        color: rng.next() < 0.5 ? 0x9af6ff : 0x9a6cff,
+        kind: PKind.Plasma,
+      });
+    }
+  }
+
+  /** Update (or start) the Cloud Whale an event belongs to: one event per whale per tick. */
+  private whale(e: EffectEvent): void {
+    const pr = e.params;
+    const dir = (pr.dir ?? 1) < 0 ? -1 : 1;
+    let w = this.whales.find(
+      (g) => g.dir === dir && e.tick - g.last <= 4 && Math.abs(g.x - e.x) < 40,
+    );
+    if (!w) {
+      w = { x: e.x, y: e.y, dir, pitch: 0, age: 0, diving: false, last: e.tick };
+      this.whales.push(w);
+    }
+    w.x = e.x;
+    w.y = e.y;
+    w.pitch = ((pr.pitch ?? 0) / 10) * (Math.PI / 180);
+    w.age = pr.age ?? 0;
+    w.diving = (pr.phase ?? 0) > 0;
+    w.last = e.tick;
+    const rng = this.rngFor(e, 152);
+    // cloud shed off its back and tail as it swims
+    if ((e.tick & 1) === 0) {
+      const [tx, ty] = whalePoint(w, rng.range(-50, 10), rng.range(-14, 6));
+      this.particles.add({
+        x: Math.round(tx),
+        y: Math.round(ty),
+        vx: -dir * rng.range(0.1, 0.4),
+        vy: rng.range(-0.1, 0.1),
+        life: rng.range(30, 60),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xd8e2f0,
+        kind: PKind.Wisp,
+      });
+    }
+    // rain off its belly as it falls
+    if ((e.tick & 1) === 0) {
+      const [rx, ry] = whalePoint(w, rng.range(-40, 40), 12);
+      this.particles.add({
+        x: Math.round(rx),
+        y: Math.round(ry),
+        vx: 0,
+        vy: 0.6,
+        life: 60,
+        size: 1,
+        color: 0x8ab8f0,
+        kind: PKind.Rain,
+      });
+    }
+    // a spout from its blowhole every so often
+    if (!w.diving) {
+      const [sx, sy] = whalePoint(w, 26, -16);
+      for (let i = 0; i < 3; i++) {
+        this.particles.add({
+          x: Math.round(sx + rng.range(-1, 1)),
+          y: Math.round(sy),
+          vx: rng.range(-0.5, 0.5) + dir * 0.2,
+          vy: -rng.range(1.4, 2.6),
+          life: rng.range(18, 34),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffffff : 0x9ad0ff,
+          kind: PKind.Spark,
+        });
+      }
+    }
+  }
+
+  /** Cloud Whales. */
+  drawWhales(normal: QuadBatch, t: number): void {
+    for (const w of this.whales) drawWhale(w, normal, t);
+  }
+
+  /** Upfall columns: their walls of light and rising motes. */
+  drawUpfalls(additive: QuadBatch, t: number): void {
+    for (const f of this.upfalls) drawUpfall(f, additive, t);
   }
 
   /** Update (or start) the repair drone an event belongs to: one event per drone per tick. */
@@ -5636,6 +5893,8 @@ export class EffectSystem {
     this.novas = this.novas.filter((s) => t - s.last <= 2);
     this.kaijus = this.kaijus.filter((k) => t - k.last <= 4);
     this.portals = this.portals.filter((p) => t - p.last <= 4);
+    this.upfalls = this.upfalls.filter((f) => t - f.last <= 2);
+    this.whales = this.whales.filter((w) => t - w.last <= 3);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
     // a glow is drawn for `dur`, but its light on the ground fades out over longer (collectLights)
     this.glows = this.glows.filter((g) => t - g.start <= g.dur * 4 + 16);
@@ -6636,6 +6895,8 @@ export class EffectSystem {
     this.novas = [];
     this.kaijus = [];
     this.portals = [];
+    this.upfalls = [];
+    this.whales = [];
     this.columns.length = 0;
     this.shakeAmp = 0;
     this.shakeDur = SHAKE_MIN;

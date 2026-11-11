@@ -1,0 +1,28 @@
+{
+  "id": "audio.crystal-impale",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal Impale",
+    "description": "A crystal spire skewering a tank: a hard metal clank with a high glassy ring after it.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      { "wave": "metal", "freq": 700, "to": 300, "release": 0.25, "volume": 0.35 },
+      { "wave": "noise", "freq": 3000, "to": 800, "release": 0.15, "volume": 0.3 },
+      { "wave": "triangle", "freq": 1760, "delay": 0.08, "release": 0.7, "volume": 0.18 }
+    ]
+  },
+  "on": [
+    {
+      "event": "bloomImpale"
+    }
+  ],
+  "gap": 0.2
+}

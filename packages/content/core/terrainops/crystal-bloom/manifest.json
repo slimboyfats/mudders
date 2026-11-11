@@ -1,0 +1,20 @@
+{
+  "id": "terrainop.crystal-bloom",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal Bloom",
+    "description": "A cluster of huge crystal spires bursts up out of the ground and grows out in a fan, fast at first and then creeping to full length. The spires stay as real crystal: lasers bounce off them, blasts shatter them into shards and an undermined spire can snap off. A spire that grows into a tank skewers it and carries it up on its tip. Trees and houses are left whole; the spires grow around them.",
+    "since": "core@0.75.0"
+  },
+  "behaviour": "terrainop.crystal-bloom",
+  "material": "material.crystal",
+  "spires": 8,
+  "fan": 62,
+  "minLen": 40,
+  "maxLen": 130,
+  "half": 8,
+  "speed": 5,
+  "root": 6,
+  "damage": 45,
+  "maxHits": 1
+}

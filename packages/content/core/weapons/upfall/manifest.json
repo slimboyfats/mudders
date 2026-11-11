@@ -1,0 +1,48 @@
+{
+  "id": "weapon.upfall",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Upfall",
+    "description": "Turns gravity upside down in a tall column where it lands. For a few seconds the ground, water, trees and houses inside fall into the sky, tanks float up helplessly and shells flying through are dragged away upwards. Then the column shuts and everything comes crashing back down at once: tanks drop from high up, buried under a rain of their own ground.",
+    "since": "core@0.75.0",
+    "category": "weird"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 5,
+        "damage": 5,
+        "damageType": "shock",
+        "effects": {
+          "burst": {
+            "count": 10
+          }
+        }
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.upfall"
+      },
+      "radius": 34,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 14000,
+    "pack": 1,
+    "tier": 3
+  },
+  "ai": {
+    "expectedDamage": 60,
+    "terrainValue": 0.4
+  },
+  "audio": {
+    "fire": "audio.fire-heavy"
+  }
+}

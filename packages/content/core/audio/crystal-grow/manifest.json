@@ -1,0 +1,31 @@
+{
+  "id": "audio.crystal-grow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crystal Grow",
+    "description": "A Crystal Bloom bursting out of the ground: a crunch of breaking earth under a bright arpeggio of glassy chip chimes climbing up.",
+    "since": "core@0.75.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      { "wave": "noise", "freq": 900, "to": 120, "hold": 0.1, "release": 0.35, "volume": 0.4 },
+      { "wave": "triangle", "freq": 1047, "delay": 0.05, "release": 0.5, "volume": 0.22 },
+      { "wave": "triangle", "freq": 1319, "delay": 0.15, "release": 0.5, "volume": 0.2 },
+      { "wave": "triangle", "freq": 1568, "delay": 0.25, "release": 0.6, "volume": 0.2 },
+      { "wave": "metal", "freq": 2093, "delay": 0.35, "release": 0.9, "volume": 0.16 },
+      { "wave": "square", "freq": 2637, "delay": 0.45, "release": 0.8, "volume": 0.08 }
+    ]
+  },
+  "on": [
+    {
+      "event": "bloomStart"
+    }
+  ],
+  "gap": 0.4
+}

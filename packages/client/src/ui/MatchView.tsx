@@ -208,6 +208,12 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       if (e.key === '+' || e.key === '=') return r?.camera.glideBy(1);
       if (e.key === '-' || e.key === '_') return r?.camera.glideBy(-1);
       if (e.key === '0' || e.key === 'f') return r?.camera.fit();
+      // fire again while a Cloud Whale shell flies: let it go
+      if ((e.key === ' ' || e.key === 'Enter') && hud.command >= 0 && controls(hud.command)) {
+        e.preventDefault();
+        send({ type: 'fire' });
+        return;
+      }
       if (!canAim || !active) return;
       const big = e.shiftKey;
       let { angle, power } = active;
@@ -263,7 +269,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, [canAim, active, send]);
+  }, [canAim, active, send, hud.command, controls]);
 
   // pointer (§8a): one finger moves the camera (at any zoom, past the map edges, with a fling on
   // release); touch aims with the angle/power pills, never by dragging. Two fingers pinch-zoom

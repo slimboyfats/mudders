@@ -20,10 +20,13 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
     title:
-      'Real damage for less money, weapons that really hurt, supply drops and big money matches',
-    pack: 'core@0.72.0 – 0.74.0',
+      'Real damage for less money, weapons that really hurt, supply drops, big money matches and weird weapons',
+    pack: 'core@0.72.0 – 0.75.0',
     newSince: 'core@0.73.0',
     items: [
+      'New weapon: Upfall, gravity flips in a tall column. Ground, water, trees and tanks fall into the sky, hang there churning, then everything crashes back down at once',
+      'New weapon: Crystal Bloom, a fan of huge violet crystal spires bursts out of the ground, skewers any tank in the way and lifts it on a tip. The spires stay: lasers bounce off them and blasts shatter them',
+      'New weapon: Cloud Whale, fire it and press FIRE again (DROP!) while it flies: a whale made of storm cloud pops out of the shell, free-falls nose first, craters whatever is below and bursts into a flood that puts out fires',
       'New weapon: Frag Shell, a sharp bang that bursts into white-hot shrapnel, so a near miss still hurts',
       'New weapon: Hornet Swarm, pops at the top of its arc into five darts that each hunt the nearest enemy',
       'New weapon: Concussion Shell, a small crater but a wide pressure blast that hits tanks twenty or thirty cells away',

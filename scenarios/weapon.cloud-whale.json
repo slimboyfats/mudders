@@ -1,0 +1,64 @@
+{
+  "id": "weapon.cloud-whale",
+  "schemaVersion": 1,
+  "description": "Player 0 fires a Cloud Whale at player 1 and presses fire again while it flies: a whale made of storm cloud pops out of the shell high over the hills, hangs for a moment, then free-falls nose first onto player 1, cratering the hill and bursting into a flood of water.",
+  "subject": "weapon.cloud-whale",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.cloud-whale": 1
+      }
+    },
+    {
+      "x": 560
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.cloud-whale"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 50,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 84,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 700,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
