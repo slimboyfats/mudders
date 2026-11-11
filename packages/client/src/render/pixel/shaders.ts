@@ -7,7 +7,7 @@ import { HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
 import { SWAY_BLAST_TICKS, SWAY_BLASTS, SWAY_LEAF, SWAY_REACH, SWAY_UNIT } from './sway';
 
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
-const NOISE = `
+export const NOISE = `
 float hash(ivec2 c) {
   uint h = uint(c.x) * 374761393u + uint(c.y) * 668265263u;
   h = (h ^ (h >> 13u)) * 1274126177u;

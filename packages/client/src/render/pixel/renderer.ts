@@ -19,6 +19,7 @@ import type {
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
+import { EdgeWall } from './wall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { PixelAir } from './air';
 import { drawStorm, stormFor, type StormKind } from './storm';
@@ -218,6 +219,8 @@ export class PixelRenderer implements Renderer {
   private temperature = 15;
   /** Sudden-death zone width (cells) and the tick it last grew. */
   private deathZone = 0;
+  /** The edge walls' body: a liquid on its side that swallows shells (cosmetic). */
+  private readonly wall: EdgeWall;
   /** The Spotter Flare aim preview from the last snapshot (flat x, y pairs), or null. */
   private preview: number[] | null = null;
   private zoneGrewAt = -1e9;
@@ -489,6 +492,7 @@ export class PixelRenderer implements Renderer {
       this.apron = { side, below, width, height, cells: new Uint8Array(width * height) };
     }
     this.burn = new Uint32Array(mapWidth * mapHeight);
+    this.wall = new EdgeWall(mapWidth, mapHeight);
     this.probe = {
       width: mapWidth,
       height: mapHeight,
@@ -534,6 +538,7 @@ export class PixelRenderer implements Renderer {
     );
     this.water.listener = this.liquid;
 
+    this.wall.init(gl);
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
     this.uTer = uniforms(gl, this.terrainProg, [
       'u_rows',
@@ -1096,7 +1101,10 @@ export class PixelRenderer implements Renderer {
     if (zone > this.deathZone) {
       this.zoneFrom = this.shownZone(s.tick);
       this.zoneGrewAt = s.tick;
-    } else if (zone < this.deathZone) this.zoneFrom = zone; // a new round: clear at once
+    } else if (zone < this.deathZone) {
+      this.zoneFrom = zone; // a new round: clear at once
+      this.wall.reset();
+    }
     this.deathZone = zone;
     if (this.stormK < 0) {
       const st = stormFor(this.temperature);
@@ -1131,6 +1139,10 @@ export class PixelRenderer implements Renderer {
     for (const [id, sh] of seen) if (sh.tick !== s.tick) seen.delete(id);
     for (const e of s.effectEvents) {
       this.fx.handle(e);
+      if (e.type === 'wallAbsorb') {
+        const p = e.params;
+        this.wall.absorb(p.side ?? 0, e.y, (p.vx ?? 0) / 1000, (p.vy ?? 0) / 1000);
+      }
       if (e.type === 'birdHit') birdHit(e, this.particles);
       else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
@@ -1792,6 +1804,7 @@ export class PixelRenderer implements Renderer {
     emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
+    this.wall.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
     this.liquid.tick(this.fxTick, this.wind, this.particles);
     this.stepFlames();
@@ -2321,10 +2334,22 @@ export class PixelRenderer implements Renderer {
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     drawStorm(this.normal, this.stormKind, this.stormK, t, this.wind, this.probe, mult);
-    // the death wall last, over smoke, sparks and weather
+    if (!distort) this.fx.drawRippleRings(this.additive, t);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    this.normal.flush(view, origin, scale);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    this.additive.flush(view, origin, scale);
+    gl.disable(gl.BLEND);
+
+    // the edge walls last, over smoke, sparks and weather: the body, then its loose bits
+    const zone = this.shownZone(t);
+    const fresh = Math.max(0, 1 - (t - this.zoneGrewAt) / ZONE_CREEP_TICKS);
+    this.wall.draw(gl, this.emptyVao, view, origin, scale, zone, t, fresh);
     drawDeathWall(
       this.normal,
-      this.shownZone(t),
+      zone,
       t,
       {
         width: this.mapWidth,
@@ -2334,10 +2359,9 @@ export class PixelRenderer implements Renderer {
         y0: -oy / scale,
         y1: (H - oy) / scale,
       },
-      Math.max(0, 1 - (t - this.zoneGrewAt) / ZONE_CREEP_TICKS),
+      fresh,
     );
-    if (!distort) this.fx.drawRippleRings(this.additive, t);
-
+    this.wall.drawParticles(this.normal, this.additive, zone);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.normal.flush(view, origin, scale);
@@ -3535,6 +3559,7 @@ export class PixelRenderer implements Renderer {
     const gl = this.gl;
     this.normal.dispose();
     this.additive.dispose();
+    this.wall.dispose(gl);
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
     gl.deleteTexture(this.gasTex);
