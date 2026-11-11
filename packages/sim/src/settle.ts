@@ -13,6 +13,12 @@ export const MAX_FALL_SPEED = 8;
 /** How far a resting liquid looks sideways for a drop to run to. */
 const DROP_LOOK = 32;
 
+/** Loosen steps a sliding grain of sand gives the dirt it drags at (see `repose`). */
+const DRAG_STEPS = 10;
+
+/** Chance in 8 that a grain sliding over different loose-able ground drags the cell under it along. */
+const DRAG_CHANCE = 3;
+
 /** How many cells deep a sliding grain can churn into different loose ground under it. */
 const CHURN_DEPTH = 3;
 
@@ -195,10 +201,39 @@ export function settleStep(
       state[idx] = 0;
       const dx = (dst % W) - x;
       let low = y + dy;
+      // Traction: a grain sliding off loose-able ground (dirt) drags at the cell it rode over.
+      // Sand pulls it out bodily: the dirt cell is pushed down the slope in the grain's place and
+      // the grain drops into the gap, so a sand slide carries some of the slope along (and its
+      // turf with it) and ends up mixed with it. Loose dirt over firm dirt only shakes that cell
+      // loose, for fewer steps than it has itself, so the slide dies out.
+      let dragged = false;
+      if (dx !== 0 && (k === SETTLE_FALL || k === SETTLE_SLIDE) && act[m] === 0) {
+        const ub = mat[below]!;
+        if (ub !== 0 && repose[ub] !== 0 && group[below] === 0) {
+          const roll = ((Math.imul(x, 668265263) ^ Math.imul(y + tick, 374761393)) >>> 11) & 7;
+          if (ub !== m && roll < DRAG_CHANCE) {
+            mat[below] = m;
+            mat[dst] = ub;
+            const cs = coat[dst]!;
+            coat[dst] = coat[below]!;
+            coat[below] = cs;
+            const ss = state[dst]!;
+            state[dst] = state[below]! > DRAG_STEPS ? state[below]! : DRAG_STEPS;
+            state[below] = ss;
+            const sh = grid.shadeOf(dst);
+            shade[dst] = grid.shadeOf(below);
+            shade[below] = sh;
+            dragged = true;
+          } else if (ub === m && state[below] === 0 && roll < DRAG_CHANCE) {
+            const pull = Math.min(DRAG_STEPS * 2, state[dst]! >> 1);
+            if (pull > 0) state[below] = pull;
+          }
+        }
+      }
       // Grains that slide over a different loose ground churn into it: the grain may swap with
       // the one under where it lands, up to CHURN_DEPTH deep, so sand running down a dirt slope
       // (or a slumping dirt rim under a sand drift) ends up mixed instead of lying on it as a strip.
-      if (dx !== 0 && (k === SETTLE_FALL || k === SETTLE_SLIDE) && act[m] === 0) {
+      if (!dragged && dx !== 0 && (k === SETTLE_FALL || k === SETTLE_SLIDE) && act[m] === 0) {
         let at = dst;
         for (let c = 0; c < CHURN_DEPTH && low < H - 1; c++) {
           const un = at + W;

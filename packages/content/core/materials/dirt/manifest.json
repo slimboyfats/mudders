@@ -22,8 +22,8 @@
   "rim": [
     {
       "damage": ["blast"],
-      "loosen": 40,
-      "depth": 6
+      "loosen": 60,
+      "depth": 8
     }
   ]
 }

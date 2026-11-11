@@ -144,6 +144,33 @@ describe('settleStep', () => {
     expect(buried).toBeGreaterThan(3);
   });
 
+  it('sliding sand drags some of the dirt it runs over along, and the slide then dies out', () => {
+    const drag = new MaterialTable([
+      { ...mat('material.dirt', 1, 'fall'), repose: 1 },
+      mat('material.sand', 2, 'slide'),
+      mat('material.rock', 3, 'static'),
+    ]);
+    const W = 80;
+    const H = 60;
+    const g = new Grid(W, H);
+    for (let x = 0; x < W; x++) g.set(x, H - 1, 3);
+    // a firm dirt cliff, sheer on its right, with a thick bed of sand on top
+    for (let x = 0; x < 30; x++) for (let y = 20; y < H - 1; y++) g.set(x, y, 1);
+    for (let x = 0; x < 30; x++) for (let y = 8; y < 20; y++) g.set(x, y, 2);
+    g.markDirty(0, 0, W - 1, H - 1);
+    let t = 0;
+    while (g.settling && t < 4000) settleStep(g, drag, t++, 1e9);
+    expect(g.settling).toBe(false);
+    // dirt was pulled off the cliff edge and lies out on the floor beyond it...
+    let out = 0;
+    for (let x = 30; x < W; x++) for (let y = 0; y < H - 1; y++) if (g.get(x, y) === 1) out++;
+    expect(out).toBeGreaterThan(5);
+    // ...but the cliff is still mostly a cliff: firm dirt is no sand
+    let kept = 0;
+    for (let x = 0; x < 30; x++) for (let y = 20; y < H - 1; y++) if (g.get(x, y) === 1) kept++;
+    expect(kept).toBeGreaterThan(30 * 39 * 0.8);
+  });
+
   it("carries each grain's cosmetic shade down with it", () => {
     const g = new Grid(8, 20);
     g.set(3, 2, 1);
