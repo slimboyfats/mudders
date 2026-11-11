@@ -1148,10 +1148,7 @@ export class PixelRenderer implements Renderer {
       if (e.type === 'flash') {
         this.water.blast(e);
         this.liquid.blast(e.x, e.y, e.radius);
-        if ((e.params.strength ?? 1) > 0) {
-          this.scorch(e.x, e.y, e.radius, e.tick);
-          this.clearGrass(e.x, e.y, e.radius);
-        }
+        if ((e.params.strength ?? 1) > 0) this.scorch(e.x, e.y, e.radius, e.tick);
         this.swayBlasts.add(e.x, e.y, e.radius, e.tick);
       }
       // dirt geysers throw the char wider than the crater
@@ -1368,49 +1365,6 @@ export class PixelRenderer implements Renderer {
     }
     this.lastBurn = Math.max(this.lastBurn, tick);
     this.uploadBurn(x0, y0, x1 - x0, y1 - y0);
-  }
-
-  /**
-   * A blast takes the grass inside its crater with it: the mask is marked 4 (blasted) there, so ground that
-   * later sags or slides into the hole stays bare (the shader lets sagging ground keep its turf by
-   * looking a few rows up for the round-start surface, see SAG_REACH).
-   */
-  private clearGrass(x: number, y: number, radius: number): void {
-    const w = this.mapWidth;
-    const r = Math.floor(radius);
-    const x0 = Math.max(0, Math.floor(x - r));
-    const y0 = Math.max(0, Math.floor(y - r));
-    const x1 = Math.min(w, Math.ceil(x + r) + 1);
-    const y1 = Math.min(this.mapHeight, Math.ceil(y + r) + 1);
-    if (x0 >= x1 || y0 >= y1) return;
-    const m = this.grassMask;
-    for (let cy = y0; cy < y1; cy++) {
-      const dy = cy - y;
-      for (let cx = x0; cx < x1; cx++) {
-        const dx = cx - x;
-        const k = cy * w + cx;
-        if (m[k] !== 0 && dx * dx + dy * dy <= r * r) m[k] = 4;
-      }
-    }
-    const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
-    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, w);
-    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x0);
-    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y0);
-    gl.texSubImage2D(
-      gl.TEXTURE_2D,
-      0,
-      x0,
-      y0,
-      x1 - x0,
-      y1 - y0,
-      gl.RED_INTEGER,
-      gl.UNSIGNED_BYTE,
-      m,
-    );
-    gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
-    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
-    gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
   }
 
   private uploadBurn(x: number, y: number, w: number, h: number): void {
