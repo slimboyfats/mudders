@@ -306,6 +306,9 @@ export interface Incoming {
 const FIRE_FEED = 10;
 /** Ticks the crater goes on smoking into the blast's turning air after it. */
 const SMOKE_FEED = 70;
+/** How long a fireball lights what is around it (ticks), and in what colour. */
+const FIRE_LIGHT = 56;
+const FIRE_LIGHT_RGB = 0xff8a30;
 /** Blast smoke: sooty greys with a little brown in them, light enough to show on a night sky. */
 const SMOKE_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
 
@@ -5634,7 +5637,8 @@ export class EffectSystem {
     this.kaijus = this.kaijus.filter((k) => t - k.last <= 4);
     this.portals = this.portals.filter((p) => t - p.last <= 4);
     this.ripples = this.ripples.filter((r) => t - r.start <= r.dur);
-    this.glows = this.glows.filter((g) => t - g.start <= g.dur);
+    // a glow is drawn for `dur`, but its light on the ground fades out over longer (collectLights)
+    this.glows = this.glows.filter((g) => t - g.start <= g.dur * 4 + 16);
     for (const b of this.bolts) this.boltBits(b, t);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
     if (this.ions.active) {
@@ -6209,6 +6213,20 @@ export class EffectSystem {
       const s = (k < 0.1 ? 1.4 : 1.1 * (1 - step)) * Math.min(1.4, g.strength);
       // fire light is warmer than the flash that casts it
       lights.add(g.x, g.y, Math.max(12, g.r * 2.2), s, warmLight(g.color));
+    }
+    // a fireball goes on lighting the ground, the smoke and the flying dirt while it burns: one
+    // light climbs with the heart, one coasts out with each ground roll, dimming in whole steps
+    for (const f of this.fires) {
+      const age = t - f.start;
+      const k = age / FIRE_LIGHT;
+      if (k < 0 || k >= 1) continue;
+      const s = 1 - Math.floor(k * 5) / 5;
+      const rise = f.r * 0.7 + f.up * 0.5 * Math.min(age, 40);
+      lights.add(f.x + f.jx * rise, f.y + f.jy * rise, f.r * 4.5, 1.3 * s, FIRE_LIGHT_RGB);
+      const coast = (1 - Math.pow(0.95, age)) / 0.05;
+      for (const ro of f.rolls) {
+        lights.add(ro.x + ro.vx * coast, ro.y + ro.vy * coast, ro.r * 4, 0.9 * s, FIRE_LIGHT_RGB);
+      }
     }
   }
 
