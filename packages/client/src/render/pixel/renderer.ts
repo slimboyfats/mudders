@@ -17,6 +17,7 @@ import type {
   Vec2,
 } from '../types';
 import { birdHit, birdPulp, drawBirds } from './birds';
+import { DropFx, drawDrops } from './drops';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
 import { drawDeathWall } from './deathwall';
 import { EdgeWall } from './wall';
@@ -462,6 +463,8 @@ export class PixelRenderer implements Renderer {
   private fxTick = -1;
   /** The sim's swallows this snapshot (see `birds.ts`). */
   private birds: readonly number[] | undefined;
+  /** Canopies left behind by supply crates (see `drops.ts`). */
+  private readonly dropFx = new DropFx();
   private trails: Trail[] = [];
   private rippleBuf = new Float32Array(MAX_RIPPLES * 4);
   private rippleW = new Float32Array(MAX_RIPPLES);
@@ -1150,6 +1153,7 @@ export class PixelRenderer implements Renderer {
         const p = e.params;
         this.wall.absorb(p.side ?? 0, e.y, (p.vx ?? 0) / 1000, (p.vy ?? 0) / 1000);
       }
+      if (e.type.startsWith('drop')) this.dropFx.handle(e, this.particles, s.wind);
       if (e.type === 'birdHit') birdHit(e, this.particles);
       else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
@@ -2348,6 +2352,8 @@ export class PixelRenderer implements Renderer {
     this.drawDebris();
     this.fx.drawChunks(this.normal);
     this.drawMines(t);
+    drawDrops(this.normal, this.entities, t, (x, y) => this.tankLight(x, y));
+    this.dropFx.draw(this.normal, t, (x, y) => this.probe.solid(x, y));
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state

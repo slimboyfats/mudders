@@ -108,7 +108,12 @@ export interface HudState {
   winnerTeam: number;
   results: RoundResult[];
   shop: ShopItem[];
+  /** A supply crate someone just took (shown for a few seconds), or null. */
+  pickup: { player: number; text: string; tick: number } | null;
 }
+
+/** Ticks a pickup stays in the HUD. */
+const PICKUP_TICKS = 180;
 
 /**
  * A match the UI can show: owns a World (replaced wholesale when a network guest resyncs),
@@ -193,6 +198,27 @@ export abstract class SimMatch implements SnapshotStream {
     for (const l of this.listeners) l(s);
   }
 
+  /** The last supply crate taken, as the HUD words it, while it is fresh. */
+  private pickupOf(w: World): HudState['pickup'] {
+    const p = w.lastPickup;
+    if (!p || w.tick - p.tick > PICKUP_TICKS) return null;
+    let text: string;
+    if (p.kind === 'weapon') {
+      const id = w.weaponId(p.item);
+      text = `${this.names[id] ?? id} ×${p.amount}`;
+    } else if (p.kind === 'gear') {
+      const id = w.gear[p.item]?.id ?? '';
+      text = `${this.names[id] ?? id} ×${p.amount}`;
+    } else if (p.kind === 'health') {
+      text = p.amount > 0 ? `+${p.amount} health` : 'health (already full)';
+    } else if (p.kind === 'fuel') {
+      text = p.amount > 0 ? `+${p.amount} fuel` : 'fuel (tank full)';
+    } else {
+      text = `+$${p.amount.toLocaleString('en')}`;
+    }
+    return { player: p.player, text, tick: p.tick };
+  }
+
   /** An input from this device for `player`. */
   abstract input(player: number, input: Input): void;
 
@@ -226,6 +252,7 @@ export abstract class SimMatch implements SnapshotStream {
       teams: w.options.teams !== undefined,
       winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
       results: w.results,
+      pickup: this.pickupOf(w),
       shop: [
         ...this.gearItems,
         ...this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
@@ -310,7 +337,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.phase}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.phase}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

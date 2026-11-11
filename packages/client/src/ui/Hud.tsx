@@ -397,6 +397,18 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
         </div>
       )}
 
+      {hud.pickup && (
+        <div
+          key={`pickup-${hud.pickup.tick}`}
+          className="drop-toast"
+          style={{ '--pc': pcolor(hud.pickup.player) } as CSSProperties}
+          aria-live="polite"
+        >
+          <span className="drop-toast-who">Player {hud.pickup.player + 1}</span> found{' '}
+          <span className="drop-toast-what">{hud.pickup.text}</span>
+        </div>
+      )}
+
       {menu && onExit && (
         <div className="sheet-scrim" onClick={() => setMenu(false)}>
           <div

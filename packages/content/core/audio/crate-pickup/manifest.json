@@ -1,0 +1,41 @@
+{
+  "id": "audio.crate-pickup",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Crate Pickup",
+    "description": "A bright rising arpeggio and a coin chime when a tank takes a supply crate.",
+    "since": "core@0.72.0"
+  },
+  "bus": "sfx",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Web Audio synth patch defined in this manifest"
+  },
+  "synth": {
+    "voices": [
+      {
+        "wave": "square",
+        "freq": 660,
+        "hold": 0.18,
+        "release": 0.12,
+        "volume": 0.2,
+        "arp": [0, 4, 7, 12, 16],
+        "arpRate": 0.035
+      },
+      {
+        "wave": "triangle",
+        "freq": 1760,
+        "delay": 0.18,
+        "hold": 0.06,
+        "release": 0.25,
+        "volume": 0.14
+      }
+    ]
+  },
+  "on": [
+    {
+      "event": "dropPickup"
+    }
+  ]
+}

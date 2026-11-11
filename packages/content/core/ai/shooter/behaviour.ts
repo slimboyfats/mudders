@@ -1,6 +1,7 @@
 import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
 import {
+  dropInReach,
   buyByValue,
   cheapest,
   driveEnd,
@@ -38,6 +39,8 @@ export default defineAi<z.infer<typeof params>>({
   params,
   move(api, p) {
     const m = me(api);
+    const crate = dropInReach(api, 0);
+    if (crate >= 0) return crate;
     const mem = api.memory;
     const hit = mem[2] !== undefined && m.health < mem[2];
     mem[2] = m.health;

@@ -210,6 +210,8 @@ export const NetSetupSchema = z.object({
   suddenDeath: z.boolean(),
   /** Each player's turn sudden death starts on (§3.1); unset = the mode's default. */
   suddenDeathFrom: z.number().int().min(1).max(30).optional(),
+  /** Supply drops (§3.8); older hosts don't send it, which means off. */
+  drops: z.enum(['off', 'rare', 'normal', 'often']).optional(),
   startingCash: z.number().int().min(0).max(1_000_000),
   /** Cash every player gets each round on top of their winnings; older hosts don't send it (none). */
   roundBonus: z.number().int().min(0).max(1_000_000).optional(),

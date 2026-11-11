@@ -19,8 +19,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Big money matches',
+    title: 'Supply drops and big money matches',
+    pack: 'core@0.72.0',
     items: [
+      'Supply drops: every few turns a wooden crate parachutes in somewhere away from the tank whose turn it is, with a weapon, gear, health, fuel or cash inside. Its badge shows which kind',
+      'Any tank that touches a crate takes it: drive to it, fall onto it, or use Teleport Shell, Swap Ray or Portal Pair to get there first',
+      'Crates are real objects: they swing under the canopy and drift with the wind, tip over edges and tumble down slopes, float on water and burn in fire',
+      'Blasts throw crates about and a close one smashes them to splinters; a shell through the canopy drops the crate like a stone, so you can deny one to your enemy',
+      'Bots drive to a crate when one lies within reach',
+      'New Rules option: Supply drops Off, Rare, Normal or Often (Normal by default, works online too)',
       'Rules: start with up to 100,000 cash',
       'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
     ],
