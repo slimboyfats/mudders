@@ -43,6 +43,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Explosions are no longer a disc: a white-hot fireball of single pixels bursts out, then the air rolls it up into a head that curls over and a swirl of fire sweeping out along the ground each side, bigger on the side the shell was heading. Smoke, sparks, embers, dust and leaves are carried round by the same air',
       'Gas clouds are made of single pixels: toxic gas bursts out, billows, then sinks and pours downhill cell by cell instead of sliding along as one solid blob',
       'Blasts throw real dirt: the ground dug out of a crater sprays from its edge as single grains in the colour of that ground, most landing close and a few flying far, more of it the way the shell was heading',
+      'Fire lights its surroundings: while a fireball burns, the smoke and flying dirt around it glow warm and the crater edge stays lit, dimming in steps as the fire dies',
     ],
   },
   {
