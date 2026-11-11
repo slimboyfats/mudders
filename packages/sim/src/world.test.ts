@@ -373,6 +373,22 @@ describe('match loop', () => {
     expect(w.grid.material).toEqual(pre);
   });
 
+  it('adds the round bonus to every player on top of their winnings', () => {
+    const w = mk({ rules: { startingCash: 100_000, roundBonus: 20_000 } });
+    expect(w.tanks.map((t) => t.money)).toEqual([100_000, 100_000]);
+    shoot(w, 90, 0);
+    w.tanks[1]!.health = 0;
+    w.tanks[1]!.alive = false;
+    untilQuiet(w);
+    expect(w.phase).toBe('shop');
+    const r = w.results[0]!;
+    // winner: interest + points money + bonus; loser: interest + bonus only
+    expect(r.earned[0]).toBe(10_000 + r.points[0]! * 2 + 20_000);
+    expect(r.earned[1]).toBe(10_000 + 20_000);
+    expect(w.tanks[0]!.money).toBe(100_000 + r.earned[0]!);
+    expect(w.tanks[1]!.money).toBe(130_000);
+  });
+
   it('auto-readies when the shop timer runs out and ends the match after the last round', () => {
     const w = mk({ rules: { rounds: 2, turnTimer: 0 } });
     for (let round = 0; round < 2; round++) {

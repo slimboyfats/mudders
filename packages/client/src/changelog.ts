@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-11',
+    title: 'Big money matches',
+    items: [
+      'Rules: start with up to 100,000 cash',
+      'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
+    ],
+  },
+  {
     date: '2026-11-10',
     title: 'Living chemistry and glow in the dark',
     pack: 'core@0.61.0 – 0.71.0',

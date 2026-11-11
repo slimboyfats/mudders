@@ -68,6 +68,27 @@ describe('match setup', () => {
       toWorldOptions({ ...base, suddenDeath: true }, 1).rules?.suddenDeathFrom,
     ).toBeUndefined();
   });
+
+  it('passes start money and the per-round bonus to the match rules', () => {
+    const base = {
+      slots: ['human', 'ai.shooter'],
+      size: 'small' as const,
+      scenery: 'none' as const,
+      rounds: 3,
+      turnTimer: 0,
+      wind: 'none' as const,
+      suddenDeath: false,
+      teams: null,
+      tanks: ['auto', 'auto'],
+    };
+    const on = toWorldOptions({ ...base, startingCash: 100_000, roundBonus: 20_000 }, 1);
+    expect(on.rules).toMatchObject({ startingCash: 100_000, roundBonus: 20_000 });
+    // off leaves the rule out, so the sim pays nothing extra
+    expect(
+      toWorldOptions({ ...base, startingCash: 0, roundBonus: 0 }, 1).rules?.roundBonus,
+    ).toBeUndefined();
+    expect(toWorldOptions({ ...base, startingCash: 0 }, 1).rules?.roundBonus).toBeUndefined();
+  });
 });
 
 describe('weather pick', () => {
