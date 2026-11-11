@@ -44,6 +44,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Gas clouds are made of single pixels: toxic gas bursts out, billows, then sinks and pours downhill cell by cell instead of sliding along as one solid blob',
       'Blasts throw real dirt: the ground dug out of a crater sprays from its edge as single grains in the colour of that ground, most landing close and a few flying far, more of it the way the shell was heading',
       'The edge walls are alive: the whole wall churns like a dark liquid with its face rolling in waves, and a shell flying into it is swallowed instead of going off. It splashes, throws a jet back out, sends rings across the whole wall and sinks in, cooling as it goes. The sudden-death wall swallows shells where it stands too',
+      'Fire lights its surroundings: while a fireball burns, the smoke and flying dirt around it glow warm and the crater edge stays lit, dimming in steps as the fire dies',
     ],
   },
   {

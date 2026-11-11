@@ -1,5 +1,6 @@
 import { QUAD_FS } from './shaders';
 import { compile } from './gl';
+import { LIGHT_BANDS, MAX_LIGHTS, type Lights } from './lighting';
 import { PKind, type Emit, type ParticleSink, type Vortex } from './particles';
 
 /**
@@ -276,6 +277,9 @@ export const KINDS: readonly KindPhysics[] = [
 
 const NK = KINDS.length;
 
+/** How much of a point light's colour a lit particle takes on. */
+const PARTICLE_LIGHT = '0.8';
+
 /** Most vortices turning at once (the oldest gives way), and how fast their drift dies. */
 const MAX_VORTEX = 16;
 const VORTEX_COAST = '0.95';
@@ -460,6 +464,9 @@ uniform vec2 u_origin;
 uniform float u_scale;
 uniform float u_tick;
 uniform int u_pass; // 0 normal blend, 1 additive
+uniform int u_lightCount; // the frame's point lights (lighting.ts): fire lights what drifts near it
+uniform vec4 u_lights[${MAX_LIGHTS}]; // x, y (cells), radius, strength
+uniform vec3 u_lightCol[${MAX_LIGHTS}];
 out vec2 v_local;
 out vec4 v_color;
 flat out int v_shape;
@@ -709,6 +716,23 @@ void main() {
     v_blob = vec3(0.0);
     return;
   }
+  // smoke, gas, dust and flying dirt catch the light of the fire beside them: the same hard
+  // bands as the ground, each cell crossing a band on its own threshold
+  if (u_pass == 0 && u_lightCount > 0 &&
+      (k == ${PKind.Wisp} || k == ${PKind.Gas} || k == ${PKind.Chunk} || k == ${PKind.Smoke} ||
+       k == ${PKind.Dust} || k == ${PKind.Plume} || k == ${PKind.Ash} || k == ${PKind.Leaf})) {
+    vec3 L = vec3(0.0);
+    for (int i = 0; i < ${MAX_LIGHTS}; i++) {
+      if (i >= u_lightCount) break;
+      vec4 lt = u_lights[i];
+      float dist = distance(lt.xy, pos);
+      if (dist >= lt.z) continue;
+      float f = 1.0 - dist / lt.z;
+      float e = f * (0.4 + 0.6 * f) * lt.w;
+      L += u_lightCol[i] * clamp(floor(e * ${LIGHT_BANDS}.0 + th - 0.5) / ${LIGHT_BANDS}.0, 0.0, 1.5);
+    }
+    col = min(vec3(1.0), col + L * ${PARTICLE_LIGHT});
+  }
   int id = gl_VertexID % 6;
   vec2 corner = vec2(id == 1 || id == 2 || id == 4 ? 1.0 : 0.0, id == 2 || id == 4 || id == 5 ? 1.0 : 0.0);
   vec2 l = corner - 0.5;
@@ -824,7 +848,16 @@ export class GpuParticles implements ParticleSink {
     ]) {
       this.uUpd[n] = gl.getUniformLocation(this.updProg, n);
     }
-    for (const n of ['u_view', 'u_origin', 'u_scale', 'u_tick', 'u_pass']) {
+    for (const n of [
+      'u_view',
+      'u_origin',
+      'u_scale',
+      'u_tick',
+      'u_pass',
+      'u_lightCount',
+      'u_lights',
+      'u_lightCol',
+    ]) {
       this.uDraw[n] = gl.getUniformLocation(this.drawProg, n);
     }
     // the kind table never changes: upload once
@@ -1147,6 +1180,7 @@ export class GpuParticles implements ParticleSink {
     origin: [number, number],
     scale: number,
     flow: FlowField | null = null,
+    lights: Lights | null = null,
   ): void {
     this.upload();
     this.update(terrain, mapW, mapH, flow);
@@ -1158,6 +1192,11 @@ export class GpuParticles implements ParticleSink {
     gl.uniform2f(this.uDraw.u_origin!, origin[0], origin[1]);
     gl.uniform1f(this.uDraw.u_scale!, scale);
     gl.uniform1f(this.uDraw.u_tick!, this.tick);
+    gl.uniform1i(this.uDraw.u_lightCount!, lights ? lights.count : 0);
+    if (lights && lights.count > 0) {
+      gl.uniform4fv(this.uDraw.u_lights!, lights.pos);
+      gl.uniform3fv(this.uDraw.u_lightCol!, lights.col);
+    }
     gl.bindVertexArray(this.drawVao);
     gl.enable(gl.BLEND);
     for (let pass = 0; pass < 2; pass++) {
