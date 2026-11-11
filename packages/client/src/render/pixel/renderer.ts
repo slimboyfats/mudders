@@ -23,7 +23,7 @@ import { drawDeathWall } from './deathwall';
 import { EdgeWall } from './wall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { PixelAir } from './air';
-import { drawStorm, stormFor, type StormKind } from './storm';
+import { drawStorm, stormAir, stormFor, type StormKind } from './storm';
 import { ProcessMeter } from './process-meter';
 import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
@@ -312,6 +312,9 @@ export class PixelRenderer implements Renderer {
       | 'u_palette'
       | 'u_time'
       | 'u_haze'
+      | 'u_dust'
+      | 'u_dustSheet'
+      | 'u_dustK'
       | 'u_anim'
       | 'u_stars'
       | 'u_starColor'
@@ -603,6 +606,9 @@ export class PixelRenderer implements Renderer {
       'u_palette',
       'u_time',
       'u_haze',
+      'u_dust',
+      'u_dustSheet',
+      'u_dustK',
       'u_anim',
       'u_stars',
       'u_starColor',
@@ -2376,6 +2382,10 @@ export class PixelRenderer implements Renderer {
     // haze over hot ground, and over fresh craters while they cool
     const warm = this.lastBurn >= 0 && t - this.lastBurn < HAZE_TICKS;
     gl.uniform1f(this.uBg.u_haze, distort && (this.anyHot || warm) ? 1 : 0);
+    const dust = stormAir(this.stormKind, Math.max(0, this.stormK), t, this.wind);
+    gl.uniform4fv(this.uBg.u_dust, dust.haze);
+    gl.uniform4fv(this.uBg.u_dustSheet, dust.sheet);
+    gl.uniform4fv(this.uBg.u_dustK, dust.k);
     gl.uniform1f(this.uBg.u_anim, this.anyCycle ? 1 : 0);
     gl.uniform1f(
       this.uBg.u_stars,

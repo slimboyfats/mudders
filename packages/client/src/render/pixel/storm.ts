@@ -5,8 +5,9 @@ import type { AmbientProbe } from './ambient';
 /**
  * Temperature storms (§3.4): in freezing air a snowstorm, in scorching air a sandstorm. Purely
  * cosmetic and stateless like the theme weather: every grain's position is a pure function of its
- * index and the render time, snapped to whole map cells. The air is shaded in hard bands (no smooth
- * glow), thickest near the ground, and gust sheets of denser haze roll across with the wind.
+ * index and the render time, snapped to whole map cells. The air is shaded per cell in the
+ * background pass (`stormAir`): hard dithered bands thickening toward the ground, and gust sheets
+ * of denser haze rolling across with the wind, in stepped tones with an ordered dither between.
  */
 
 export type StormKind = 'snow' | 'sand';
@@ -53,6 +54,42 @@ function h01(i: number, salt: number): number {
 
 const mod = (a: number, n: number): number => ((a % n) + n) % n;
 
+/** The background pass's storm air: what `BG_FS` reads from `u_dust`, `u_dustSheet`, `u_dustK`. */
+export interface StormAir {
+  /** Haze colour (0…1) and storm strength (0 = off). */
+  haze: [number, number, number, number];
+  /** Gust-sheet colour and its strength per step. */
+  sheet: [number, number, number, number];
+  /** Band strength at the top, growth per band, sheet ceiling (share of the map height), drift (cells). */
+  k: [number, number, number, number];
+}
+
+const hex = (c: number): [number, number, number] => [
+  ((c >> 16) & 255) / 255,
+  ((c >> 8) & 255) / 255,
+  (c & 255) / 255,
+];
+
+/** Storm air for strength `k` at render time `t`, blowing with the sim `wind`. */
+export function stormAir(kind: StormKind, k: number, t: number, wind: number): StormAir {
+  const pal = PAL[kind];
+  const sand = kind === 'sand';
+  const on = k > 0.01 ? k : 0;
+  const dir = wind < 0 ? -1 : 1;
+  const gust = Math.min(1.5, Math.abs(wind) * 120);
+  const speed = (sand ? 2.2 : 1.6) + gust * 1.6;
+  return {
+    haze: [...hex(pal.haze), on],
+    sheet: [...hex(pal.sheet), on * (sand ? 0.2 : 0.26)],
+    k: [
+      sand ? 0.22 : 0.2,
+      sand ? 0.5 : 0.45,
+      sand ? 0.3 : 0.08,
+      Math.floor(t * speed * 0.55 * dir),
+    ],
+  };
+}
+
 /** Ground row per 2-cell column, reused between frames. */
 let surf = new Int16Array(0);
 
@@ -88,64 +125,9 @@ export function drawStorm(
     surf[c] = y;
   }
 
-  // shade: hard bands, thicker towards the ground (whiteout / brown-out)
-  const bands = 4;
-  const base = sand ? 0.22 : 0.2;
-  const grow = sand ? 0.5 : 0.45;
-  for (let b = 0; b < bands; b++) {
-    const y0 = Math.floor((H * b) / bands);
-    const y1 = Math.floor((H * (b + 1)) / bands);
-    const a = k * base * (1 + b * grow);
-    let run = -1;
-    for (let c = 0; c <= cols; c++) {
-      const bottom = c < cols ? Math.min(y1, surf[c]!) : y0;
-      // join neighbouring columns with the same bottom into one rect
-      if (run >= 0 && (c === cols || bottom !== Math.min(y1, surf[run]!))) {
-        const rb = Math.min(y1, surf[run]!);
-        if (rb > y0) normal.rect(run << 1, y0, (c - run) << 1, rb - y0, pal.haze, a);
-        run = -1;
-      }
-      if (run < 0 && c < cols) run = c;
-    }
-  }
-  // air pockets below the first ground (under arches, ledges, cave roofs) get the same haze
-  for (let c = 0; c < cols; c++) {
-    const x = c << 1;
-    let y = surf[c]!;
-    while (y < H) {
-      while (y < H && (probe.solid(x, y) || probe.solid(x + 1, y))) y++;
-      const ya = y;
-      while (y < H && !probe.solid(x, y) && !probe.solid(x + 1, y)) y++;
-      if (y >= H) break; // open to the bottom: the void, not air
-      if (y > ya) {
-        const b = Math.min(bands - 1, Math.floor((((ya + y) >> 1) * bands) / H));
-        normal.rect(x, ya, 2, y - ya, pal.haze, k * base * (1 + b * grow));
-      }
-    }
-  }
-
-  // gust sheets: long stepped slabs of denser haze rolling across with the wind, in the air only
-  const sheets = Math.round(3 + k * 5);
-  for (let i = 0; i < sheets; i++) {
-    const w = Math.round(80 + h01(i, 1) * 140);
-    const h = Math.round(8 + h01(i, 2) * (sand ? 26 : 18));
-    const span = W + w * 2;
-    const x = Math.floor(mod(h01(i, 3) * span + t * speed * 0.55 * dir, span)) - w;
-    const top = sand ? 0.3 : 0.08;
-    const y = Math.floor(H * (top + h01(i, 4) * (0.75 - top)) + Math.sin(t * 0.01 + i) * 3);
-    const a = k * (sand ? 0.2 : 0.26);
-    // three nested steps, densest in the middle
-    for (let st = 0; st < 3; st++) {
-      const iw = Math.round(w * (1 - st * 0.28));
-      const ih = Math.max(2, Math.round(h * (1 - st * 0.3)));
-      const sx = x + ((w - iw) >> 1);
-      const sy = y - (ih >> 1);
-      for (let cx = Math.max(0, sx & ~1); cx < Math.min(W, sx + iw); cx += 2) {
-        const bottom = Math.min(sy + ih, surf[cx >> 1]!);
-        if (bottom > sy) normal.rect(cx, sy, 2, bottom - sy, pal.sheet, a);
-      }
-    }
-  }
+  // the haze itself (bands thickening toward the ground, gust sheets rolling through) is shaded
+  // per cell in the background pass (stormAir below), so it never shows as see-through slabs
+  // with straight edges over the backdrop and stops nowhere short of the view's edges
 
   // grains and streaks
   const n = Math.round(k * (sand ? 1100 : 1400) * (W / 1000) * Math.max(0.4, mult));
