@@ -5283,23 +5283,7 @@ export class EffectSystem {
         kind: PKind.Spark,
       });
     }
-    // chunks of whatever the blast was in, thrown from the crater rim
-    const base = this.dustColor(e.x, e.y + r * 0.5);
-    const nChunk = Math.round(count * this.mult);
-    for (let i = 0; i < nChunk; i++) {
-      const a = rng.range(Math.PI * 0.1, Math.PI * 0.9);
-      const s = rng.range(0.4, 1) * speed * 1.1;
-      this.particles.add({
-        x: e.x + Math.cos(a) * r * 0.6,
-        y: e.y - Math.sin(a) * r * 0.4,
-        vx: Math.cos(a) * s,
-        vy: -Math.sin(a) * s,
-        life: rng.range(30, 60),
-        size: 1,
-        color: shade(base, rng.range(0.75, 1.15)),
-        kind: PKind.Chunk,
-      });
-    }
+    this.ejecta(e, r, count, rng);
     if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
     // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
     // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
@@ -5456,6 +5440,58 @@ export class EffectSystem {
         (0.3 + big * 0.25) * fade,
         0.25 * fade * fade,
       );
+    }
+  }
+
+  /**
+   * The ejecta curtain: the ground the crater was dug from, thrown out as single grains. Like a
+   * real cratering blast, each grain leaves the rim it came from, up and outward at a steep
+   * angle, in the colour of the ground there; most are slow and land in a lip just outside the
+   * crater, a few are fast and fly far. A slanting impact throws more, and further, the way the
+   * shell was heading. Grains arc under gravity, bounce and lie where they stop before they
+   * crumble away.
+   */
+  private ejecta(e: EffectEvent, r: number, count: number, rng: FxRng): void {
+    const { nx, ny, side } = this.blastLean(e.x, e.y, r);
+    // along the ground, to the right
+    const gx = -ny;
+    const gy = nx;
+    const n = Math.round(Math.min(2600, count + r * r * 0.9) * Math.max(0.3, this.mult));
+    const speed = 1 + r / 11;
+    for (let i = 0; i < n; i++) {
+      // which side of the crater, and how far round its rim (0 = lip, 1 = floor)
+      const sgn = rng.next() < 0.5 + side * 0.22 ? 1 : -1;
+      const deep = rng.next();
+      // the crater is already dug when the blast is drawn: find the ground left at its edge,
+      // feeling down from above the lip (floor grains start nearer the middle)
+      const out = r * (1.08 - deep * 0.55);
+      let px = e.x + gx * sgn * out + nx * r * 0.6;
+      let py = e.y + gy * sgn * out + ny * r * 0.6;
+      let m = 0;
+      for (let k = 0; k < r * 1.8 && m === 0; k++) {
+        px -= nx;
+        py -= ny;
+        m = this.probe.material(Math.round(px), Math.round(py));
+      }
+      // only ground makes grains: a blast in the air, or over a hole, throws less
+      if (m === 0) continue;
+      // 40 to 75 degrees up from the ground, steeper from deeper in
+      const up = 0.7 + deep * 0.45 + rng.range(-0.12, 0.2);
+      const ca = Math.cos(up);
+      const sa = Math.sin(up);
+      // many slow grains, few fast ones; the leading side is thrown harder
+      const q = rng.next();
+      const v = speed * (0.25 + q * q * 0.95) * (1 + 0.35 * side * sgn);
+      this.particles.add({
+        x: px + nx * 1.5,
+        y: py + ny * 1.5,
+        vx: (gx * sgn * ca + nx * sa) * v + rng.range(-0.12, 0.12),
+        vy: (gy * sgn * ca + ny * sa) * v + rng.range(-0.12, 0.12),
+        life: rng.range(90, 220),
+        size: 1,
+        color: shade(this.probe.color(m), DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]!),
+        kind: PKind.Chunk,
+      });
     }
   }
 

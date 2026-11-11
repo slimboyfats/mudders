@@ -42,6 +42,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       "Swallows: little flocks wheel over every map and ride the wind. A shell that flies into one goes off right there in the sky, shots make them scatter, and a blast's pressure front bursts any it reaches into black pixels",
       'Explosions are no longer a disc: a white-hot fireball of single pixels bursts out, then the air rolls it up into a head that curls over and a swirl of fire sweeping out along the ground each side, bigger on the side the shell was heading. Smoke, sparks, embers, dust and leaves are carried round by the same air',
       'Gas clouds are made of single pixels: toxic gas bursts out, billows, then sinks and pours downhill cell by cell instead of sliding along as one solid blob',
+      'Blasts throw real dirt: the ground dug out of a crater sprays from its edge as single grains in the colour of that ground, most landing close and a few flying far, more of it the way the shell was heading',
     ],
   },
   {
