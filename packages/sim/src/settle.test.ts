@@ -42,6 +42,53 @@ describe('MaterialTable', () => {
 });
 
 describe('settleStep', () => {
+  it('a fall material with a repose slumps off a sheer wall to that slope, and no further', () => {
+    const loose = new MaterialTable([
+      { ...mat('material.dirt', 1, 'fall'), repose: 2 },
+      mat('material.rock', 3, 'static'),
+    ]);
+    const W = 40;
+    const H = 30;
+    const g = new Grid(W, H);
+    // a block of dirt 10 wide and 12 tall on a rock floor, sheer on both sides
+    for (let x = 0; x < W; x++) g.set(x, H - 1, 3);
+    for (let y = H - 13; y < H - 1; y++) for (let x = 15; x < 25; x++) g.set(x, y, 1);
+    g.markDirty(0, 0, W - 1, H - 1);
+    let t = 0;
+    while (g.settling && t < 400) settleStep(g, loose, t++, 1e9);
+    expect(g.settling).toBe(false);
+    // nothing lost
+    let n = 0;
+    const top: number[] = [];
+    for (let x = 0; x < W; x++) {
+      let h = 0;
+      for (let y = 0; y < H - 1; y++) {
+        if (g.get(x, y) === 1) {
+          n++;
+          if (h === 0) h = H - 1 - y;
+        }
+      }
+      top.push(h);
+    }
+    expect(n).toBe(120);
+    // it spread, and no step between neighbouring columns is more than the repose
+    expect(top[14]).toBeGreaterThan(0);
+    expect(top[25]).toBeGreaterThan(0);
+    for (let x = 1; x < W; x++) expect(Math.abs(top[x]! - top[x - 1]!)).toBeLessThanOrEqual(2);
+    // but it is no sand pile: the middle still stands well above a 45 degree heap
+    expect(Math.max(...top)).toBeGreaterThanOrEqual(9);
+  });
+
+  it('a fall material without a repose still stands sheer', () => {
+    const g = new Grid(20, 20);
+    for (let x = 0; x < 20; x++) g.set(x, 19, 3);
+    for (let y = 9; y < 19; y++) for (let x = 8; x < 12; x++) g.set(x, y, 1);
+    g.markDirty(0, 0, 19, 19);
+    run(g);
+    for (let y = 9; y < 19; y++) for (let x = 8; x < 12; x++) expect(g.get(x, y)).toBe(1);
+    expect(g.get(7, 18)).toBe(0);
+  });
+
   it("carries each grain's cosmetic shade down with it", () => {
     const g = new Grid(8, 20);
     g.set(3, 2, 1);

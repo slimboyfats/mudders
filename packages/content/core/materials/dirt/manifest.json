@@ -3,12 +3,13 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Dirt",
-    "description": "Baseline terrain. Falls straight down when unsupported; resistance 1 to everything.",
+    "description": "Baseline terrain. Falls straight down when unsupported, and a wall cut steeper than about 63 degrees slumps to that slope; resistance 1 to everything.",
     "since": "core@0.1.0",
     "color": "#8a5a2b"
   },
   "cell": 1,
   "settle": "fall",
+  "repose": 2,
   "density": 100,
   "strength": {
     "corrosive": 12

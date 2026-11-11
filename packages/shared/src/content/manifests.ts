@@ -188,6 +188,13 @@ export const MaterialSchema = z.strictObject({
    * lava creeps). Default 1.
    */
   disperse: z.number().int().min(1).max(8).optional(),
+  /**
+   * Fall materials: the steepest stair a slope of it holds, in cells of drop per cell across. A
+   * cell with open air beside it and at least this many open cells below that slides down
+   * there, so a cut wall slumps to about that slope (2 is roughly 63 degrees) instead of standing
+   * sheer. Unset: stands at any slope.
+   */
+  repose: z.number().int().min(1).max(8).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
   /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */

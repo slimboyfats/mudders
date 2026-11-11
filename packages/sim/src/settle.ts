@@ -17,7 +17,8 @@ const DROP_LOOK = 32;
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
  * cells accelerate downward (1 cell/tick² up to MAX_FALL_SPEED), `slide` cells also move one cell
  * diagonally when blocked, `flow` cells sideways. A `fall` cell with air on both sides (the top of a
- * one-cell spire) topples diagonally, so debris doesn't leave needles standing. Scans bottom-up so a moved cell is never moved
+ * one-cell spire) topples diagonally, so debris doesn't leave needles standing, and one with a
+ * `repose` slumps off any slope steeper than that. Scans bottom-up so a moved cell is never moved
  * twice in a tick. At most `maxCells` cells move per tick; the rest continue next tick.
  *
  * Returns the number of cells moved. Shrinks the settle region to what may still move.
@@ -42,6 +43,7 @@ export function settleStep(
   const density = mats.density;
   const spread = mats.spread;
   const disperse = mats.disperse;
+  const repose = mats.repose;
   const act = mats.active;
   const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
@@ -113,6 +115,28 @@ export function settleStep(
           if (dst >= 0) {
             dy = 1;
             vel[dst] = 1;
+          }
+        }
+        // A slope steeper than the material holds slumps: with open air beside it and a drop of
+        // at least `repose` cells below that, the cell slides down there.
+        const rp = repose[m]!;
+        if (dst < 0 && rp !== 0 && y + rp < H) {
+          const dir = ((x * 7 + y * 13 + tick) & 2) === 0 ? 1 : -1;
+          for (let s = 0; s < 2 && dst < 0; s++) {
+            const d = s === 0 ? dir : -dir;
+            const nx = x + d;
+            if (nx < 0 || nx >= W || mat[idx + d] !== 0) continue;
+            let p = below + d;
+            let j = 0;
+            while (j < rp && mat[p] === 0) {
+              p += W;
+              j++;
+            }
+            if (j === rp) {
+              dst = below + d;
+              dy = 1;
+              vel[dst] = 1;
+            }
           }
         }
       } else if (k >= SETTLE_SLIDE) {
