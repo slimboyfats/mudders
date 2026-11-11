@@ -45,6 +45,8 @@ describe('weapon.black-hole-mine', () => {
     expect(w.mines[0]?.armed).toBe(true);
     expect(w.activePlayer).toBe(1);
     w.tanks[1]!.fuel = 100;
+    // tough enough to live through the drop into the pit
+    w.tanks[1]!.health = 300;
     w.applyInput(1, { type: 'drive', dir: -1 });
     let n = 0;
     while (n < 400 && w.mines.length > 0) {
@@ -55,7 +57,7 @@ describe('weapon.black-hole-mine', () => {
     expect(w.phase).toBe('resolve');
     for (let i = 0; i < 2000 && w.phase === 'resolve'; i++) w.step();
     expect(w.activePlayer).toBe(0);
-    expect(w.tanks[1]!.health).toBeLessThan(100);
+    expect(w.tanks[1]!.health).toBeLessThan(300);
   });
 
   it('bots never plan a drive into an armed mine', () => {

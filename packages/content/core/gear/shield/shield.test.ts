@@ -15,7 +15,7 @@ describe('gear.shield', () => {
     w.applyInput(0, { type: 'useGear', gear: 'gear.shield' });
     w.step();
     expect(t.gear[g]).toBe(1);
-    dropAt(w, 'weapon.missile', t.x + 12);
+    dropAt(w, 'weapon.missile', t.x + 14);
     expect(t.health).toBe(100);
     expect(t.shield).toBeLessThan(50);
   });

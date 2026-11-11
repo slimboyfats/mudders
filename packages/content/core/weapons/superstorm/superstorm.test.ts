@@ -21,6 +21,8 @@ describe('weapon.superstorm', () => {
   it('a barrage of bolts rolls down one after another at the end of the turn', () => {
     const w = world();
     const ticks: number[] = [];
+    // tough tanks: the bolts' craters drop them hard, and the round must outlast the barrage
+    for (const t of w.tanks) t.health = 5000;
     dropAt(w, 'weapon.superstorm', 100, 4000);
     passTurns(w, 0);
     // run the next turn and log when the bolts go off

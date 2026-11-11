@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Napalm",
-    "description": "Splashes burning jelly that runs downhill, scorches the dirt to ash and burns any tank it reaches.",
+    "description": "Splashes burning jelly that runs downhill, scorches the dirt to ash and burns any tank it reaches: a tank sitting in it keeps burning until the fire dies or it drives out.",
     "category": "incendiary",
     "since": "core@0.3.0"
   },
@@ -57,7 +57,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 30,
+    "expectedDamage": 45,
     "terrainValue": 0.3
   }
 }

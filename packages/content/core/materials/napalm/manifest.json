@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Napalm",
-    "description": "Burning jelly. Flows downhill, scorches the dirt it runs over into ash, burns tanks it touches at the end of the turn, and burns out after a few seconds.",
+    "description": "Burning jelly. Flows downhill, scorches the dirt it runs over into ash, burns tanks sitting in it for as long as they stay, and burns out after a few seconds.",
     "since": "core@0.3.0",
     "color": "#ff9a2a"
   },

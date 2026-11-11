@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Heavy Shockwave",
-    "description": "A huge ring of force. Bulldozes the hill into a rampart, buries anyone close and throws tanks off their perches.",
+    "description": "A huge ring of force. Bulldozes the hill into a rampart and hurls tanks clean across the map; a tank thrown into a hill or dropped without a parachute rarely gets up again.",
     "category": "terrain-dynamics",
     "since": "core@0.3.0"
   },
@@ -28,9 +28,13 @@
         },
         "terrainOp": {
           "use": "terrainop.displace",
-          "fling": 240,
-          "flingApex": 100,
-          "propBoost": 260
+          "fling": 420,
+          "flingApex": 170,
+          "propBoost": 450,
+          "speed": 7.5,
+          "lift": 0.75,
+          "landFall": 50,
+          "slamDamage": 6
         }
       }
     }
@@ -41,7 +45,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 45,
+    "expectedDamage": 70,
     "terrainValue": 1
   }
 }

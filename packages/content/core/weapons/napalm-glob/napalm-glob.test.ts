@@ -6,6 +6,6 @@ describe('weapon.napalm-glob', () => {
     const w = flatWorld(150, { tankColumns: [40, 200] });
     dropAt(w, 'weapon.napalm-glob', 200);
     expect(w.tanks[1]!.health).toBeLessThan(100);
-    expect(w.tanks[1]!.health).toBeGreaterThan(70);
+    expect(w.tanks[1]!.health).toBeGreaterThan(40);
   });
 });

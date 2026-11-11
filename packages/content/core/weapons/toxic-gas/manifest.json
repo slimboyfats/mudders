@@ -34,7 +34,7 @@
       "zone": {
         "radius": 22,
         "turns": 4,
-        "damage": 8,
+        "damage": 16,
         "damageType": "corrosive",
         "look": "toxic",
         "cloud": {
@@ -53,7 +53,7 @@
     "tier": 2
   },
   "ai": {
-    "expectedDamage": 30,
+    "expectedDamage": 45,
     "terrainValue": 0
   }
 }

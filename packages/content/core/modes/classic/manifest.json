@@ -27,7 +27,7 @@
   "walls": "absorb",
   "fallDamage": {
     "safeCells": 4,
-    "perCell": 1
+    "perCell": 2
   },
   "map": {
     "generator": "gen.hills",
