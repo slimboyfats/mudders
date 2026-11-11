@@ -11,7 +11,7 @@ describe('weapon.drill-torpedo', () => {
   it('passes under a teammate (who only drops into the caved-in tunnel) to the enemy', () => {
     const w = flatWorld(150, { tankColumns: [20, 200, 300], players: 3, teams: [0, 0, 1] });
     launchAt(w, 'weapon.drill-torpedo', 100, 140, 1.5, 0.5);
-    expect(w.tanks[1]!.health).toBeGreaterThan(85);
+    expect(w.tanks[1]!.health).toBeGreaterThan(75);
     expect(w.tanks[2]!.health).toBeLessThan(60);
   });
 

@@ -40,6 +40,27 @@ function jag(y: number, x: number): number {
  * supports here. Everything is typed arrays over the scratch buffers; nothing allocates.
  * Returns the number of cells released.
  */
+/** Does cell i hang too far for its material (see `supportPass`)? */
+function loose(
+  mats: MaterialTable,
+  mat: Uint8Array,
+  grounded: Uint8Array,
+  thick: Uint8Array,
+  dist: Uint8Array,
+  i: number,
+  x: number,
+  y: number,
+): boolean {
+  const m = mat[i]!;
+  if (m === 0 || grounded[i] !== 0 || mats.settle[m] !== SETTLE_STATIC) return false;
+  const span = mats.span[m]!;
+  if (span === 255) return false;
+  const t = Math.min(MAX_THICKNESS, thick[i]!);
+  const reach = Math.min(3 * span, Math.max(1, Math.trunc((span * t) / SPAN_THICKNESS)));
+  // the break line wanders a cell either way from row to row
+  return dist[i]! > reach + jag(y, x) - 1;
+}
+
 export function supportPass(
   grid: Grid,
   mats: MaterialTable,
@@ -143,14 +164,17 @@ export function supportPass(
   let ly1 = -1;
   for (let y = 0; y < H; y++) {
     for (let x = cx0, i = y * W + cx0; x <= cx1; x++, i++) {
+      if (!loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
+      // resting on a hanging cell that holds: it would only land straight back where it is
+      // (and be released again, forever), so it holds too
+      if (
+        y + 1 < H &&
+        mat[i + W] !== 0 &&
+        !loose(mats, mat, grounded, thick, dist, i + W, x, y + 1)
+      ) {
+        continue;
+      }
       const m = mat[i]!;
-      if (m === 0 || grounded[i] !== 0 || settle[m] !== SETTLE_STATIC) continue;
-      const span = spanOf[m]!;
-      if (span === 255) continue;
-      const t = Math.min(MAX_THICKNESS, thick[i]!);
-      const reach = Math.min(3 * span, Math.max(1, Math.trunc((span * t) / SPAN_THICKNESS)));
-      // the break line wanders a cell either way from row to row
-      if (dist[i]! <= reach + jag(y, x) - 1) continue;
       if (
         !debris.spawn(
           x * FP + FP / 2,

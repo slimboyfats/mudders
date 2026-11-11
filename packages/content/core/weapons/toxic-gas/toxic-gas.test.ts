@@ -19,7 +19,7 @@ describe('weapon.toxic-gas', () => {
     const hp = w.tanks[1]!.health;
     expect(hp).toBeLessThan(100);
     passTurns(w, 3);
-    expect(w.tanks[1]!.health).toBe(hp - 24);
+    expect(w.tanks[1]!.health).toBe(hp - 48);
     passTurns(w, 2);
     expect(w.zones).toHaveLength(0);
     expect(w.tanks[0]!.health).toBe(100);

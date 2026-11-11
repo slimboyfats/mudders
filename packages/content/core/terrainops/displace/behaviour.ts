@@ -44,6 +44,11 @@ const params = z.strictObject({
   /** Under an open parachute: fall speed (cells/tick) and sideways speed kept per tick, %. */
   chuteFall: z.number().min(0.1).max(4).default(0.8),
   chuteDrag: z.number().int().min(50).max(100).default(96),
+  /**
+   * A thrown tank that slams into a hillside or a wall takes this many HP per cell/tick of the
+   * sideways speed it hit with (credited to the shooter). 0 = off.
+   */
+  slamDamage: z.number().min(0).max(40).default(0),
   /** Launch speed of prop cells (houses, trees, towers) as % of loose terrain's: they blow apart. */
   propBoost: z.number().int().min(0).max(1000).default(100),
 });
@@ -299,7 +304,14 @@ function reachTanks(
 }
 
 /** One tick of a thrown tank's flight. Returns true while it is still in the air. */
-function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boolean {
+function fly(
+  api: SimApi,
+  p: Params,
+  t: TankHandle,
+  d: number[],
+  b: number,
+  owner: number,
+): boolean {
   // another blast (or the kernel) moved it since our last tick: it's theirs now
   if (t.x !== d[b + 6] || t.y !== d[b + 7]) return false;
   const g = api.grid;
@@ -347,9 +359,11 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
           ny = (cy - up) * FP;
         } else {
           // slammed into a hillside or a wall: it stops dead there and drops
+          const hit = Math.trunc((Math.abs(vx) * p.slamDamage) / FP);
           vx = 0;
           bounces++;
-          api.emit('shockSlam', ox, oy - (t.h >> 1), t.half, { player: t.player });
+          api.emit('shockSlam', ox, oy - (t.h >> 1), t.half, { player: t.player, damage: hit });
+          if (hit > 0) api.hurt(t.player, hit, owner);
           nx = x;
         }
       } else if (vy < 0 && !blocked(api, t, cx, oy)) {
@@ -386,12 +400,12 @@ function fly(api: SimApi, p: Params, t: TankHandle, d: number[], b: number): boo
 }
 
 /** Step every thrown tank; true while any is still in the air. */
-function flyTanks(api: SimApi, p: Params, d: number[]): boolean {
+function flyTanks(api: SimApi, p: Params, d: number[], owner: number): boolean {
   let busy = false;
   for (const t of api.tanks) {
     const b = TANKS + t.player * SLOT;
     if (b + SLOT > d.length || d[b] !== FLY) continue;
-    if (t.alive && fly(api, p, t, d, b)) busy = true;
+    if (t.alive && fly(api, p, t, d, b, owner)) busy = true;
     else d[b] = DONE;
   }
   return busy;
@@ -401,13 +415,14 @@ function flyTanks(api: SimApi, p: Params, d: number[]): boolean {
  * Shockwave displacement (§4a), see `ring`. With `fling` on, the ring front also throws every
  * tank it reaches (shooter included: it's a blast wave) in an arc away from the centre, longer
  * and higher the closer it stood. A thrown tank bounces off walls and the map edges and lands as
- * a normal fall (counted over at most `landFall` cells; shields and parachutes work as usual).
+ * a normal fall (counted over at most `landFall` cells; shields and parachutes work as usual);
+ * slamming into a hillside on the way hurts by `slamDamage` per cell/tick of speed.
  * Prop cells (houses, trees) fly `propBoost`% as fast as loose dirt, so buildings blow apart.
  */
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.displace',
-  version: 3,
+  version: 4,
   params,
   start(api, p, c) {
     const r1 = ringEdge(c.radius, 0, p.expandTicks);
@@ -430,7 +445,7 @@ export default defineTerrainOp<Params>({
       d[0] = r1;
       if (p.fling > 0) reachTanks(api, p, c, d, r1, r1 >= c.radius);
     }
-    const flying = p.fling > 0 && flyTanks(api, p, d);
+    const flying = p.fling > 0 && flyTanks(api, p, d, c.owner);
     return d[0]! < c.radius || flying;
   },
 });

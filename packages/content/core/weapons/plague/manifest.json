@@ -28,7 +28,7 @@
       "zone": {
         "radius": 44,
         "turns": 4,
-        "damage": 7,
+        "damage": 14,
         "look": "gas"
       }
     }
@@ -39,7 +39,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 35,
+    "expectedDamage": 45,
     "terrainValue": 0.1
   }
 }

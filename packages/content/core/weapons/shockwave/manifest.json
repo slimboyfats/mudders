@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Shockwave",
-    "description": "Leaves no crater. A ring of force shoves the hill outward, fills nearby holes and pushes tanks off their perches.",
+    "description": "Leaves no crater. A ring of force shoves the hill outward, flings dirt, trees and tanks far through the air and slams them into hillsides. Landing without a parachute hurts.",
     "category": "terrain-dynamics",
     "since": "core@0.1.0"
   },
@@ -16,12 +16,16 @@
       "explosion": {
         "use": "explosion.shockwave",
         "radius": 80,
-        "damage": 25,
+        "damage": 18,
         "terrainOp": {
           "use": "terrainop.displace",
-          "fling": 140,
-          "flingApex": 60,
-          "propBoost": 250
+          "fling": 250,
+          "flingApex": 110,
+          "propBoost": 380,
+          "speed": 7.0,
+          "lift": 0.7,
+          "landFall": 30,
+          "slamDamage": 5
         }
       }
     }
@@ -32,7 +36,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 22,
+    "expectedDamage": 35,
     "terrainValue": 0.8
   }
 }

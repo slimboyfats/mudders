@@ -9,9 +9,10 @@ describe('weapon.heavy-shockwave', () => {
       return w.tanks[1]!.x - 260;
     };
     expect(push('weapon.heavy-shockwave')).toBeGreaterThan(push('weapon.shockwave'));
-    const w = flatWorld();
+    // wide enough that the flung dirt lands on the map
+    const w = flatWorld(150, { map: { width: 800, height: 200 }, tankColumns: [40, 760] });
     const before = countCells(w);
-    dropAt(w, 'weapon.heavy-shockwave', 200);
+    dropAt(w, 'weapon.heavy-shockwave', 400);
     expect(before - countCells(w)).toBeLessThan(before * 0.02);
   });
 });

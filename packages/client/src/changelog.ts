@@ -19,8 +19,9 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-11',
-    title: 'Real damage for less money, supply drops and big money matches',
-    pack: 'core@0.72.0 – 0.73.0',
+    title:
+      'Real damage for less money, weapons that really hurt, supply drops and big money matches',
+    pack: 'core@0.72.0 – 0.74.0',
     newSince: 'core@0.73.0',
     items: [
       'New weapon: Frag Shell, a sharp bang that bursts into white-hot shrapnel, so a near miss still hurts',
@@ -37,6 +38,10 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'New Rules option: Supply drops Off, Rare, Normal or Often (Normal by default, works online too)',
       'Rules: start with up to 100,000 cash',
       'Rules: new "Cash per round" picker gives every player +5,000 to +50,000 after each round, on top of what they won',
+      'Shockwaves throw tanks much farther and higher, hurl more dirt and blow trees and buildings apart harder. A tank thrown into a hillside takes a slam hit, harder the faster it flew',
+      'Falls hurt twice as much: a tank that drops or is thrown without a parachute takes 2 damage per cell it falls past the first four. Parachutes still land you unhurt',
+      'Napalm and fire keep burning: a tank sitting in burning jelly or flames takes damage the whole time it burns, not just once at the end of the turn. Napalm now does about 60 on a direct hit instead of 15, Hot Napalm about 80',
+      'Acid Cloud eats 12 health a turn (was 4), Toxic Gas 16 (was 8) and Plague 14 (was 7)',
     ],
   },
   {

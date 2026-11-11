@@ -78,6 +78,9 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/** While a shot plays out, a tank touching a burning cell takes 1/CONTACT_SHARE of its contact damage every CONTACT_EVERY ticks. */
+const CONTACT_EVERY = 15;
+const CONTACT_SHARE = 4;
 /** Ticks after a blast that a tree it undermined still falls away from it. */
 const HIT_LINGER = 40;
 /** Longest a turn waits on flowing or reacting ground once everything else is still (8 s). */
@@ -1527,6 +1530,10 @@ export class World implements SimApi {
     if (this.mines.length > 0) this.stepMines();
     if (this.dropsOn) this.stepDrops();
 
+    // A tank sitting in fire or napalm keeps burning while the shot plays out (§4b).
+    if (this.phase === 'resolve' && !this.contactDone && this.tick % CONTACT_EVERY === 0) {
+      this.applyContact(CONTACT_SHARE);
+    }
     if (this.phase === 'resolve' && this.shotSettled()) {
       // Contact damage (lava, napalm) once the shot has settled; deaths may need resolving first.
       if (!this.contactDone) {
@@ -3764,10 +3771,16 @@ export class World implements SimApi {
 
   // ── tanks ───────────────────────────────────────────────────────────────────────────────
 
-  /** Worst contact damage of any cell in or directly under each tank's footprint (§4b). */
-  private applyContact(): void {
+  /**
+   * Worst contact damage of any cell in or directly under each tank's footprint (§4b), divided by
+   * `share`: the full hit once the shot has settled, and a share of it every `CONTACT_EVERY` ticks
+   * while it plays out from flames that burn out within the shot (napalm, fire: `decay.ticks`).
+   * Lasting hazards (lava) only bite once a turn.
+   */
+  private applyContact(share = 1): void {
     const g = this.grid;
     const cd = this.mats.contactDamage;
+    const dk = this.mats.decayTicks;
     for (const t of this.tanks) {
       if (!t.alive) continue;
       let worst = 0;
@@ -3776,12 +3789,16 @@ export class World implements SimApi {
         for (let x = Math.max(0, t.x - t.half); x < Math.min(g.width, t.x + t.half); x++) {
           const m = g.material[row + x]!;
           // gas only sits over air: a tank in a cloud of it is touching it
-          const d = cd[m === 0 ? g.gas[row + x]! : m]!;
+          const c = m === 0 ? g.gas[row + x]! : m;
+          // the ticking share is only for short-lived flames (napalm, fire), not lava pools
+          if (share > 1 && dk[c] === 0) continue;
+          const d = cd[c]!;
           if (d > worst) worst = d;
         }
       }
       // contact damage is burning (fire, napalm, lava), so the heat scales it too
       worst = this.tempScaled(worst, DT_HEAT);
+      if (worst > 0 && share > 1) worst = Math.max(1, Math.trunc(worst / share));
       if (worst > 0) {
         this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: worst });
         this.damageTank(t, worst, t.lastHitBy);

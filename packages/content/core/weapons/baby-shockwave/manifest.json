@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Baby Shockwave",
-    "description": "A small ring of force: enough to fill a crater or nudge a tank off a ledge.",
+    "description": "A small ring of force: fills a crater and tosses a nearby tank a good way. Landing without a parachute hurts.",
     "category": "terrain-dynamics",
     "since": "core@0.3.0"
   },
@@ -20,9 +20,13 @@
         "damage": 12,
         "terrainOp": {
           "use": "terrainop.displace",
-          "fling": 90,
-          "flingApex": 40,
-          "propBoost": 220
+          "fling": 150,
+          "flingApex": 60,
+          "propBoost": 320,
+          "speed": 6.5,
+          "lift": 0.65,
+          "landFall": 20,
+          "slamDamage": 4
         }
       }
     }
@@ -33,7 +37,7 @@
     "tier": 1
   },
   "ai": {
-    "expectedDamage": 10,
+    "expectedDamage": 14,
     "terrainValue": 0.6
   }
 }

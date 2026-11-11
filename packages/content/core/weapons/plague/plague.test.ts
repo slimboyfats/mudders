@@ -9,10 +9,10 @@ describe('weapon.plague', () => {
     const hp = w.tanks[1]!.health;
     expect(hp).toBeLessThan(100 - 7);
     passTurns(w, 3);
-    expect(w.tanks[1]!.health).toBe(hp - 21);
+    expect(w.tanks[1]!.health).toBe(hp - 42);
     expect(w.zones).toHaveLength(0);
     passTurns(w, 1);
-    expect(w.tanks[1]!.health).toBe(hp - 21);
+    expect(w.tanks[1]!.health).toBe(hp - 42);
     expect(w.tanks[0]!.health).toBe(100);
   });
 });
