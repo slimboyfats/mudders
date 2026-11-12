@@ -24,6 +24,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.79.0',
     newSince: 'core@0.75.0',
     items: [
+      'Lava, oil, napalm and plasma have weight too. Lava is thick: it creeps downhill as a front, coats the slope and stops as a mound instead of spreading flat like water. Oil pours heavy and smooth, napalm clings. Turns with lava end much sooner',
       'Water now has momentum. A lake that is blasted open pours out with its whole depth, the wave runs to the far bank, climbs it, sloshes back and dies down, and the lake ends up level',
       'Water that runs over an edge falls as a waterfall in an arc and feeds the pool below. Water running down a hill keeps its speed, shoots off ledges and runs a little way up the other side',
       'A lake holed below the waterline jets out under pressure, faster the deeper the hole',

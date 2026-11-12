@@ -162,18 +162,20 @@ export function supportPass(
   let lx1 = -1;
   let ly0 = H;
   let ly1 = -1;
+  // Resting on a hanging cell that holds: it would only land straight back where it is (and be
+  // released again, forever), so it holds too, and so does whatever is stacked on it in turn (a
+  // heap of fallen pieces lying on a ledge that holds).
+  const held = scratch.nextMarkGen();
+  for (let y = H - 2; y >= 0; y--) {
+    for (let x = cx0, i = y * W + cx0; x <= cx1; x++, i++) {
+      if (mat[i + W] === 0 || !loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
+      if (mark[i + W] === held || !loose(mats, mat, grounded, thick, dist, i + W, x, y + 1))
+        mark[i] = held;
+    }
+  }
   for (let y = 0; y < H; y++) {
     for (let x = cx0, i = y * W + cx0; x <= cx1; x++, i++) {
-      if (!loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
-      // resting on a hanging cell that holds: it would only land straight back where it is
-      // (and be released again, forever), so it holds too
-      if (
-        y + 1 < H &&
-        mat[i + W] !== 0 &&
-        !loose(mats, mat, grounded, thick, dist, i + W, x, y + 1)
-      ) {
-        continue;
-      }
+      if (mark[i] === held || !loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
       const m = mat[i]!;
       if (
         !debris.spawn(
