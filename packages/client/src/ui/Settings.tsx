@@ -41,6 +41,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             ))}
           </select>
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.autoQuality}
+            onChange={(e) => update({ ...settings, autoQuality: e.target.checked })}
+          />
+          Lower quality by itself when the game runs slow
+        </label>
         <label>
           Theme
           <select

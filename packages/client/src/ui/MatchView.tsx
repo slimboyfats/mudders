@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { Input } from '@mudders/shared';
 import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
+import { AutoQuality } from '../game/auto-quality';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
@@ -117,12 +118,19 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     // hit-stop (§2a): big hits hold the picture for a beat; off with screen shake
     const stop = new HitStop(settings.shake);
     const unfeed = match.subscribe((s) => stop.feed(s));
+    // frames running long (a phone under a big blast): the quality steps down by itself
+    const auto = settings.autoQuality ? new AutoQuality(settings.quality) : null;
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
       const wall = last < 0 ? 0 : now - last;
       last = now;
+      const stepped = auto?.frame(wall);
+      if (stepped) {
+        r.setQuality(stepped);
+        wrap.dataset['quality'] = stepped;
+      }
       // camera glides and fling momentum run on wall time, untouched by hit-stop and slow-mo
       r.camera.update(Math.min(wall, 100));
       // current zoom and view centre (map cells), for the touch smoke test
@@ -198,7 +206,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       rendererRef.current = null;
       processSounds(null);
     };
-  }, [match, settings.quality, settings.shake, settings.theme, refreshHud]);
+  }, [match, settings.quality, settings.autoQuality, settings.shake, settings.theme, refreshHud]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
   useEffect(() => {

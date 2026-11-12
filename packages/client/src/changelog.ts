@@ -23,6 +23,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.78.0',
     newSince: 'core@0.75.0',
     items: [
+      'Smoother on phones: the picture quality now steps down by itself when frames run long, and tries to step back up once things are smooth (Settings has a switch for it)',
       'Explosions now throw part of the dirt, sand, snow, rubble, clay and ash they dig out: it flies up and out in a curtain on each side of the crater, rains back down and stays',
       'Craters get a raised lip and a thin blanket of loose earth around them, which slumps like any loose ground. A tank beside a blast gets dusted',
       'Grains that land while moving sideways skid on the way they were heading before they stop',
