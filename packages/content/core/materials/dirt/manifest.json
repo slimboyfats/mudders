@@ -3,13 +3,14 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Dirt",
-    "description": "Baseline terrain. Falls straight down when unsupported; resistance 1 to everything. A blast throws part of the dirt it digs up and out of the crater, where it lands as a raised lip; it also shakes the rim loose, and loose dirt slumps to a 45 degree slope.",
+    "description": "Baseline terrain. Falls when unsupported and keeps its speed: a mass that drops from a height bursts into a heap where it lands. Resistance 1 to everything. A blast throws part of the dirt it digs up and out of the crater, where it lands as a raised lip; it also shakes the rim loose, and loose dirt slumps to a 45 degree slope.",
     "since": "core@0.1.0",
     "color": "#8a5a2b"
   },
   "cell": 1,
   "settle": "fall",
   "repose": 1,
+  "glide": 0.5,
   "density": 100,
   "strength": {
     "corrosive": 12

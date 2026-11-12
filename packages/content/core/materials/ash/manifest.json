@@ -9,6 +9,7 @@
   },
   "cell": 6,
   "settle": "slide",
+  "glide": 0.5,
   "density": 60,
   "strength": {
     "blast": 0.5,

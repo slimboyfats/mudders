@@ -196,6 +196,14 @@ export const MaterialSchema = z.strictObject({
    * spends one of the cell's loosen steps; at none it is firm again. Unset: never slumps.
    */
   repose: z.number().int().min(1).max(8).optional(),
+  /**
+   * Fall and slide materials: how well a moving grain keeps its speed, 0 to 1. With it a grain
+   * gathers speed sliding down a slope and runs on over level ground (each cell it keeps its speed
+   * with this chance), drifts on when it runs off a ledge, and a hard landing turns into a slide
+   * and shakes loose ground loose, so falls end as heaps with a run-out and slides as avalanches.
+   * Unset: no momentum, it moves one cell at a time and stops where it lands.
+   */
+  glide: z.number().min(0).max(1).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
   /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */

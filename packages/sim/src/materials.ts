@@ -70,6 +70,8 @@ export class MaterialTable {
   readonly disperse = new Uint8Array(256).fill(1);
   /** Fall materials: steepest stair (cells of drop) a slope holds; 0 = stands sheer. */
   readonly repose = new Uint8Array(256);
+  /** Fall/slide materials: chance in 8 a moving grain keeps its speed per cell (0 = no momentum). */
+  readonly glide = new Uint8Array(256);
   readonly contactDamage = new Uint8Array(256);
   /** Ticks per sunk cell (0 = tanks do not sink) and the deepest a tank sinks. */
   readonly sinkTicks = new Uint8Array(256);
@@ -218,6 +220,10 @@ export class MaterialTable {
       this.disperse[c] = m.disperse ?? 1;
       // loosen steps live in the cell's state byte, which ageing materials use for their age
       this.repose[c] = m.settle === 'fall' && !m.decay && !m.spread ? (m.repose ?? 0) : 0;
+      this.glide[c] =
+        (m.settle === 'fall' || m.settle === 'slide') && !m.decay && !m.spread
+          ? Math.round((m.glide ?? 0) * 8)
+          : 0;
       this.contactDamage[c] = m.contact?.damage ?? 0;
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;
