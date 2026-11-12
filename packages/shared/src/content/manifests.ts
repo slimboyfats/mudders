@@ -409,9 +409,25 @@ export const GeneratorSchema = z.looseObject({
   props: z.array(GenPropSchema).max(8).optional(),
   /** Base air temperature in °C (§3.4); unset = TEMP_MILD. */
   temperature: z.number().int().min(-20).max(45).optional(),
+  /**
+   * Map events (kernel 0.45.0): resident terrain ops started once per round, with the match rule
+   * `mapEvents` on, that live on the map and act on their own (a volcano that rumbles and erupts
+   * every few turns, avalanches off the peaks). Each picks its own site; started with no owner.
+   */
+  events: z
+    .array(
+      z.looseObject({
+        ref: ContentIdSchema.refine((id) => id.startsWith('terrainop.'), {
+          message: 'must reference a terrainop.* item',
+        }).optional(),
+        behaviour: ContentIdSchema,
+      }),
+    )
+    .max(4)
+    .optional(),
 });
 /** Keys the kernel reads from a generator itself; the rest go to its behaviour. */
-export const GEN_CORE_KEYS: readonly string[] = ['props', 'temperature'];
+export const GEN_CORE_KEYS: readonly string[] = ['props', 'temperature', 'events'];
 export const FlightSchema = z.looseObject({ ...behaviourBacked });
 export const TerrainOpSchema = z.looseObject({ ...behaviourBacked });
 export type GeneratorManifest = z.infer<typeof GeneratorSchema>;

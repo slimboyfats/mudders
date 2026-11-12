@@ -298,6 +298,10 @@ export function resolveContent(source: ContentSource): ResolvedContent {
                 : [],
       );
     if (type === 'explosion') checkExplosion(item, id);
+    if (type === 'gen') {
+      const evs = (item as ManifestByType['gen']).events ?? [];
+      evs.forEach((ev, i) => checkBehaviour(ev, `${id}.events.${i}`, 'terrainop'));
+    }
     if (type === 'weapon') {
       const w = item as ManifestByType['weapon'];
       checkBehaviour(w.flight, `${id}.flight`, 'flight');
