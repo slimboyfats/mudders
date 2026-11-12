@@ -1,9 +1,11 @@
 import { FP } from '@mudders/shared';
 import { grainShade, type Grid } from './grid';
-import type { MaterialTable } from './materials';
+import { SETTLE_FALL, SETTLE_SLIDE, type MaterialTable } from './materials';
 
 /** Upper bound on simultaneous debris particles. */
 export const DEBRIS_CAP = 32768;
+/** How many cells deep a landing grain of loose ground can dig into the loose ground under it. */
+const LAND_CHURN = 5;
 /** Max cells a landed particle rolls downhill before it sticks. */
 const ROLL_STEPS = 24;
 
@@ -116,9 +118,10 @@ export class DebrisPool {
       // Land in the last free cell, or the nearest air above it.
       let y = Math.max(0, ly);
       for (let k = 0; k < 64 && y > 0 && m[y * W + lx] !== 0; k++) y--;
-      // Roll off peaks like loose dirt (45° repose), so landed debris forms mounds, not combs.
+      // Roll off peaks like loose dirt (45° repose), so landed debris forms mounds, not combs;
+      // a grain that came in sideways tries the way it was heading first (it skids on).
       for (let r = 0; r < ROLL_STEPS && y < H - 1; r++) {
-        const d = ((lx + y + r) & 1) === 0 ? 1 : -1;
+        const d = dx > FP >> 2 ? 1 : dx < -(FP >> 2) ? -1 : ((lx + y + r) & 1) === 0 ? 1 : -1;
         const below = (y + 1) * W + lx;
         if (m[below] === 0) {
           y++;
@@ -147,10 +150,50 @@ export class DebrisPool {
             mats.active[grid.coating[t]!] !== 0)
         )
           grid.extendReact(lx - 1, y - 1, lx + 1, y + 1);
+        // A grain of loose ground digs in where it lands: it may swap with the loose ground under
+        // it, a few cells deep, so thrown earth ends up mixed into the turf and sand it fell on
+        // (some of that comes up on top) instead of lying on it as a clean strip.
+        let low = y;
+        if (mats) {
+          const lm = m[t]!;
+          const kind = mats.settle;
+          const kl = kind[lm]!;
+          if (
+            (kl === SETTLE_FALL || kl === SETTLE_SLIDE) &&
+            mats.active[lm] === 0 &&
+            mats.decayTurns[lm] === 0
+          ) {
+            for (let c = 0, at = t; c < LAND_CHURN && low < H - 1; c++) {
+              const un = at + W;
+              const o = m[un]!;
+              const ko = kind[o]!;
+              if (o === 0 || (ko !== SETTLE_FALL && ko !== SETTLE_SLIDE)) break;
+              if (grid.group[un] !== 0 || mats.active[o] !== 0 || mats.decayTurns[o] !== 0) break;
+              const roll =
+                ((Math.imul(lx + c * 31, 374761393) ^ Math.imul(low + i, 668265263)) >>> 13) & 7;
+              if (roll >= 5) break;
+              const sh = grid.shadeOf(at);
+              grid.shade[at] = grid.shadeOf(un);
+              grid.shade[un] = sh;
+              if (o !== lm) {
+                m[un] = lm;
+                m[at] = o;
+                const cs = grid.coating[at]!;
+                grid.coating[at] = grid.coating[un]!;
+                grid.coating[un] = cs;
+                const ss = grid.cellState[at]!;
+                grid.cellState[at] = grid.cellState[un]!;
+                grid.cellState[un] = ss;
+              }
+              at = un;
+              low++;
+            }
+          }
+        }
         if (lx < minX) minX = lx;
         if (lx > maxX) maxX = lx;
         if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
+        if (low > maxY) maxY = low;
       }
       this.remove(i);
     }

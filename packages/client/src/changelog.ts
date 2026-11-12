@@ -19,10 +19,13 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-12',
-    title: 'DROP! weapons: you decide in mid-air, and a tidier shop',
-    pack: 'core@0.76.0 – 0.77.0',
+    title: 'DROP! weapons, a tidier shop, and blasts that throw the ground',
+    pack: 'core@0.76.0 – 0.78.0',
     newSince: 'core@0.75.0',
     items: [
+      'Explosions now throw part of the dirt, sand, snow, rubble, clay and ash they dig out: it flies up and out in a curtain on each side of the crater, rains back down and stays',
+      'Craters get a raised lip and a thin blanket of loose earth around them, which slumps like any loose ground. A tank beside a blast gets dusted',
+      'Grains that land while moving sideways skid on the way they were heading before they stop',
       'New: some shells have a second press. After firing, the FIRE button turns into a flashing DROP! (or press Space/Enter) and the shell does its trick right where it is',
       'New weapon: Anvil, stops dead in the air and drops straight down like a stone',
       'New weapon: Split Now, a MIRV that splits into five warheads the moment you press',

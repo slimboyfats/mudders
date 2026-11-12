@@ -54,6 +54,7 @@ import {
   BG_FS,
   BURIED_REACH,
   CUT_REACH,
+  TURF_LOOK,
   FULLSCREEN_VS,
   HAZE_TICKS,
   MAX_RIPPLES,
@@ -1057,12 +1058,12 @@ export class PixelRenderer implements Renderer {
           );
         }
         gl.bindTexture(gl.TEXTURE_2D, this.terrainTex);
-        // shading reads neighbours (up to 32 up for soil depth, 1 down, CUT_REACH sideways for
+        // shading reads neighbours (up to 32 up for soil depth, TURF_LOOK down, CUT_REACH sideways for
         // crater walls cut through the turf): widen the box
         const d = this.dirty;
         const clean = d[0]! >= d[2]!;
         d[0] = Math.max(0, Math.min(clean ? Infinity : d[0]!, r.x - CUT_REACH));
-        d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - 1));
+        d[1] = Math.max(0, Math.min(clean ? Infinity : d[1]!, r.y - TURF_LOOK));
         d[2] = Math.min(this.mapWidth, Math.max(clean ? -Infinity : d[2]!, r.x + r.w + CUT_REACH));
         d[3] = Math.min(
           this.mapHeight,
@@ -1430,18 +1431,30 @@ export class PixelRenderer implements Renderer {
   private clearGrass(x: number, y: number, radius: number): void {
     const w = this.mapWidth;
     const r = Math.floor(radius);
-    const x0 = Math.max(0, Math.floor(x - r));
-    const y0 = Math.max(0, Math.floor(y - r));
-    const x1 = Math.min(w, Math.ceil(x + r) + 1);
-    const y1 = Math.min(this.mapHeight, Math.ceil(y + r) + 1);
+    // past the hole the grass is torn thin for a stretch (mask 7, 6, 5: thinnest nearest the
+    // crater), so the turf tapers away from a crater instead of ending in a ruled line
+    const fade = Math.max(10, Math.round(r * 0.6));
+    const rr = r + fade;
+    const x0 = Math.max(0, Math.floor(x - rr));
+    const y0 = Math.max(0, Math.floor(y - rr));
+    const x1 = Math.min(w, Math.ceil(x + rr) + 1);
+    const y1 = Math.min(this.mapHeight, Math.ceil(y + rr) + 1);
     if (x0 >= x1 || y0 >= y1) return;
     const m = this.grassMask;
     for (let cy = y0; cy < y1; cy++) {
       const dy = cy - y;
       for (let cx = x0; cx < x1; cx++) {
-        const dx = cx - x;
         const k = cy * w + cx;
-        if (m[k] !== 0 && dx * dx + dy * dy <= r * r) m[k] = 4;
+        const g = m[k]!;
+        if (g === 0 || g === 4) continue;
+        const dx = cx - x;
+        const d2 = dx * dx + dy * dy;
+        if (d2 <= r * r) m[k] = 4;
+        else if (d2 <= rr * rr && (g === 1 || g >= 5)) {
+          const t = (Math.sqrt(d2) - r) / fade;
+          const thin = t < 0.34 ? 7 : t < 0.67 ? 6 : 5;
+          if (thin > g) m[k] = thin;
+        }
       }
     }
     const gl = this.gl;
@@ -1678,7 +1691,7 @@ export class PixelRenderer implements Renderer {
           // and the grass under it chars for the rest of the round (3 = burnt: the turf stays,
           // blackened, so the fire leaves a scorched skin, not a cut to bare dirt)
           const gm = this.grassMask[j]!;
-          if (gm === 1 || gm === 2) {
+          if (gm === 1 || gm === 2 || gm >= 5) {
             this.grassMask[j] = 3;
             grassBurnt = true;
           }

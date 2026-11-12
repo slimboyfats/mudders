@@ -18,6 +18,10 @@
     "corrosive": 8
   },
   "cohesion": 0,
+  "eject": {
+    "share": 0.5,
+    "reach": 2.4
+  },
   "coating": false,
   "look": {
     "char": true

@@ -1,5 +1,5 @@
 import { z } from '@mudders/shared';
-import { FP, KEEP, NUM_DAMAGE_TYPES, defineTerrainOp } from '@mudders/sim';
+import { FP, KEEP, NUM_DAMAGE_TYPES, SHADE_SOD, defineTerrainOp } from '@mudders/sim';
 
 const params = z.strictObject({});
 
@@ -14,7 +14,7 @@ const params = z.strictObject({});
 export default defineTerrainOp<z.infer<typeof params>>({
   kind: 'terrainop',
   id: 'terrainop.carve',
-  version: 7,
+  version: 8,
   params,
   start(api, _p, c) {
     const { grid, mats } = api;
@@ -43,8 +43,11 @@ export default defineTerrainOp<z.infer<typeof params>>({
     const sInto = mats.shatterInto;
     const sKeep = mats.shatterKeep;
     const spChance = mats.splashChance;
+    const ejShare = mats.ejectShare;
+    const ejBy = mats.ejectBy;
     let shattered = false;
     let splashed = false;
+    let ejected = false;
     // Per column (x - x0): summed compaction ratio ×256, and the lowest carved row.
     const cols = x1 - x0 + 1;
     const q = api.scratch.queue;
@@ -118,6 +121,15 @@ export default defineTerrainOp<z.infer<typeof params>>({
             continue;
           }
         }
+        if (
+          ejShare[m] !== 0 &&
+          ((ejBy[m]! >> dt) & 1) !== 0 &&
+          shardRoll(i + EJECT_SALT) < ejectChance(ejShare[m]!, dy, R)
+        ) {
+          // thrown out as debris once the crater is open (below)
+          ejected = true;
+          continue;
+        }
         mat[i] = 0;
         grid.coating[i] = 0;
         grid.cellState[i] = 0;
@@ -190,6 +202,54 @@ export default defineTerrainOp<z.infer<typeof params>>({
         }
       }
     }
+    if (ejected) {
+      // Ejecta: the ground the crater was dug from is thrown, not deleted. Each grain leaves
+      // up and outward on its own arc: high enough to clear the rim from where it lay, and timed
+      // to come down past the crater's edge on its own side. Most land close (the raised lip),
+      // a few far (the thin blanket); grains from near the middle fly highest and farthest.
+      const g = api.gravity / FP;
+      const reach = mats.ejectReach;
+      const repose = mats.repose;
+      for (let y = y0; y <= y1; y++) {
+        const dy = y - c.y;
+        for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+          const m = mat[i]!;
+          if (m === 0 || ejShare[m] === 0 || ((ejBy[m]! >> dt) & 1) === 0) continue;
+          const dx = x - c.x;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > R * R) continue;
+          const s = str[m * nd + dt]!;
+          if (s !== 0 && d2 * s * s > r2s) continue;
+          if (shardRoll(i + EJECT_SALT) >= ejectChance(ejShare[m]!, dy, R)) continue;
+          const u = shardRoll(i + 7919) / 256;
+          const v = shardRoll(i + 15485863) / 256;
+          const near = 1 - Math.sqrt(d2) / (2 * R); // 1 at the middle, ½ at the edge
+          const side = dx > 0 ? 1 : dx < 0 ? -1 : (shardRoll(i + 31) & 1) === 0 ? 1 : -1;
+          // one throw strength sets both how far and how high (the same steep angle for all),
+          // so the grains in the air line up as a curtain instead of filling a cloud
+          const w = u * u * near;
+          const land = c.x + side * (R + 1 + (R * reach[m]! * w) / 16);
+          const apex = 2 + R * (0.15 + 1.1 * w) * (0.85 + 0.3 * v);
+          const rise = apex + (dy > 0 ? dy : 0);
+          const fall = apex + (dy < 0 ? -dy : 0);
+          const up = Math.sqrt(2 * g * rise);
+          const time = up / g + Math.sqrt((2 * fall) / g);
+          const vx = Math.trunc(((land - x) / time) * FP);
+          const vy = -Math.trunc(up * FP);
+          // thrown ground lands loose: a heap of it slumps to the slope its material holds
+          grid.cellState[i] = repose[m] !== 0 ? EJECT_LOOSEN : 0;
+          // (overturned earth: only clods from the top few rows, the roots, come down as turf)
+          const sod = y - grid.surface0[x]!;
+          grid.shade[i] = grid.shadeOf(i) & (sod >= 0 && sod < SOD_CLODS ? 255 : ~SHADE_SOD);
+          if (!api.launch(i, vx, vy)) {
+            mat[i] = 0;
+            grid.coating[i] = 0;
+            grid.cellState[i] = 0;
+            grid.fallVel[i] = 0;
+          }
+        }
+      }
+    }
     let yMax = y1;
     if (compacted) {
       const H = grid.height;
@@ -222,6 +282,24 @@ const OVER_REACH = 4;
 
 /** Columns past the crater's side over which that loosening fades to nothing. */
 const OVER_FADE = 12;
+
+/** Slide steps thrown ground keeps where it lands (see the material's `repose`). */
+const EJECT_LOOSEN = 16;
+
+/** Rows under the round-start surface whose thrown cells keep their turf. */
+const SOD_CLODS = 5;
+
+const EJECT_SALT = 104729;
+
+/**
+ * Chance (×256) that a carved cell `dy` rows under the blast is thrown out: the full `share` down
+ * to a third of the radius, fading to none at the crater floor (that ground is crushed, not thrown).
+ */
+function ejectChance(share: number, dy: number, R: number): number {
+  const top = Math.trunc(R / 3);
+  if (dy <= top) return share;
+  return Math.trunc((share * (R - dy)) / (R - top));
+}
 
 /** Rows of a splashing liquid a blast blows out from its surface; deeper liquid stays put. */
 const SPLASH_DEPTH = 7;

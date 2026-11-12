@@ -89,6 +89,14 @@ export class MaterialTable {
   /** Splashing (liquids): share of carved cells thrown as drops ×256, launch speed ×256. */
   readonly splashChance = new Uint16Array(256);
   readonly splashSpeed = new Uint16Array(256);
+  /**
+   * Ejecta (loose ground): share of carved cells thrown out as debris ×256, how far past the rim
+   * the farthest land (crater radii ×16), and a bit mask of the damage types that throw it.
+   */
+  readonly ejectShare = new Uint16Array(256);
+  readonly ejectReach = new Uint8Array(256);
+  readonly ejectBy = new Uint8Array(256);
+  anyEject = false;
   /** Bursting (gas pockets): biggest pocket per burst, 0 = never bursts. */
   readonly burstMax = new Uint16Array(256);
   /** Weapon id whose impacts a burst runs, per cell ('' = none). */
@@ -228,6 +236,12 @@ export class MaterialTable {
       if (m.splash) {
         this.splashChance[c] = Math.round(m.splash.chance * 256);
         this.splashSpeed[c] = Math.round(m.splash.speed * 256);
+      }
+      if (m.eject && m.eject.share > 0) {
+        this.ejectShare[c] = Math.round(m.eject.share * 256);
+        this.ejectReach[c] = Math.round(m.eject.reach * 16);
+        for (const t of m.eject.by) this.ejectBy[c] = this.ejectBy[c]! | (1 << damageTypeIndex(t));
+        this.anyEject = true;
       }
       if (m.burst) {
         this.burstMax[c] = m.burst.max;

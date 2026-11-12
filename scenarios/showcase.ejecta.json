@@ -1,0 +1,57 @@
+{
+  "id": "showcase.ejecta",
+  "schemaVersion": 1,
+  "description": "A Baby Nuke on open ground: the dirt the crater is dug from is thrown up and out in a curtain on each side, rains back down and stays, as a raised lip round the crater and a thin blanket beyond it.",
+  "subject": "terrainop.carve",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.baby-nuke": 5
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-nuke"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 535
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

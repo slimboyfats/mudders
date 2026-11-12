@@ -754,6 +754,8 @@ void main() {
 /** Rows under its round-start surface a cell still counts as turf once that surface is gone. */
 export const SOD_REACH = 24;
 export const CUT_REACH = 16;
+/** Rows below itself a turf cell looks at its neighbours for ground that slid in from elsewhere. */
+export const TURF_LOOK = 8;
 /** Rows up a cell looks for the old grass surface buried under a heap; the renderer widens dirty
  * rects downward by this much. */
 export const BURIED_REACH = 64;
@@ -893,6 +895,39 @@ void main() {
       }
     }
   }
+  // a grain of bare earth that came from somewhere else (thrown or slid in, carrying no sod) and
+  // dug into the turf is still bare earth: it shows as a fleck of dirt in the green, so thrown
+  // ground and the turf it landed on meet mixed, not as one clean layer on another
+  if (soil && sh != 0u && (sh & 128u) == 0u) { soil = false; gmask = 0u; }
+  // grass round the edge of a blast (mask 5 to 7) is torn thin: its green reaches less deep the
+  // nearer the crater, each column and cell a little more or less, so the turf beside a crater
+  // tapers out raggedly instead of standing as a full band that ends in a ruled vertical line
+  float thin = 99.0;
+  if (gmask >= 5u) {
+    thin = (gmask == 5u ? 17.0 : gmask == 6u ? 10.0 : 4.0)
+         + hash(ivec2(c.x, 911)) * 5.0 + (bayer(ap) - 0.5) * 5.0;
+    gmask = 1u;
+  }
+  // ...and so is turf beside ground that came from somewhere else (a slump, a heap of thrown
+  // earth: moved cells that carry no sod, with more ground on top of them): the nearer that
+  // ground, the shallower the green, so the two meet along a ragged slant, not a ruled line
+  if (soil && u_grass.a > 0.0 && gsd > 1 && gsd <= 30) {
+    for (int d = 1; d <= ${CUT_REACH}; d++) {
+      bool hit = false;
+      for (int sgn = -1; sgn <= 1; sgn += 2) {
+        // (looked up a few rows lower: a heap lying on the grass is thin and has the old
+        // ground under it, a slump is moved ground all the way down)
+        ivec2 n = c + ivec2(sgn * d, ${TURF_LOOK});
+        if (n.x < 0 || n.x >= int(u_map.x) || n.y >= int(u_map.y)) continue;
+        uint ns = texelFetch(u_shade, n, 0).r;
+        if (ns != 0u && (ns & 128u) == 0u && mat(n) != 0u && mat(n - ivec2(0, 2)) != 0u) hit = true;
+      }
+      if (hit) {
+        thin = min(thin, float(d) * 1.4 - 1.0 + hash(ivec2(c.x, 911)) * 3.0 + (bayer(ap) - 0.5) * 4.0);
+        break;
+      }
+    }
+  }
   // grass a gas cloud crept over (mask 2) is withered: dry, yellow-brown, no flowers
   bool dry = gmask == 2u;
   // grass a flame licked (mask 3) is burnt: the same blades and turf, charred black-brown with a
@@ -961,7 +996,7 @@ void main() {
       }
     }
     // topsoil: a dark rich band under the turf, fading through dither into the subsoil
-    if (soil && gsd > 0 && gsd <= 30) {
+    if (soil && gsd > 0 && gsd <= 30 && float(gsd) <= thin + 8.0) {
       float k = gsd <= 22 ? 1.0 : (bayer(ap) > float(gsd - 22) / 9.0 ? 1.0 : 0.0);
       col = mix(col, col * vec3(0.72, 0.66, 0.62), k);
     }
@@ -970,7 +1005,7 @@ void main() {
     col = mix(col, vec3(0.7, 0.8, 0.9) * (0.85 + g) * (sd <= 4 ? 1.12 : 1.0), sd <= 4 ? 0.8 : 0.6);
   }
   float rim = lit + side;
-  if (soil && !bare && u_grass.a > 0.0 && gsd > 9 && gsd <= 24) {
+  if (soil && !bare && u_grass.a > 0.0 && gsd > 9 && gsd <= 24 && float(gsd) <= thin) {
     // turf: the hillside under the grass, muted green in short horizontal strokes, darkening
     // with depth and dithering into the topsoil at its foot
     float k = float(gsd - 10) / 14.0;
@@ -978,7 +1013,7 @@ void main() {
   }
   // buried grass is drawn exactly like the grass beside it (only without lit tips or flowers),
   // so the layers run on under a heap with no seam
-  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && gsd > 0 && gsd <= 9) {
+  if (soil && (!bare || sd <= 2) && u_grass.a > 0.0 && gsd > 0 && gsd <= 9 && float(gsd) <= thin) {
     // grass: lit blade tips, a body of vertical blade strokes in three tones, a shaded base and
     // roots dithered into the topsoil
     float patchy = vnoise(vec2(float(ap.x) / 9.0, 1.5));

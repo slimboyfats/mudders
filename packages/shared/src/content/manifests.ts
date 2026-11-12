@@ -255,6 +255,19 @@ export const MaterialSchema = z.strictObject({
     })
     .optional(),
   /**
+   * Ejecta (loose ground): a carve of one of the `by` damage types does not delete all of this
+   * material it digs out: about `share` of the cells (fewer from deep under the blast) are thrown
+   * up and out of the crater as sim debris and land as ground again, most in a raised lip just
+   * past the rim, a few as far as `reach` crater radii beyond it.
+   */
+  eject: z
+    .strictObject({
+      share: z.number().min(0).max(1),
+      reach: z.number().min(0.1).max(6),
+      by: z.array(DamageTypeSchema).min(1).default(['blast']),
+    })
+    .optional(),
+  /**
    * Bursting (gas pockets): when a cell of this material touches open air, the whole connected
    * pocket (up to `max` cells) turns to air at once and `weapon`'s impacts go off at its middle,
    * credited to the player whose turn it is. A burst can uncover the next pocket (chains).

@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Sand",
-    "description": "Loose surface layer. Slides diagonally like an hourglass and gives way easily to blasts, shocks and diggers.",
+    "description": "Loose surface layer. Slides diagonally like an hourglass and gives way easily to blasts, shocks and diggers. A blast throws much of it out of the crater to rain down around it.",
     "since": "core@0.1.0",
     "color": "#d9b65f"
   },
@@ -18,5 +18,9 @@
     "corrosive": 12
   },
   "cohesion": 0,
+  "eject": {
+    "share": 0.5,
+    "reach": 2.0
+  },
   "coating": false
 }
