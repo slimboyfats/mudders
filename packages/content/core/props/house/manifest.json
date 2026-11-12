@@ -52,6 +52,7 @@
   "groups": [
     {
       "name": "walls",
+      "tumble": true,
       "roles": ["wall", "door"],
       "integrity": 450,
       "resistance": {
@@ -79,6 +80,7 @@
     },
     {
       "name": "roof",
+      "tumble": true,
       "roles": ["roof", "chimney"],
       "integrity": 140,
       "supports": ["walls"],

@@ -129,6 +129,7 @@
   "groups": [
     {
       "name": "base",
+      "tumble": true,
       "roles": ["base"],
       "integrity": 420,
       "resistance": {
@@ -146,6 +147,7 @@
     },
     {
       "name": "middle",
+      "tumble": true,
       "roles": ["middle"],
       "integrity": 320,
       "supports": ["base"],
@@ -164,6 +166,7 @@
     },
     {
       "name": "top",
+      "tumble": true,
       "roles": ["top", "roof", "mast"],
       "integrity": 300,
       "supports": ["middle"],

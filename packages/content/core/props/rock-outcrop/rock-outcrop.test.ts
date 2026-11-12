@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCells, dropAt, flatWorld, groupCells } from '../../../src/testing';
+import { dropAt, flatWorld, groupCells, wreckCells } from '../../../src/testing';
 import type { World } from '@mudders/sim';
 
 /** A flat world with a hill on the left that drops away to the right of x = 140. */
@@ -49,6 +49,9 @@ describe('prop.rock-outcrop', () => {
     const left = groupCells(w);
     expect(left).toBeLessThan(cells / 2);
     expect(left).toBeGreaterThan(100);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(200);
+    // the overhang lies as blocks of rock, its small bits as rubble
+    expect(
+      wreckCells(w, 'material.rubble', 'material.rock', 'material.rock-lit', 'material.rock-shade'),
+    ).toBeGreaterThan(200);
   });
 });

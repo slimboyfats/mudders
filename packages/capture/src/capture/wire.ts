@@ -59,6 +59,9 @@ export function toWire(s: RenderSnapshot): WireSnapshot {
       y: Array.from(s.debris.y.subarray(0, n)),
       vx: Array.from(s.debris.vx.subarray(0, n)),
       m: Array.from(s.debris.material.subarray(0, n)),
+      ...(s.debris.rigid !== undefined && s.debris.shade
+        ? { r: s.debris.rigid, g: Array.from(s.debris.shade.subarray(0, n)) }
+        : {}),
     },
     wind: s.wind,
     theme: s.theme,

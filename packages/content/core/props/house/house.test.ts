@@ -1,6 +1,13 @@
 import type { World } from '@mudders/sim';
 import { describe, expect, it } from 'vitest';
-import { countCells, dropAt, flatten, groupCells, propWorld } from '../../../src/testing';
+import {
+  countCells,
+  dropAt,
+  flatten,
+  groupCells,
+  propWorld,
+  wreckCells,
+} from '../../../src/testing';
 
 describe('prop.house', () => {
   it('absorbs a missile without losing wall cells, then cracks and collapses into rubble', () => {
@@ -25,7 +32,7 @@ describe('prop.house', () => {
     }
     expect(shots).toBeGreaterThanOrEqual(3);
     expect(w.groups.broken[wallSlot]).toBe(1);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(50);
+    expect(wreckCells(w, 'material.rubble', 'material.brick')).toBeGreaterThan(50);
     expect(groupCells(w)).toBe(0);
     expect(w.quiet).toBe(true);
   });
@@ -36,7 +43,7 @@ describe('prop.house', () => {
     w.grid.markDirty(175, 150, 225, 175);
     w.run(400);
     expect(groupCells(w)).toBe(0);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(300);
+    expect(wreckCells(w, 'material.rubble', 'material.brick')).toBeGreaterThan(300);
   });
 
   // structure (§4c): footing columns 183..216, ground at row 150

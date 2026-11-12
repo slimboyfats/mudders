@@ -87,6 +87,7 @@
   "groups": [
     {
       "name": "walls",
+      "tumble": true,
       "roles": ["wall", "floor", "door"],
       "integrity": 520,
       "resistance": {
@@ -117,6 +118,7 @@
     },
     {
       "name": "roof",
+      "tumble": true,
       "roles": ["roof", "tank", "legs"],
       "integrity": 120,
       "supports": ["walls"],
