@@ -1537,7 +1537,7 @@ export class World implements SimApi {
     this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
     const settling = this.grid.settling;
-    settleStep(this.grid, this.mats, this.tick, this.settleCap);
+    settleStep(this.grid, this.mats, this.tick, this.settleCap, this.debris);
     reactStep(this.grid, this.mats, this.tick);
     gasStep(this.grid, this.mats, this.tick, this.wind);
     if (this.grid.burstCount > 0) this.bursts();

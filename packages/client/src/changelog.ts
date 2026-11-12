@@ -19,10 +19,14 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-12',
-    title: 'DROP! weapons, a tidier shop, and blasts that throw the ground',
-    pack: 'core@0.76.0 – 0.78.0',
+    title:
+      'DROP! weapons, a tidier shop, blasts that throw the ground, and ground that falls with weight',
+    pack: 'core@0.76.0 – 0.79.0',
     newSince: 'core@0.75.0',
     items: [
+      'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
+      'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',
+      'Cave-ins come to rest sooner: the roof over a Tunnel Rat blast drops in and settles in about three quarters of the time',
       'Explosions now throw part of the dirt, sand, snow, rubble, clay and ash they dig out: it flies up and out in a curtain on each side of the crater, rains back down and stays',
       'Craters get a raised lip and a thin blanket of loose earth around them, which slumps like any loose ground. A tank beside a blast gets dusted',
       'Grains that land while moving sideways skid on the way they were heading before they stop',

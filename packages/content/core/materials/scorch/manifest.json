@@ -9,6 +9,7 @@
   },
   "cell": 43,
   "settle": "fall",
+  "glide": 0.5,
   "density": 100,
   "strength": {
     "corrosive": 12

@@ -1,0 +1,58 @@
+{
+  "id": "showcase.landslide",
+  "schemaVersion": 1,
+  "description": "A Ton of Dirt dropped on a small floating island: most of the ball overhangs and falls some 200 cells to the valley floor, where it lands hard, bursts outward into a heap with a run-out and throws spray from its edges instead of standing as the block it fell as.",
+  "subject": "material.dirt",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.islands"
+  },
+  "tanks": [
+    {
+      "x": 90,
+      "inventory": {
+        "weapon.ton-of-dirt": 5
+      }
+    },
+    {
+      "x": 728
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.ton-of-dirt"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 70,
+        "power": 660
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1800,
+    "untilSettled": true,
+    "extraTicks": 45
+  }
+}

@@ -1,3 +1,5 @@
+import { FP } from '@mudders/shared';
+import type { DebrisPool } from './debris';
 import type { Grid } from './grid';
 import {
   AGE_MASK,
@@ -22,6 +24,32 @@ const DRAG_CHANCE = 3;
 /** How many cells deep a sliding grain can churn into different loose ground under it. */
 const CHURN_DEPTH = 3;
 
+/** `Grid.fallVel` holds a cell's motion: fall speed in the low nibble, slide speed and side above. */
+const FALL_MASK = 15;
+const SLIDE_SHIFT = 4;
+/** Fastest a grain slides, in speed steps; it covers `1 + speed / 2` cells a tick. */
+const SLIDE_MAX = 7;
+/** Bit set when the slide heads left. */
+const SLIDE_LEFT = 128;
+/** Fall speed from which a landing counts as an impact (the grain and what it hits shake loose). */
+const IMPACT_MIN = 3;
+/** Fall speed from which a landing shakes the grain and the ground under it loose. */
+const SHAKE_MIN = 6;
+/** Loosen steps a hard landing leaves a grain with: enough to start it down a slope. */
+const IMPACT_LOOSE = 3;
+/** How far a grain inside a mass that lands hard looks sideways for open air to be pressed toward. */
+const PRESS_LOOK = 24;
+/** Fall speed from which a grain landing at the edge of a fall may bounce off as spray. */
+const SPRAY_MIN = 6;
+
+/**
+ * Cells that moved up or sideways in the current pass, by pass number, so the scan (which has not
+ * reached them yet) leaves them alone. Transient within one call: entries are cleared as they are
+ * read and the pass number is never reused, so nothing carries over between ticks or worlds.
+ */
+let stamp = new Int32Array(0);
+let pass = 0;
+
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
  * cells accelerate downward (1 cell/tick² up to MAX_FALL_SPEED), `slide` cells also move one cell
@@ -30,6 +58,13 @@ const CHURN_DEPTH = 3;
  * shook loose slumps off any slope steeper than its material's `repose`. Scans bottom-up so a moved cell is never moved
  * twice in a tick. At most `maxCells` cells move per tick; the rest continue next tick.
  *
+ * Materials with `glide` keep their momentum. A grain that slides gains speed down a slope and
+ * runs on over level ground until friction or something in its way stops it; one
+ * that runs off a ledge keeps drifting that way as it falls; one that lands hard is shaken loose
+ * (as is the loose ground it hits) and its fall turns into a slide down the open side, so a
+ * fallen mass spreads into a heap with a run-out instead of standing as the block it fell as. At
+ * the edge of a hard landing some grains bounce off as debris when a `debris` pool is given.
+ *
  * Returns the number of cells moved. Shrinks the settle region to what may still move.
  */
 export function settleStep(
@@ -37,8 +72,11 @@ export function settleStep(
   mats: MaterialTable,
   tick: number,
   maxCells: number,
+  debris?: DebrisPool,
 ): number {
   if (!grid.settling) return 0;
+  if (stamp.length < grid.size) stamp = new Int32Array(grid.size);
+  pass = pass >= 0x7ffffff0 ? 1 : pass + 1;
   const W = grid.width;
   const H = grid.height;
   const mat = grid.material;
@@ -53,6 +91,7 @@ export function settleStep(
   const spread = mats.spread;
   const disperse = mats.disperse;
   const repose = mats.repose;
+  const glide = mats.glide;
   const act = mats.active;
   const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
@@ -64,6 +103,8 @@ export function settleStep(
   let nMinY = H;
   let moved = 0;
   let capped = false;
+  // grains held up behind moving ones keep the region alive without having moved
+  let waiting = false;
   const ltr = (tick & 1) === 0;
 
   rows: for (let y = Math.min(grid.settleMaxY, H - 2); y >= 0; y--) {
@@ -106,15 +147,183 @@ export function settleStep(
         }
         continue;
       }
+      const gl = glide[m]!;
+      const pv = vel[idx]!;
+      const fv = pv & FALL_MASK;
+      let sv = gl !== 0 ? (pv >> SLIDE_SHIFT) & SLIDE_MAX : 0;
+      let sd = (pv & SLIDE_LEFT) !== 0 ? -1 : 1;
+      // motion the cell arrives with (the `fallVel` byte)
+      let nv = 0;
+      // moved on its own momentum rather than by giving way
+      let coast = false;
+      // set in motion this pass by the mass it landed in (the grains ahead have not moved yet)
+      let pressed = false;
+      if (gl !== 0 && stamp[idx] === pass) {
+        // already moved up or sideways into this cell during this pass
+        stamp[idx] = 0;
+        continue;
+      }
       if (mb === 0) {
-        const v = Math.min(vel[idx]! + 1, MAX_FALL_SPEED);
+        const v = Math.min(fv + 1, MAX_FALL_SPEED);
         dst = below;
         dy = 1;
         while (dy < v && y + dy < H - 1 && mat[dst + W] === 0) {
           dst += W;
           dy++;
         }
-        vel[dst] = v;
+        if (sv > 0) {
+          // it left the ground at speed: it keeps drifting that way as it falls, slowed by the air
+          const nx = x + sd;
+          if (nx >= 0 && nx < W && mat[idx + sd] === 0 && mat[dst + sd] === 0) {
+            dst += sd;
+            if ((((Math.imul(x, 40503) ^ Math.imul(y + tick, 69069)) >>> 9) & 7) >= gl) sv--;
+          } else sv = 0;
+        }
+        nv = v | (sv << SLIDE_SHIFT) | (sv > 0 && sd < 0 ? SLIDE_LEFT : 0);
+      } else {
+        if (gl !== 0 && fv >= IMPACT_MIN) {
+          // A hard landing. The grain is shaken loose, and so is loose ground it lands on...
+          const rp = repose[m]!;
+          if (fv >= SHAKE_MIN) {
+            if (rp !== 0 && state[idx]! < IMPACT_LOOSE) state[idx] = IMPACT_LOOSE;
+            if (
+              repose[mb] !== 0 &&
+              group[below] === 0 &&
+              state[below] === 0 &&
+              ((x * 5 + y * 3 + tick) & 3) === 0
+            )
+              state[below] = 1;
+          }
+          // ...and its fall turns into a slide down whichever side is open.
+          const openR = x < W - 1 && mat[idx + 1] === 0;
+          const openL = x > 0 && mat[idx - 1] === 0;
+          if (sv === 0 && (openL || openR)) {
+            const downR = openR && mat[below + 1] === 0;
+            const downL = openL && mat[below - 1] === 0;
+            const flip = ((x * 7 + y * 13 + tick) & 2) === 0;
+            if (downR !== downL) sd = downR ? 1 : -1;
+            else if (openR !== openL) sd = openR ? 1 : -1;
+            else sd = flip ? 1 : -1;
+            sv = fv >> 1;
+          } else if (sv === 0 && fv >= SHAKE_MIN) {
+            // Inside a mass that lands hard: it is pressed out toward the nearer open side, and
+            // follows the grains ahead of it as they clear the way.
+            let r = 1;
+            while (r <= PRESS_LOOK && x + r < W && mat[idx + r] !== 0) r++;
+            let l = 1;
+            while (l <= PRESS_LOOK && x - l >= 0 && mat[idx - l] !== 0) l++;
+            if (l !== r && (l <= PRESS_LOOK || r <= PRESS_LOOK)) {
+              sd = r < l ? 1 : -1;
+              sv = fv >> 1;
+              pressed = true;
+            }
+          }
+          // At the edge of a fall some grains bounce off the ground as spray.
+          if (debris && fv >= SPRAY_MIN && (openL || openR) && act[m] === 0 && turns[m] === 0) {
+            const roll = (Math.imul(x, 2654435761) ^ Math.imul(y + tick, 40503)) >>> 8;
+            if ((roll & 7) < 3) {
+              const out = openR !== openL ? (openR ? 1 : -1) : (roll & 8) !== 0 ? 1 : -1;
+              const vx = out * ((FP >> 2) + ((roll >> 4) & 7) * (FP >> 4));
+              const vy = -Math.trunc((fv * FP) / 6) + ((roll >> 7) & 3) * (FP >> 3);
+              if (
+                debris.spawn(
+                  x * FP + (FP >> 1),
+                  y * FP + (FP >> 1),
+                  vx,
+                  vy,
+                  m,
+                  coat[idx]!,
+                  state[idx]!,
+                  grid.shadeOf(idx),
+                )
+              ) {
+                mat[idx] = 0;
+                coat[idx] = 0;
+                state[idx] = 0;
+                vel[idx] = 0;
+                if (x < nMinX) nMinX = x;
+                if (x > nMaxX) nMaxX = x;
+                if (y > nMaxY) nMaxY = y;
+                if (y < nMinY) nMinY = y;
+                if (++moved >= maxCells) {
+                  capped = true;
+                  break rows;
+                }
+                continue;
+              }
+            }
+          }
+        }
+        if (sv > 0) {
+          // A grain in motion: it runs on the way it is heading, `1 + speed / 2` cells this pass,
+          // faster down a steep slope, slowed by friction on the level, stopped by anything in
+          // its way.
+          let p = idx;
+          let px = x;
+          let held = false;
+          for (let n = 1 + (sv >> 1); n > 0 && sv > 0; n--) {
+            const nx = px + sd;
+            if (nx < 0 || nx >= W) {
+              sv = 0;
+              break;
+            }
+            const roll = ((Math.imul(px, 668265263) ^ Math.imul(y + n + tick, 40503)) >>> 10) & 7;
+            if (mat[p + sd] !== 0) {
+              // Something in the way. Behind a grain that is itself moving on the same way it
+              // waits, losing speed; anything else stops it.
+              const ov = vel[p + sd]!;
+              if (
+                p === idx &&
+                (pressed ||
+                  (ov >> SLIDE_SHIFT !== 0 &&
+                    (ov & SLIDE_LEFT) === (sd < 0 ? SLIDE_LEFT : 0) &&
+                    glide[mat[p + sd]!] !== 0))
+              ) {
+                if (!pressed && roll >= 6) sv--;
+                held = sv > 0;
+              } else sv = 0;
+              break;
+            } else if (y + dy + 1 < H && mat[p + sd + W] === 0) {
+              p += sd + W;
+              dy++;
+              // steeper than a 45 degree stair it gathers speed; on one it slowly loses it, so a
+              // slide down a slope at rest dies out instead of feeding itself
+              if (y + dy + 1 < H && mat[p + W] === 0) {
+                if (sv < SLIDE_MAX && roll < gl) sv++;
+              } else if (roll >= gl + ((8 - gl) >> 1)) sv--;
+            } else {
+              // level ground: a grain barely moving stops, a faster one runs on against friction
+              if (sv < 2) {
+                sv = 0;
+                break;
+              }
+              p += sd;
+              if (roll >= gl) sv--;
+            }
+            px = nx;
+          }
+          if (held) {
+            // keeps its place and (most of) its speed for the next pass
+            vel[idx] = (sv << SLIDE_SHIFT) | (sd < 0 ? SLIDE_LEFT : 0);
+            if (x - 1 < nMinX) nMinX = x - 1;
+            if (x + 1 > nMaxX) nMaxX = x + 1;
+            if (y > nMaxY) nMaxY = y;
+            if (y < nMinY) nMinY = y;
+            waiting = true;
+            continue;
+          }
+          if (p !== idx) {
+            dst = p;
+            coast = true;
+            nv = (dy > 0 ? 1 : 0) | (sv << SLIDE_SHIFT) | (sv > 0 && sd < 0 ? SLIDE_LEFT : 0);
+            if (dy <= 0) stamp[dst] = pass;
+            // every pass on the move spends a loosen step, like a slump does
+            if (state[idx] !== 0 && repose[m] !== 0) state[idx] = state[idx]! - 1;
+          }
+        }
+      }
+      if (dst >= 0) {
+        // already on its way
       } else if (k === SETTLE_FALL) {
         // A one-cell-wide spire topples: no side support at all, so it slides like sand.
         if (x > 0 && x < W - 1 && mat[idx - 1] === 0 && mat[idx + 1] === 0) {
@@ -123,7 +332,7 @@ export function settleStep(
           else if (mat[below - d] === 0) dst = below - d;
           if (dst >= 0) {
             dy = 1;
-            vel[dst] = 1;
+            sd = dst - below;
           }
         }
         // Loosened ground (a blast's crater rim) slumps off a slope steeper than the material
@@ -145,7 +354,7 @@ export function settleStep(
             if (j === rp) {
               dst = below + d;
               dy = 1;
-              vel[dst] = 1;
+              sd = d;
               state[idx] = state[idx]! - 1;
             }
           }
@@ -159,6 +368,7 @@ export function settleStep(
           if (mat[idx + d] === 0 && mat[below + d] === 0) {
             dst = below + d;
             dy = 1;
+            sd = d;
           } else if (
             k === SETTLE_FLOW &&
             mat[idx + d] === 0 &&
@@ -175,10 +385,14 @@ export function settleStep(
             }
           }
         }
-        if (dst >= 0) vel[dst] = 1;
+      }
+      // a grain that starts to slide starts slowly, and gathers speed from there
+      if (dst >= 0 && nv === 0) {
+        nv = gl !== 0 && dy > 0 ? 1 | (1 << SLIDE_SHIFT) | (sd < 0 ? SLIDE_LEFT : 0) : 1;
       }
       vel[idx] = 0;
       if (dst < 0) continue;
+      vel[dst] = nv;
       mat[dst] = m;
       mat[idx] = 0;
       coat[dst] = coat[idx]!;
@@ -224,7 +438,7 @@ export function settleStep(
             shade[dst] = grid.shadeOf(below);
             shade[below] = sh;
             dragged = true;
-          } else if (ub === m && state[below] === 0 && roll < DRAG_CHANCE) {
+          } else if (!coast && ub === m && state[below] === 0 && roll < DRAG_CHANCE) {
             const pull = Math.min(DRAG_STEPS * 2, state[dst]! >> 1);
             if (pull > 0) state[below] = pull;
           }
@@ -233,14 +447,17 @@ export function settleStep(
       // A slump eats back into the slope: loose ground that slides away may shake the cell it
       // leaned on (behind it, upslope) loose too, for half its own steps, so the edge of a slump
       // is a ragged slope that fades into firm ground, not a sheer cut where the loosening ended.
-      if (repose[m] !== 0 && act[m] === 0 && state[dst] !== 0) {
+      if (!coast && repose[m] !== 0 && act[m] === 0 && state[dst] !== 0) {
         const half = state[dst]! >> 1;
         const flip = ((Math.imul(x, 2246822519) ^ Math.imul(y + tick, 3266489917)) >>> 12) & 3;
         // sliding: the cell behind; falling: the wall it scrapes past on either side
-        for (let sd = -1; sd <= 1 && half > 0; sd += 2) {
-          if (dx !== 0 ? sd !== -dx || (flip & 1) !== 0 : ((flip >> (sd + 1)) & 1) !== 0) continue;
-          const bx = x + sd;
-          const back = idx + sd;
+        const away = dx > 0 ? -1 : 1;
+        // (a cell only shaken by a landing has too few steps to pass any on, so a fall never
+        // keeps eating at the wall it fell from)
+        for (let bs = -1; bs <= 1 && half >= 1; bs += 2) {
+          if (dx !== 0 ? bs !== away || (flip & 1) !== 0 : ((flip >> (bs + 1)) & 1) !== 0) continue;
+          const bx = x + bs;
+          const back = idx + bs;
           if (bx < 0 || bx >= W) continue;
           if (mat[back] === m && state[back] === 0 && group[back] === 0) state[back] = half;
         }
@@ -297,7 +514,7 @@ export function settleStep(
     grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
   } else {
     grid.clearSettle();
-    if (moved > 0) grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
+    if (moved > 0 || waiting) grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
   }
   if (moved > 0) {
     grid.addRenderRect(nMinX, nMinY, nMaxX - nMinX + 1, nMaxY - nMinY + 1);
