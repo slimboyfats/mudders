@@ -132,6 +132,9 @@ const api: CaptureApi = {
           y: Int32Array.from(w.debris.y),
           vx: Int32Array.from(w.debris.vx),
           material: Uint8Array.from(w.debris.m),
+          ...(w.debris.r !== undefined && w.debris.g
+            ? { rigid: w.debris.r, shade: Uint8Array.from(w.debris.g) }
+            : {}),
         },
         wind: w.wind,
         theme: w.theme,

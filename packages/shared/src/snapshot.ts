@@ -203,6 +203,8 @@ export interface RenderSnapshot {
     material: Uint8Array;
     /** Cosmetic grain shade per particle (see `shade`). */
     shade?: Uint8Array;
+    /** Particles from this index on are cells of a rigid falling piece (drawn as plain cells). */
+    rigid?: number;
   };
   /** Wind in px/tick² (positive blows right). */
   wind: number;

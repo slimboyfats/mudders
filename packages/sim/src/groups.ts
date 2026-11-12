@@ -4,11 +4,16 @@ import type { Grid } from './grid';
 import type { Hasher } from './hash';
 import { KEEP, NUM_DAMAGE_TYPES, STRENGTH_ONE, type MaterialTable } from './materials';
 import type { Prng } from './prng';
+import type { Chunker } from './chunks';
 import { STUMP, Toppler } from './topple';
 
 /** Group slots per map; slot 0 means "no group". */
 export const MAX_GROUPS = 255;
 /** Percent of a blast's radius inside which a tree is blown apart instead of falling over. */
+/** A hanging part snaps when its weight times its overhang passes this many times the neck thickness squared. */
+const SNAP_BEND = 120;
+/** ... or when it weighs more than this per cell of neck. */
+const SNAP_LOAD = 400;
 const SHATTER_IN = 55;
 
 /** A shelter's opening: free rows above the ground, and half its width around a tank spawn. */
@@ -33,6 +38,8 @@ interface GroupDef {
   crack: Uint8Array;
   /** Snaps and falls over in one piece (a tree) unless blown apart. */
   topple: boolean;
+  /** Breaks off in rigid pieces that fall and turn (§4b). */
+  tumble: boolean;
   /** material → what it lies as once fallen (KEEP = unchanged). */
   felled: Uint8Array;
 }
@@ -110,6 +117,10 @@ export class Groups {
   /** Flood-fill scratch for `local` groups, sized to the grid on first use. */
   private mark = new Uint8Array(0);
   private queue = new Int32Array(0);
+  private lvCount = new Int32Array(256);
+  private lvSum = new Int32Array(256);
+  private lvLo = new Int32Array(256);
+  private lvHi = new Int32Array(256);
   /** Per column: does a resting group's footing stand there (`structure` scratch). */
   private stand = new Uint8Array(0);
   /** Per column: is this part of a footing kept when it tears (`structure` scratch). */
@@ -131,11 +142,14 @@ export class Groups {
   private readonly propIndex: Record<string, number> = {};
   /** Trees falling over (topple groups that broke). */
   readonly toppler: Toppler;
+  /** Where `tumble` groups send what breaks off (the world's; null = they crumble in place). */
+  chunks: Chunker | null = null;
   /** Column of the blast whose op is being guarded, -1 outside an op: trees fall away from it. */
   hitX = -1;
   /** Radius of that blast: trees well inside it shatter instead of falling. */
   hitR = 0;
   private lift = new Int32Array(0);
+  private readonly rider = new Uint8Array(256);
 
   constructor(
     props: readonly PropManifest[],
@@ -226,6 +240,7 @@ export class Groups {
         loosen: g.loosen,
         shield: g.glue === 'local' ? g.shield : 0,
         topple: g.topple,
+        tumble: g.tumble,
         felled,
         integrity: g.integrity,
         resist,
@@ -895,6 +910,61 @@ export class Groups {
   }
 
   /**
+   * Does the stone snap under its own weight? `q[0..n)` is the held part of a group in flood order
+   * and `mark` its distance from what holds it. The stone beyond each distance hangs on the cells
+   * at that distance: they give way when it weighs too much for them outright, or when it hangs
+   * out to one side with more leverage than their thickness (squared, like a beam) can take.
+   * Returns the distance past which everything falls (256 = nothing does).
+   */
+  private snap(q: Int32Array, n: number, W: number): number {
+    const mark = this.mark;
+    const cnt = this.lvCount;
+    const sum = this.lvSum;
+    const lo = this.lvLo;
+    const hi = this.lvHi;
+    let top = 0;
+    for (let k = 0; k < n; k++) {
+      const i = q[k]!;
+      const l = mark[i]!;
+      const x = i % W;
+      if (l > top) {
+        for (let d = top + 1; d <= l; d++) {
+          cnt[d] = 0;
+          sum[d] = 0;
+          lo[d] = W;
+          hi[d] = -1;
+        }
+        top = l;
+      }
+      cnt[l] = cnt[l]! + 1;
+      sum[l] = sum[l]! + x;
+      if (x < lo[l]!) lo[l] = x;
+      if (x > hi[l]!) hi[l] = x;
+    }
+    let mass = 0;
+    let sx = 0;
+    let cut = 256;
+    let worst = 0;
+    for (let d = top; d >= 1; d--) {
+      const c = cnt[d]!;
+      if (mass > 0 && c > 0 && d < 255) {
+        const cx = (sx / mass) | 0;
+        const arm = cx > hi[d]! ? cx - hi[d]! : cx < lo[d]! ? lo[d]! - cx : 0;
+        const bend = ((mass * arm) / (c * c)) | 0;
+        const load = (mass / c) | 0;
+        const r = Math.max((bend * 256) / SNAP_BEND, (load * 256) / SNAP_LOAD) | 0;
+        if (r > worst) {
+          worst = r;
+          cut = d;
+        }
+      }
+      mass += c;
+      sx += sum[d]!;
+    }
+    return worst > 256 ? cut : 256;
+  }
+
+  /**
    * `local` glue: flood the group from the cells that hold on to something (anything solid right
    * under them, or a static cell or another group beside or above them); every group cell the
    * flood doesn't reach comes loose and falls as `breakInto`.
@@ -930,39 +1000,58 @@ export class Groups {
         }
       }
     }
+    // breadth first, so `mark` holds how far (in cells, capped) each cell is from what holds it
     while (head < tail) {
       const i = q[head++]!;
       const x = i % W;
+      const l = mark[i]! < 255 ? mark[i]! + 1 : 255;
       if (x > 0 && group[i - 1] === g && mark[i - 1] === 0) {
-        mark[i - 1] = 1;
+        mark[i - 1] = l;
         q[tail++] = i - 1;
       }
       if (x < W - 1 && group[i + 1] === g && mark[i + 1] === 0) {
-        mark[i + 1] = 1;
+        mark[i + 1] = l;
         q[tail++] = i + 1;
       }
       if (i >= W && group[i - W] === g && mark[i - W] === 0) {
-        mark[i - W] = 1;
+        mark[i - W] = l;
         q[tail++] = i - W;
       }
       if (i + W < W * H && group[i + W] === g && mark[i + W] === 0) {
-        mark[i + W] = 1;
+        mark[i + W] = l;
         q[tail++] = i + W;
       }
     }
     const into = this.def[g]!.breakInto;
+    const pieces = this.def[g]!.tumble ? this.chunks : null;
+    const cut = pieces ? this.snap(q, tail, W) : 256;
     let fell = 0;
+    let held = 0;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
         if (group[i] !== g) continue;
-        if (mark[i] !== 0) {
+        if (mark[i] !== 0 && mark[i]! <= cut) {
           mark[i] = 0;
+          held++;
           continue;
         }
-        this.release(grid, i, into);
+        mark[i] = 0;
+        if (pieces) q[fell] = i;
+        else this.release(grid, i, into);
         fell++;
       }
     }
+    if (pieces && fell > 0) {
+      // what was cut off falls in pieces; only crumbs come loose where they are
+      for (let k = 0; k < fell; k++) mark[q[k]!] = 1;
+      pieces.take(grid, this.mats, q, fell, mark, 1, null, into, -1);
+      for (let k = 0; k < fell; k++) {
+        const i = q[k]!;
+        mark[i] = 0;
+        if (group[i] === g) this.release(grid, i, into);
+      }
+    }
+    tail = held;
     this.cells[g] = tail;
     if (fell > 0) {
       grid.markDirty(x0, y0, x1, y1);
@@ -1041,6 +1130,39 @@ export class Groups {
     const x1 = this.maxX[g]!;
     const y0 = this.minY[g]!;
     const y1 = this.maxY[g]!;
+    if (this.chunks && this.def[g]!.tumble && x1 >= x0) {
+      // it comes apart in pieces that fall; only what is left over crumbles where it is
+      this.ensureScratch(grid);
+      const q = this.queue;
+      const mark = this.mark;
+      // what rests on it (window panes, a roof) goes with the piece of wall it is in
+      let both = into;
+      let bx0 = x0;
+      let bx1 = x1;
+      let by0 = y0;
+      for (let o = 1; o <= this.count; o++) {
+        if (o === g || this.broken[o] !== 0 || !this.restsOn(o, g)) continue;
+        this.rider[o] = 1;
+        if (both === into) both = into.slice();
+        const oi = this.def[o]!.breakInto;
+        for (let m = 1; m < 256; m++) if (both[m] === KEEP) both[m] = oi[m]!;
+        bx0 = Math.min(bx0, this.minX[o]!);
+        bx1 = Math.max(bx1, this.maxX[o]!);
+        by0 = Math.min(by0, this.minY[o]!);
+      }
+      let n = 0;
+      for (let y = by0; y <= y1; y++) {
+        for (let x = bx0, i = y * W + bx0; x <= bx1; x++, i++) {
+          const c = grid.group[i]!;
+          if (c !== g && (c === 0 || this.rider[c] === 0)) continue;
+          mark[i] = 1;
+          q[n++] = i;
+        }
+      }
+      this.rider.fill(0);
+      this.chunks.take(grid, this.mats, q, n, mark, 1, null, both, this.hitX);
+      for (let k = 0; k < n; k++) mark[q[k]!] = 0;
+    }
     for (let y = y0; y <= y1; y++) {
       for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
         if (grid.group[i] !== g) continue;

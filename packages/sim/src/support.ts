@@ -1,5 +1,6 @@
 import { FP } from '@mudders/shared';
 import type { EffectSink } from './behaviours';
+import type { Chunker } from './chunks';
 import type { DebrisPool } from './debris';
 import type { Grid } from './grid';
 import { SETTLE_STATIC, type MaterialTable } from './materials';
@@ -67,6 +68,7 @@ export function supportPass(
   scratch: Scratch,
   debris: DebrisPool,
   fx: EffectSink,
+  chunks?: Chunker,
 ): number {
   if (grid.structMaxX < grid.structMinX) return 0;
   const W = grid.width;
@@ -162,40 +164,55 @@ export function supportPass(
   let lx1 = -1;
   let ly0 = H;
   let ly1 = -1;
-  for (let y = 0; y < H; y++) {
-    for (let x = cx0, i = y * W + cx0; x <= cx1; x++, i++) {
+  const rel = scratch.nextMarkGen();
+  let n = 0;
+  // from the bottom row up, so each cell knows whether the one under it is going
+  for (let y = H - 1; y >= 0; y--) {
+    for (let x = cx1, i = y * W + cx1; x >= cx0; x--, i--) {
       if (!loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
-      // resting on a hanging cell that holds: it would only land straight back where it is
-      // (and be released again, forever), so it holds too
-      if (
-        y + 1 < H &&
-        mat[i + W] !== 0 &&
-        !loose(mats, mat, grounded, thick, dist, i + W, x, y + 1)
-      ) {
-        continue;
-      }
-      const m = mat[i]!;
-      if (
-        !debris.spawn(
-          x * FP + FP / 2,
-          y * FP + FP / 2,
-          0,
-          0,
-          m,
-          grid.coating[i]!,
-          grid.cellState[i]!,
-          grid.shadeOf(i),
-        )
-      )
-        continue;
-      grid.clearCell(i);
-      perMaterial[m] = perMaterial[m]! + 1;
-      lost++;
+      // resting on a cell that stays: it would only land straight back where it is (and be
+      // released again, forever), so it holds too
+      if (y + 1 < H && mat[i + W] !== 0 && mark[i + W] !== rel) continue;
+      mark[i] = rel;
+      q[n++] = i;
+      perMaterial[mat[i]!] = perMaterial[mat[i]!]! + 1;
       if (x < lx0) lx0 = x;
       if (x > lx1) lx1 = x;
       if (y < ly0) ly0 = y;
       if (y > ly1) ly1 = y;
     }
+  }
+  // top row first, as the piece taker and the debris pool expect
+  for (let a = 0, b = n - 1; a < b; a++, b--) {
+    const t = q[a]!;
+    q[a] = q[b]!;
+    q[b] = t;
+  }
+  // what can fall in one piece does (live play only); the rest drops as loose cells
+  if (chunks) chunks.take(grid, mats, q, n, mark, rel, dist, null, -1);
+  for (let k = 0; k < n; k++) {
+    const i = q[k]!;
+    const m = mat[i]!;
+    if (m === 0) {
+      lost++;
+      continue;
+    }
+    const x = i % W;
+    if (
+      !debris.spawn(
+        x * FP + FP / 2,
+        ((i - x) / W) * FP + FP / 2,
+        0,
+        0,
+        m,
+        grid.coating[i]!,
+        grid.cellState[i]!,
+        grid.shadeOf(i),
+      )
+    )
+      continue;
+    grid.clearCell(i);
+    lost++;
   }
   if (lost === 0) return 0;
   grid.markDirty(lx0, ly0, lx1, ly1);

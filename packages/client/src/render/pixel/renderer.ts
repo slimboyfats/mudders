@@ -2751,6 +2751,8 @@ export class PixelRenderer implements Renderer {
   private drawDebris(): void {
     const d = this.debris;
     const pal = this.palette.materials;
+    // cells of a rigid falling piece come last and are always single cells
+    const rigid = d.rigid ?? d.count;
     for (let i = 0; i < d.count; i++) {
       const x = Math.floor(d.x[i]! / FP);
       const y = Math.floor(d.y[i]! / FP);
@@ -2764,7 +2766,7 @@ export class PixelRenderer implements Renderer {
         pal[d.material[i]!] ?? 0x7a5a3a,
         DEBRIS_SHADES[g !== 0 ? (g >> 5) & 3 : h & 3]!,
       );
-      if (h >= 30) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
+      if (h >= 30 && i < rigid) this.normal.push(x + 1, y + 1, 2, 2, col, 1);
       else this.normal.push(x + 0.5, y + 0.5, 1, 1, col, 1);
     }
   }

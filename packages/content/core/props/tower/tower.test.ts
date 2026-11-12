@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCells, dropAt, groupCells, propWorld } from '../../../src/testing';
+import { countCells, dropAt, groupCells, propWorld, wreckCells } from '../../../src/testing';
 
 // Slots in manifest order: base 1, middle 2, top 3, then each section's windows 4–6.
 const BASE = 1;
@@ -26,7 +26,7 @@ describe('prop.tower', () => {
     expect(w.groups.broken[TOP]).toBe(1);
     expect(w.groups.broken[TOP_WINDOWS]).toBe(1);
     expect(w.groups.broken[BASE]).toBe(0);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(100);
+    expect(wreckCells(w, 'material.rubble', 'material.concrete')).toBeGreaterThan(100);
     expect(w.quiet).toBe(true);
   });
 
@@ -39,6 +39,7 @@ describe('prop.tower', () => {
     expect(w.groups.broken[MIDDLE]).toBe(1);
     expect(w.groups.broken[TOP]).toBe(1);
     expect(groupCells(w)).toBe(0);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(1500);
+    // slabs that fell lie as concrete; the small bits are rubble
+    expect(wreckCells(w, 'material.rubble', 'material.concrete')).toBeGreaterThan(800);
   });
 });
