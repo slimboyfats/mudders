@@ -47,6 +47,35 @@ export class Grid {
   readonly cellState: Uint8Array;
   /** Settle fall speed per cell (cells/tick). Kernel-owned. */
   readonly fallVel: Uint8Array;
+  /**
+   * Sideways speed of a flowing liquid cell (cells/tick, signed; + is right). Kernel-owned: settle
+   * keeps it with the cell as it moves, so a liquid that fell or ran downhill carries on.
+   */
+  readonly flowVel: Int8Array;
+  /** Tick stamp of a liquid cell settle already moved this tick (never hashed; see `settleStep`). */
+  readonly flowTick: Uint8Array;
+  /**
+   * Open water as columns (see `surfaceFlowStep`): the liquid's speed across each column's right
+   * edge, and the fraction of a cell of flow waiting there. Kernel-owned, part of the state.
+   */
+  readonly surfVel: Int16Array;
+  readonly surfAcc: Int16Array;
+  /** Ticks since a whole cell last crossed each column's right edge (saturating); state. */
+  readonly surfIdle: Uint8Array;
+  /** Row of the top cell of each column of open water this tick (-1 = none); scratch, not state. */
+  readonly surfTop: Int16Array;
+  /** Whether open water is still moving (it keeps the settle region alive). */
+  surfLive = false;
+  /** Columns where settle met a runny liquid last tick: only those are worth the column step. */
+  surfSeenMinX = 0;
+  surfSeenMaxX = -1;
+  /** Set by the column step: open water is moving fast somewhere (more than a ripple). */
+  surfBusy = false;
+  /** Set by settle: the only thing still moving is open water rippling out (a turn needn't wait). */
+  ripple = false;
+  surfMinX = 0;
+  surfMaxX = 0;
+  surfMaxY = 0;
   /** Prop integrity group per cell (§4c), 0 = none. Kernel-owned. */
   readonly group: Uint8Array;
   /** The material a group cell is meant to hold; ops that change it are undone while intact. */
@@ -131,6 +160,12 @@ export class Grid {
     this.gas = new Uint8Array(this.size);
     this.cellState = new Uint8Array(this.size);
     this.fallVel = new Uint8Array(this.size);
+    this.flowVel = new Int8Array(this.size);
+    this.flowTick = new Uint8Array(this.size);
+    this.surfVel = new Int16Array(width);
+    this.surfAcc = new Int16Array(width);
+    this.surfIdle = new Uint8Array(width);
+    this.surfTop = new Int16Array(width).fill(-1);
     this.group = new Uint8Array(this.size);
     this.groupMat = new Uint8Array(this.size);
     this.shade = new Uint8Array(this.size);
@@ -145,6 +180,17 @@ export class Grid {
     this.gasMaxX = -1;
     this.cellState.fill(0);
     this.fallVel.fill(0);
+    this.flowVel.fill(0);
+    this.flowTick.fill(0);
+    this.surfVel.fill(0);
+    this.surfAcc.fill(0);
+    this.surfIdle.fill(0);
+    this.surfTop.fill(-1);
+    this.surfLive = false;
+    this.surfSeenMinX = 0;
+    this.surfSeenMaxX = -1;
+    this.surfBusy = false;
+    this.ripple = false;
     this.group.fill(0);
     this.groupMat.fill(0);
     this.shade.fill(0);
@@ -252,6 +298,7 @@ export class Grid {
     this.gas[i] = 0;
     this.cellState[i] = 0;
     this.fallVel[i] = 0;
+    this.flowVel[i] = 0;
   }
 
   inBounds(x: number, y: number): boolean {

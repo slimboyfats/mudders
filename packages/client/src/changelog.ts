@@ -20,10 +20,14 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-12',
     title:
-      'DROP! weapons, a tidier shop, blasts that throw the ground, and ground that falls with weight',
+      'DROP! weapons, a tidier shop, blasts that throw the ground, ground that falls with weight, and water with momentum',
     pack: 'core@0.76.0 – 0.79.0',
     newSince: 'core@0.75.0',
     items: [
+      'Water now has momentum. A lake that is blasted open pours out with its whole depth, the wave runs to the far bank, climbs it, sloshes back and dies down, and the lake ends up level',
+      'Water that runs over an edge falls as a waterfall in an arc and feeds the pool below. Water running down a hill keeps its speed, shoots off ledges and runs a little way up the other side',
+      'A lake holed below the waterline jets out under pressure, faster the deeper the hole',
+      'A turn no longer waits for the last small ripples on a lake to die down',
       'Day and night: every round is played a little later in the day, from dawn to daylight, sunset and night, and back round again (Settings can switch it off; Pitch Black stays dark)',
       'Crows: a while after a tank dies, two or three crows flap in and perch on the wreck, pecking. A blast or a shell scares them off, and they come back later',
       'The world is alive: rabbits graze and hop on the hills and run from shells, blasts and tanks, diving into burrows and popping out later. Fish swim in the lakes and leap out with a splash, and float up belly-up after a blast in the water',

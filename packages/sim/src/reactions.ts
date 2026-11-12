@@ -30,6 +30,7 @@ function setCell(grid: Grid, i: number, m: number): void {
   grid.gas[i] = 0;
   grid.cellState[i] = 0;
   grid.fallVel[i] = 0;
+  grid.flowVel[i] = 0;
   if (m === 0) grid.coating[i] = 0;
 }
 

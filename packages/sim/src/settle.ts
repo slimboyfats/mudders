@@ -1,5 +1,6 @@
 import { FP } from '@mudders/shared';
 import type { DebrisPool } from './debris';
+import { pushSurface, surfaceFlowStep } from './flow';
 import type { Grid } from './grid';
 import {
   AGE_MASK,
@@ -14,6 +15,19 @@ import {
 export const MAX_FALL_SPEED = 8;
 /** How far a resting liquid looks sideways for a drop to run to. */
 const DROP_LOOK = 32;
+
+/** Liquid sideways speed is kept in 1/FLOW_Q cells per tick (`Grid.flowVel`). */
+const FLOW_SHIFT = 3;
+const FLOW_Q = 1 << FLOW_SHIFT;
+/** Speed a liquid loses per cell its momentum carries it up (a bank, or the liquid ahead). */
+const CLIMB_COST = 12;
+/** Chance in 8 per tick that a slow liquid loses one more step of speed. */
+const FLOW_DRAG = 4;
+/** Speed a liquid gains per cell it runs downhill. */
+const FLOW_FALL = 5;
+
+/** Up to this many liquid cells moving in a tick are a trickle (a turn doesn't wait for it). */
+const TRICKLE = 6;
 
 /** Loosen steps a sliding grain of sand gives the dirt it drags at (see `repose`). */
 const DRAG_STEPS = 10;
@@ -75,6 +89,7 @@ export function settleStep(
   maxCells: number,
   debris?: DebrisPool,
 ): number {
+  surfaceFlowStep(grid, mats);
   if (!grid.settling) return 0;
   if (stamp.length < grid.size) stamp = new Int32Array(grid.size);
   pass = pass >= 0x7ffffff0 ? 1 : pass + 1;
@@ -85,6 +100,13 @@ export function settleStep(
   const gas = grid.gas;
   const state = grid.cellState;
   const vel = grid.fallVel;
+  // a liquid cell that momentum moved along or up a row is stamped, so the scan doesn't meet
+  // and move it again this tick (1..128; a stale stamp costs a cell one tick at worst)
+  const ts = (tick & 127) + 1;
+  let wetLive = false;
+  let wetMoved = 0;
+  let seenMin = W;
+  let seenMax = -1;
   const group = grid.group;
   const shade = grid.shade;
   const kind = mats.settle;
@@ -120,6 +142,27 @@ export function settleStep(
       const k = kind[m]!;
       // intact prop groups hold their cells in place whatever the material (§4c)
       if (k === SETTLE_STATIC || group[idx] !== 0) continue;
+      if (k === SETTLE_FLOW && disperse[m]! > 1) {
+        // runny liquids have their own rules (momentum), unless they sink into a lighter one
+        if (x < seenMin) seenMin = x;
+        if (x > seenMax) seenMax = x;
+        const ml = mat[idx + W]!;
+        if (ml === 0 || kind[ml] !== SETTLE_FLOW || density[ml]! >= density[m]!) {
+          const r = liquidCell(grid, mats, idx, x, y, m, ml, tick, ts, ltr);
+          if (r !== 0) {
+            if (outMinX < nMinX) nMinX = outMinX;
+            if (outMaxX > nMaxX) nMaxX = outMaxX;
+            if (outMinY < nMinY) nMinY = outMinY;
+            if (outMaxY > nMaxY) nMaxY = outMaxY;
+            if (r === 1) wetLive = true;
+            else if ((++wetMoved, ++moved >= maxCells)) {
+              capped = true;
+              break rows;
+            }
+          }
+          continue;
+        }
+      }
       const below = idx + W;
       let dst = -1;
       let dy = 0;
@@ -139,6 +182,8 @@ export function settleStep(
         shade[below] = sh;
         vel[idx] = 0;
         vel[below] = 1;
+        grid.flowVel[idx] = 0;
+        grid.flowVel[below] = 0;
         grid.extendReact(x - 1, y - 1, x + 1, y + 2);
         if (x < nMinX) nMinX = x;
         if (x > nMaxX) nMaxX = x;
@@ -514,18 +559,325 @@ export function settleStep(
     }
   }
 
+  grid.surfSeenMinX = seenMin;
+  grid.surfSeenMaxX = seenMax;
+  // only open water rippling out and a trickle of liquid cells are left
+  grid.ripple = !capped && moved === wetMoved && wetMoved <= TRICKLE && !grid.surfBusy;
   if (capped) {
     // Keep the old region and grow it by what moved; the rest continues next tick.
     grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
   } else {
     grid.clearSettle();
-    if (moved > 0 || waiting) grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
+    if (moved > 0 || waiting || wetLive) grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);
+    if (grid.surfLive) grid.extendSettle(grid.surfMinX, grid.surfMaxX, grid.surfMaxY);
   }
   if (moved > 0) {
     grid.addRenderRect(nMinX, nMinY, nMaxX - nMinX + 1, nMaxY - nMinY + 1);
     grid.extendStruct(nMinX, nMinY, nMaxX, nMaxY);
   }
   return moved;
+}
+
+let outHv = 0;
+let outDy = 0;
+let outLive = false;
+
+/**
+ * One runny liquid cell that stands on something (kept out of `settleStep`'s loop so that
+ * stays small for the grains). Returns where the cell goes (-1 = nowhere); its sideways speed
+ * afterwards, the rows it dropped, and whether it is still alive without having moved, are
+ * left in `outHv`, `outDy` and `outLive`.
+ */
+function flowCell(
+  grid: Grid,
+  mats: MaterialTable,
+  idx: number,
+  x: number,
+  y: number,
+  m: number,
+  mb: number,
+  hv: number,
+  tick: number,
+  ts: number,
+  ltr: boolean,
+): number {
+  const W = grid.width;
+  const H = grid.height;
+  const mat = grid.material;
+  const vel = grid.fallVel;
+  const stamp = grid.flowTick;
+  const group = grid.group;
+  const state = grid.cellState;
+  const disperse = mats.disperse;
+  const spread = mats.spread;
+  const below = idx + W;
+  let dst = -1;
+  let dy = 0;
+  let live = false;
+  // Momentum (speeds in 1/FLOW_Q cells per tick). A runny liquid that lands turns its
+  // fall into sideways speed, and one with speed keeps running: along the ground, down a
+  // slope (gaining), off a ledge, up a bank while the speed lasts, bouncing off a wall,
+  // and handing its speed to the pool it runs into (see `surfaceFlowStep`).
+  const cap = disperse[m]! * FLOW_Q;
+  const v0 = vel[idx]!;
+  if (v0 !== 0 && mb !== m && (hv !== 0 || v0 >= 3)) {
+    // a real drop splays to either side; a one-cell step only feeds speed it has
+    const s0 =
+      hv !== 0 ? hv : ((Math.imul(x, 40503) ^ Math.imul(y + tick, 9973)) & 4) === 0 ? 1 : -1;
+    hv += (s0 > 0 ? 1 : -1) * ((v0 + 1) >> 1) * FLOW_Q;
+  } else if (v0 >= 3 && mb === m && hv !== 0) {
+    // poured into a pool: the pool takes the push
+    pushSurface(grid, x, hv > 0 ? 1 : -1, hv > 0 ? hv : -hv);
+    hv = 0;
+  }
+  if (hv > cap) hv = cap;
+  else if (hv < -cap) hv = -cap;
+  const h8 = ((Math.imul(x, 668265263) ^ Math.imul(y + tick, 374761393)) >>> 11) & 7;
+  // drag: a sixteenth of the speed a tick, and the last of it by chance
+  if (hv !== 0) {
+    const loss = hv >> 4;
+    hv -= loss !== 0 && loss !== -1 ? loss : h8 < FLOW_DRAG ? (hv > 0 ? 1 : -1) : 0;
+  }
+  let mag = hv < 0 ? -hv : hv;
+  let d = hv < 0 ? -1 : 1;
+  let n = (mag >> FLOW_SHIFT) + (h8 < (mag & (FLOW_Q - 1)) ? 1 : 0);
+  let at = idx;
+  let cx = x;
+  let cy = y;
+  while (n > 0) {
+    const nx = cx + d;
+    if (nx < 0 || nx >= W) {
+      mag = 0;
+      break;
+    }
+    const a = mat[at + d]!;
+    if (a === 0) {
+      at += d;
+      cx = nx;
+      n--;
+      // follow the ground down a slope, picking up speed; off anything steeper it flies
+      let drop = 0;
+      while (drop < 2 && cy < H - 2 && mat[at + W] === 0) {
+        at += W;
+        cy++;
+        drop++;
+      }
+      if (mat[at + W] === 0) break;
+      if (drop !== 0) {
+        mag += drop * FLOW_FALL;
+        if (mag > cap) mag = cap;
+      }
+      continue;
+    }
+    if (a === m && group[at + d] === 0) {
+      pushSurface(grid, cx, d, mag);
+      mag = 0;
+    } else if (mag >= CLIMB_COST && cy > 0 && mat[at - W] === 0 && mat[at - W + d] === 0) {
+      at += d - W;
+      cx = nx;
+      cy--;
+      mag -= CLIMB_COST;
+      n--;
+      continue;
+    } else {
+      mag >>= 1;
+      d = -d;
+    }
+    break;
+  }
+  hv = d * mag;
+  if (at !== idx) {
+    dst = at;
+    dy = cy - y;
+    vel[dst] = 0;
+    if (dy < 0 || d === (ltr ? 1 : -1)) stamp[dst] = ts;
+  } else if (hv !== 0) {
+    live = true;
+  }
+  const st = grid.surfTop[x]!;
+  const managed = st === y && mb === m;
+  // the cells under the top of a column of open water don't spread on their own either
+  const inColumn = st >= 0 && y >= st;
+  if (dst < 0 && managed && hv !== 0) {
+    // in a column of open water: the column step moves that, with the pool
+    pushSurface(grid, x, hv > 0 ? 1 : -1, hv > 0 ? hv : -hv);
+    hv = 0;
+  }
+  if (dst < 0) {
+    // not carried anywhere: the standing rules (run off a step, pour out from under a
+    // column, spread while young, run towards a drop)
+    const cells = disperse[m]!;
+    const dir = ((x * 7 + y * 13 + tick) & 2) === 0 ? 1 : -1;
+    for (let s = 0; s < 2 && dst < 0; s++) {
+      const dd = s === 0 ? dir : -dir;
+      const nx = x + dd;
+      if (nx < 0 || nx >= W) continue;
+      if (managed) {
+        // the top of a column of open water moves with its column, not on its own
+      } else if (mat[idx + dd] === 0 && mat[below + dd] === 0) {
+        dst = below + dd;
+        dy = 1;
+        vel[dst] = 1;
+        if (hv === 0) hv = dd * FLOW_Q;
+      } else if (stamp[idx + dd] === ts) {
+        // the cell beside only just emptied: a gap in a liquid travels a cell a tick, it
+        // doesn't run the length of the row in one
+        live = true;
+      } else if (mat[idx + dd] === 0 && y > 0 && mat[idx - W] === m && mat[idx - W + dd] !== 0) {
+        // Pressure: a liquid under its own kind with a way out beside it, under a roof (a
+        // tunnel mouth; an open face is the column step's business), is pushed out, faster
+        // the deeper it sits (1, 2, 3, 4 cells/tick under 1, 2, 5, 10 cells of liquid),
+        // so a lake holed below the waterline jets out.
+        let h = 1;
+        let p = idx - W - W;
+        while (h < 10 && p >= 0 && mat[p] === m) {
+          h++;
+          p -= W;
+        }
+        let sp = h >= 10 ? 4 : h >= 5 ? 3 : h >= 2 ? 2 : 1;
+        if (sp > cells) sp = cells;
+        dst = idx + dd;
+        let cx = nx;
+        for (let r = 1; r < sp; r++) {
+          cx += dd;
+          if (cx < 0 || cx >= W || mat[dst + dd] !== 0 || mat[dst + W] === 0) break;
+          dst += dd;
+        }
+        vel[dst] = 0;
+        stamp[idx] = ts;
+        hv = dd * sp * FLOW_Q;
+        if (dd === (ltr ? 1 : -1)) stamp[dst] = ts;
+      } else if (
+        !inColumn &&
+        mat[idx + dd] === 0 &&
+        (spread[m] === 0 || (state[idx]! & AGE_MASK) < spread[m]! || dropAhead(mat, idx, dd, nx, W))
+      ) {
+        dst = idx + dd;
+        for (let r = 1, nx2 = nx + dd; r < cells; r++, nx2 += dd) {
+          if (nx2 < 0 || nx2 >= W || mat[dst + dd] !== 0 || mat[dst + W] === 0) break;
+          dst += dd;
+        }
+        vel[dst] = 0;
+      }
+    }
+  }
+  outHv = hv;
+  outDy = dy;
+  outLive = live;
+  return dst;
+}
+
+let outMinX = 0;
+let outMaxX = 0;
+let outMinY = 0;
+let outMaxY = 0;
+
+/**
+ * One runny liquid cell (kept out of `settleStep`'s loop, which stays as small as the grains
+ * need). Returns 0 if nothing happened, 1 if the cell stays but is still alive, 2 if it moved;
+ * for 1 and 2 the region to look at next tick is left in `outMinX..outMaxY`.
+ */
+function liquidCell(
+  grid: Grid,
+  mats: MaterialTable,
+  idx: number,
+  x: number,
+  y: number,
+  m: number,
+  mb: number,
+  tick: number,
+  ts: number,
+  ltr: boolean,
+): number {
+  const W = grid.width;
+  const H = grid.height;
+  const mat = grid.material;
+  const vel = grid.fallVel;
+  const flow = grid.flowVel;
+  if (grid.flowTick[idx] === ts) {
+    outMinX = outMaxX = x;
+    outMinY = outMaxY = y;
+    return 1;
+  }
+  let hv = flow[idx]!;
+  let dst: number;
+  let dy = 0;
+  let live = false;
+  if (mb === 0) {
+    const v = Math.min(vel[idx]! + 1, MAX_FALL_SPEED);
+    // a liquid in the air keeps its sideways speed, so it leaves a ledge in an arc
+    let from = idx;
+    if (hv !== 0) {
+      const d = hv > 0 ? 1 : -1;
+      let cx = x;
+      for (let n = (hv * d) >> FLOW_SHIFT; n > 0; n--) {
+        cx += d;
+        if (cx < 0 || cx >= W || mat[from + d] !== 0) {
+          hv = 0;
+          break;
+        }
+        from += d;
+        if (mat[from + W] !== 0) break;
+      }
+    }
+    if (from !== idx && mat[from + W] !== 0) {
+      // flew onto a ledge
+      dst = from;
+      vel[dst] = 0;
+    } else {
+      dst = from + W;
+      dy = 1;
+      while (dy < v && y + dy < H - 1 && mat[dst + W] === 0) {
+        dst += W;
+        dy++;
+      }
+      vel[dst] = v;
+    }
+  } else {
+    dst = flowCell(grid, mats, idx, x, y, m, mb, hv, tick, ts, ltr);
+    hv = outHv;
+    dy = outDy;
+    live = outLive;
+  }
+  if (dst !== idx) vel[idx] = 0;
+  flow[idx] = 0;
+  flow[dst < 0 ? idx : dst] = hv;
+  if (dst < 0 || dst === idx) {
+    if (!live) return 0;
+    outMinX = outMaxX = x;
+    outMinY = outMaxY = y;
+    return 1;
+  }
+  const coat = grid.coating;
+  const gas = grid.gas;
+  const state = grid.cellState;
+  mat[dst] = m;
+  mat[idx] = 0;
+  coat[dst] = coat[idx]!;
+  coat[idx] = 0;
+  // falling into gas pushes the gas up into the cell it left (bubbles rise through water)
+  if (gas[dst] !== 0) {
+    gas[idx] = gas[dst]!;
+    gas[dst] = 0;
+    grid.extendGas(x, y);
+  }
+  grid.shade[dst] = grid.shadeOf(idx);
+  const dx = (dst % W) - x;
+  // moved reactive cells must be re-checked where they land
+  if (mats.active[m] !== 0 || mats.decayTurns[m] !== 0 || mats.active[coat[dst]!] !== 0) {
+    grid.extendReact(Math.min(x, x + dx) - 1, y - 1, Math.max(x, x + dx) + 1, y + dy + 1);
+  }
+  // a spreading liquid that falls starts spreading afresh
+  state[dst] = dy > 0 && mats.spread[m] !== 0 ? state[idx]! & ~AGE_MASK : state[idx]!;
+  state[idx] = 0;
+  // a liquid that moved may have opened a drop for still liquid further along its surface
+  // (the end of a terrace), so the next pass looks that far to either side
+  const pad = dx !== 0 && mats.spread[m] !== 0 ? DROP_LOOK : 0;
+  outMinX = (dx < 0 ? x + dx : x) - pad;
+  outMaxX = (dx > 0 ? x + dx : x) + pad;
+  outMinY = dy < 0 ? y + dy : y;
+  outMaxY = dy > 0 ? y + dy : y;
+  return 2;
 }
 
 /**
