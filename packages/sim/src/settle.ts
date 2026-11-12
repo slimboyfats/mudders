@@ -32,7 +32,7 @@ const SLIDE_MAX = 7;
 /** Bit set when the slide heads left. */
 const SLIDE_LEFT = 128;
 /** Fall speed from which a landing counts as an impact (the grain and what it hits shake loose). */
-const IMPACT_MIN = 3;
+const IMPACT_MIN = 5;
 /** Fall speed from which a landing shakes the grain and the ground under it loose. */
 const SHAKE_MIN = 6;
 /** Loosen steps a hard landing leaves a grain with: enough to start it down a slope. */
@@ -181,7 +181,8 @@ export function settleStep(
         }
         nv = v | (sv << SLIDE_SHIFT) | (sv > 0 && sd < 0 ? SLIDE_LEFT : 0);
       } else {
-        if (gl !== 0 && fv >= IMPACT_MIN) {
+        // only a mass has the weight for it: a lone grain (a snowflake, a trickle) just lands
+        if (gl !== 0 && fv >= IMPACT_MIN && y > 0 && mat[idx - W] !== 0) {
           // A hard landing. The grain is shaken loose, and so is loose ground it lands on...
           const rp = repose[m]!;
           if (fv >= SHAKE_MIN) {
@@ -332,7 +333,8 @@ export function settleStep(
           else if (mat[below - d] === 0) dst = below - d;
           if (dst >= 0) {
             dy = 1;
-            sd = dst - below;
+            // a topple is not a slide: it carries no speed on
+            nv = 1;
           }
         }
         // Loosened ground (a blast's crater rim) slumps off a slope steeper than the material

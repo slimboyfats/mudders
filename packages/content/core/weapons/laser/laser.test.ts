@@ -6,7 +6,8 @@ describe('weapon.laser', () => {
     const w = flatWorld(100, { tankColumns: [20, 380], map: { width: 400, height: 400 } });
     launchAt(w, 'weapon.laser', 200, 90, 0, 1);
     const g = w.grid;
-    expect(g.material[360 * g.width + 200]).toBe(0);
+    // (the slivers of wall the beam undercuts drop and crumble into the bottom of the shaft)
+    expect(g.material[300 * g.width + 200]).toBe(0);
     expect(g.surfaceY(200 + 6)).toBe(100);
   });
 
