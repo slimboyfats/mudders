@@ -24,6 +24,8 @@ export interface CaptureOptions {
   slowmo: boolean;
   /** Theme id overriding the scenario's (`theme.*`). */
   theme: string | undefined;
+  /** Draw the sky at this round's time of day (0 = the theme as is; see `dayPhase`). */
+  day: number;
   /** Give the MP4 a soundtrack: the game's SFX and process soundscape, rendered offline. */
   audio: boolean;
 }
@@ -45,6 +47,7 @@ export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options
   --no-shake            disable screen shake
   --slowmo              play the blow that decides the round in slow motion, as the game does
   --theme <theme-id>    render with this theme (default: the scenario's, else theme.default)
+  --day <round>         draw the sky at that round's time of day (0 = as is, 1-3 = the next three)
   --audio               give the MP4 the game's sound (effects + fire/liquid/gas soundscape)`;
 
 export class UsageError extends Error {}
@@ -70,6 +73,7 @@ export function parseArgs(argv: string[]): CaptureOptions {
     shake: true,
     slowmo: false,
     theme: undefined,
+    day: 0,
     audio: false,
   };
   let onlyGif = false;
@@ -150,6 +154,12 @@ export function parseArgs(argv: string[]): CaptureOptions {
       case '--audio':
         o.audio = true;
         break;
+      case '--day': {
+        const d = Number(val());
+        if (!Number.isInteger(d) || d < 0) throw new UsageError(`bad --day ${d}`);
+        o.day = d;
+        break;
+      }
       case '--theme': {
         const t = val();
         if (!/^theme\.[a-z0-9-]+$/.test(t)) throw new UsageError(`bad --theme ${t}`);

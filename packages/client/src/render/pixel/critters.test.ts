@@ -114,4 +114,28 @@ describe('Critters', () => {
     for (let t = 1; t < 40; t++) c.step(snap(t, [], [shell]), probe, sink);
     expect(r.x).toBeGreaterThan(x0 + 10);
   });
+
+  it('crows fly in to a wreck, perch on it, and a blast sends them off', () => {
+    const { probe } = world();
+    const c = new Critters();
+    c.populate(probe, [], 7);
+    const wreck = {
+      kind: 'tank',
+      player: 1,
+      x: 300,
+      y: 150,
+      alive: false,
+    } as unknown as EntityView;
+    const sink = new Sink();
+    let t = 1;
+    for (; t < 2000; t++) c.step(snap(t, [], [wreck]), probe, sink);
+    expect(c.crows.length).toBeGreaterThanOrEqual(2);
+    for (const k of c.crows) {
+      expect(Math.abs(k.x - 300)).toBeLessThan(10);
+      expect(k.y).toBeLessThan(150);
+    }
+    c.step(snap(t, [boom(t, 320, 150, 10)], [wreck]), probe, sink);
+    for (let u = t + 1; u < t + 200; u++) c.step(snap(u, [], [wreck]), probe, sink);
+    for (const k of c.crows) expect(Math.abs(k.x - 300) > 10 || k.y < 100).toBe(true);
+  });
 });

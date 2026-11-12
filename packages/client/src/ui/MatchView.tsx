@@ -174,6 +174,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
           theme: settings.theme,
           palette: paletteFrom(match.content),
           shake: settings.shake,
+          dayNight: settings.dayNight,
           onCues: effectSounds,
           onProcesses: processSounds,
           // a late frame never pays GPU smoke/particle passes for more than two ticks
@@ -211,7 +212,15 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       rendererRef.current = null;
       processSounds(null);
     };
-  }, [match, settings.quality, settings.autoQuality, settings.shake, settings.theme, refreshHud]);
+  }, [
+    match,
+    settings.quality,
+    settings.autoQuality,
+    settings.shake,
+    settings.dayNight,
+    settings.theme,
+    refreshHud,
+  ]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
   useEffect(() => {
