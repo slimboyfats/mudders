@@ -189,6 +189,12 @@ export const MaterialSchema = z.strictObject({
    */
   disperse: z.number().int().min(1).max(8).optional(),
   /**
+   * Flow materials with `disperse` > 1 (liquids with momentum): how thick it is, 0 (water) to 3
+   * (lava). A thick liquid loses its speed sooner, makes no waves, creeps level and stands in a
+   * deeper front before it stops.
+   */
+  viscosity: z.number().int().min(0).max(3).optional(),
+  /**
    * Fall materials: the steepest stair a slope of loosened cells holds, in cells of drop per cell
    * across (1 is 45 degrees). Firm ground stands at any slope; a cell a blast has shaken loose (a
    * `rim` rule with `loosen`) slides down beside itself while there is open air there and at

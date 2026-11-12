@@ -46,8 +46,8 @@ describe('material.gunpowder', () => {
   it('fire and lava light it too', () => {
     const w = seamWorld(100, 200, 0);
     const lava = w.mats.cellOf('material.lava');
-    w.grid.set(100, 119, lava);
-    w.grid.markDirty(100, 119, 100, 119);
+    w.grid.set(150, 119, lava);
+    w.grid.markDirty(150, 119, 150, 119);
     w.run(600);
     expect(countCells(w, 'material.gunpowder')).toBeLessThan(30);
   });
