@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AutoQuality } from './auto-quality';
+import { AutoQuality, renderDpr } from './auto-quality';
 
 /** Feed `seconds` of frames `ms` long; returns the qualities it switched to. */
 function run(a: AutoQuality, ms: number, seconds: number): string[] {
@@ -43,5 +43,15 @@ describe('AutoQuality', () => {
     const a = new AutoQuality('high');
     for (let i = 0; i < 500; i++) expect(a.frame(i % 2 === 0 ? 5000 : 0)).toBeNull();
     expect(a.quality).toBe('high');
+  });
+});
+
+describe('renderDpr', () => {
+  it('caps the pixel density on low quality only', () => {
+    expect(renderDpr('high', 3)).toBe(3);
+    expect(renderDpr('medium', 3)).toBe(3);
+    expect(renderDpr('low', 3)).toBe(2);
+    expect(renderDpr('low', 1)).toBe(1);
+    expect(renderDpr('low', 0)).toBe(1);
   });
 });

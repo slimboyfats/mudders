@@ -166,6 +166,11 @@ button.primary,
   display: block;
 }
 
+/* on low quality the canvas holds fewer pixels than the screen: scale it up as hard pixels */
+.game-canvas {
+  image-rendering: pixelated;
+}
+
 .overlay {
   pointer-events: none;
   overflow: visible;

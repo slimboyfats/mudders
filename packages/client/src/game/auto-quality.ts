@@ -14,6 +14,19 @@ const SETTLE_WINDOWS = 1;
 /** A single frame longer than this is a hiccup (tab switch, GC, a shader compile), not the pace. */
 const HICCUP_MS = 250;
 
+/** On low quality the canvas is drawn at no more than this many device pixels per CSS pixel. */
+const LOW_DPR = 2;
+
+/**
+ * Pixel density to draw at: the screen's own, except that low quality caps it. A phone screen has
+ * three device pixels (or more) per CSS pixel; drawing two and letting the browser scale the
+ * canvas up (nearest-neighbour) more than halves the pixels every pass has to fill.
+ */
+export function renderDpr(quality: Quality, deviceDpr: number): number {
+  const dpr = deviceDpr > 0 ? deviceDpr : 1;
+  return quality === 'low' ? Math.min(dpr, LOW_DPR) : dpr;
+}
+
 /**
  * Picks the render quality from how long frames really take (§9: hold the frame rate on phones).
  * It starts at the player's chosen quality, which is also the highest it ever uses; when frames
