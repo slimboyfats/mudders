@@ -19,6 +19,10 @@
     "corrosive": 4
   },
   "cohesion": 0,
+  "eject": {
+    "share": 0.45,
+    "reach": 1.8
+  },
   "coating": false,
   "reactions": [
     {

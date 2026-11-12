@@ -270,6 +270,8 @@ export interface Tank extends TankHandle {
   fallVel: number;
   /** Cells sunk into quicksand-like ground since the tank last fell or the round started. */
   sunk: number;
+  /** Which way it last slid on slick ground (-1, 0, 1) since it last fell or the turn began. */
+  slid: number;
   /** Own turns left frosted (Frost Bomb): shots fire at no more than CHILL_POWER. */
   chill: number;
   /**
@@ -1128,6 +1130,7 @@ export class World implements SimApi {
         fallFrom: 0,
         fallVel: 0,
         sunk: 0,
+        slid: 0,
         chill: 0,
         glue: 0,
         rust: 0,
@@ -1267,6 +1270,7 @@ export class World implements SimApi {
       tank.fallFrom = 0;
       tank.fallVel = 0;
       tank.sunk = 0;
+      tank.slid = 0;
       tank.chill = 0;
       tank.glue = 0;
       tank.mind = 0;
@@ -1500,6 +1504,7 @@ export class World implements SimApi {
     // stepTanks adds 1 before moving it, so a held tank stays put this tick
     t.fallVel = -1;
     t.sunk = 0;
+    t.slid = 0;
   }
 
   emit(type: string, x: number, y: number, radius: number, params?: Record<string, number>): void {
@@ -3885,6 +3890,8 @@ export class World implements SimApi {
     const r = t.x + t.half < g.width ? g.surfaceY(t.x + t.half) : -1;
     if (l <= t.y && r <= t.y) return 0;
     const dir = l > r ? -1 : 1;
+    // it never slides back the way it came: a tank rocking on an icy tip comes to rest there
+    if (dir === -t.slid) return 0;
     const nx = t.x + dir;
     if (nx < t.half || nx >= g.width - t.half) return 0;
     this.slipTicks = ticks;
@@ -3898,6 +3905,7 @@ export class World implements SimApi {
     const dir = this.slipDir(t);
     if (dir === 0 || this.tick % this.slipTicks !== 0) return;
     t.x += dir;
+    t.slid = dir;
   }
 
   /**
@@ -4190,6 +4198,7 @@ export class World implements SimApi {
           t.fallFrom = t.y;
           t.fallVel = 0;
           t.sunk = 0;
+          t.slid = 0;
         }
         if (!t.chute && t.y - t.fallFrom >= fd.safeCells && fd.perCell > 0) this.openChute(t);
         t.fallVel = Math.min(t.fallVel + 1, t.chute ? this.chuteSpeed() : MAX_TANK_FALL);
@@ -4266,6 +4275,7 @@ export class World implements SimApi {
     if (this.zones.length > 0) this.zones = this.zones.filter((z) => z.turns > 0);
     if (this.turn > 0) this.driftTemperature();
     this.shooter = -1;
+    for (const u of this.tanks) u.slid = 0;
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
     this.weatherB?.onTurnStart?.(this, this.weatherParams);
@@ -4757,6 +4767,7 @@ export class World implements SimApi {
         .num(t.fallFrom)
         .num(t.fallVel)
         .num(t.sunk)
+        .num(t.slid)
         .num(t.chill)
         .num(t.glue)
         .num(t.driveLeft)

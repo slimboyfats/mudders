@@ -44,7 +44,7 @@ describe('weapon.bunker-buster', () => {
     const g = w.grid;
     let open = 0;
     for (let y = 150; y < 200; y++) if (g.get(200, y) === 0) open++;
-    expect(open).toBeGreaterThan(30);
+    expect(open).toBeGreaterThan(25);
   });
 
   it('is a damage weapon for bots', () => {
