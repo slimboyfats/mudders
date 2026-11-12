@@ -24,6 +24,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.79.0',
     newSince: 'core@0.75.0',
     items: [
+      'The world is alive: rabbits graze and hop on the hills and run from shells, blasts and tanks, diving into burrows and popping out later. Fish swim in the lakes and leap out with a splash, and float up belly-up after a blast in the water',
       'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
       'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',
       'Cave-ins come to rest sooner: the roof over a Tunnel Rat blast drops in and settles in about three quarters of the time',

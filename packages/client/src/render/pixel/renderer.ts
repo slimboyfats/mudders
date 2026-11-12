@@ -29,6 +29,7 @@ import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { apronSize, buildApron, type Apron } from './apron';
 import { CalloutTracker, drawCallouts } from './callouts';
+import { Critters, type CritterProbe, drawFish, drawRabbits, mapSeed } from './critters';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -475,6 +476,7 @@ export class PixelRenderer implements Renderer {
   );
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
+  private readonly critterProbe: CritterProbe;
   private debris: RenderSnapshot['debris'] = {
     count: 0,
     x: new Int32Array(0),
@@ -491,6 +493,8 @@ export class PixelRenderer implements Renderer {
   private lastTick = 0;
   /** Hit numbers and callouts over the tanks. */
   private readonly hits = new CalloutTracker();
+  /** Rabbits and fish (cosmetic, seeded from the map so every client sees the same). */
+  private readonly critters = new Critters();
   private fxTick = -1;
   /** The sim's swallows this snapshot (see `birds.ts`). */
   private birds: readonly number[] | undefined;
@@ -537,6 +541,12 @@ export class PixelRenderer implements Renderer {
       height: mapHeight,
       solid: (x, y) =>
         x >= 0 && y >= 0 && x < mapWidth && y < mapHeight && this.terrain[y * mapWidth + x] !== 0,
+      liquid: (x, y) => this.water.isLiquid(x, y),
+    };
+    this.critterProbe = {
+      width: mapWidth,
+      height: mapHeight,
+      solid: this.probe.solid,
       liquid: (x, y) => this.water.isLiquid(x, y),
     };
   }
@@ -1137,6 +1147,13 @@ export class PixelRenderer implements Renderer {
       // a new map: nothing from the last round carries over (shell trails, smoke columns, debris,
       // flames, shield and battery flashes)
       this.clearRoundFx();
+      const tankXs: number[] = [];
+      for (const e of s.entities) if (e.kind === 'tank') tankXs.push(e.x);
+      this.critters.populate(
+        this.critterProbe,
+        tankXs,
+        mapSeed(s.terrain, s.width, s.height, round),
+      );
     }
     if (s.dirtyRects.length > 0) this.looksStale = true;
     if ((s.tick % 20 === 0 || this.fxTick < 0) && this.looksStale) {
@@ -1146,6 +1163,7 @@ export class PixelRenderer implements Renderer {
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
     this.hits.ingest(s);
+    this.critters.step(s, this.critterProbe, this.particles);
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
     this.witherGrass();
@@ -2447,6 +2465,8 @@ export class PixelRenderer implements Renderer {
     this.drawMines(t);
     drawDrops(this.normal, this.entities, t, (x, y) => this.tankLight(x, y));
     this.dropFx.draw(this.normal, t, (x, y) => this.probe.solid(x, y));
+    drawRabbits(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
+    drawFish(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.drawTanks(t);
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state
