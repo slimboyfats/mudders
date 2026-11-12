@@ -4,7 +4,7 @@
   "meta": {
     "name": "Avalanche",
     "description": "A map event. Every few turns the ice and snow near the top of one of the steepest long slopes break loose and slide down the hill as loose snow that runs and piles like sand, burying whatever is in the valley. A tank in the run-out below takes a hit.",
-    "since": "core@0.80.0"
+    "since": "core@0.81.0"
   },
   "behaviour": "terrainop.avalanche",
   "into": {
