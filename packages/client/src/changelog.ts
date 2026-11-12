@@ -21,7 +21,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     date: '2026-11-12',
     title:
       'DROP! weapons, a tidier shop, blasts that throw the ground, ground that falls with weight, and water with momentum',
-    pack: 'core@0.76.0 – 0.79.0',
+    pack: 'core@0.76.0 – 0.80.0',
     newSince: 'core@0.75.0',
     items: [
       'Lava, oil, napalm and plasma have weight too. Lava is thick: it creeps downhill as a front, coats the slope and stops as a mound instead of spreading flat like water. Oil pours heavy and smooth, napalm clings. Turns with lava end much sooner',
