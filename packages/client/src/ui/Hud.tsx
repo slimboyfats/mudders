@@ -409,6 +409,12 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
         </div>
       )}
 
+      {hud.alert && (
+        <div key={`alert-${hud.alert.tick}`} className="event-toast" aria-live="polite">
+          {hud.alert.text}
+        </div>
+      )}
+
       {menu && onExit && (
         <div className="sheet-scrim" onClick={() => setMenu(false)}>
           <div

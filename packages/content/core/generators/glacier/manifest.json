@@ -19,5 +19,10 @@
       "count": [2, 4],
       "cluster": false
     }
+  ],
+  "events": [
+    {
+      "use": "terrainop.avalanche"
+    }
   ]
 }

@@ -227,6 +227,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     openingShop: true,
     // swallow flocks over every map (a shell that hits one goes off there)
     birds: true,
+    // the map's own events: Badlands' volcano, Glacier's avalanches
+    mapEvents: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
   };
   return {

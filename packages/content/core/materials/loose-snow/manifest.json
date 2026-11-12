@@ -1,0 +1,17 @@
+{
+  "id": "material.loose-snow",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Loose Snow",
+    "description": "Snow on the move, broken loose by an avalanche. It runs and piles like sand rather than standing in columns, keeps its speed down a slope, and fire or lava melts it into water.",
+    "since": "core@0.80.0",
+    "color": "#eef2f8"
+  },
+  "extends": "material.snow",
+  "cell": 203,
+  "settle": "slide",
+  "glide": 0.85,
+  "look": {
+    "glint": false
+  }
+}
