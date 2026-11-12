@@ -17,6 +17,17 @@ describe('Camera', () => {
     expect(c.scale).toBeCloseTo(1.8);
   });
 
+  it('keeps the same view when the pixel density drops (low quality on a phone)', () => {
+    const c = new Camera(800, 400);
+    c.setViewport(750, 340, 3);
+    c.zoomBy(2, { x: 200, y: 150 });
+    const m = c.unproject({ x: 200, y: 150 });
+    c.setViewport(750, 340, 2);
+    const p = c.project(m);
+    expect(p.x).toBeCloseTo(200, 0);
+    expect(p.y).toBeCloseTo(150, 0);
+  });
+
   it('round-trips project/unproject and keeps the point under the cursor when zooming', () => {
     const c = new Camera(800, 400);
     c.setViewport(1600, 800, 1);
