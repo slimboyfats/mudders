@@ -1,5 +1,5 @@
 {
-  "contentHash": "95ecfc9995a1adba",
+  "contentHash": "346fb4243890c515",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -689,6 +689,10 @@
       "ticks": 511,
       "hash": "dafc9b9c7ddd0ce3"
     },
+    "material.loose-snow": {
+      "ticks": 46,
+      "hash": "034c8455c46f0ca3"
+    },
     "material.magma": {
       "ticks": 404,
       "hash": "adcc25b6e12f9477"
@@ -1009,6 +1013,10 @@
       "ticks": 217,
       "hash": "fe66968c4ee45ee2"
     },
+    "terrainop.avalanche": {
+      "ticks": 654,
+      "hash": "62996cee2d1871cc"
+    },
     "terrainop.bumper": {
       "ticks": 46,
       "hash": "034c8455c46f0ca3"
@@ -1116,6 +1124,10 @@
     "terrainop.rogue-hole": {
       "ticks": 46,
       "hash": "034c8455c46f0ca3"
+    },
+    "terrainop.rumbling-volcano": {
+      "ticks": 544,
+      "hash": "c2516e568015163b"
     },
     "terrainop.shave": {
       "ticks": 291,
