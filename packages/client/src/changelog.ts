@@ -23,6 +23,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.78.0',
     newSince: 'core@0.75.0',
     items: [
+      'The world is alive: rabbits graze and hop on the hills and run from shells, blasts and tanks, diving into burrows and popping out later. Fish swim in the lakes and leap out with a splash, and float up belly-up after a blast in the water',
       'Hits now show: the damage floats up over the tank that took it (green for repairs), and big moments pop up over the tank in pixel letters: DIRECT HIT, CLOSE CALL, OWN GOAL, KILL, SNIPED for a long-range kill, and DOUBLE or TRIPLE KILL when one shot takes out more than one tank',
       'Smoother on phones: the picture quality now steps down by itself when frames run long, and tries to step back up once things are smooth (Settings has a switch for it). On low quality a phone also draws fewer, harder pixels',
       'Explosions now throw part of the dirt, sand, snow, rubble, clay and ash they dig out: it flies up and out in a curtain on each side of the crater, rains back down and stays',
