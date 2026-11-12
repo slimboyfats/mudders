@@ -175,7 +175,7 @@
     },
     "audio.ice-wall": {
       "ticks": 615,
-      "hash": "eb671efc2c3ad656"
+      "hash": "ebb575d24d51fe85"
     },
     "audio.implode": {
       "ticks": 162,
@@ -690,8 +690,8 @@
       "hash": "dafc9b9c7ddd0ce3"
     },
     "material.magma": {
-      "ticks": 364,
-      "hash": "2e227172ec6948b5"
+      "ticks": 377,
+      "hash": "139219edc36af507"
     },
     "material.marsh-gas": {
       "ticks": 863,
@@ -966,8 +966,8 @@
       "hash": "107c3ddbfb2c7712"
     },
     "structure.ice-shelf": {
-      "ticks": 746,
-      "hash": "cc5bad72e119f2e6"
+      "ticks": 816,
+      "hash": "8a0b3424c641adad"
     },
     "structure.undermined-house": {
       "ticks": 230,
@@ -1071,7 +1071,7 @@
     },
     "terrainop.ice-wall": {
       "ticks": 615,
-      "hash": "eb671efc2c3ad656"
+      "hash": "ebb575d24d51fe85"
     },
     "terrainop.ignite": {
       "ticks": 302,
@@ -1166,8 +1166,8 @@
       "hash": "56a9d3a7e8eb80ad"
     },
     "theme.pitch-black": {
-      "ticks": 1500,
-      "hash": "4df4afb3b8ca893e"
+      "ticks": 723,
+      "hash": "d53654548db33261"
     },
     "theme.snow": {
       "ticks": 329,
@@ -1499,7 +1499,7 @@
     },
     "weapon.ice-wall": {
       "ticks": 615,
-      "hash": "eb671efc2c3ad656"
+      "hash": "ebb575d24d51fe85"
     },
     "weapon.implosion": {
       "ticks": 217,
