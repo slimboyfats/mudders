@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.78.0",
+  "version": "0.79.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [

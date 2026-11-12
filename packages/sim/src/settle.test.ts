@@ -1,5 +1,6 @@
 import type { MaterialManifest } from '@mudders/shared';
 import { describe, expect, it } from 'vitest';
+import { DebrisPool } from './debris';
 import { Grid, grainShade } from './grid';
 import { MaterialTable } from './materials';
 import { MAX_FALL_SPEED, settleStep } from './settle';
@@ -252,5 +253,83 @@ describe('settleStep', () => {
     expect(g.settling).toBe(true);
     run(g, 1000, 10);
     for (let x = 0; x < 50; x++) expect(g.get(x, 39)).toBe(1);
+  });
+});
+
+describe('momentum (glide)', () => {
+  const table = (glide: number): MaterialTable =>
+    new MaterialTable([
+      { ...mat('material.dirt', 1, 'fall'), repose: 1, ...(glide > 0 ? { glide } : {}) },
+      mat('material.rock', 3, 'static'),
+    ]);
+
+  /** Drop a 12 × 12 block of dirt 60 cells onto a rock floor; returns the grid once it is still. */
+  function drop(glide: number): { g: Grid; ticks: number } {
+    const W = 120;
+    const H = 100;
+    const g = new Grid(W, H);
+    const t = table(glide);
+    const debris = new DebrisPool();
+    for (let x = 0; x < W; x++) g.set(x, H - 1, 3);
+    for (let y = 20; y < 32; y++) for (let x = 54; x < 66; x++) g.set(x, y, 1);
+    g.markDirty(0, 0, W - 1, H - 1);
+    let ticks = 0;
+    while ((g.settling || debris.count > 0) && ticks < 2000) {
+      debris.step(g, 8000, t);
+      settleStep(g, t, ticks++, 1e9, debris);
+    }
+    return { g, ticks };
+  }
+
+  function shape(g: Grid): { cells: number; width: number; height: number } {
+    let cells = 0;
+    let x0 = g.width;
+    let x1 = -1;
+    let top = g.height;
+    for (let y = 0; y < g.height; y++) {
+      for (let x = 0; x < g.width; x++) {
+        if (g.get(x, y) !== 1) continue;
+        cells++;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < top) top = y;
+      }
+    }
+    return { cells, width: x1 - x0 + 1, height: g.height - 1 - top };
+  }
+
+  it('without glide a dropped block lands as the block it fell as', () => {
+    const { g } = drop(0);
+    expect(shape(g)).toEqual({ cells: 144, width: 12, height: 12 });
+  });
+
+  it('with glide it lands hard and spreads into a lower, wider heap, losing nothing', () => {
+    const { g, ticks } = drop(0.5);
+    const s = shape(g);
+    expect(ticks).toBeLessThan(600);
+    expect(s.cells).toBe(144);
+    expect(s.width).toBeGreaterThan(20);
+    expect(s.height).toBeLessThan(12);
+    // every grain is at rest and carries no leftover motion
+    for (let i = 0; i < g.size; i++) if (g.material[i] === 1) expect(g.fallVel[i]).toBe(0);
+  });
+
+  it('is deterministic', () => {
+    const a = drop(0.5).g;
+    const b = drop(0.5).g;
+    expect(Array.from(a.material)).toEqual(Array.from(b.material));
+  });
+
+  it('a short drop is not an impact: the block stays a block', () => {
+    const W = 60;
+    const H = 40;
+    const g = new Grid(W, H);
+    const t = table(0.5);
+    for (let x = 0; x < W; x++) g.set(x, H - 1, 3);
+    for (let y = H - 12; y < H - 4; y++) for (let x = 26; x < 34; x++) g.set(x, y, 1);
+    g.markDirty(0, 0, W - 1, H - 1);
+    let ticks = 0;
+    while (g.settling && ticks < 300) settleStep(g, t, ticks++, 1e9, new DebrisPool());
+    for (let y = H - 9; y < H - 1; y++) for (let x = 26; x < 34; x++) expect(g.get(x, y)).toBe(1);
   });
 });

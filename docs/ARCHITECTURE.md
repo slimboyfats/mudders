@@ -112,6 +112,14 @@ frost power cap. In the shop a purchase with `item: AI_FUEL` buys fuel packs via
 
 ### 3.2b Reactions and decay (milestone 3)
 
+**Momentum** (`settle.ts`): a material with `glide` keeps its motion in the cell's `fallVel` byte
+(low nibble fall speed, bits 4-6 slide speed, bit 7 heading left; hashed, no extra layer). A slide
+speeds up on a slope steeper than 45 degrees, loses speed on one at 45 and on the level, and drifts
+on when it runs off a ledge. A landing at fall speed 3 or more turns into a slide; at 6 or more the
+grain is shaken loose, grains inside the landing mass are pressed toward the nearer open side and
+wait behind the ones ahead, and some edge grains bounce off as debris. Coasting grains never loosen
+the ground they pass, so every slide dies out and the turn can end.
+
 `reactions.ts` runs after settle, over the **react region**: a box the grid grows whenever
 `markDirty` touches cells, a moved cell is active, or debris of an active material lands.
 `MaterialTable.active` flags materials (and coatings) that need it: `reactions` (per-tick chance
