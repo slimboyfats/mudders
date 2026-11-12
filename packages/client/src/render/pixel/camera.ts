@@ -58,6 +58,9 @@ export class Camera implements CameraControl {
   }
 
   setViewport(cssW: number, cssH: number, dpr: number): void {
+    // a change of pixel density (the quality stepping down) keeps what is on screen: the zoom is
+    // in device pixels per cell, so it scales with the density
+    if (!this.fitted && this.dpr > 0 && dpr !== this.dpr) this.s *= dpr / this.dpr;
     this.dpr = dpr;
     this.vw = Math.max(1, Math.round(cssW * dpr));
     this.vh = Math.max(1, Math.round(cssH * dpr));
