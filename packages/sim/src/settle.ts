@@ -63,7 +63,8 @@ let pass = 0;
  * that runs off a ledge keeps drifting that way as it falls; one that lands hard is shaken loose
  * (as is the loose ground it hits) and its fall turns into a slide down the open side, so a
  * fallen mass spreads into a heap with a run-out instead of standing as the block it fell as. At
- * the edge of a hard landing some grains bounce off as debris when a `debris` pool is given.
+ * the edge of a hard landing some grains bounce off as debris. All of this needs the `debris`
+ * pool: without one (map generation, which settles the land it builds) nothing keeps momentum.
  *
  * Returns the number of cells moved. Shrinks the settle region to what may still move.
  */
@@ -92,6 +93,8 @@ export function settleStep(
   const disperse = mats.disperse;
   const repose = mats.repose;
   const glide = mats.glide;
+  // map generation settles without a pool, and without momentum: the land forms as it always did
+  const live = debris !== undefined;
   const act = mats.active;
   const turns = mats.decayTurns;
   const x0 = grid.settleMinX;
@@ -147,7 +150,7 @@ export function settleStep(
         }
         continue;
       }
-      const gl = glide[m]!;
+      const gl = live ? glide[m]! : 0;
       const pv = vel[idx]!;
       const fv = pv & FALL_MASK;
       let sv = gl !== 0 ? (pv >> SLIDE_SHIFT) & SLIDE_MAX : 0;

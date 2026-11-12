@@ -329,7 +329,7 @@ describe('momentum (glide)', () => {
     for (let y = H - 12; y < H - 4; y++) for (let x = 26; x < 34; x++) g.set(x, y, 1);
     g.markDirty(0, 0, W - 1, H - 1);
     let ticks = 0;
-    while (g.settling && ticks < 300) settleStep(g, t, ticks++, 1e9);
+    while (g.settling && ticks < 300) settleStep(g, t, ticks++, 1e9, new DebrisPool());
     for (let y = H - 9; y < H - 1; y++) for (let x = 26; x < 34; x++) expect(g.get(x, y)).toBe(1);
   });
 });
