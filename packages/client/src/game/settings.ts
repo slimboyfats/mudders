@@ -3,6 +3,8 @@ import type { Quality } from '../render/types';
 /** Per-client cosmetic settings, persisted in localStorage (§8). Never affects the sim. */
 export interface Settings {
   quality: Quality;
+  /** Step the quality down by itself when frames run long (never above `quality`). */
+  autoQuality: boolean;
   shake: boolean;
   /** Play the blow that decides a round in slow motion (presentation only). */
   slowmo: boolean;
@@ -25,6 +27,7 @@ function defaults(): Settings {
   const mobile = mq('(pointer: coarse)');
   return {
     quality: mobile ? 'medium' : 'high',
+    autoQuality: true,
     // no screen shake for players who asked their system for less motion
     shake: !mq('(prefers-reduced-motion: reduce)'),
     slowmo: true,

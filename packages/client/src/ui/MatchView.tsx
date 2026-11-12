@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { Input } from '@mudders/shared';
 import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
+import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
@@ -117,16 +118,27 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
     // hit-stop (§2a): big hits hold the picture for a beat; off with screen shake
     const stop = new HitStop(settings.shake);
     const unfeed = match.subscribe((s) => stop.feed(s));
+    // frames running long (a phone under a big blast): the quality steps down by itself
+    const auto = settings.autoQuality ? new AutoQuality(settings.quality) : null;
+    let quality = settings.quality;
+    let resize: (() => void) | undefined;
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
       const wall = last < 0 ? 0 : now - last;
       last = now;
+      const stepped = auto?.frame(wall);
+      if (stepped) {
+        quality = stepped;
+        r.setQuality(stepped);
+        wrap.dataset['quality'] = stepped;
+        resize?.();
+      }
       // camera glides and fling momentum run on wall time, untouched by hit-stop and slow-mo
       r.camera.update(Math.min(wall, 100));
       // current zoom and view centre (map cells), for the touch smoke test
-      const zoom = (r.camera.scale / (window.devicePixelRatio || 1)).toFixed(2);
+      const zoom = (r.camera.scale / renderDpr(quality, window.devicePixelRatio)).toFixed(2);
       if (wrap.dataset['zoom'] !== zoom) wrap.dataset['zoom'] = zoom;
       const mid = r.unproject({ x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 });
       const centre = `${Math.round(mid.x)},${Math.round(mid.y)}`;
@@ -170,10 +182,11 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
         rendererRef.current = r;
         const size = () => {
           const rect = wrap.getBoundingClientRect();
-          r.resize(rect.width, rect.height, window.devicePixelRatio || 1);
+          r.resize(rect.width, rect.height, renderDpr(quality, window.devicePixelRatio));
           setViewMin(Math.min(rect.width, rect.height));
         };
         size();
+        resize = size;
         ro = new ResizeObserver(size);
         ro.observe(wrap);
         raf = requestAnimationFrame(frame);
@@ -198,7 +211,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
       rendererRef.current = null;
       processSounds(null);
     };
-  }, [match, settings.quality, settings.shake, settings.theme, refreshHud]);
+  }, [match, settings.quality, settings.autoQuality, settings.shake, settings.theme, refreshHud]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
   useEffect(() => {
