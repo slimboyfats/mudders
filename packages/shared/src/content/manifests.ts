@@ -189,6 +189,12 @@ export const MaterialSchema = z.strictObject({
    */
   disperse: z.number().int().min(1).max(8).optional(),
   /**
+   * Flow materials with `disperse` > 1 (liquids with momentum): how thick it is, 0 (water) to 3
+   * (lava). A thick liquid loses its speed sooner, makes no waves, creeps level and stands in a
+   * deeper front before it stops.
+   */
+  viscosity: z.number().int().min(0).max(3).optional(),
+  /**
    * Fall materials: the steepest stair a slope of loosened cells holds, in cells of drop per cell
    * across (1 is 45 degrees). Firm ground stands at any slope; a cell a blast has shaken loose (a
    * `rim` rule with `loosen`) slides down beside itself while there is open air there and at
@@ -403,9 +409,25 @@ export const GeneratorSchema = z.looseObject({
   props: z.array(GenPropSchema).max(8).optional(),
   /** Base air temperature in °C (§3.4); unset = TEMP_MILD. */
   temperature: z.number().int().min(-20).max(45).optional(),
+  /**
+   * Map events (kernel 0.45.0): resident terrain ops started once per round, with the match rule
+   * `mapEvents` on, that live on the map and act on their own (a volcano that rumbles and erupts
+   * every few turns, avalanches off the peaks). Each picks its own site; started with no owner.
+   */
+  events: z
+    .array(
+      z.looseObject({
+        ref: ContentIdSchema.refine((id) => id.startsWith('terrainop.'), {
+          message: 'must reference a terrainop.* item',
+        }).optional(),
+        behaviour: ContentIdSchema,
+      }),
+    )
+    .max(4)
+    .optional(),
 });
 /** Keys the kernel reads from a generator itself; the rest go to its behaviour. */
-export const GEN_CORE_KEYS: readonly string[] = ['props', 'temperature'];
+export const GEN_CORE_KEYS: readonly string[] = ['props', 'temperature', 'events'];
 export const FlightSchema = z.looseObject({ ...behaviourBacked });
 export const TerrainOpSchema = z.looseObject({ ...behaviourBacked });
 export type GeneratorManifest = z.infer<typeof GeneratorSchema>;

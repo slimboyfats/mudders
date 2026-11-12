@@ -11,6 +11,8 @@
   "settle": "flow",
   "density": 40,
   "strength": {},
+  "disperse": 4,
+  "viscosity": 1,
   "cohesion": 0.2,
   "coating": true,
   "tags": ["hot"],

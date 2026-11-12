@@ -71,6 +71,8 @@ export const ScenarioSchema = z.strictObject({
       birds: z.boolean().optional(),
       /** Supply drops: how often crates come down (off unless set). */
       drops: z.enum(['off', 'rare', 'normal', 'often']).optional(),
+      /** The map's own events (volcano on Badlands, avalanches on Glacier; off unless set). */
+      mapEvents: z.boolean().optional(),
     })
     .optional(),
   /**

@@ -1,0 +1,89 @@
+{
+  "id": "terrainop.avalanche",
+  "schemaVersion": 1,
+  "description": "Glacier with map events on: both tanks fire harmless tracers, and at the start of the third turn the snow and ice on the steepest slope break loose and slide downhill as an avalanche.",
+  "subject": "terrainop.avalanche",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.glacier"
+  },
+  "tanks": [
+    {
+      "x": 110,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    },
+    {
+      "x": 690,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "mapEvents": true,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 360
+  }
+}

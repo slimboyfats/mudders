@@ -17,6 +17,8 @@
     "shock": 0.3,
     "dig": 0.3
   },
+  "disperse": 3,
+  "viscosity": 1,
   "cohesion": 0,
   "coating": false,
   "tags": ["hot"],

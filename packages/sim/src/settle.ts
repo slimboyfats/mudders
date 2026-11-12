@@ -619,12 +619,13 @@ function flowCell(
   // slope (gaining), off a ledge, up a bank while the speed lasts, bouncing off a wall,
   // and handing its speed to the pool it runs into (see `surfaceFlowStep`).
   const cap = disperse[m]! * FLOW_Q;
+  const th = mats.thick[m]!;
   const v0 = vel[idx]!;
   if (v0 !== 0 && mb !== m && (hv !== 0 || v0 >= 3)) {
     // a real drop splays to either side; a one-cell step only feeds speed it has
     const s0 =
       hv !== 0 ? hv : ((Math.imul(x, 40503) ^ Math.imul(y + tick, 9973)) & 4) === 0 ? 1 : -1;
-    hv += (s0 > 0 ? 1 : -1) * ((v0 + 1) >> 1) * FLOW_Q;
+    hv += (s0 > 0 ? 1 : -1) * (((v0 + 1) >> 1) >> th) * FLOW_Q;
   } else if (v0 >= 3 && mb === m && hv !== 0) {
     // poured into a pool: the pool takes the push
     pushSurface(grid, x, hv > 0 ? 1 : -1, hv > 0 ? hv : -hv);
@@ -633,9 +634,10 @@ function flowCell(
   if (hv > cap) hv = cap;
   else if (hv < -cap) hv = -cap;
   const h8 = ((Math.imul(x, 668265263) ^ Math.imul(y + tick, 374761393)) >>> 11) & 7;
-  // drag: a sixteenth of the speed a tick, and the last of it by chance
+  // drag: a sixteenth of the speed a tick (more of it the thicker the liquid), and the last
+  // of it by chance
   if (hv !== 0) {
-    const loss = hv >> 4;
+    const loss = hv >> (4 - th);
     hv -= loss !== 0 && loss !== -1 ? loss : h8 < FLOW_DRAG ? (hv > 0 ? 1 : -1) : 0;
   }
   let mag = hv < 0 ? -hv : hv;

@@ -21,12 +21,14 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     date: '2026-11-12',
     title:
       'DROP! weapons, a tidier shop, blasts that throw the ground, ground and rock that fall with weight, and water with momentum',
-    pack: 'core@0.76.0 – 0.81.0',
+    pack: 'core@0.76.0 – 0.82.0',
     newSince: 'core@0.75.0',
     items: [
       'Falling ground hurts. A tank under a mass of dirt, sand or rubble that comes down from a height, or under a slab of rock or wall, takes damage by how heavy it is and how fast it lands. Snow is light, a short drop or a sprinkle of thrown earth only buries, and the player who brought it down gets the credit',
+      'Maps have their own events: on Badlands a cinder cone full of lava stands on a hilltop, rumbles a turn before it blows, then erupts and rains real lava down the slopes. On Glacier the snow and ice on the steepest slope break loose every few turns and slide down as an avalanche that hurts tanks in its way. The HUD calls them out',
       'Rock and walls now come down in pieces. A stalactite shot loose, the tip of a rock ledge, the top of a tower or a rock shelf that hangs too far breaks off as solid slabs that fall, turn in the air and are thrown clear of the blast, and stay lying as blocks of rock or wall where they land; only the small bits crumble. A rock ledge shot thin at the neck snaps off under its own weight',
       'Bare rock, ice and concrete that lose their footing fall as boulders that tip over the point they land on, roll a little and lie where they come to rest, at an angle',
+      'Lava, oil, napalm and plasma have weight too. Lava is thick: it creeps downhill as a front, coats the slope and stops as a mound instead of spreading flat like water. Oil pours heavy and smooth, napalm clings. Turns with lava end much sooner',
       'Water now has momentum. A lake that is blasted open pours out with its whole depth, the wave runs to the far bank, climbs it, sloshes back and dies down, and the lake ends up level',
       'Water that runs over an edge falls as a waterfall in an arc and feeds the pool below. Water running down a hill keeps its speed, shoots off ledges and runs a little way up the other side',
       'A lake holed below the waterline jets out under pressure, faster the deeper the hole',

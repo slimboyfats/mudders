@@ -27,7 +27,7 @@ const params = z.strictObject({
   maxSpeed: z.number().min(0.2).max(10),
   spread: z.number().min(0).max(6),
 });
-type Params = z.infer<typeof params>;
+export type Params = z.infer<typeof params>;
 
 /**
  * Rim-to-flank profile: full `height` at the rim, falling off to 0 at `R` along a slightly

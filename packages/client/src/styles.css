@@ -1889,6 +1889,24 @@ a.button {
   animation: drop-toast 3s ease-out forwards;
 }
 
+.event-toast {
+  position: absolute;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 92px);
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  border-radius: 10px;
+  background: rgb(14 10 8 / 0.78);
+  border: 1px solid #ff8a3a;
+  color: #ffb070;
+  font-size: 0.9rem;
+  font-weight: 800;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: drop-toast 3s ease-out forwards;
+}
+
 .drop-toast-who {
   color: var(--pc);
   font-weight: 800;

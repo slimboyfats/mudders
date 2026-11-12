@@ -68,6 +68,8 @@ export class MaterialTable {
   readonly spread = new Uint8Array(256);
   /** Flow cells run up to this many cells sideways per tick (≥ 1). */
   readonly disperse = new Uint8Array(256).fill(1);
+  /** Liquids with momentum: thickness 0 (water) to 3 (lava), see `viscosity`. */
+  readonly thick = new Uint8Array(256);
   /** Fall materials: steepest stair (cells of drop) a slope holds; 0 = stands sheer. */
   readonly repose = new Uint8Array(256);
   /** Fall/slide materials: chance in 8 a moving grain keeps its speed per cell (0 = no momentum). */
@@ -218,6 +220,7 @@ export class MaterialTable {
         this.active[c] = this.active[c]! | ACT_SPREAD;
       }
       this.disperse[c] = m.disperse ?? 1;
+      this.thick[c] = m.viscosity ?? 0;
       // loosen steps live in the cell's state byte, which ageing materials use for their age
       this.repose[c] = m.settle === 'fall' && !m.decay && !m.spread ? (m.repose ?? 0) : 0;
       this.glide[c] =
