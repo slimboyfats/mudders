@@ -1,0 +1,58 @@
+{
+  "id": "showcase.hit-callouts",
+  "schemaVersion": 1,
+  "description": "P1 lands a missile between two battered tanks: hit numbers float up over each, KILL and DOUBLE KILL pop over the wrecks.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 608,
+      "health": 12
+    },
+    {
+      "x": 634,
+      "health": 30
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 150
+  }
+}

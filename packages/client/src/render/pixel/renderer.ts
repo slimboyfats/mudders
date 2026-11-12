@@ -28,6 +28,7 @@ import { ProcessMeter } from './process-meter';
 import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { apronSize, buildApron, type Apron } from './apron';
+import { CalloutTracker, drawCallouts } from './callouts';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -488,6 +489,8 @@ export class PixelRenderer implements Renderer {
   private horizon = -1;
   private rangeBuf = new Float32Array(9);
   private lastTick = 0;
+  /** Hit numbers and callouts over the tanks. */
+  private readonly hits = new CalloutTracker();
   private fxTick = -1;
   /** The sim's swallows this snapshot (see `birds.ts`). */
   private birds: readonly number[] | undefined;
@@ -1142,6 +1145,7 @@ export class PixelRenderer implements Renderer {
     }
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
+    this.hits.ingest(s);
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
     this.witherGrass();
@@ -2510,6 +2514,8 @@ export class PixelRenderer implements Renderer {
       fresh,
     );
     this.wall.drawParticles(this.normal, this.additive, zone);
+    // hit numbers and callouts on top of everything
+    drawCallouts(this.normal, this.hits, t, scale);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.normal.flush(view, origin, scale);
