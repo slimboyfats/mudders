@@ -1,5 +1,5 @@
 {
-  "contentHash": "3bb46398bea7e85c",
+  "contentHash": "8155a2b58f8c1cb9",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -924,6 +924,10 @@
     "showcase.landslide": {
       "ticks": 294,
       "hash": "6301b21c1d9007f5"
+    },
+    "showcase.rock-crush": {
+      "ticks": 756,
+      "hash": "f63963808ac98598"
     },
     "showcase.rockfall": {
       "ticks": 423,

@@ -79,6 +79,8 @@ interface Body {
   /** Where it started (FP), to tell a piece that fell from one that broke where it stood. */
   sx: number;
   sy: number;
+  /** Bit per player it has already struck (a piece hits a tank once). */
+  struck: number;
 }
 
 function mix(a: number, b: number): number {
@@ -252,6 +254,7 @@ export class Chunker {
         wait: into ? 2 + 2 * Math.trunc((lowest - y1) / WALL_H) : 0,
         sx: 0,
         sy: 0,
+        struck: 0,
       };
       let sumX = 0;
       let sumY = 0;
@@ -700,11 +703,54 @@ export class Chunker {
     return n;
   }
 
+  /**
+   * The blow falling pieces deal to what stands in the box (cells, x1/y1 exclusive) this tick:
+   * for each piece that reaches into it, its cells times their density times its speed
+   * squared (cells per tick), sixteen times over because it comes down in one piece. A
+   * piece strikes each `player` once, and only while it is coming down.
+   */
+  strike(
+    mats: MaterialTable,
+    player: number,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+  ): number {
+    let blow = 0;
+    const bit = 1 << player;
+    for (const body of this.bodies) {
+      if ((body.struck & bit) !== 0 || body.vy < FP >> 1) continue;
+      const bx = Math.floor(body.cx / FP);
+      const by = Math.floor(body.cy / FP);
+      if (bx + body.r < x0 || bx - body.r >= x1 || by + body.r < y0 || by - body.r >= y1) continue;
+      const sin = sinDeci(body.angle);
+      const cos = cosDeci(body.angle);
+      const w = body.w;
+      let touch = false;
+      for (let k = 0; k < body.edgeN && !touch; k++) {
+        const l = body.edge[k]!;
+        const lx = l % w;
+        const dx = lx * FP + HALF - body.lcx;
+        const dy = ((l - lx) / w) * FP + HALF - body.lcy;
+        const tx = Math.floor((body.cx + Math.trunc((dx * cos - dy * sin) / FP)) / FP);
+        const ty = Math.floor((body.cy + Math.trunc((dx * sin + dy * cos) / FP)) / FP);
+        touch = tx >= x0 && tx < x1 && ty >= y0 && ty < y1;
+      }
+      if (!touch) continue;
+      body.struck |= bit;
+      const v = (body.vy * 4) >> 16; // quarter cells per tick
+      blow += (body.n * v * v * mats.density[body.material]!) >> 1;
+    }
+    return blow;
+  }
+
   hash(h: Hasher): void {
     if (this.bodies.length === 0) return;
     h.num(this.bodies.length);
     for (const b of this.bodies) {
       h.num(b.cx).num(b.cy).num(b.vx).num(b.vy).num(b.angle).num(b.omega).num(b.n);
+      if (b.struck !== 0) h.num(b.struck);
     }
   }
 }

@@ -79,6 +79,20 @@ export const TANK_H = 10;
 export const TANK_HALF = TANK_W / 2;
 const BARREL = 8 * FP;
 const MAX_TANK_FALL = 8;
+/**
+ * Falling ground hurts what it lands on. A tick's blow on a tank is the sum, over what comes down
+ * into its box, of density times speed squared: a loose cell falling in the grid and a thrown grain count as they
+ * enter, and a rigid piece counts once with all its cells. Damage is the blow times the mode's fall damage per cell,
+ * over this; a tick with less than two points of it does nothing, so drizzle and short drops are free.
+ */
+const CRUSH_BLOW = 240000;
+/** Slowest falling cell (cells per tick) and thrown grain (FP per tick) that count. */
+const CRUSH_CELL = 5;
+const CRUSH_GRAIN = FP + (FP >> 1);
+/** Most a tank can take from falling ground in one tick. */
+const CRUSH_MAX = 25;
+/** Least that counts: a pebble or a handful of earth on the hull is nothing. */
+const CRUSH_MIN = 2;
 /** While a shot plays out, a tank touching a burning cell takes 1/CONTACT_SHARE of its contact damage every CONTACT_EVERY ticks. */
 const CONTACT_EVERY = 15;
 const CONTACT_SHARE = 4;
@@ -1571,6 +1585,7 @@ export class World implements SimApi {
     if (this.chunks.any) this.chunks.step(this.grid, this.mats, this.gravity, this.debris, this);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap, this.debris);
+    this.stepCrush();
     reactStep(this.grid, this.mats, this.tick);
     gasStep(this.grid, this.mats, this.tick, this.wind);
     if (this.grid.burstCount > 0) this.bursts();
@@ -4220,6 +4235,52 @@ export class World implements SimApi {
       }
     }
     return -1;
+  }
+
+  /** Ground, thrown earth and pieces that come down on a tank hurt it (see `CRUSH_BLOW`). */
+  private stepCrush(): void {
+    const per = this.mode.fallDamage.perCell;
+    if (per <= 0 || (!this.grid.settling && this.debris.count === 0 && !this.chunks.any)) return;
+    const g = this.grid;
+    const W = g.width;
+    const fall = g.fallVel;
+    const d = this.debris;
+    const dens = this.mats.density;
+    for (const t of this.tanks) {
+      if (!t.alive) continue;
+      const x0 = Math.max(0, t.x - t.half);
+      const x1 = Math.min(W, t.x + t.half);
+      const y0 = Math.max(0, t.y - t.h);
+      const y1 = Math.min(g.height, t.y);
+      let blow = 0;
+      if (g.settling) {
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0, i = y * W + x0; x < x1; x++, i++) {
+            const v = fall[i]! & 15;
+            // it moves v cells a tick, so it came into the box this tick if it is in the top v rows
+            if (v >= CRUSH_CELL && y - y0 < v && g.material[i] !== 0)
+              blow += v * v * dens[g.material[i]!]!;
+          }
+        }
+      }
+      for (let i = 0; i < d.count; i++) {
+        const vy = d.vy[i]!;
+        if (vy < CRUSH_GRAIN) continue;
+        const y = d.y[i]!;
+        // it came into the box from above this tick
+        if (y < y0 * FP || y >= y1 * FP || y - vy >= y0 * FP) continue;
+        const x = d.x[i]!;
+        if (x < x0 * FP || x >= x1 * FP) continue;
+        const v = (vy * 4) >> 16;
+        blow += ((v * v) >> 4) * dens[d.mat[i]!]!;
+      }
+      if (this.chunks.any) blow += this.chunks.strike(this.mats, t.player, x0, y0, x1, y1);
+      const dmg = Math.min(CRUSH_MAX, Math.trunc((blow * per) / CRUSH_BLOW));
+      if (dmg >= CRUSH_MIN) {
+        this.emit('land', t.x, t.y, t.half, { distance: 0, crush: dmg });
+        this.damageTank(t, dmg, this.shooter >= 0 ? this.shooter : t.lastHitBy);
+      }
+    }
   }
 
   private stepTanks(): void {
