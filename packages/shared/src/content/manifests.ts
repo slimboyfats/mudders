@@ -1033,6 +1033,12 @@ export const PropSchema = z.strictObject({
          * as plain cells. A hit that drains twice its integrity still blows it to bits.
          */
         topple: z.boolean().default(false),
+        /**
+         * Breaks off in pieces (rock, walls): when the group breaks, or a part of a `local` group
+         * is cut loose, the cells leave as rigid pieces that fall, turn and tip over where they
+         * touch down, and only become `breakInto` where they land.
+         */
+        tumble: z.boolean().default(false),
         /** `topple`: material → what it becomes once the fallen tree lies still (trunk → log). */
         felled: z.record(MaterialIdSchema, MaterialRefSchema).default({}),
       }),

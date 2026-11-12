@@ -120,6 +120,20 @@ grain is shaken loose, grains inside the landing mass are pressed toward the nea
 wait behind the ones ahead, and some edge grains bounce off as debris. Coasting grains never loosen
 the ground they pass, so every slide dies out and the turn can end.
 
+**Falling pieces** (`chunks.ts`, `Chunker`): static ground that comes loose in live play leaves the
+grid as rigid pieces instead of single cells. Two sources: the support pass (cells that hang too
+far, split into blocks of about 18 by 13; only blocks with two cells of air under them, so a landed
+piece is never taken again where it lies) and prop groups with `tumble` (the whole group on a
+break, or the part of a `local` group that was cut off, in slabs of about 28 by 20, with what rests
+on it; these carry the group's `breakInto` and only turn into it where they land). A piece has a
+centre, velocity, angle and spin in fixed point. In the air it falls and turns, checking only its
+outline cells against the grid (liquid, gas and loose grains in the air don't stop it). On the
+ground it turns about the outermost cell that holds it on the side its weight is, which makes it
+tip and roll, and it is written back as terrain once its weight is over what holds it. A hard
+landing knocks crumbs off as debris. Pieces are not in the grid while they move: the snapshot
+appends their cells to the debris view (`debris.rigid` is the first of them). Pieces are hashed
+and the turn waits for them.
+
 `reactions.ts` runs after settle, over the **react region**: a box the grid grows whenever
 `markDirty` touches cells, a moved cell is active, or debris of an active material lands.
 `MaterialTable.active` flags materials (and coatings) that need it: `reactions` (per-tick chance

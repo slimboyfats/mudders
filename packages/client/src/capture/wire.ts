@@ -44,7 +44,8 @@ export interface WireSnapshot {
   processes?: RenderSnapshot['processes'];
   entities: EntityView[];
   effectEvents: EffectEvent[];
-  debris: { x: number[]; y: number[]; vx: number[]; m: number[] };
+  /** `r`/`g`: first cell of rigid falling pieces and the grain shades, when there are any. */
+  debris: { x: number[]; y: number[]; vx: number[]; m: number[]; r?: number; g?: number[] };
   wind: number;
   theme: string;
   weather?: RenderSnapshot['weather'];

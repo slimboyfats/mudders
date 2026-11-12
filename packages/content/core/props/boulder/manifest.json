@@ -28,6 +28,7 @@
   "groups": [
     {
       "name": "stone",
+      "tumble": true,
       "roles": ["stone"],
       "integrity": 320,
       "resistance": {

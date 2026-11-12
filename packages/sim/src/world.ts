@@ -54,6 +54,7 @@ import {
 } from './behaviours';
 import { behaviourParams, type ResolvedContent } from './content/resolve';
 import { FP, FP_SHIFT, cosDeci, isqrt, sinDeci, toFixed } from './fixed';
+import { Chunker } from './chunks';
 import { DebrisPool } from './debris';
 import { Grid } from './grid';
 import { Groups } from './groups';
@@ -715,6 +716,8 @@ export class World implements SimApi {
   /** Decoys this round (see `Lure`); dead ones stay so indexes hold for the round. */
   lures: Lure[] = [];
   readonly debris = new DebrisPool();
+  /** Rock and wall falling in pieces (§4b). */
+  readonly chunks = new Chunker();
 
   private readonly opSites: OpSite[] = [];
   private readonly bots: RtBot[] = [];
@@ -761,6 +764,7 @@ export class World implements SimApi {
     const height = options.map?.height ?? mode.map.height;
     this.grid = new Grid(width, height);
     this.groups = new Groups(content.list('prop'), this.mats);
+    this.groups.chunks = this.chunks;
     this.scratch = new Scratch(this.grid.size);
     this.gravity = toFixed(mode.physics.gravity);
     const weather = options.weather ? content.get('weather', options.weather) : null;
@@ -1200,6 +1204,7 @@ export class World implements SimApi {
     const g = this.grid;
     g.reset();
     this.debris.count = 0;
+    this.chunks.reset();
     this.projectiles = [];
     this.ops = [];
     this.idleOps = 0;
@@ -1423,6 +1428,7 @@ export class World implements SimApi {
       this.ops.length === this.idleOps &&
       this.fronts.length === 0 &&
       this.debris.count === 0 &&
+      !this.chunks.any &&
       !this.groups.toppling &&
       this.pendingDeaths.length === 0 &&
       !(this.dropsOn && this.drops.moving) &&
@@ -1536,6 +1542,7 @@ export class World implements SimApi {
     if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
     this.debris.step(this.grid, this.gravity, this.mats);
+    if (this.chunks.any) this.chunks.step(this.grid, this.mats, this.gravity, this.debris, this);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap, this.debris);
     reactStep(this.grid, this.mats, this.tick);
@@ -1551,7 +1558,7 @@ export class World implements SimApi {
     // everything has come to rest after a change: what hangs too far for its material comes
     // down (§4b); never while an op is still shaping the ground (a growing ice wall)
     if (this.grid.structMaxX >= 0 && this.quiet) {
-      supportPass(this.grid, this.mats, this.scratch, this.debris, this);
+      supportPass(this.grid, this.mats, this.scratch, this.debris, this, this.chunks);
     }
     this.stepTanks();
     if (this.lures.length > 0) this.stepLures();
@@ -4696,7 +4703,8 @@ export class World implements SimApi {
       entities,
       effectEvents,
       debris: {
-        count: this.debris.count,
+        count: this.chunks.any ? this.chunks.view(this.grid, this.debris) : this.debris.count,
+        ...(this.chunks.any ? { rigid: this.debris.count } : {}),
         x: this.debris.x,
         y: this.debris.y,
         vx: this.debris.vx,
@@ -4734,6 +4742,7 @@ export class World implements SimApi {
     h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
     h.bytes(g.group).bytes(g.groupMat);
     this.groups.hash(h);
+    this.chunks.hash(h);
     h.num(g.settleMinX).num(g.settleMaxX).num(g.settleMaxY);
     h.num(g.structMinX).num(g.structMaxX).num(g.structMinY).num(g.structMaxY);
     h.num(g.reactMinX).num(g.reactMaxX).num(g.reactMinY).num(g.reactMaxY);

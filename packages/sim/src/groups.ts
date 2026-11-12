@@ -4,6 +4,7 @@ import type { Grid } from './grid';
 import type { Hasher } from './hash';
 import { KEEP, NUM_DAMAGE_TYPES, STRENGTH_ONE, type MaterialTable } from './materials';
 import type { Prng } from './prng';
+import type { Chunker } from './chunks';
 import { STUMP, Toppler } from './topple';
 
 /** Group slots per map; slot 0 means "no group". */
@@ -33,6 +34,8 @@ interface GroupDef {
   crack: Uint8Array;
   /** Snaps and falls over in one piece (a tree) unless blown apart. */
   topple: boolean;
+  /** Breaks off in rigid pieces that fall and turn (§4b). */
+  tumble: boolean;
   /** material → what it lies as once fallen (KEEP = unchanged). */
   felled: Uint8Array;
 }
@@ -131,11 +134,14 @@ export class Groups {
   private readonly propIndex: Record<string, number> = {};
   /** Trees falling over (topple groups that broke). */
   readonly toppler: Toppler;
+  /** Where `tumble` groups send what breaks off (the world's; null = they crumble in place). */
+  chunks: Chunker | null = null;
   /** Column of the blast whose op is being guarded, -1 outside an op: trees fall away from it. */
   hitX = -1;
   /** Radius of that blast: trees well inside it shatter instead of falling. */
   hitR = 0;
   private lift = new Int32Array(0);
+  private readonly rider = new Uint8Array(256);
 
   constructor(
     props: readonly PropManifest[],
@@ -226,6 +232,7 @@ export class Groups {
         loosen: g.loosen,
         shield: g.glue === 'local' ? g.shield : 0,
         topple: g.topple,
+        tumble: g.tumble,
         felled,
         integrity: g.integrity,
         resist,
@@ -951,6 +958,7 @@ export class Groups {
       }
     }
     const into = this.def[g]!.breakInto;
+    const pieces = this.def[g]!.tumble ? this.chunks : null;
     let fell = 0;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
@@ -959,8 +967,19 @@ export class Groups {
           mark[i] = 0;
           continue;
         }
-        this.release(grid, i, into);
+        if (pieces) q[fell] = i;
+        else this.release(grid, i, into);
         fell++;
+      }
+    }
+    if (pieces && fell > 0) {
+      // what was cut off falls in pieces; only crumbs come loose where they are
+      for (let k = 0; k < fell; k++) mark[q[k]!] = 1;
+      pieces.take(grid, this.mats, q, fell, mark, 1, null, into, -1);
+      for (let k = 0; k < fell; k++) {
+        const i = q[k]!;
+        mark[i] = 0;
+        if (group[i] === g) this.release(grid, i, into);
       }
     }
     this.cells[g] = tail;
@@ -1041,6 +1060,39 @@ export class Groups {
     const x1 = this.maxX[g]!;
     const y0 = this.minY[g]!;
     const y1 = this.maxY[g]!;
+    if (this.chunks && this.def[g]!.tumble && x1 >= x0) {
+      // it comes apart in pieces that fall; only what is left over crumbles where it is
+      this.ensureScratch(grid);
+      const q = this.queue;
+      const mark = this.mark;
+      // what rests on it (window panes, a roof) goes with the piece of wall it is in
+      let both = into;
+      let bx0 = x0;
+      let bx1 = x1;
+      let by0 = y0;
+      for (let o = 1; o <= this.count; o++) {
+        if (o === g || this.broken[o] !== 0 || !this.restsOn(o, g)) continue;
+        this.rider[o] = 1;
+        if (both === into) both = into.slice();
+        const oi = this.def[o]!.breakInto;
+        for (let m = 1; m < 256; m++) if (both[m] === KEEP) both[m] = oi[m]!;
+        bx0 = Math.min(bx0, this.minX[o]!);
+        bx1 = Math.max(bx1, this.maxX[o]!);
+        by0 = Math.min(by0, this.minY[o]!);
+      }
+      let n = 0;
+      for (let y = by0; y <= y1; y++) {
+        for (let x = bx0, i = y * W + bx0; x <= bx1; x++, i++) {
+          const c = grid.group[i]!;
+          if (c !== g && (c === 0 || this.rider[c] === 0)) continue;
+          mark[i] = 1;
+          q[n++] = i;
+        }
+      }
+      this.rider.fill(0);
+      this.chunks.take(grid, this.mats, q, n, mark, 1, null, both, this.hitX);
+      for (let k = 0; k < n; k++) mark[q[k]!] = 0;
+    }
     for (let y = y0; y <= y1; y++) {
       for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
         if (grid.group[i] !== g) continue;

@@ -21,9 +21,11 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     date: '2026-11-12',
     title:
       'DROP! weapons, a tidier shop, blasts that throw the ground, and ground that falls with weight',
-    pack: 'core@0.76.0 – 0.79.0',
+    pack: 'core@0.76.0 – 0.80.0',
     newSince: 'core@0.75.0',
     items: [
+      'Rock and walls now come down in pieces. A stalactite shot loose, the tip of a rock ledge, the top of a tower or a rock shelf that hangs too far breaks off as solid slabs that fall, turn in the air and are thrown clear of the blast, then break up into rubble where they land',
+      'Bare rock, ice and concrete that lose their footing fall as boulders that tip over the point they land on, roll a little and lie where they come to rest, at an angle',
       'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
       'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',
       'Cave-ins come to rest sooner: the roof over a Tunnel Rat blast drops in and settles in about three quarters of the time',
