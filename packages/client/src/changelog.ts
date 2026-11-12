@@ -24,6 +24,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.79.0',
     newSince: 'core@0.75.0',
     items: [
+      'Day and night: every round is played a little later in the day, from dawn to daylight, sunset and night, and back round again (Settings can switch it off; Pitch Black stays dark)',
+      'Crows: a while after a tank dies, two or three crows flap in and perch on the wreck, pecking. A blast or a shell scares them off, and they come back later',
       'The world is alive: rabbits graze and hop on the hills and run from shells, blasts and tanks, diving into burrows and popping out later. Fish swim in the lakes and leap out with a splash, and float up belly-up after a blast in the water',
       'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
       'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',

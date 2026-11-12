@@ -113,6 +113,8 @@ export interface RendererOptions {
   palette: RenderPalette;
   /** Screen shake on hits, scaled to blast size (§2a); off for reduced motion. */
   shake?: boolean;
+  /** The sky turns from day to sunset, night and dawn as the rounds go by (default on). */
+  dayNight?: boolean;
   /** Keep the drawing buffer so it can be read back (headless capture). */
   preserveDrawingBuffer?: boolean;
   /**

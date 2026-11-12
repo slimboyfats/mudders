@@ -221,3 +221,108 @@ export function withTemperature(th: PixelTheme, heat: number, chill: number): Pi
     flowers: th.flowers * (1 - k),
   };
 }
+
+/** Time of day a round is played at, besides the theme's own ('as-is'). */
+export type DayPhase = 'as-is' | 'day' | 'sunset' | 'night' | 'dawn';
+
+const luma = (rgb: number): number =>
+  (((rgb >> 16) & 255) * 0.3 + ((rgb >> 8) & 255) * 0.59 + (rgb & 255) * 0.11) / 255;
+
+/**
+ * The time of day for a round (0-based): round 1 shows the theme as picked, and each round after
+ * moves the clock on a step. A daylight theme goes on to sunset, night and dawn; a theme with a
+ * night sky (the default) goes on to dawn, day and sunset. Dark themes (Pitch Black, caves) never
+ * change.
+ */
+export function dayPhase(th: PixelTheme, round: number): DayPhase {
+  if (th.dark >= 0.3) return 'as-is';
+  const order: readonly DayPhase[] =
+    luma(th.skyTop) < 0.2
+      ? ['as-is', 'dawn', 'day', 'sunset']
+      : ['as-is', 'sunset', 'night', 'dawn'];
+  return order[((round % 4) + 4) % 4]!;
+}
+
+interface PhaseLook {
+  skyTop: number;
+  skyBottom: number;
+  cloud: number;
+  shadow: number;
+  ground: number;
+  range: number;
+  /** How far the theme leans toward the look, and the darkness it gets at least. */
+  k: number;
+  dark: number;
+}
+
+/** Sky, cloud, land and silhouette tones each phase leans toward. */
+const PHASE_LOOK: Record<Exclude<DayPhase, 'as-is'>, PhaseLook> = {
+  day: {
+    skyTop: 0x3a78c8,
+    skyBottom: 0xa8d4f2,
+    cloud: 0xf8fbff,
+    shadow: 0x9aaccc,
+    ground: 0xffffff,
+    range: 0x7090b8,
+    k: 0.8,
+    dark: 0,
+  },
+  sunset: {
+    skyTop: 0x3a2a5c,
+    skyBottom: 0xf0884a,
+    cloud: 0xffb07a,
+    shadow: 0x7a3a4a,
+    ground: 0xffcfa8,
+    range: 0x6a3a52,
+    k: 0.65,
+    dark: 0.06,
+  },
+  night: {
+    skyTop: 0x05071a,
+    skyBottom: 0x1a2246,
+    cloud: 0x3a4266,
+    shadow: 0x161a30,
+    ground: 0x8492bc,
+    range: 0x141a34,
+    k: 0.82,
+    dark: 0.25,
+  },
+  dawn: {
+    skyTop: 0x46568a,
+    skyBottom: 0xf2b8a2,
+    cloud: 0xffd8c8,
+    shadow: 0x8a6a8a,
+    ground: 0xffe8dc,
+    range: 0x6a6a8e,
+    k: 0.6,
+    dark: 0,
+  },
+};
+
+/** The theme at a time of day ('as-is' gives it back unchanged). */
+export function withTimeOfDay(th: PixelTheme, phase: DayPhase): PixelTheme {
+  if (phase === 'as-is') return th;
+  const L = PHASE_LOOK[phase];
+  const k = L.k;
+  const lighter = phase === 'day' || phase === 'dawn';
+  return {
+    ...th,
+    skyTop: mix(th.skyTop, L.skyTop, k),
+    skyBottom: mix(th.skyBottom, L.skyBottom, k),
+    clouds: {
+      ...th.clouds,
+      light: mix(th.clouds.light, L.cloud, k),
+      shadow: mix(th.clouds.shadow, L.shadow, k),
+    },
+    ranges: th.ranges.map((r) => mix(r, L.range, k * 0.8)),
+    ground: mix(th.ground, L.ground, k * 0.5),
+    dark: lighter ? Math.min(th.dark, L.dark) : Math.max(th.dark, L.dark),
+    // stars come out at night and fade by day
+    ambient:
+      phase === 'night' && th.ambient.kind === 'none'
+        ? { kind: 'stars', density: 60, color: 0xdfe6ff }
+        : lighter && th.ambient.kind === 'stars'
+          ? { ...th.ambient, kind: 'none' }
+          : th.ambient,
+  };
+}

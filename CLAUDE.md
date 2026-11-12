@@ -33,6 +33,7 @@ an aligned table reflows every row when one cell grows, which turns two addition
 - `pnpm capture weapon-showcase <weapon-id>`: Preset: fire the weapon at three ranges on the standard map (`--help` for options)
 - `pnpm capture <scenario> --audio`: Same, with the game's sound muxed in (SFX + fire/lava/liquid/gas soundscape, rendered offline)
 - `pnpm capture theme.<id>` or `pnpm capture <scenario> --theme theme.<id>`: Theme showcase, or any scenario in another theme
+- `pnpm capture <scenario> --day <round>`: Draw the sky at that round's time of day (day/night across rounds; `showcase.day-night` with `--day 0..3`)
 - `pnpm audio:preview`: Render every `audio.*` item in headless Chromium (real worklet), fail on silence, write `captures/audio/*.mp3` + SFX reel
 - `pnpm --filter @mudders/content music`: Rebuild the music modules from `packages/content/scripts/make-music.ts`
 - `pnpm play:smoke`: Built client on emulated iPhone 14 / S23+ / laptop: slingshot aim, fire, turn passes; PWA manifest + offline reload; screenshots

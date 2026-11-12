@@ -29,7 +29,7 @@ import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { apronSize, buildApron, type Apron } from './apron';
 import { CalloutTracker, drawCallouts } from './callouts';
-import { Critters, type CritterProbe, drawFish, drawRabbits, mapSeed } from './critters';
+import { Critters, type CritterProbe, drawCrows, drawFish, drawRabbits, mapSeed } from './critters';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -71,7 +71,9 @@ import {
   pixelTheme,
   playerColor,
   shade,
+  dayPhase,
   withTemperature,
+  withTimeOfDay,
   withWeather,
   type PixelTheme,
 } from './theme';
@@ -250,6 +252,9 @@ export class PixelRenderer implements Renderer {
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
+  /** Day and night across rounds (Settings), and the round the sky was last set for. */
+  private dayNightOn = true;
+  private dayRound = 0;
 
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
@@ -568,6 +573,7 @@ export class PixelRenderer implements Renderer {
     this.baseTheme = pixelTheme(options.theme, options.palette.themes);
     this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
+    this.dayNightOn = options.dayNight ?? true;
     this.onCues = options.onCues;
     this.onProcesses = options.onProcesses;
     this.catchUp = options.catchUp ?? Infinity;
@@ -1123,6 +1129,11 @@ export class PixelRenderer implements Renderer {
         s.dirtyRects.some((r) => r.x === 0 && r.y === 0 && r.w >= s.width && r.h >= s.height));
     if (fresh && s.width === this.mapWidth && s.height === this.mapHeight) {
       this.grassRound = round;
+      if (round !== this.dayRound) {
+        // the clock moves on a step each round: day, sunset, night, dawn
+        this.dayRound = round;
+        this.applyTheme();
+      }
       grassMask(s.terrain, s.width, s.height, this.grassMask);
       this.buildApron(s.terrain);
       gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
@@ -1900,8 +1911,11 @@ export class PixelRenderer implements Renderer {
   private applyTheme(): void {
     const q = Math.round(Math.max(0, this.stormK) * 8) / 8;
     this.themeStep = q * (this.stormKind === 'sand' ? 1 : -1);
+    const base = this.dayNightOn
+      ? withTimeOfDay(this.baseTheme, dayPhase(this.baseTheme, this.dayRound))
+      : this.baseTheme;
     this.theme = withTemperature(
-      withWeather(this.baseTheme, this.weather),
+      withWeather(base, this.weather),
       this.stormKind === 'sand' ? q : 0,
       this.stormKind === 'snow' ? q : 0,
     );
@@ -2468,6 +2482,7 @@ export class PixelRenderer implements Renderer {
     drawRabbits(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     drawFish(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.drawTanks(t);
+    drawCrows(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state
     gl.enable(gl.BLEND);

@@ -8,6 +8,8 @@ export interface Settings {
   shake: boolean;
   /** Play the blow that decides a round in slow motion (presentation only). */
   slowmo: boolean;
+  /** Each round is played at a later time of day: day, sunset, night, dawn (cosmetic). */
+  dayNight: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -31,6 +33,7 @@ function defaults(): Settings {
     // no screen shake for players who asked their system for less motion
     shake: !mq('(prefers-reduced-motion: reduce)'),
     slowmo: true,
+    dayNight: true,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,

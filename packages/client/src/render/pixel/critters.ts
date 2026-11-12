@@ -4,7 +4,7 @@ import { litColor } from './lighting';
 import { PKind, type ParticleSink } from './particles';
 
 /**
- * Wildlife (§2a living world): rabbits on the ground and fish in the lakes. Cosmetic, so it lives
+ * Wildlife (§2a living world): rabbits on the ground, fish in the lakes and crows on the wrecks. Cosmetic, so it lives
  * in the renderer, but it is stepped once per snapshot tick from a seed taken from the map, so two
  * clients watching the same match see the same animals do the same things.
  *
@@ -12,7 +12,9 @@ import { PKind, type ParticleSink } from './particles';
  * from a tank driving up, and dive into a burrow once they have run far enough, popping out again
  * later. A close blast throws them; one right on them turns them into a puff of black pixels. Fish
  * swim in the lakes, now and then leap out in an arc and splash back; a blast in or beside the
- * water stuns them and they float up belly-up and drift on the surface. All drawn cell by cell.
+ * water stuns them and they float up belly-up and drift on the surface. A while after a tank dies,
+ * two or three crows flap in and perch on the wreck, pecking and turning about; a blast or a
+ * shell sends them off and they come back later. All drawn cell by cell.
  */
 
 export interface CritterProbe {
@@ -57,6 +59,26 @@ export interface Fish {
   top: number;
 }
 
+const C = { Fly: 0, Perch: 1, Leave: 2, Gone: 3 } as const;
+type C = (typeof C)[keyof typeof C];
+
+/** A crow come to pick over a wreck. */
+export interface Crow {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  dir: -1 | 1;
+  state: C;
+  /** The wreck it is going to (player number) and its perch offset from the wreck's middle. */
+  wreck: number;
+  dx: number;
+  /** Tick it may next hop or peck, or come back after being scared off. */
+  until: number;
+  /** Tick it last flapped (wing frame). */
+  seed: number;
+}
+
 /** Small seeded generator (mulberry32): cosmetic, but the same for every client. */
 export class Rng {
   private s: number;
@@ -93,6 +115,10 @@ const SWIM_SPEED = 0.14;
 /** Shells this close (cells) send rabbits running; tanks this close make them hop off. */
 const SHELL_FEAR = 80;
 const TANK_FEAR = 22;
+/** Ticks after a tank dies before its crows show up (its fire has died down by then). */
+const CROW_DELAY = 600;
+/** Rows from a wreck's ground row up to the top of its hull. */
+const WRECK_TOP = 7;
 
 /** First solid (terrain or liquid) row at or below `y0` in column x, or -1. */
 function groundBelow(p: CritterProbe, x: number, y0: number): number {
@@ -119,6 +145,9 @@ export function mapSeed(terrain: Uint8Array, w: number, h: number, round: number
 export class Critters {
   readonly rabbits: Rabbit[] = [];
   readonly fish: Fish[] = [];
+  readonly crows: Crow[] = [];
+  /** Wrecks crows were already sent to (by player). */
+  private visited = new Set<number>();
   private rng = new Rng(1);
   private lastTick = -1;
 
@@ -129,6 +158,8 @@ export class Critters {
   populate(p: CritterProbe, tankXs: readonly number[], seed: number): void {
     this.rabbits.length = 0;
     this.fish.length = 0;
+    this.crows.length = 0;
+    this.visited.clear();
     const rng = new Rng(seed);
     this.rng = new Rng(seed ^ 0x5bd1e995);
     const w = p.width;
@@ -192,6 +223,30 @@ export class Critters {
             this.scare(r, dx >= 0 ? 1 : -1, t, 90);
           }
         }
+        for (const c of this.crows) {
+          if (c.state === C.Perch && Math.abs(c.x - e.x) < SHELL_FEAR * 1.5) this.shoo(c, t);
+        }
+      } else if (e.kind === 'tank' && !e.alive) {
+        // a wreck that has stopped burning draws a few crows in from off the map
+        if (!this.visited.has(e.player)) {
+          this.visited.add(e.player);
+          const n = this.rng.int(2, 3);
+          for (let k = 0; k < n; k++) {
+            const side: -1 | 1 = this.rng.next() < 0.5 ? -1 : 1;
+            this.crows.push({
+              x: side < 0 ? -20 - k * 14 : p.width + 20 + k * 14,
+              y: Math.max(10, e.y - this.rng.int(80, 160)),
+              vx: 0,
+              vy: 0,
+              dir: side < 0 ? 1 : -1,
+              state: C.Gone,
+              wreck: e.player,
+              dx: (k - (n - 1) / 2) * 5 + this.rng.int(-1, 1),
+              until: t + CROW_DELAY + k * 40 + this.rng.int(0, 120),
+              seed: this.rng.int(0, 1000),
+            });
+          }
+        }
       } else if (e.kind === 'tank' && e.alive) {
         for (const r of this.rabbits) {
           if (r.state !== R.Graze && r.state !== R.Hop) continue;
@@ -202,6 +257,7 @@ export class Critters {
         }
       }
     }
+    for (const c of this.crows) this.moveCrow(c, s, p, t);
     for (const r of this.rabbits) this.moveRabbit(r, p, t);
     for (const f of this.fish) this.moveFish(f, p, t, sink);
   }
@@ -237,6 +293,10 @@ export class Critters {
         this.scare(r, dir, t, 160);
       }
     }
+    for (const c of this.crows) {
+      if (c.state === C.Gone) continue;
+      if (Math.hypot(c.x - e.x, c.y - e.y) < rad * 6 + 120) this.shoo(c, t);
+    }
     for (const f of this.fish) {
       if (f.state === F.Dead) continue;
       const d = Math.hypot(f.x - e.x, f.y - e.y);
@@ -252,6 +312,93 @@ export class Critters {
       }
     }
     void p;
+  }
+
+  /** Scared off: flaps up and away, and comes back to the wreck a while later. */
+  private shoo(c: Crow, t: number): void {
+    if (c.state === C.Gone || c.state === C.Leave) return;
+    c.state = C.Leave;
+    c.vy = -1.2;
+    c.vx = (this.rng.next() < 0.5 ? -1 : 1) * 1.1;
+    c.dir = c.vx < 0 ? -1 : 1;
+    c.until = t + this.rng.int(500, 1100);
+  }
+
+  private moveCrow(c: Crow, s: RenderSnapshot, p: CritterProbe, t: number): void {
+    let wx = -1;
+    let wy = -1;
+    for (const e of s.entities) {
+      if (e.kind === 'tank' && e.player === c.wreck && !e.alive) {
+        wx = e.x;
+        wy = e.y;
+      }
+    }
+    if (wx < 0) {
+      // the wreck is gone (blown away, buried, a new round): fly off for good
+      if (c.state !== C.Gone) c.state = C.Leave;
+      c.until = Number.MAX_SAFE_INTEGER;
+    }
+    // perch on the wreck's hull, or on whatever buried it
+    // the wreck settles onto the ground under it (a crater can open beneath it as it dies)
+    const px = Math.round(wx + c.dx);
+    let py = wy - WRECK_TOP;
+    if (wx >= 0 && px >= 0 && px < p.width) {
+      const g = groundBelow(p, Math.round(wx), Math.max(0, wy - 2));
+      if (g >= 0) py = g - WRECK_TOP + 1;
+      while (py > 0 && p.solid(px, py)) py--;
+    }
+    switch (c.state) {
+      case C.Gone:
+        if (t >= c.until && wx >= 0) {
+          c.state = C.Fly;
+          // come in from the side it left by, high up
+          c.x = c.x < p.width / 2 ? -20 : p.width + 20;
+          c.y = Math.max(8, wy - this.rng.int(80, 160));
+        }
+        return;
+      case C.Leave:
+        c.vy = Math.max(-1.6, c.vy - 0.02);
+        c.x += c.vx;
+        c.y += c.vy;
+        if (c.x < -30 || c.x > p.width + 30 || c.y < -40) {
+          c.state = C.Gone;
+          c.vx = 0;
+          c.vy = 0;
+        }
+        return;
+      case C.Fly: {
+        const dx = px - c.x;
+        const dy = py - c.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 1.2) {
+          c.x = px;
+          c.y = py;
+          c.vx = 0;
+          c.vy = 0;
+          c.state = C.Perch;
+          c.until = t + this.rng.int(30, 120);
+          return;
+        }
+        // glide in, slowing over the last stretch
+        const sp = Math.min(1.4, 0.25 + d * 0.04);
+        c.vx = (dx / d) * sp;
+        c.vy = (dy / d) * sp;
+        c.x += c.vx;
+        c.y += c.vy;
+        c.dir = dx < 0 ? -1 : 1;
+        return;
+      }
+      default: {
+        // perched: stays on as the wreck shifts, turns about and pecks now and then
+        c.x = px;
+        c.y = py;
+        if (t >= c.until) {
+          if (this.rng.next() < 0.4) c.dir = c.dir === 1 ? -1 : 1;
+          c.seed = t;
+          c.until = t + this.rng.int(40, 200);
+        }
+      }
+    }
   }
 
   private moveRabbit(r: Rabbit, p: CritterProbe, t: number): void {
@@ -608,5 +755,43 @@ export function drawFish(b: QuadBatch, c: Critters, t: number, light: Light): vo
     // tail fin, wagging
     const wag = Math.floor(t / 8 + f.x) % 2 === 0 ? -1 : 0;
     b.rect(x - 2 * d, y + wag + (tilt < 0 ? 1 : 0), 1, 1, litColor(FISH_TAIL, l));
+  }
+}
+
+const CROW = 0x0e0e12;
+const CROW_SHEEN = 0x4a5070;
+const BEAK = 0x3a3428;
+
+export function drawCrows(b: QuadBatch, c: Critters, t: number, light: Light): void {
+  for (const k of c.crows) {
+    if (k.state === C.Gone) continue;
+    const x = Math.round(k.x);
+    const y = Math.round(k.y);
+    const d = k.dir;
+    const l = light(x, y);
+    const body = litColor(CROW, l);
+    const sheen = litColor(CROW_SHEEN, l);
+    if (k.state === C.Perch) {
+      // hunched on the hull: tail, body, head and beak; dips to peck for a few ticks
+      const peck = t - k.seed < 10 && Math.floor((t - k.seed) / 3) % 2 === 0;
+      b.rect(x - 2 * d, y - 2, 1, 1, body);
+      b.rect(x - 1, y - 3, 3, 2, body);
+      // a blue-grey sheen along the back, so it reads on a dark hull and against a night sky
+      b.rect(x - d, y - 3, 2, 1, sheen);
+      b.rect(x + 2 * d, y - (peck ? 2 : 4), 1, 1, body);
+      b.rect(x + 3 * d, y - (peck ? 1 : 4), 1, 1, litColor(BEAK, l));
+      b.rect(x, y - 1, 1, 1, body);
+      continue;
+    }
+    // flying: a slow, heavy beat (crows flap more than they glide)
+    const frame = Math.floor((t + k.seed) / (k.state === C.Leave ? 4 : 7)) % 3;
+    b.rect(x - 1, y, 3, 1, body);
+    b.rect(x + 2 * d, y - 1, 1, 1, body);
+    b.rect(x - 2 * d, y, 1, 1, sheen);
+    const wy = frame === 0 ? -2 : frame === 1 ? -1 : 1;
+    b.rect(x - 2, y + Math.min(0, wy), 1, Math.abs(wy), body);
+    b.rect(x + 2, y + Math.min(0, wy), 1, Math.abs(wy), body);
+    b.rect(x - 1, y + (wy < 0 ? -1 : 1), 1, 1, body);
+    b.rect(x + 1, y + (wy < 0 ? -1 : 1), 1, 1, body);
   }
 }
