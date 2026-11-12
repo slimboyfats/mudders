@@ -10,6 +10,10 @@ import { STUMP, Toppler } from './topple';
 /** Group slots per map; slot 0 means "no group". */
 export const MAX_GROUPS = 255;
 /** Percent of a blast's radius inside which a tree is blown apart instead of falling over. */
+/** A hanging part snaps when its weight times its overhang passes this many times the neck thickness squared. */
+const SNAP_BEND = 120;
+/** ... or when it weighs more than this per cell of neck. */
+const SNAP_LOAD = 400;
 const SHATTER_IN = 55;
 
 /** A shelter's opening: free rows above the ground, and half its width around a tank spawn. */
@@ -113,6 +117,10 @@ export class Groups {
   /** Flood-fill scratch for `local` groups, sized to the grid on first use. */
   private mark = new Uint8Array(0);
   private queue = new Int32Array(0);
+  private lvCount = new Int32Array(256);
+  private lvSum = new Int32Array(256);
+  private lvLo = new Int32Array(256);
+  private lvHi = new Int32Array(256);
   /** Per column: does a resting group's footing stand there (`structure` scratch). */
   private stand = new Uint8Array(0);
   /** Per column: is this part of a footing kept when it tears (`structure` scratch). */
@@ -902,6 +910,61 @@ export class Groups {
   }
 
   /**
+   * Does the stone snap under its own weight? `q[0..n)` is the held part of a group in flood order
+   * and `mark` its distance from what holds it. The stone beyond each distance hangs on the cells
+   * at that distance: they give way when it weighs too much for them outright, or when it hangs
+   * out to one side with more leverage than their thickness (squared, like a beam) can take.
+   * Returns the distance past which everything falls (256 = nothing does).
+   */
+  private snap(q: Int32Array, n: number, W: number): number {
+    const mark = this.mark;
+    const cnt = this.lvCount;
+    const sum = this.lvSum;
+    const lo = this.lvLo;
+    const hi = this.lvHi;
+    let top = 0;
+    for (let k = 0; k < n; k++) {
+      const i = q[k]!;
+      const l = mark[i]!;
+      const x = i % W;
+      if (l > top) {
+        for (let d = top + 1; d <= l; d++) {
+          cnt[d] = 0;
+          sum[d] = 0;
+          lo[d] = W;
+          hi[d] = -1;
+        }
+        top = l;
+      }
+      cnt[l] = cnt[l]! + 1;
+      sum[l] = sum[l]! + x;
+      if (x < lo[l]!) lo[l] = x;
+      if (x > hi[l]!) hi[l] = x;
+    }
+    let mass = 0;
+    let sx = 0;
+    let cut = 256;
+    let worst = 0;
+    for (let d = top; d >= 1; d--) {
+      const c = cnt[d]!;
+      if (mass > 0 && c > 0 && d < 255) {
+        const cx = (sx / mass) | 0;
+        const arm = cx > hi[d]! ? cx - hi[d]! : cx < lo[d]! ? lo[d]! - cx : 0;
+        const bend = ((mass * arm) / (c * c)) | 0;
+        const load = (mass / c) | 0;
+        const r = Math.max((bend * 256) / SNAP_BEND, (load * 256) / SNAP_LOAD) | 0;
+        if (r > worst) {
+          worst = r;
+          cut = d;
+        }
+      }
+      mass += c;
+      sx += sum[d]!;
+    }
+    return worst > 256 ? cut : 256;
+  }
+
+  /**
    * `local` glue: flood the group from the cells that hold on to something (anything solid right
    * under them, or a static cell or another group beside or above them); every group cell the
    * flood doesn't reach comes loose and falls as `breakInto`.
@@ -937,36 +1000,42 @@ export class Groups {
         }
       }
     }
+    // breadth first, so `mark` holds how far (in cells, capped) each cell is from what holds it
     while (head < tail) {
       const i = q[head++]!;
       const x = i % W;
+      const l = mark[i]! < 255 ? mark[i]! + 1 : 255;
       if (x > 0 && group[i - 1] === g && mark[i - 1] === 0) {
-        mark[i - 1] = 1;
+        mark[i - 1] = l;
         q[tail++] = i - 1;
       }
       if (x < W - 1 && group[i + 1] === g && mark[i + 1] === 0) {
-        mark[i + 1] = 1;
+        mark[i + 1] = l;
         q[tail++] = i + 1;
       }
       if (i >= W && group[i - W] === g && mark[i - W] === 0) {
-        mark[i - W] = 1;
+        mark[i - W] = l;
         q[tail++] = i - W;
       }
       if (i + W < W * H && group[i + W] === g && mark[i + W] === 0) {
-        mark[i + W] = 1;
+        mark[i + W] = l;
         q[tail++] = i + W;
       }
     }
     const into = this.def[g]!.breakInto;
     const pieces = this.def[g]!.tumble ? this.chunks : null;
+    const cut = pieces ? this.snap(q, tail, W) : 256;
     let fell = 0;
+    let held = 0;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
         if (group[i] !== g) continue;
-        if (mark[i] !== 0) {
+        if (mark[i] !== 0 && mark[i]! <= cut) {
           mark[i] = 0;
+          held++;
           continue;
         }
+        mark[i] = 0;
         if (pieces) q[fell] = i;
         else this.release(grid, i, into);
         fell++;
@@ -982,6 +1051,7 @@ export class Groups {
         if (group[i] === g) this.release(grid, i, into);
       }
     }
+    tail = held;
     this.cells[g] = tail;
     if (fell > 0) {
       grid.markDirty(x0, y0, x1, y1);

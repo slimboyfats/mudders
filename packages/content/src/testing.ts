@@ -106,6 +106,21 @@ export function propWorld(
   return w;
 }
 
+/**
+ * Cells of a wreck: the given materials outside any prop group (slabs that fell and lie as
+ * pieces, and the rubble the small bits broke into).
+ */
+export function wreckCells(world: World, ...materialIds: string[]): number {
+  const m = world.grid.material;
+  const g = world.grid.group;
+  let n = 0;
+  for (const id of materialIds) {
+    const want = world.mats.cellOf(id);
+    for (let i = 0; i < m.length; i++) if (m[i] === want && g[i] === 0) n++;
+  }
+  return n;
+}
+
 /** Cells that still belong to an intact prop group. */
 export function groupCells(world: World): number {
   let n = 0;

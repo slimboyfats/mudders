@@ -120,7 +120,7 @@ describe('falling pieces', () => {
     expect(count(g, ROCK)).toBe(before);
   });
 
-  it('a piece of a broken prop that falls keeps its core and sheds a skin of rubble', () => {
+  it('a piece of a broken prop that falls stays a piece', () => {
     const g = new Grid(W, H);
     g.material.fill(DIRT, 100 * W);
     const list = new Int32Array(g.size);
@@ -146,11 +146,10 @@ describe('falling pieces', () => {
       settleStep(g, mats, t, 1e9, debris);
     }
     expect(chunks.any).toBe(false);
-    // it fell, so it stays a rock with a skin of rubble, down on the floor
+    // it fell and it is big, so it stays a rock, down on the floor; only crumbs are rubble
     const rock = count(g, ROCK);
     const rubble = count(g, RUBBLE);
-    expect(rock).toBeGreaterThan(40);
-    expect(rubble).toBeGreaterThan(40);
+    expect(rock).toBeGreaterThan(n * 0.7);
     expect(Math.abs(rock + rubble - n)).toBeLessThan(n * 0.08);
     expect(count(g, RUBBLE, 0, 60) + count(g, ROCK, 0, 60)).toBe(0);
   });

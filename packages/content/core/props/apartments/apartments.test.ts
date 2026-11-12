@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCells, dropAt, groupCells, propWorld } from '../../../src/testing';
+import { countCells, dropAt, groupCells, propWorld, wreckCells } from '../../../src/testing';
 
 describe('prop.apartments', () => {
   it('absorbs missiles, cracks, then collapses into rubble with its roof', () => {
@@ -18,7 +18,10 @@ describe('prop.apartments', () => {
     expect(shots).toBeGreaterThanOrEqual(3);
     expect(w.groups.broken[walls]).toBe(1);
     expect(groupCells(w)).toBe(0);
-    expect(countCells(w, 'material.rubble')).toBeGreaterThan(500);
+    // the wreck: slabs of wall and roof that lie as pieces, and rubble
+    expect(wreckCells(w, 'material.rubble', 'material.brick', 'material.concrete')).toBeGreaterThan(
+      500,
+    );
     expect(w.quiet).toBe(true);
   });
 });

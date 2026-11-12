@@ -24,7 +24,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     pack: 'core@0.76.0 – 0.80.0',
     newSince: 'core@0.75.0',
     items: [
-      'Rock and walls now come down in pieces. A stalactite shot loose, the tip of a rock ledge, the top of a tower or a rock shelf that hangs too far breaks off as solid slabs that fall, turn in the air and are thrown clear of the blast, then break up into rubble where they land',
+      'Rock and walls now come down in pieces. A stalactite shot loose, the tip of a rock ledge, the top of a tower or a rock shelf that hangs too far breaks off as solid slabs that fall, turn in the air and are thrown clear of the blast, and stay lying as blocks of rock or wall where they land; only the small bits crumble. A rock ledge shot thin at the neck snaps off under its own weight',
       'Bare rock, ice and concrete that lose their footing fall as boulders that tip over the point they land on, roll a little and lie where they come to rest, at an angle',
       'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
       'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',

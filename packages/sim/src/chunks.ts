@@ -10,6 +10,8 @@ import { KEEP, SETTLE_FLOW, SETTLE_GAS, SETTLE_STATIC, type MaterialTable } from
 export const MAX_CHUNKS = 32;
 /** Smaller bits than this fall as loose cells. */
 const MIN_CELLS = 12;
+/** A piece of a broken prop with fewer cells than this breaks up where it lands. */
+const KEEP_CELLS = 40;
 /** A breaking shelf splits into pieces about this size. */
 const BLOCK_W = 18;
 const BLOCK_H = 13;
@@ -620,23 +622,11 @@ export class Chunker {
     const mat = grid.material;
     const settle = mats.settle;
     this.raster(grid, body);
-    // a piece of a prop that broke where it stood crumbles altogether; one that fell stays in one
-    // piece and only its skin (two cells) breaks up
+    // a piece of a prop that broke where it stood crumbles altogether, and so does a small one;
+    // a big piece that fell stays the piece it is
     const fell =
       Math.abs(body.cx - body.sx) + Math.abs(body.cy - body.sy) >= 3 * FP || body.angle !== 0;
-    let skin: Uint8Array | null = null;
-    if (body.into && fell) {
-      skin = new Uint8Array(body.w * body.h);
-      for (let k = 0; k < body.edgeN; k++) {
-        const l = body.edge[k]!;
-        const lx = l % body.w;
-        skin[l] = 1;
-        if (lx > 0) skin[l - 1] = 1;
-        if (lx < body.w - 1) skin[l + 1] = 1;
-        if (l >= body.w) skin[l - body.w] = 1;
-        if (l + body.w < skin.length) skin[l + body.w] = 1;
-      }
-    }
+    const whole = body.into !== null && fell && body.n >= KEEP_CELLS;
     let x0 = W;
     let x1 = -1;
     let y0 = grid.height;
@@ -647,7 +637,7 @@ export class Chunker {
       const l = this.rs[k]!;
       const i = y * W + x;
       const here = mat[i]!;
-      const m = skin && skin[l] === 0 ? body.mat[l]! : this.lands(body, l);
+      const m = whole ? body.mat[l]! : this.lands(body, l);
       if (m === 0) continue;
       // what broke up lands loose (its state byte counts loosen steps), so it slumps into a heap
       const st = m === body.mat[l] ? body.state[l]! : mats.repose[m] !== 0 ? LAND_LOOSE : 0;
