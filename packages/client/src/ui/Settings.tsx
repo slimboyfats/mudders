@@ -126,6 +126,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.dayNight}
+            onChange={(e) => update({ ...settings, dayNight: e.target.checked })}
+          />
+          Day and night across rounds
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.perfHud}
             onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
           />

@@ -29,6 +29,7 @@ import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { apronSize, buildApron, type Apron } from './apron';
 import { CalloutTracker, drawCallouts } from './callouts';
+import { Critters, type CritterProbe, drawCrows, drawFish, drawRabbits, mapSeed } from './critters';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
 import { EffectSystem, GLUE, QUALITY_PARTICLES, RICOCHET_HEAT, RUST } from './effects';
@@ -70,7 +71,9 @@ import {
   pixelTheme,
   playerColor,
   shade,
+  dayPhase,
   withTemperature,
+  withTimeOfDay,
   withWeather,
   type PixelTheme,
 } from './theme';
@@ -249,6 +252,9 @@ export class PixelRenderer implements Renderer {
   private quality: Quality = 'medium';
   private palette!: RenderPalette;
   private shakeOn = true;
+  /** Day and night across rounds (Settings), and the round the sky was last set for. */
+  private dayNightOn = true;
+  private dayRound = 0;
 
   private terrainTex!: WebGLTexture;
   /** Coating layer (oil…), same layout as the terrain texture. */
@@ -475,6 +481,7 @@ export class PixelRenderer implements Renderer {
   );
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
+  private readonly critterProbe: CritterProbe;
   private debris: RenderSnapshot['debris'] = {
     count: 0,
     x: new Int32Array(0),
@@ -491,6 +498,8 @@ export class PixelRenderer implements Renderer {
   private lastTick = 0;
   /** Hit numbers and callouts over the tanks. */
   private readonly hits = new CalloutTracker();
+  /** Rabbits and fish (cosmetic, seeded from the map so every client sees the same). */
+  private readonly critters = new Critters();
   private fxTick = -1;
   /** The sim's swallows this snapshot (see `birds.ts`). */
   private birds: readonly number[] | undefined;
@@ -539,6 +548,12 @@ export class PixelRenderer implements Renderer {
         x >= 0 && y >= 0 && x < mapWidth && y < mapHeight && this.terrain[y * mapWidth + x] !== 0,
       liquid: (x, y) => this.water.isLiquid(x, y),
     };
+    this.critterProbe = {
+      width: mapWidth,
+      height: mapHeight,
+      solid: this.probe.solid,
+      liquid: (x, y) => this.water.isLiquid(x, y),
+    };
   }
 
   mount(canvas: HTMLCanvasElement, snapshots: SnapshotStream, options: RendererOptions): void {
@@ -558,6 +573,7 @@ export class PixelRenderer implements Renderer {
     this.baseTheme = pixelTheme(options.theme, options.palette.themes);
     this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
+    this.dayNightOn = options.dayNight ?? true;
     this.onCues = options.onCues;
     this.onProcesses = options.onProcesses;
     this.catchUp = options.catchUp ?? Infinity;
@@ -1113,6 +1129,11 @@ export class PixelRenderer implements Renderer {
         s.dirtyRects.some((r) => r.x === 0 && r.y === 0 && r.w >= s.width && r.h >= s.height));
     if (fresh && s.width === this.mapWidth && s.height === this.mapHeight) {
       this.grassRound = round;
+      if (round !== this.dayRound) {
+        // the clock moves on a step each round: day, sunset, night, dawn
+        this.dayRound = round;
+        this.applyTheme();
+      }
       grassMask(s.terrain, s.width, s.height, this.grassMask);
       this.buildApron(s.terrain);
       gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
@@ -1137,6 +1158,13 @@ export class PixelRenderer implements Renderer {
       // a new map: nothing from the last round carries over (shell trails, smoke columns, debris,
       // flames, shield and battery flashes)
       this.clearRoundFx();
+      const tankXs: number[] = [];
+      for (const e of s.entities) if (e.kind === 'tank') tankXs.push(e.x);
+      this.critters.populate(
+        this.critterProbe,
+        tankXs,
+        mapSeed(s.terrain, s.width, s.height, round),
+      );
     }
     if (s.dirtyRects.length > 0) this.looksStale = true;
     if ((s.tick % 20 === 0 || this.fxTick < 0) && this.looksStale) {
@@ -1146,6 +1174,7 @@ export class PixelRenderer implements Renderer {
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
     this.hits.ingest(s);
+    this.critters.step(s, this.critterProbe, this.particles);
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
     this.witherGrass();
@@ -1882,8 +1911,11 @@ export class PixelRenderer implements Renderer {
   private applyTheme(): void {
     const q = Math.round(Math.max(0, this.stormK) * 8) / 8;
     this.themeStep = q * (this.stormKind === 'sand' ? 1 : -1);
+    const base = this.dayNightOn
+      ? withTimeOfDay(this.baseTheme, dayPhase(this.baseTheme, this.dayRound))
+      : this.baseTheme;
     this.theme = withTemperature(
-      withWeather(this.baseTheme, this.weather),
+      withWeather(base, this.weather),
       this.stormKind === 'sand' ? q : 0,
       this.stormKind === 'snow' ? q : 0,
     );
@@ -2447,7 +2479,10 @@ export class PixelRenderer implements Renderer {
     this.drawMines(t);
     drawDrops(this.normal, this.entities, t, (x, y) => this.tankLight(x, y));
     this.dropFx.draw(this.normal, t, (x, y) => this.probe.solid(x, y));
+    drawRabbits(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
+    drawFish(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.drawTanks(t);
+    drawCrows(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state
     gl.enable(gl.BLEND);

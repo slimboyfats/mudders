@@ -20,12 +20,19 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-12',
     title:
-      'DROP! weapons, a tidier shop, blasts that throw the ground, and ground that falls with weight',
+      'DROP! weapons, a tidier shop, blasts that throw the ground, ground and rock that fall with weight, and water with momentum',
     pack: 'core@0.76.0 – 0.80.0',
     newSince: 'core@0.75.0',
     items: [
       'Rock and walls now come down in pieces. A stalactite shot loose, the tip of a rock ledge, the top of a tower or a rock shelf that hangs too far breaks off as solid slabs that fall, turn in the air and are thrown clear of the blast, and stay lying as blocks of rock or wall where they land; only the small bits crumble. A rock ledge shot thin at the neck snaps off under its own weight',
       'Bare rock, ice and concrete that lose their footing fall as boulders that tip over the point they land on, roll a little and lie where they come to rest, at an angle',
+      'Water now has momentum. A lake that is blasted open pours out with its whole depth, the wave runs to the far bank, climbs it, sloshes back and dies down, and the lake ends up level',
+      'Water that runs over an edge falls as a waterfall in an arc and feeds the pool below. Water running down a hill keeps its speed, shoots off ledges and runs a little way up the other side',
+      'A lake holed below the waterline jets out under pressure, faster the deeper the hole',
+      'A turn no longer waits for the last small ripples on a lake to die down',
+      'Day and night: every round is played a little later in the day, from dawn to daylight, sunset and night, and back round again (Settings can switch it off; Pitch Black stays dark)',
+      'Crows: a while after a tank dies, two or three crows flap in and perch on the wreck, pecking. A blast or a shell scares them off, and they come back later',
+      'The world is alive: rabbits graze and hop on the hills and run from shells, blasts and tanks, diving into burrows and popping out later. Fish swim in the lakes and leap out with a splash, and float up belly-up after a blast in the water',
       'Falling ground keeps its speed. Dirt, sand, snow or rubble that drops from a height no longer lands as the stiff block it fell as: it hits hard, bursts outward into a heap, and grains spray up from the edges',
       'Slides gather speed on a steep slope and run out over level ground before friction stops them, and a grain that runs off a ledge flies on in an arc',
       'Cave-ins come to rest sooner: the roof over a Tunnel Rat blast drops in and settles in about three quarters of the time',

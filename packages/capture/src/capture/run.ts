@@ -19,6 +19,7 @@ import type { WireInit, WireSnapshot } from '@mudders/client/capture-wire';
 import { HitStop } from '@mudders/client/impact';
 import { paletteFrom } from '@mudders/client/palette';
 import { SlowMo } from '@mudders/client/slowmo';
+import { dayPhase, withTimeOfDay } from '@mudders/client/theme';
 import { launchHeadless } from '../browser';
 import { checkFfmpeg } from '../ffmpeg';
 import { REPO_ROOT, capturesDir } from '../paths';
@@ -86,12 +87,15 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
   const theme = o.theme ?? scenario.theme ?? 'theme.default';
   if (!content.has(theme)) throw new Error(`unknown theme ${theme}`);
   const pal = paletteFrom(content);
+  const themes = { ...pal.themes };
+  const picked = themes[theme];
+  if (o.day > 0 && picked) themes[theme] = withTimeOfDay(picked, dayPhase(picked, o.day));
   const init: WireInit = {
     mapWidth: w.grid.width,
     mapHeight: w.grid.height,
     palette: Array.from(pal.materials),
     looks: [...(pal.looks ?? [])],
-    themes: { ...pal.themes },
+    themes,
     tanks: { ...pal.tanks },
     shells: { ...pal.shells },
     liquids: [...(pal.liquids ?? [])],
@@ -123,7 +127,8 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     .digest('hex')
     .slice(0, 20);
   const cacheFile = resolve(cacheDir, `${key}.json`);
-  const base = o.theme ? `${scenario.id}.${o.theme.slice('theme.'.length)}` : scenario.id;
+  const themed = o.theme ? `${scenario.id}.${o.theme.slice('theme.'.length)}` : scenario.id;
+  const base = o.day > 0 ? `${themed}.day${o.day}` : themed;
   if (o.cache && existsSync(cacheFile)) {
     const prev = JSON.parse(readFileSync(cacheFile, 'utf8')) as { outputs: string[] };
     if (prev.outputs.every((p) => existsSync(p))) {

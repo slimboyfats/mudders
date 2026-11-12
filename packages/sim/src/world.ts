@@ -86,6 +86,8 @@ const CONTACT_SHARE = 4;
 const HIT_LINGER = 40;
 /** Longest a turn waits on flowing or reacting ground once everything else is still (8 s). */
 const FLOW_GRACE = 480;
+/** Ticks of nothing but ripples and a trickle after which the turn goes on. */
+const RIPPLE_TICKS = 30;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
 /**
@@ -744,6 +746,7 @@ export class World implements SimApi {
   private contactDone = false;
   /** Ticks the turn has waited on nothing but flowing or reacting ground (see `settled`). */
   private flowWait = 0;
+  private rippleFor = 0;
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
@@ -1252,6 +1255,11 @@ export class World implements SimApi {
     g.addRenderRect(0, 0, g.width, g.height);
     g.clearReact();
     g.fallVel.fill(0);
+    g.flowVel.fill(0);
+    g.flowTick.fill(0);
+    g.surfVel.fill(0);
+    g.surfAcc.fill(0);
+    g.surfIdle.fill(0);
 
     for (const tank of this.tanks) {
       const p = tank.player;
@@ -1443,10 +1451,15 @@ export class World implements SimApi {
    */
   private shotSettled(): boolean {
     if (!this.still) {
+      this.rippleFor = 0;
       this.flowWait = 0;
       return false;
     }
     if (!this.grid.settling && !this.grid.reacting) return true;
+    // open water that only ripples out, or the last trickle, doesn't hold the turn either
+    // once it has been no more than that for a while
+    this.rippleFor = this.grid.ripple && !this.grid.reacting ? this.rippleFor + 1 : 0;
+    if (this.rippleFor >= RIPPLE_TICKS) return true;
     return ++this.flowWait >= FLOW_GRACE;
   }
 
@@ -1579,6 +1592,7 @@ export class World implements SimApi {
         this.armMines();
       }
       if (this.still) {
+        this.rippleFor = 0;
         this.flowWait = 0;
         this.endTurn();
       }
@@ -4740,6 +4754,9 @@ export class World implements SimApi {
     for (const p of this.prices) h.num(p);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
+    h.bytes(new Uint8Array(g.flowVel.buffer, g.flowVel.byteOffset, g.flowVel.length));
+    for (let x = 0; x < g.width; x++) h.u32((g.surfVel[x]! << 16) ^ (g.surfAcc[x]! & 0xffff));
+    h.bytes(g.surfIdle);
     h.bytes(g.group).bytes(g.groupMat);
     this.groups.hash(h);
     this.chunks.hash(h);
@@ -4750,6 +4767,7 @@ export class World implements SimApi {
     h.num(this.contactDone ? 1 : 0);
     // turn-end grace for flowing ground (kernel 0.37.0): only hashed while it counts
     if (this.flowWait !== 0) h.num(this.flowWait);
+    if (this.rippleFor !== 0) h.num(this.rippleFor ^ 0x5a5a);
     // temperature (kernel 0.18.0)
     h.num(this.temperature).num(this.tempBase);
     // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes

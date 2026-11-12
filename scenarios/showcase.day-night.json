@@ -1,0 +1,33 @@
+{
+  "id": "showcase.day-night",
+  "schemaVersion": 1,
+  "description": "Lakeland at rest, for the time of day each round is played at: capture with --day 0 to 3 (round 1 as the theme is, then the next three).",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.lakeland"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.magma-bomb": 3,
+        "weapon.missile": 3
+      }
+    },
+    {
+      "x": 740
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 90,
+    "untilSettled": false,
+    "extraTicks": 0
+  }
+}
