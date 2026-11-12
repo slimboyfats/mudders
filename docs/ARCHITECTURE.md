@@ -139,6 +139,13 @@ landing knocks crumbs off as debris. Pieces are not in the grid while they move:
 appends their cells to the debris view (`debris.rigid` is the first of them). Pieces are hashed
 and the turn waits for them.
 
+**Crush** (`World.stepCrush`): what comes down on a tank hurts it. Each tick the blow on a tank is
+the sum over what enters its box of density times speed squared: loose cells falling in the grid
+(speed 5 or more, counted in the tick they enter), thrown grains (1.5 cells a tick or more) and
+rigid pieces (`Chunker.strike`, once per piece and tank, all its cells, sixteen times over). Damage
+is the blow times the mode's `fallDamage.perCell` over `CRUSH_BLOW`, at most 25 a tick, credited to
+the shooter; a tick worth less than two points does nothing, so drizzle and short drops only bury.
+
 `reactions.ts` runs after settle, over the **react region**: a box the grid grows whenever
 `markDirty` touches cells, a moved cell is active, or debris of an active material lands.
 `MaterialTable.active` flags materials (and coatings) that need it: `reactions` (per-tick chance
