@@ -129,6 +129,11 @@ export interface MatchRules {
    * `drops` (Rare: half as often, Often: twice). Off unless set.
    */
   drops?: 'off' | 'rare' | 'normal' | 'often' | undefined;
+  /**
+   * Map events (kernel 0.45.0): the generator's `events` (a rumbling volcano, avalanches) start
+   * on every round's map. Off unless set, so scenarios and tests keep their results.
+   */
+  mapEvents?: boolean | undefined;
 }
 
 /** A pickup a tank made, for the HUD (not part of the state). */
@@ -596,6 +601,8 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Op sites of the map's events (`gen.events`), started each round while `rules.mapEvents`. */
+  private readonly eventOps: number[] = [];
   /** Supply crates (see `drops.ts`); only stepped and hashed while `dropsOn`. */
   readonly drops = new Drops();
   private readonly dropsOn: boolean;
@@ -845,6 +852,10 @@ export class World implements SimApi {
     // supply drops (§3.8): the mode's loot table, bound to weapon and gear indices
     const dr = mode.drops;
     this.dropsOn = dr !== null && rules.drops !== undefined && rules.drops !== 'off';
+    if (rules.mapEvents === true) {
+      const gid = options.map?.generator ?? mode.map.generator;
+      for (const ev of content.get('gen', gid).events ?? []) this.eventOps.push(this.bindOp(ev));
+    }
     this.dropEvery = !dr
       ? 0
       : rules.drops === 'rare'
@@ -1309,6 +1320,8 @@ export class World implements SimApi {
     this.modeB.onRoundStart(this.modeApi, this.modeParams);
     this.turnPos = 0;
     this.turn = 0;
+    // the map's own events take their places on the fresh map (owner -1: no one's doing)
+    for (const op of this.eventOps) this.startOp(op, -1, -1, 0, 'kinetic', -1);
     if (this.birdsOn) this.birds.reset(this.birdWorld, this.options.seed, this.round, this.tick);
     if (this.dropsOn) this.drops.reset(this.options.seed, this.round, this.mode.drops!.first);
     this.lastPickup = null;

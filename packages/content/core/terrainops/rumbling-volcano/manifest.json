@@ -1,0 +1,27 @@
+{
+  "id": "terrainop.rumbling-volcano",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Rumbling Volcano",
+    "description": "A map event. A cinder cone stands on the highest hilltop clear of the tanks, its crater full of lava. Every few turns the ground rumbles as a warning, and at the start of the next turn the volcano erupts: real lava flies high into the air, rains down, runs downhill, burns any tank sitting in it and cools to rock.",
+    "since": "core@0.80.0"
+  },
+  "behaviour": "terrainop.rumbling-volcano",
+  "cone": "material.cinder",
+  "lava": "material.lava",
+  "radius": 40,
+  "height": 44,
+  "craterRadius": 5,
+  "craterDepth": 5,
+  "clear": 110,
+  "margin": 60,
+  "first": 3,
+  "every": [3, 5],
+  "ticks": 60,
+  "rate": 8,
+  "pour": 1,
+  "minSpeed": 2.4,
+  "maxSpeed": 4.4,
+  "spread": 1.4,
+  "rumble": 1.5
+}

@@ -1,0 +1,29 @@
+{
+  "id": "terrainop.avalanche",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Avalanche",
+    "description": "A map event. Every few turns the ice and snow near the top of one of the steepest long slopes break loose and slide down the hill as loose snow that runs and piles like sand, burying whatever is in the valley. A tank in the run-out below takes a hit.",
+    "since": "core@0.80.0"
+  },
+  "behaviour": "terrainop.avalanche",
+  "into": {
+    "material.ice": "material.loose-snow",
+    "material.snow": "material.loose-snow",
+    "material.frost": "material.loose-snow"
+  },
+  "width": 56,
+  "depth": 12,
+  "drop": 30,
+  "run": 40,
+  "margin": 80,
+  "first": 2,
+  "every": [3, 4],
+  "speed": 2.2,
+  "spread": 0.4,
+  "hop": 0.6,
+  "damage": 12,
+  "reach": 140,
+  "shake": 1,
+  "flow": 200
+}

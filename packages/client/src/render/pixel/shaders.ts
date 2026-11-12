@@ -936,9 +936,11 @@ void main() {
   vec3 grassRgb = dry ? mix(u_grass.rgb, vec3(0.58, 0.47, 0.2), 0.8) : u_grass.rgb;
   vec3 charRgb = hash(c + ivec2(41, 7)) > 0.85 ? vec3(0.34, 0.31, 0.29) : vec3(0.2, 0.13, 0.09);
   // ground under a glinting skin (frost) is frozen through: no grass or turf, a cold grey-blue
-  // that dithers back into the plain soil a dozen cells down
-  float topB = sd > 1 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
-  bool frozen = topB > 0.25 && topB < 0.5;
+  // that dithers back into the plain soil a dozen cells down. Only under a real skin, three cells
+  // or more: a scatter of ice shards or snow left on a slope doesn't freeze the ground in stripes
+  float topB = sd > 3 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 1 - sd))), 0), 0).b : 0.0;
+  float skinB = sd > 3 ? texelFetch(u_look, ivec2(int(mat(c + ivec2(0, 3 - sd))), 0), 0).b : 0.0;
+  bool frozen = topB > 0.25 && topB < 0.5 && skinB > 0.25 && skinB < 0.5;
   if (frozen) soil = false;
   // a blast cut through the turf: cells near a crater (air dug out below the round-start surface,
   // beside them or diagonally above) keep only a thin cap of grass; below it the cut face shows

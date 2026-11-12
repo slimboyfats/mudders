@@ -114,6 +114,8 @@ export interface HudState {
   command: number;
   /** A supply crate someone just took (shown for a few seconds), or null. */
   pickup: { player: number; text: string; tick: number } | null;
+  /** A map event the players should hear about (volcano rumbling, avalanche), or null. */
+  alert: { text: string; tick: number } | null;
 }
 
 /** Ticks a pickup stays in the HUD. */
@@ -199,8 +201,14 @@ export abstract class SimMatch implements SnapshotStream {
   /** Tell every subscriber about the current state (after a step, or a full map after a resync). */
   protected publish(full = false): void {
     const s = full ? this.fullSnapshot() : this.world.snapshot();
+    for (const e of s.effectEvents) {
+      const text = alertText(e.type, e.params);
+      if (text) this.alert = { text, tick: s.tick };
+    }
     for (const l of this.listeners) l(s);
   }
+
+  private alert: { text: string; tick: number } | null = null;
 
   /** The last supply crate taken, as the HUD words it, while it is fresh. */
   private pickupOf(w: World): HudState['pickup'] {
@@ -257,6 +265,7 @@ export abstract class SimMatch implements SnapshotStream {
       winnerTeam: w.phase === 'over' ? w.matchWinnerTeam : (last?.winnerTeam ?? -1),
       results: w.results,
       pickup: this.pickupOf(w),
+      alert: this.alert && w.tick - this.alert.tick <= PICKUP_TICKS ? this.alert : null,
       command: w.commandable(),
       shop: [
         ...this.gearItems,
@@ -334,6 +343,13 @@ export class LocalMatch extends SimMatch {
   }
 }
 
+/** How the HUD words a map event, or '' for effects that aren't news. */
+export function alertText(type: string, params: Readonly<Record<string, number>>): string {
+  if (type === 'rumble') return params.turns === 1 ? 'The volcano is rumbling…' : 'Eruption!';
+  if (type === 'avalanche') return 'Avalanche!';
+  return '';
+}
+
 /** Fixed-point wind in HUD units, rounded to 1/40 of the maximum. */
 function hudWind(fixed: number, max: number): number {
   const v = fixed / 65536;
@@ -342,7 +358,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
