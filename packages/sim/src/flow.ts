@@ -33,6 +33,8 @@ const FRICTION = 1;
 const IDLE_REST = 40;
 /** A film on a slope slower than this (1/4096 column per substep) stops and stays. */
 const STICK = 160;
+/** Height step per column a thick liquid holds per step of thickness over 1 (1/256 cell). */
+const YIELD = 64;
 /** A pool level to within a cell whose water moves slower than this everywhere is at rest. */
 const CALM_SPEED = 96;
 const CALM_RANGE = 2 * ONE;
@@ -100,6 +102,7 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
   const group = grid.group;
   const kind = mats.settle;
   const runny = mats.disperse;
+  const thick = mats.thick;
   const sv = grid.surfVel;
   const fall = grid.fallVel;
   const acc = grid.surfAcc;
@@ -279,11 +282,13 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
         if (c === 1) {
           v += depth[x]! >> GRAVITY_SHIFT;
           v -= v >> DAMP_SHIFT;
+          if (thick[a] !== 0) v -= v >> (6 - thick[a]!);
           if (v < 0) v = 0;
           else if (v > V_MAX) v = V_MAX;
         } else {
           v -= depth[x + 1]! >> GRAVITY_SHIFT;
           v += -v >> DAMP_SHIFT;
+          if (thick[b] !== 0) v += -v >> (6 - thick[b]!);
           if (v > 0) v = 0;
           else if (v < -V_MAX) v = -V_MAX;
         }
@@ -299,8 +304,8 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
         if (
           dh < 2 * ONE &&
           dh > -2 * ONE &&
-          depth[x]! <= FILM &&
-          depth[x + 1]! <= FILM &&
+          depth[x]! <= FILM + thick[a]! * ONE &&
+          depth[x + 1]! <= FILM + thick[a]! * ONE &&
           top[x]! < bed[x]! &&
           top[x + 1]! < bed[x + 1]! &&
           (bed[x] === bed[x + 1] || (v <= STICK && v >= -STICK))
@@ -312,6 +317,16 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
           flux[x] = 0;
           continue;
         }
+        const ys = thick[a]!;
+        if (ys > 1) {
+          // a thick liquid has a yield: a slope gentler than it holds stands as a mound once
+          // it is slow (lava stops in a front, it doesn't level like water)
+          const hold = (ys - 1) * YIELD;
+          if (dh < hold && dh > -hold && v <= STICK && v >= -STICK) {
+            sv[x] = 0;
+            continue;
+          }
+        }
         if (calm[x] === 2 && calm[x + 1] === 2) {
           if (dh > ONE) v += (dh - ONE) >> GRAVITY_SHIFT;
           else if (dh < -ONE) v -= (-dh - ONE) >> GRAVITY_SHIFT;
@@ -320,6 +335,9 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
       } else if (dh > DEAD_BAND) v += (dh - DEAD_BAND) >> GRAVITY_SHIFT;
       else if (dh < -DEAD_BAND) v -= (-dh - DEAD_BAND) >> GRAVITY_SHIFT;
       v -= v > 0 ? v >> DAMP_SHIFT : -(-v >> DAMP_SHIFT);
+      // a thick liquid loses far more: it creeps where water runs, and makes no waves
+      const th = thick[a !== 0 ? a : b]!;
+      if (th !== 0) v -= v > 0 ? v >> (6 - th) : -(-v >> (6 - th));
       // and a little friction that doesn't shrink with the speed, which ends the last ripples
       v = v > FRICTION ? v - FRICTION : v < -FRICTION ? v + FRICTION : 0;
       // nothing flows out of a dry bed, or up a bank that stands too far over the surface
