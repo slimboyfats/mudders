@@ -19,11 +19,12 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-13',
-    title: 'Map shuffle: a different map every round',
+    title: 'Map shuffle and round twists',
     newSince: 'core@0.75.0',
     items: [
       'New scenery choice, Shuffle: every round is played on a different map (Village, Caves, Lakeland and the rest), each one once before any comes back, and the HUD says where each round is',
       'Random weather now rolls again every round, so a sunny round can be followed by rain or snow',
+      'Round twists (a new rules switch): about every other round one rule changes for that round only, and a badge by the round number shows it. Low gravity: shells fly twice as far and float. Gale: the wind blows two and a half times as hard. Double damage: every hit hurts twice as much. Gold rush: the round pays three times the cash',
     ],
   },
   {

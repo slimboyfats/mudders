@@ -1123,6 +1123,12 @@ button.link {
   font-variant-numeric: tabular-nums;
 }
 
+.badge.twist {
+  background: #6a3c00;
+  color: #ffe08a;
+  font-weight: 700;
+}
+
 .badge.sudden {
   background: #8a1c12;
   color: #ffe0c8;

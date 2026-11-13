@@ -95,6 +95,8 @@ export interface HudState {
   gusty: boolean;
   /** Weather label ("Rain", "Snow"), or '' in clear skies. */
   weather: string;
+  /** This round's twist ('' for a normal round). */
+  twist: string;
   /** Air temperature, whole °C. */
   temperature: number;
   /** Fuel Tank in the shop (§3.2): units per pack, price per pack, most a tank can hold. */
@@ -262,6 +264,10 @@ export abstract class SimMatch implements SnapshotStream {
       windMax: w.mode.wind.max,
       gusty: w.windType === 'gusty',
       weather: w.weather?.label ?? '',
+      twist:
+        w.phase === 'shop' || w.phase === 'over'
+          ? ''
+          : (w.options.perRound?.[w.round % w.options.perRound.length]?.twist ?? ''),
       temperature: w.temperature,
       fuel: {
         pack: w.mode.drive.fuelPack,
@@ -355,7 +361,10 @@ export class LocalMatch extends SimMatch {
 export function roundLine(w: World): string {
   const map = w.content.get('gen', w.generator).meta.name;
   const sky = w.weather?.label;
-  return `Round ${w.round + 1}: ${map}${sky ? `, ${sky.toLowerCase()}` : ''}`;
+  const twist = w.options.perRound?.[w.round % w.options.perRound.length]?.twist;
+  return `Round ${w.round + 1}: ${map}${sky ? `, ${sky.toLowerCase()}` : ''}${
+    twist ? ` · ${twist.toUpperCase()}!` : ''
+  }`;
 }
 
 /** How the HUD words a map event, or '' for effects that aren't news. */

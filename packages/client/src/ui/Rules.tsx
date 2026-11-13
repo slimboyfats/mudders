@@ -133,6 +133,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Round twists
+        <select
+          value={value.twists ? 'on' : 'off'}
+          onChange={(e) => onChange({ twists: e.target.value === 'on' })}
+        >
+          <option value="off">Off</option>
+          <option value="on">On (about every other round)</option>
+        </select>
+      </label>
+      <label>
         Supply drops
         <select
           value={value.drops ?? 'off'}

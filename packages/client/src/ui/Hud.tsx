@@ -323,6 +323,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
           <span className="badge" aria-label="Round">
             R{Math.min(hud.round, hud.rounds)}/{hud.rounds}
           </span>
+          {hud.twist && <span className="badge twist">{hud.twist}</span>}
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
           <Wind
             key={turnKey}
