@@ -46,6 +46,21 @@ export const ScenarioSchema = z.strictObject({
   wind: z.number().optional(),
   /** Weather (`weather.*`) for the whole scenario; omit for clear skies. */
   weather: ContentIdSchema.optional(),
+  /** Per-round map, weather and twist (map shuffle, round twists); see `RoundPlan` in the sim. */
+  perRound: z
+    .array(
+      z.strictObject({
+        generator: ContentIdSchema.optional(),
+        weather: ContentIdSchema.nullable().optional(),
+        twist: z.string().max(40).optional(),
+        gravity: z.number().int().min(10).max(400).optional(),
+        wind: z.number().int().min(0).max(1000).optional(),
+        damage: z.number().int().min(0).max(1000).optional(),
+        cash: z.number().int().min(0).max(1000).optional(),
+        events: z.array(ContentIdSchema).optional(),
+      }),
+    )
+    .optional(),
   /** Force the air temperature (°C) for the whole scenario: no jitter, no drift. */
   temperature: z.number().int().min(-20).max(45).optional(),
   /** Team per player (milestone 7); omit for a free-for-all. */

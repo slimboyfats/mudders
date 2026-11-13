@@ -97,6 +97,8 @@ export const TWISTS = [
   { name: 'Gale', wind: 250 },
   { name: 'Double damage', damage: 200 },
   { name: 'Gold rush', cash: 300 },
+  { name: 'Meteor night', events: ['terrainop.meteor-night'] },
+  { name: 'Rising water', events: ['terrainop.rising-water'] },
 ] as const;
 
 /** Odds a round gets a twist, out of 100. */

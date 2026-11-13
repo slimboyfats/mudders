@@ -24,7 +24,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     items: [
       'New scenery choice, Shuffle: every round is played on a different map (Village, Caves, Lakeland and the rest), each one once before any comes back, and the HUD says where each round is',
       'Random weather now rolls again every round, so a sunny round can be followed by rain or snow',
-      'Round twists (a new rules switch): about every other round one rule changes for that round only, and a badge by the round number shows it. Low gravity: shells fly twice as far and float. Gale: the wind blows two and a half times as hard. Double damage: every hit hurts twice as much. Gold rush: the round pays three times the cash',
+      'Round twists (a new rules switch): about every other round one rule changes for that round only, and a badge by the round number shows it. Low gravity: shells fly twice as far and float. Gale: the wind blows two and a half times as hard. Double damage: every hit hurts twice as much. Gold rush: the round pays three times the cash. Meteor night: a few burning meteors streak down at the start of every turn, one of them close to a tank. Rising water: the valleys flood a few rows higher every turn, and a tank caught under the surface loses health',
     ],
   },
   {

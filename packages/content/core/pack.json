@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.82.0",
+  "version": "0.83.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -251,10 +251,12 @@
     "terrainop.liquefy",
     "terrainop.magnet",
     "terrainop.melt",
+    "terrainop.meteor-night",
     "terrainop.portal",
     "terrainop.quake",
     "terrainop.repair-drone",
     "terrainop.rift",
+    "terrainop.rising-water",
     "terrainop.rogue-hole",
     "terrainop.rumbling-volcano",
     "terrainop.shave",
