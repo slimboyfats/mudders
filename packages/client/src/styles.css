@@ -3184,6 +3184,30 @@ a.button {
   --new: #7cf05a;
 }
 
+.deal-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 4px;
+  vertical-align: 2px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 3px;
+  background: #ffcf3a;
+  color: #2a1a00;
+}
+
+.deal-badge.out {
+  background: #5a1a14;
+  color: #ffd2c8;
+}
+
+.card.sold-out {
+  opacity: 0.55;
+}
+
 .new-badge {
   display: inline-block;
   margin-left: 6px;
