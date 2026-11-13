@@ -51,6 +51,43 @@ const SCENERY_GEN = {
   lakeland: 'gen.lakeland',
 } as const;
 
+/** A scenery pick: one map for the whole match, or `shuffle` for a different map each round. */
+export type SceneryPick = keyof typeof SCENERY_GEN | 'shuffle';
+
+/** Small seeded generator (mulberry32): every peer derives the same rounds from the seed. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The generator for each round of a shuffled match: every map once in a shuffled order before any
+ * comes back, and never the same map two rounds running.
+ */
+export function shuffledMaps(rounds: number, seed: number): string[] {
+  const all = Object.values(SCENERY_GEN) as string[];
+  const rnd = seeded(seed ^ 0x5ce9e5);
+  const out: string[] = [];
+  while (out.length < rounds) {
+    const deck: string[] = [];
+    // inside-out Fisher–Yates: each map lands at a random slot of the lap
+    for (const id of all) {
+      const j = Math.floor(rnd() * (deck.length + 1));
+      deck.splice(j, 0, id);
+    }
+    // a fresh lap never opens with the map the last one closed on
+    if (deck[0] === out[out.length - 1]) deck.reverse();
+    out.push(...deck);
+  }
+  return out.slice(0, rounds);
+}
+
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
 export interface MatchSetup {
   slots: Slot[];
@@ -59,7 +96,7 @@ export interface MatchSetup {
    * Props on the map (§4c): bare hills, a village with houses, trees and boulders, or badlands
    * with stone arches and ledges to shelter under, or a marsh whose mud valleys squash under blasts, a city of towers and blocks, floating islands over a deep drop, or a cave under a stone roof, a glacier with frozen lakes, clay pits, or lakeland hills with water in the hollows.
    */
-  scenery: keyof typeof SCENERY_GEN;
+  scenery: SceneryPick;
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
@@ -102,9 +139,13 @@ export const DROP_RATES = ['off', 'rare', 'normal', 'often'] as const;
 export type DropRate = (typeof DROP_RATES)[number];
 export type WeatherPick = (typeof WEATHER_PICKS)[number];
 
-/** The `weather.*` id a pick plays with (random: drawn from the seed, so every peer agrees). */
-export function weatherFor(pick: WeatherPick, seed: number): string | undefined {
-  const p = pick === 'random' ? (['clear', 'rain', 'snow'] as const)[(seed >>> 0) % 3] : pick;
+/**
+ * The `weather.*` id a pick plays with in a round (random: drawn from the seed and the round, so
+ * every peer agrees and the sky changes between rounds).
+ */
+export function weatherFor(pick: WeatherPick, seed: number, round = 0): string | undefined {
+  const roll = round === 0 ? seed >>> 0 : Math.floor(seeded(seed ^ Math.imul(round, 0x9e37))() * 3);
+  const p = pick === 'random' ? (['clear', 'rain', 'snow'] as const)[roll % 3] : pick;
   if (!p) return undefined;
   return p === 'clear' ? undefined : `weather.${p}`;
 }
@@ -146,7 +187,7 @@ export function loadSetup(): MatchSetup {
     if (raw) {
       const s = { ...defaultSetup(), ...(JSON.parse(raw) as Partial<MatchSetup>) };
       s.slots = Array.from({ length: MAX_PLAYERS }, (_, i) => s.slots[i] ?? 'off');
-      if (!(s.scenery in SCENERY_GEN)) s.scenery = 'village';
+      if (s.scenery !== 'shuffle' && !(s.scenery in SCENERY_GEN)) s.scenery = 'village';
       if (!s.weather || !WEATHER_PICKS.includes(s.weather)) s.weather = 'clear';
       if (!s.drops || !DROP_RATES.includes(s.drops)) s.drops = 'normal';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
@@ -231,15 +272,30 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     mapEvents: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
   };
+  const shuffle = s.scenery === 'shuffle';
+  const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;
+  const weather = s.weather ?? 'clear';
+  // a different map and/or sky each round: shuffled scenery, random weather
+  const perRound =
+    shuffle || (weather === 'random' && s.rounds > 1)
+      ? Array.from({ length: s.rounds }, (_, r) => ({
+          ...(maps?.[r] ? { generator: maps[r] } : {}),
+          weather: weatherFor(weather, seed, r) ?? null,
+        }))
+      : null;
   return {
     seed,
     mode: teams ? 'mode.teams' : 'mode.classic',
     players: slots.length,
-    map: { ...MAP_SIZES[s.size], generator: SCENERY_GEN[s.scenery] },
+    map: {
+      ...MAP_SIZES[s.size],
+      generator: maps?.[0] ?? SCENERY_GEN[s.scenery as keyof typeof SCENERY_GEN],
+    },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
     tanks: activeTanks(s),
     rules,
-    weather: weatherFor(s.weather ?? 'clear', seed),
+    weather: weatherFor(weather, seed),
+    ...(perRound ? { perRound } : {}),
     ...(teams ? { teams } : {}),
   };
 }

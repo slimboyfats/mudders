@@ -205,10 +205,18 @@ export abstract class SimMatch implements SnapshotStream {
       const text = alertText(e.type, e.params);
       if (text) this.alert = { text, tick: s.tick };
     }
+    // a match that changes map or sky between rounds says where this round is played
+    const w = this.world;
+    if (w.options.perRound && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
+      this.shown = w.round;
+      this.alert = { text: roundLine(w), tick: s.tick };
+    }
     for (const l of this.listeners) l(s);
   }
 
   private alert: { text: string; tick: number } | null = null;
+  /** The round whose map the HUD last announced. */
+  private shown = -1;
 
   /** The last supply crate taken, as the HUD words it, while it is fresh. */
   private pickupOf(w: World): HudState['pickup'] {
@@ -341,6 +349,13 @@ export class LocalMatch extends SimMatch {
     this.world.step();
     this.publish();
   }
+}
+
+/** "Round 2: Glacier, snow": where a round of a shuffled match is played. */
+export function roundLine(w: World): string {
+  const map = w.content.get('gen', w.generator).meta.name;
+  const sky = w.weather?.label;
+  return `Round ${w.round + 1}: ${map}${sky ? `, ${sky.toLowerCase()}` : ''}`;
 }
 
 /** How the HUD words a map event, or '' for effects that aren't news. */

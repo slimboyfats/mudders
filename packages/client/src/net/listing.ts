@@ -41,7 +41,7 @@ export function roomSummary(r: LobbyRules): string {
     `${r.rounds} round${r.rounds === 1 ? '' : 's'}`,
     r.turnTimer ? `${r.turnTimer} s turns` : 'no turn timer',
   ];
-  if (r.scenery !== 'none') parts.push(r.scenery);
+  if (r.scenery !== 'none') parts.push(r.scenery === 'shuffle' ? 'map shuffle' : r.scenery);
   if (r.teams) parts.push('teams');
   return parts.join(' · ');
 }

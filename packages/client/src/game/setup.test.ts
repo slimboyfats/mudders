@@ -3,7 +3,9 @@ import {
   PRESETS,
   activeTeams,
   canStart,
+  defaultSetup,
   estimateMinutes,
+  shuffledMaps,
   toWorldOptions,
   weatherFor,
 } from './setup';
@@ -99,5 +101,38 @@ describe('weather pick', () => {
     const picks = new Set([0, 1, 2, 3, 4, 5].map((s) => weatherFor('random', s) ?? 'clear'));
     expect(picks).toEqual(new Set(['clear', 'weather.rain', 'weather.snow']));
     expect(weatherFor('random', 1234)).toBe(weatherFor('random', 1234));
+  });
+});
+
+describe('map shuffle', () => {
+  it('plays every map once before any comes back, never the same twice running', () => {
+    const maps = shuffledMaps(20, 77);
+    expect(maps).toHaveLength(20);
+    expect(new Set(maps.slice(0, 10)).size).toBe(10);
+    expect(new Set(maps.slice(10)).size).toBe(10);
+    for (let i = 1; i < maps.length; i++) expect(maps[i]).not.toBe(maps[i - 1]);
+    expect(shuffledMaps(20, 77)).toEqual(maps);
+    expect(shuffledMaps(20, 78)).not.toEqual(maps);
+  });
+
+  it('gives the sim a map per round, starting on the first', () => {
+    const s = { ...defaultSetup(), scenery: 'shuffle' as const, rounds: 3 };
+    const o = toWorldOptions(s, 9);
+    const maps = shuffledMaps(3, 9);
+    expect(o.map?.generator).toBe(maps[0]);
+    expect(o.perRound?.map((r) => r.generator)).toEqual(maps);
+  });
+
+  it('rolls random weather again each round, round 1 as before', () => {
+    const s = { ...defaultSetup(), weather: 'random' as const, rounds: 8 };
+    const o = toWorldOptions(s, 9);
+    expect(o.weather).toBe(weatherFor('random', 9));
+    expect(o.perRound?.[0]?.weather ?? undefined).toBe(o.weather);
+    expect(o.perRound?.[0]?.generator).toBeUndefined();
+    expect(new Set(o.perRound?.map((r) => r.weather)).size).toBeGreaterThan(1);
+  });
+
+  it('keeps a fixed map and sky with no per-round plan', () => {
+    expect(toWorldOptions(defaultSetup(), 9).perRound).toBeUndefined();
   });
 });
