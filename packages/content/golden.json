@@ -1,5 +1,5 @@
 {
-  "contentHash": "f10b98258f43798b",
+  "contentHash": "68285adf30f7012a",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1130,8 +1130,8 @@
       "hash": "1347243be42b5435"
     },
     "terrainop.rising-water": {
-      "ticks": 643,
-      "hash": "02cee17ce64e94b6"
+      "ticks": 1400,
+      "hash": "c58b92614dee6fec"
     },
     "terrainop.rogue-hole": {
       "ticks": 46,

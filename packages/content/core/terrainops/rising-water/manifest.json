@@ -3,13 +3,17 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Rising Water",
-    "description": "A round twist. The valleys start to flood: from the second turn on the water climbs several rows at the start of every turn, filling the low ground and craters, and a tank caught under the surface loses health every turn it stays down there.",
+    "description": "A round twist. Springs open at the bottom of the deepest valleys and pump water in at the start of every turn from the second on, so the lakes swell and climb several rows a turn, flowing and sloshing as they spread. A tank caught under the surface loses health every turn it stays down there.",
     "since": "core@0.83.0"
   },
   "behaviour": "terrainop.rising-water",
   "water": "material.water",
   "first": 1,
   "rise": 8,
-  "start": 24,
+  "start": 20,
+  "springs": 3,
+  "apart": 120,
+  "rate": 4,
+  "pump": 420,
   "damage": 8
 }

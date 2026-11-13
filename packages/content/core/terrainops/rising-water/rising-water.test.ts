@@ -26,12 +26,25 @@ describe('terrainop.rising-water', () => {
   it('hurts a tank caught under the surface', () => {
     const w = flood(['terrainop.rising-water']);
     const t = w.tanks[0]!;
-    // sink the flood start onto this tank: it sits in the lowest valley once the water is above it
     passTurns(w, 1);
     const hp = t.health;
-    t.y = w.grid.height - 2;
+    // drown it: water right over its top when the next turn starts
+    const y = t.y - t.h - 1;
+    w.grid.material[y * w.grid.width + t.x] = w.mats.cellOf('material.water');
     passTurns(w, 1);
     expect(t.health).toBeLessThan(hp);
+  });
+
+  it('pumps the water in over a few seconds instead of in one step', () => {
+    const w = flood(['terrainop.rising-water']);
+    passTurns(w, 1);
+    const at = countCells(w, 'material.water');
+    for (let i = 0; i < 30; i++) w.step();
+    const soon = countCells(w, 'material.water');
+    for (let i = 0; i < 300; i++) w.step();
+    const later = countCells(w, 'material.water');
+    expect(soon).toBeGreaterThan(at);
+    expect(later).toBeGreaterThan(soon + 200);
   });
 
   it('stays off in a round without the twist', () => {
