@@ -1,0 +1,16 @@
+{
+  "id": "terrainop.meteor-night",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Meteor Night",
+    "description": "A round twist. From the second turn on, a few burning meteors streak down out of the sky at the start of every turn: most land anywhere on the map, and one of them comes down close to a tank.",
+    "since": "core@0.83.0"
+  },
+  "behaviour": "terrainop.meteor-night",
+  "meteor": "weapon.meteor",
+  "first": 1,
+  "count": [2, 3],
+  "near": 1,
+  "spread": 40,
+  "margin": 20
+}

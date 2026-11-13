@@ -1,0 +1,191 @@
+{
+  "id": "terrainop.rising-water",
+  "schemaVersion": 1,
+  "description": "A Rising water round on the hills: both tanks fire harmless tracers straight up while the flood climbs a few rows at the start of every turn, filling the valleys.",
+  "subject": "terrainop.rising-water",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.tracer": 8
+      }
+    },
+    {
+      "x": 620,
+      "inventory": {
+        "weapon.tracer": 8
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "perRound": [
+    {
+      "twist": "Rising water",
+      "events": ["terrainop.rising-water"]
+    }
+  ],
+  "rules": {
+    "mapEvents": true,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 90,
+        "power": 200
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
