@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.lightning-storm",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Lightning Storm",
+    "description": "A round twist. A thunderstorm rolls in over the map: from the second turn on, lightning cracks down at the start of every turn onto the tallest ground, and one bolt always goes for the tank standing highest. High ground is dangerous for the round.",
+    "since": "core@0.86.0"
+  },
+  "behaviour": "terrainop.lightning-storm",
+  "bolt": "weapon.thunderstorm-bolt",
+  "first": 1,
+  "count": [2, 3],
+  "tallest": 40
+}
