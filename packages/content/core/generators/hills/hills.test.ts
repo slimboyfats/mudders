@@ -36,3 +36,23 @@ describe('gen.hills', () => {
     expect(w.grid.settling).toBe(false);
   });
 });
+
+describe('big landforms', () => {
+  it('every landform reshapes the hills, the same way for the same seed', async () => {
+    const { landform, LANDFORMS } = await import('./behaviour');
+    const { Prng } = await import('@mudders/sim');
+    const seen = new Set<number>();
+    for (let seed = 1; seed < 60 && seen.size < LANDFORMS.length; seed++) {
+      const flat = new Int32Array(800).fill(240);
+      const a = Int32Array.from(flat);
+      const b = Int32Array.from(flat);
+      const k = landform(new Prng(seed), a, 800, 400);
+      expect(landform(new Prng(seed), b, 800, 400)).toBe(k);
+      expect(a).toEqual(b);
+      // a plain on flat ground stays flat; every other landform moves the ground
+      if (LANDFORMS[k] !== 'plain') expect(a.some((y) => y !== 240)).toBe(true);
+      seen.add(k);
+    }
+    expect(seen.size).toBe(LANDFORMS.length);
+  });
+});

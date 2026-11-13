@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Village",
-    "description": "Gentler rolling hills with a cluster of brick houses, a scattering of trees and the odd boulder.",
+    "description": "Gentler rolling hills with a cluster of brick houses, a scattering of trees and the odd boulder. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.4.0"
   },
   "extends": "gen.hills",
@@ -50,5 +50,6 @@
       "count": [1, 2],
       "cluster": false
     }
-  ]
+  ],
+  "landform": 0.7
 }

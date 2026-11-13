@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Glacier",
-    "description": "Steep hills with ice caps on the peaks and flat frozen lakes in the valleys. Tanks slide on the ice, blasts shatter it into sliding shards, and fire melts it into water.",
+    "description": "Steep hills with ice caps on the peaks and flat frozen lakes in the valleys. Tanks slide on the ice, blasts shatter it into sliding shards, and fire melts it into water. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.21.0"
   },
   "extends": "gen.hills",
@@ -24,5 +24,6 @@
     {
       "use": "terrainop.avalanche"
     }
-  ]
+  ],
+  "landform": 0.7
 }

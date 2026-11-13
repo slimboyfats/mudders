@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Lakeland",
-    "description": "Rolling hills with deep lakes in every valley. Craters by the shore drain them, lava shots boil them into steam, and the water turns the dirt it sits on to mud.",
+    "description": "Rolling hills with deep lakes in every valley. Craters by the shore drain them, lava shots boil them into steam, and the water turns the dirt it sits on to mud. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.63.0"
   },
   "extends": "gen.hills",
@@ -27,5 +27,6 @@
       "count": [2, 3],
       "cluster": false
     }
-  ]
+  ],
+  "landform": 0.7
 }
