@@ -1,5 +1,5 @@
 {
-  "contentHash": "1e5aa43f3d065b51",
+  "contentHash": "5a80c59bfb66584e",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1108,6 +1108,10 @@
     "terrainop.kaiju": {
       "ticks": 46,
       "hash": "034c8455c46f0ca3"
+    },
+    "terrainop.lightning-storm": {
+      "ticks": 1400,
+      "hash": "0894f10d5350131a"
     },
     "terrainop.liquefy": {
       "ticks": 368,
