@@ -5,6 +5,7 @@ import {
   canStart,
   defaultSetup,
   estimateMinutes,
+  roundTwists,
   shuffledMaps,
   toWorldOptions,
   weatherFor,
@@ -134,5 +135,23 @@ describe('map shuffle', () => {
 
   it('keeps a fixed map and sky with no per-round plan', () => {
     expect(toWorldOptions(defaultSetup(), 9).perRound).toBeUndefined();
+  });
+});
+
+describe('round twists', () => {
+  it('gives about every other round a twist, never the same twice running', () => {
+    const t = roundTwists(200, 3);
+    const n = t.filter(Boolean).length;
+    expect(n).toBeGreaterThan(70);
+    expect(n).toBeLessThan(130);
+    for (let i = 1; i < t.length; i++) if (t[i]) expect(t[i]).not.toBe(t[i - 1]);
+    expect(roundTwists(200, 3)).toEqual(t);
+  });
+
+  it('passes each round its twist, and none when off', () => {
+    const on = toWorldOptions({ ...defaultSetup(), twists: true, rounds: 10 }, 4);
+    const want = roundTwists(10, 4).map((x) => x?.name);
+    expect(on.perRound?.map((r) => r.twist)).toEqual(want);
+    expect(toWorldOptions({ ...defaultSetup(), rounds: 10 }, 4).perRound).toBeUndefined();
   });
 });

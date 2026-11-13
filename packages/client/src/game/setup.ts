@@ -1,5 +1,5 @@
 import { MAP_SIZES, MAX_PLAYERS, type WindType } from '@mudders/shared';
-import type { MatchRules, WorldOptions } from '@mudders/sim';
+import type { MatchRules, RoundPlan, WorldOptions } from '@mudders/sim';
 
 export type MapSize = keyof typeof MAP_SIZES;
 
@@ -88,6 +88,41 @@ export function shuffledMaps(rounds: number, seed: number): string[] {
   return out.slice(0, rounds);
 }
 
+/**
+ * Round twists: one rule that changes for a single round. Each entry is what the sim gets for that
+ * round (percent of the normal value); `name` is what the HUD calls it.
+ */
+export const TWISTS = [
+  { name: 'Low gravity', gravity: 50 },
+  { name: 'Gale', wind: 250 },
+  { name: 'Double damage', damage: 200 },
+  { name: 'Gold rush', cash: 300 },
+] as const;
+
+/** Odds a round gets a twist, out of 100. */
+const TWIST_CHANCE = 50;
+
+/**
+ * The twist for each round (or null for a normal round): about every other round, drawn from the
+ * seed so every peer agrees, and never the same twist two rounds running.
+ */
+export function roundTwists(rounds: number, seed: number): ((typeof TWISTS)[number] | null)[] {
+  const rnd = seeded(seed ^ 0x7a157);
+  const out: ((typeof TWISTS)[number] | null)[] = [];
+  let last = -1;
+  for (let r = 0; r < rounds; r++) {
+    if (rnd() * 100 >= TWIST_CHANCE) {
+      out.push(null);
+      continue;
+    }
+    let k = Math.floor(rnd() * TWISTS.length);
+    if (k === last) k = (k + 1) % TWISTS.length;
+    last = k;
+    out.push(TWISTS[k] ?? null);
+  }
+  return out;
+}
+
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
 export interface MatchSetup {
   slots: Slot[];
@@ -111,6 +146,8 @@ export interface MatchSetup {
   drops?: DropRate | undefined;
   /** Cash every player gets each round on top of their winnings (§3.6); unset or 0 = none. */
   roundBonus?: number | undefined;
+  /** Round twists: about every other round one rule changes (Low gravity, Gale…); unset = off. */
+  twists?: boolean | undefined;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
@@ -176,6 +213,7 @@ export function defaultSetup(): MatchSetup {
     startingCash: 3000,
     drops: 'normal',
     roundBonus: 0,
+    twists: false,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -275,13 +313,18 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;
   const weather = s.weather ?? 'clear';
-  // a different map and/or sky each round: shuffled scenery, random weather
+  const twists = s.twists ? roundTwists(s.rounds, seed) : null;
+  // a different map, sky or rule each round: shuffled scenery, random weather, round twists
   const perRound =
-    shuffle || (weather === 'random' && s.rounds > 1)
-      ? Array.from({ length: s.rounds }, (_, r) => ({
-          ...(maps?.[r] ? { generator: maps[r] } : {}),
-          weather: weatherFor(weather, seed, r) ?? null,
-        }))
+    shuffle || twists || (weather === 'random' && s.rounds > 1)
+      ? Array.from({ length: s.rounds }, (_, r): RoundPlan => {
+          const t = twists?.[r];
+          return {
+            ...(maps?.[r] ? { generator: maps[r] } : {}),
+            weather: weatherFor(weather, seed, r) ?? null,
+            ...(t ? { ...t, twist: t.name } : {}),
+          };
+        })
       : null;
   return {
     seed,

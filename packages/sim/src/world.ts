@@ -179,6 +179,28 @@ export interface RoundResult {
   earned: number[];
 }
 
+/**
+ * One round's own settings (map shuffle, round twists). Percentages scale the mode's value for that
+ * round only; a field left out keeps the match's own.
+ */
+export interface RoundPlan {
+  generator?: string | undefined;
+  /** `weather.*` id, or null for clear skies. */
+  weather?: string | null | undefined;
+  /** Name of the round's twist, for the HUD (the kernel doesn't read it). */
+  twist?: string | undefined;
+  /** Gravity in percent of the mode's (Low gravity: 50). */
+  gravity?: number | undefined;
+  /** Wind in percent of what the mode draws (Gale: 250). */
+  wind?: number | undefined;
+  /** Damage to tanks in percent (Double damage: 200). */
+  damage?: number | undefined;
+  /** Money earned at the end of the round in percent (Gold rush: 300). */
+  cash?: number | undefined;
+  /** Extra ops started on the fresh map, like a generator's `events` (Meteor night). */
+  events?: readonly string[] | undefined;
+}
+
 export interface WorldOptions {
   seed: number;
   mode: string;
@@ -209,8 +231,7 @@ export interface WorldOptions {
    * `generator` replaces `map.generator`, and `weather` replaces `weather` (null = clear skies); a
    * field left out keeps the match's own. Unset = every round on the same map and weather.
    */
-  perRound?:
-    readonly { generator?: string | undefined; weather?: string | null | undefined }[] | undefined;
+  perRound?: readonly RoundPlan[] | undefined;
   /** Force the air temperature (°C) for the whole match: no jitter, no drift. */
   temperature?: number | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
@@ -689,7 +710,13 @@ export class World implements SimApi {
   /** Defensive gear (§5.1), in id order; sold at fixed prices (no jitter, so no RNG draws). */
   readonly gear: RtGear[] = [];
   readonly mode: ModeManifest;
-  readonly gravity: number;
+  gravity: number;
+  /** The mode's gravity, before this round's twist. */
+  private readonly baseGravity: number;
+  /** This round's twist scales, percent. */
+  private windPct = 100;
+  private damagePct = 100;
+  private cashPct = 100;
   /** Weather drag, fixed-point share of velocity per tick (this round's weather). */
   drag = 0;
   /** This round's weather, or null for clear skies. */
@@ -802,7 +829,7 @@ export class World implements SimApi {
     this.groups = new Groups(content.list('prop'), this.mats);
     this.groups.chunks = this.chunks;
     this.scratch = new Scratch(this.grid.size);
-    this.gravity = toFixed(mode.physics.gravity);
+    this.gravity = this.baseGravity = toFixed(mode.physics.gravity);
     this.setWeather(options.weather);
     this.maxSpeed = toFixed(mode.physics.maxSpeed);
     this.walls = mode.walls;
@@ -873,11 +900,17 @@ export class World implements SimApi {
     this.dropsOn = dr !== null && rules.drops !== undefined && rules.drops !== 'off';
     if (rules.mapEvents === true) {
       const gids = [options.map?.generator ?? mode.map.generator];
-      for (const pr of options.perRound ?? []) if (pr.generator) gids.push(pr.generator);
+      for (const pr of options.perRound ?? []) {
+        if (pr.generator) gids.push(pr.generator);
+        for (const id of pr.events ?? []) gids.push(`events:${id}`);
+      }
       for (const gid of gids) {
         if (this.eventOps.has(gid)) continue;
         const ops: number[] = [];
-        for (const ev of content.get('gen', gid).events ?? []) ops.push(this.bindOp(ev));
+        const evs = gid.startsWith('events:')
+          ? [content.get('terrainop', gid.slice(7))]
+          : (content.get('gen', gid).events ?? []);
+        for (const ev of evs) ops.push(this.bindOp(ev));
         this.eventOps.set(gid, ops);
       }
     }
@@ -921,10 +954,11 @@ export class World implements SimApi {
       team: (p) => options.teams?.[p] ?? p,
       turn: () => this.turn,
       setWind: (w) => {
-        if (!this.windLocked) this.windBase = w;
+        if (!this.windLocked) this.windBase = Math.trunc((w * this.windPct) / 100);
         this.wind = this.windBase + this.gust;
       },
-      setGust: (g) => {
+      setGust: (g0) => {
+        const g = Math.trunc((g0 * this.windPct) / 100);
         this.gust = g;
         this.wind = this.windBase + g;
       },
@@ -1270,6 +1304,10 @@ export class World implements SimApi {
     const pr = this.options.perRound;
     const plan = pr && pr.length > 0 ? pr[this.round % pr.length] : undefined;
     if (plan && plan.weather !== undefined) this.setWeather(plan.weather ?? undefined);
+    this.gravity = Math.trunc((this.baseGravity * (plan?.gravity ?? 100)) / 100);
+    this.windPct = plan?.wind ?? 100;
+    this.damagePct = plan?.damage ?? 100;
+    this.cashPct = plan?.cash ?? 100;
     const genId = plan?.generator ?? this.options.map?.generator ?? this.mode.map.generator;
     this.generator = genId;
     const genItem = this.content.get('gen', genId);
@@ -1364,6 +1402,11 @@ export class World implements SimApi {
     // the map's own events take their places on the fresh map (owner -1: no one's doing)
     for (const op of this.eventOps.get(this.generator) ?? []) {
       this.startOp(op, -1, -1, 0, 'kinetic', -1);
+    }
+    for (const id of plan?.events ?? []) {
+      for (const op of this.eventOps.get(`events:${id}`) ?? []) {
+        this.startOp(op, -1, -1, 0, 'kinetic', -1);
+      }
     }
     if (this.birdsOn) this.birds.reset(this.birdWorld, this.options.seed, this.round, this.tick);
     if (this.dropsOn) this.drops.reset(this.options.seed, this.round, this.mode.drops!.first);
@@ -3841,7 +3884,8 @@ export class World implements SimApi {
    */
   private damageTank(t: Tank, dmg0: number, by: number, pierce = false): void {
     if (dmg0 <= 0 || !t.alive) return;
-    let dmg = dmg0;
+    let dmg =
+      this.damagePct === 100 ? dmg0 : Math.max(1, Math.trunc((dmg0 * this.damagePct) / 100));
     if (t.mark > 0 && by >= 0) {
       // a spotted tank: the marker's team hits it harder
       const src = this.tanks[by];
@@ -4577,7 +4621,9 @@ export class World implements SimApi {
       points.push(pts);
       t.score += pts;
       const money =
-        Math.trunc(t.money * eco.interest) + Math.max(0, pts) * eco.moneyPerPoint + bonus;
+        Math.trunc(t.money * eco.interest) +
+        Math.trunc((Math.max(0, pts) * eco.moneyPerPoint * this.cashPct) / 100) +
+        bonus;
       earned.push(money);
       t.money += money;
     }
