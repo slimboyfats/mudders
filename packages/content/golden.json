@@ -1,5 +1,5 @@
 {
-  "contentHash": "c48c392d29b93efc",
+  "contentHash": "f10b98258f43798b",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1109,6 +1109,10 @@
       "ticks": 284,
       "hash": "e9d529b9a0451c99"
     },
+    "terrainop.meteor-night": {
+      "ticks": 755,
+      "hash": "c8e7fafc76bdd887"
+    },
     "terrainop.portal": {
       "ticks": 46,
       "hash": "034c8455c46f0ca3"
@@ -1124,6 +1128,10 @@
     "terrainop.rift": {
       "ticks": 288,
       "hash": "1347243be42b5435"
+    },
+    "terrainop.rising-water": {
+      "ticks": 643,
+      "hash": "02cee17ce64e94b6"
     },
     "terrainop.rogue-hole": {
       "ticks": 46,
