@@ -18,6 +18,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-13',
+    title: 'Map shuffle: a different map every round',
+    newSince: 'core@0.75.0',
+    items: [
+      'New scenery choice, Shuffle: every round is played on a different map (Village, Caves, Lakeland and the rest), each one once before any comes back, and the HUD says where each round is',
+      'Random weather now rolls again every round, so a sunny round can be followed by rain or snow',
+    ],
+  },
+  {
     date: '2026-11-12',
     title:
       'DROP! weapons, a tidier shop, blasts that throw the ground, ground and rock that fall with weight, and water with momentum',

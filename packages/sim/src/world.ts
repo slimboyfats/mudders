@@ -204,6 +204,13 @@ export interface WorldOptions {
   wind?: number | undefined;
   /** Weather (`weather.*` id); unset = clear skies. */
   weather?: string | undefined;
+  /**
+   * Per-round map and weather (kernel 0.50.0, map shuffle): round r plays `perRound[r % length]`.
+   * `generator` replaces `map.generator`, and `weather` replaces `weather` (null = clear skies); a
+   * field left out keeps the match's own. Unset = every round on the same map and weather.
+   */
+  perRound?:
+    readonly { generator?: string | undefined; weather?: string | null | undefined }[] | undefined;
   /** Force the air temperature (°C) for the whole match: no jitter, no drift. */
   temperature?: number | undefined;
   /** Force the turn order (showcases, tests). The mode's order is still drawn, keeping the RNG in step. */
@@ -615,8 +622,11 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
-  /** Op sites of the map's events (`gen.events`), started each round while `rules.mapEvents`. */
-  private readonly eventOps: number[] = [];
+  /**
+   * Op sites of each map's events (`gen.events`) by generator id, started each round on that map
+   * while `rules.mapEvents`. Looked up by key only, never iterated.
+   */
+  private readonly eventOps = new Map<string, number[]>();
   /** Supply crates (see `drops.ts`); only stepped and hashed while `dropsOn`. */
   readonly drops = new Drops();
   private readonly dropsOn: boolean;
@@ -680,10 +690,12 @@ export class World implements SimApi {
   readonly gear: RtGear[] = [];
   readonly mode: ModeManifest;
   readonly gravity: number;
-  /** Weather drag, fixed-point share of velocity per tick. */
-  readonly drag: number;
-  /** The match weather, or null for clear skies. */
-  readonly weather: WeatherManifest | null;
+  /** Weather drag, fixed-point share of velocity per tick (this round's weather). */
+  drag = 0;
+  /** This round's weather, or null for clear skies. */
+  weather: WeatherManifest | null = null;
+  /** This round's generator (`gen.*` id). */
+  generator = '';
   /** Effective match rules (mode values with setup-screen overrides applied). */
   readonly rounds: number;
   readonly turnCap: number;
@@ -771,8 +783,8 @@ export class World implements SimApi {
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
-  private readonly weatherB: WeatherBehaviour | null;
-  private readonly weatherParams: unknown;
+  private weatherB: WeatherBehaviour | null = null;
+  private weatherParams: unknown = undefined;
 
   constructor(
     readonly content: ResolvedContent,
@@ -791,14 +803,7 @@ export class World implements SimApi {
     this.groups.chunks = this.chunks;
     this.scratch = new Scratch(this.grid.size);
     this.gravity = toFixed(mode.physics.gravity);
-    const weather = options.weather ? content.get('weather', options.weather) : null;
-    this.weather = weather;
-    this.drag = weather ? Math.trunc((weather.drag * FP) / 1000) : 0;
-    this.weatherB = weather ? content.behaviours.getKind(weather.behaviour, 'weather') : null;
-    this.weatherParams =
-      weather && this.weatherB
-        ? this.weatherB.params.parse(behaviourParams(weather, WEATHER_CORE_KEYS))
-        : undefined;
+    this.setWeather(options.weather);
     this.maxSpeed = toFixed(mode.physics.maxSpeed);
     this.walls = mode.walls;
     this.settleCap = mode.settle.maxCellsPerTick;
@@ -867,8 +872,14 @@ export class World implements SimApi {
     const dr = mode.drops;
     this.dropsOn = dr !== null && rules.drops !== undefined && rules.drops !== 'off';
     if (rules.mapEvents === true) {
-      const gid = options.map?.generator ?? mode.map.generator;
-      for (const ev of content.get('gen', gid).events ?? []) this.eventOps.push(this.bindOp(ev));
+      const gids = [options.map?.generator ?? mode.map.generator];
+      for (const pr of options.perRound ?? []) if (pr.generator) gids.push(pr.generator);
+      for (const gid of gids) {
+        if (this.eventOps.has(gid)) continue;
+        const ops: number[] = [];
+        for (const ev of content.get('gen', gid).events ?? []) ops.push(this.bindOp(ev));
+        this.eventOps.set(gid, ops);
+      }
     }
     this.dropEvery = !dr
       ? 0
@@ -1228,6 +1239,18 @@ export class World implements SimApi {
     };
   }
 
+  /** Bind a weather (`weather.*` id) for the rounds that follow; undefined = clear skies. */
+  private setWeather(id: string | undefined): void {
+    const weather = id ? this.content.get('weather', id) : null;
+    this.weather = weather;
+    this.drag = weather ? Math.trunc((weather.drag * FP) / 1000) : 0;
+    this.weatherB = weather ? this.content.behaviours.getKind(weather.behaviour, 'weather') : null;
+    this.weatherParams =
+      weather && this.weatherB
+        ? this.weatherB.params.parse(behaviourParams(weather, WEATHER_CORE_KEYS))
+        : undefined;
+  }
+
   private startRound(firstTurn = true): void {
     const g = this.grid;
     g.reset();
@@ -1244,7 +1267,11 @@ export class World implements SimApi {
     this.edge = 0;
     this.shooter = -1;
 
-    const genId = this.options.map?.generator ?? this.mode.map.generator;
+    const pr = this.options.perRound;
+    const plan = pr && pr.length > 0 ? pr[this.round % pr.length] : undefined;
+    if (plan && plan.weather !== undefined) this.setWeather(plan.weather ?? undefined);
+    const genId = plan?.generator ?? this.options.map?.generator ?? this.mode.map.generator;
+    this.generator = genId;
     const genItem = this.content.get('gen', genId);
     const gen = this.content.behaviours.getKind(genItem.behaviour, 'gen');
     this.startTemperature(genItem.temperature);
@@ -1335,7 +1362,9 @@ export class World implements SimApi {
     this.turnPos = 0;
     this.turn = 0;
     // the map's own events take their places on the fresh map (owner -1: no one's doing)
-    for (const op of this.eventOps) this.startOp(op, -1, -1, 0, 'kinetic', -1);
+    for (const op of this.eventOps.get(this.generator) ?? []) {
+      this.startOp(op, -1, -1, 0, 'kinetic', -1);
+    }
     if (this.birdsOn) this.birds.reset(this.birdWorld, this.options.seed, this.round, this.tick);
     if (this.dropsOn) this.drops.reset(this.options.seed, this.round, this.mode.drops!.first);
     this.lastPickup = null;

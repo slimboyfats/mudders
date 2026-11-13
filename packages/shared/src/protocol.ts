@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -201,6 +201,8 @@ export const NetSetupSchema = z.object({
     'glacier',
     'claypits',
     'lakeland',
+    // a different map each round (map shuffle, protocol 14)
+    'shuffle',
   ]),
   rounds: z.number().int().min(1).max(20),
   turnTimer: z.number().int().min(0).max(120),

@@ -92,6 +92,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="glacier">Glacier</option>
           <option value="claypits">Clay pits</option>
           <option value="lakeland">Lakeland</option>
+          <option value="shuffle">Shuffle (new map each round)</option>
         </select>
       </label>
       <label>
@@ -115,7 +116,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="clear">Clear</option>
           <option value="rain">Rain</option>
           <option value="snow">Snow</option>
-          <option value="random">Random</option>
+          <option value="random">Random each round</option>
         </select>
       </label>
       <label>
