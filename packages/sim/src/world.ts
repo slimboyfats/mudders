@@ -116,6 +116,12 @@ const BOT_MOVE_TICK = BOT_THINK_TICKS - 8;
 const PREDICT_TICKS = 900;
 
 /** Match-rule overrides from the setup screen (§8); anything unset keeps the mode's value. */
+/** Shop deals (`rules.shopDeals`): half price, or sold out for this shop. */
+export const DEAL_SALE = 1;
+export const DEAL_OUT = 2;
+const SALE_COUNT = 4;
+const SOLD_OUT_COUNT = 2;
+
 export interface MatchRules {
   rounds?: number | undefined;
   turnTimer?: number | undefined;
@@ -148,6 +154,11 @@ export interface MatchRules {
    * on every round's map. Off unless set, so scenarios and tests keep their results.
    */
   mapEvents?: boolean | undefined;
+  /**
+   * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
+   * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
+   */
+  shopDeals?: boolean | undefined;
 }
 
 /** A pickup a tank made, for the HUD (not part of the state). */
@@ -766,6 +777,8 @@ export class World implements SimApi {
   edge = 0;
   /** Shop price per weapon pack this round. */
   prices: number[] = [];
+  /** This shop's deal per weapon: 0 none, `DEAL_SALE` half price, `DEAL_OUT` sold out. */
+  deals: number[] = [];
   /** Results of finished rounds. */
   readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
@@ -1997,6 +2010,7 @@ export class World implements SimApi {
     const rw = this.weapons[w]!;
     const cost = (this.prices[w] ?? 0) * packs;
     if (rw.price <= 0 || t.inventory[w]! < 0 || cost > t.money) return false;
+    if (this.deals[w] === DEAL_OUT) return false;
     t.money -= cost;
     t.inventory[w] = t.inventory[w]! + rw.pack * packs;
     return true;
@@ -4653,6 +4667,19 @@ export class World implements SimApi {
         ? 0
         : Math.max(1, Math.round((w.price * (1000 + (j > 0 ? this.rng.range(-j, j) : 0))) / 1000)),
     );
+    this.deals = this.weapons.map(() => 0);
+    if (this.options.rules?.shopDeals === true) {
+      // the weapons on sale and sold out: drawn from what is for sale, in weapon order
+      const forSale: number[] = [];
+      for (let i = 0; i < this.weapons.length; i++) if ((this.prices[i] ?? 0) > 0) forSale.push(i);
+      for (let k = 0; k < SALE_COUNT + SOLD_OUT_COUNT && forSale.length > 0; k++) {
+        const w = forSale.splice(this.rng.int(forSale.length), 1)[0]!;
+        if (k < SALE_COUNT) {
+          this.deals[w] = DEAL_SALE;
+          this.prices[w] = Math.max(1, (this.prices[w] ?? 0) >> 1);
+        } else this.deals[w] = DEAL_OUT;
+      }
+    }
     for (const t of this.tanks) {
       t.ready = false;
       if (t.bot >= 0) this.botShop(t);
@@ -4683,10 +4710,11 @@ export class World implements SimApi {
         max: g.max,
         count: t.gear[i] ?? 0,
       })),
+      // a sold-out weapon is shown to bots as not for sale (price 0)
       items: this.weapons.map((w, i) => ({
         index: i,
         id: w.id,
-        price: this.prices[i] ?? 0,
+        price: this.deals[i] === DEAL_OUT ? 0 : (this.prices[i] ?? 0),
         pack: w.pack,
         tier: w.tier,
         count: t.inventory[i] ?? 0,
@@ -4901,6 +4929,7 @@ export class World implements SimApi {
     h.num(this.shooter).num(this.nextProjectileId);
     for (const o of this.order) h.num(o);
     for (const p of this.prices) h.num(p);
+    if (this.options.rules?.shopDeals === true) for (const d of this.deals) h.num(d);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
     h.bytes(new Uint8Array(g.flowVel.buffer, g.flowVel.byteOffset, g.flowVel.length));

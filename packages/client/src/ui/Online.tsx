@@ -79,6 +79,7 @@ function rulesOf(): LobbyRules {
     startingCash: s.startingCash,
     roundBonus: s.roundBonus ?? 0,
     twists: s.twists ?? false,
+    deals: s.deals ?? false,
     teams: s.teams,
   };
 }

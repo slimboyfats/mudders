@@ -86,8 +86,17 @@ function loadSort(): SortKey {
  * weapons first by the chosen stat (biggest or newest first, ties by price) and gear after them.
  */
 export function sortShop(items: readonly ShopItem[], by: SortKey): ShopItem[] {
-  if (by === 'price') return [...items];
-  if (by === 'name') return [...items].sort((a, b) => a.name.localeCompare(b.name, 'en'));
+  // this shop's half-price weapons come first in every order, after the gear
+  const dealRank = (a: ShopItem, b: ShopItem): number =>
+    Number(b.deal === 'sale') - Number(a.deal === 'sale');
+  if (by === 'price') {
+    return [...items].sort(
+      (a, b) => Number(b.gear !== undefined) - Number(a.gear !== undefined) || dealRank(a, b),
+    );
+  }
+  if (by === 'name') {
+    return [...items].sort((a, b) => dealRank(a, b) || a.name.localeCompare(b.name, 'en'));
+  }
   const rank = (a: ShopItem, b: ShopItem): number => {
     if (by === 'new') return compareSince(b.since ?? '', a.since ?? '');
     if (by === 'blast') return (b.blast ?? 0) - (a.blast ?? 0);
@@ -96,6 +105,7 @@ export function sortShop(items: readonly ShopItem[], by: SortKey): ShopItem[] {
   return [...items].sort(
     (a, b) =>
       Number(a.gear !== undefined) - Number(b.gear !== undefined) ||
+      dealRank(a, b) ||
       rank(a, b) ||
       a.price - b.price ||
       a.name.localeCompare(b.name, 'en'),
@@ -135,14 +145,16 @@ export function Shop({ hud, controls, send }: ShopProps) {
   const owned = (id: string) =>
     me?.gear.find((g) => g.id === id)?.count ?? me?.inventory.find((i) => i.id === id)?.count ?? 0;
   const groups: string[] = ['all'];
+  if (hud.shop.some((it) => it.deal)) groups.push('deals');
   if (hud.shop.some((it) => it.isNew)) groups.push('new');
   for (const it of hud.shop) {
     const g = categoryGroup(it.category);
     if (!groups.includes(g)) groups.push(g);
   }
   groups.push('driving');
-  const shown = (category: string, fresh = false) =>
-    filter === 'all' || (filter === 'new' ? fresh : categoryGroup(category) === filter);
+  const shown = (category: string, fresh = false, deal = false) =>
+    filter === 'all' ||
+    (filter === 'new' ? fresh : filter === 'deals' ? deal : categoryGroup(category) === filter);
   const low = hud.seconds >= 0 && hud.seconds <= 5;
 
   return (
@@ -224,13 +236,25 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 style={
                   {
                     '--cat':
-                      g === 'all' ? 'var(--fg)' : g === 'new' ? 'var(--new)' : categoryColor(g),
+                      g === 'all'
+                        ? 'var(--fg)'
+                        : g === 'new'
+                          ? 'var(--new)'
+                          : g === 'deals'
+                            ? '#ffcf3a'
+                            : categoryColor(g),
                   } as CSSProperties
                 }
                 onClick={() => setFilter(g)}
                 data-testid={`shop-filter-${g}`}
               >
-                {g === 'all' ? 'All' : g === 'new' ? '★ New' : categoryLabel(g)}
+                {g === 'all'
+                  ? 'All'
+                  : g === 'new'
+                    ? '★ New'
+                    : g === 'deals'
+                      ? '½ Deals'
+                      : categoryLabel(g)}
               </button>
             ))}
           </div>
@@ -277,14 +301,17 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 </div>
               )}
               {items.map((it) => {
-                if (!shown(it.category, it.isNew)) return null;
+                if (!shown(it.category, it.isNew, it.deal !== undefined)) return null;
                 const have = owned(it.id);
                 const full = it.gear !== undefined && have >= it.gear.max;
-                const can = !me.ready && have >= 0 && !full && me.money >= it.price;
+                const out = it.deal === 'out';
+                const can = !me.ready && have >= 0 && !full && !out && me.money >= it.price;
                 return (
                   <div
                     key={it.id}
-                    className={`card${it.gear ? ' gear-card' : ''}${have !== 0 ? ' owned' : ''}`}
+                    className={`card${it.gear ? ' gear-card' : ''}${have !== 0 ? ' owned' : ''}${
+                      out ? ' sold-out' : ''
+                    }`}
                     style={{ '--cat': categoryColor(it.category) } as CSSProperties}
                   >
                     <button
@@ -295,6 +322,8 @@ export function Shop({ hud, controls, send }: ShopProps) {
                       <b>
                         {it.name}
                         {it.isNew && <span className="new-badge">New</span>}
+                        {it.deal === 'sale' && <span className="deal-badge">½ price</span>}
+                        {out && <span className="deal-badge out">Sold out</span>}
                       </b>
                       <span className="own">
                         {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
@@ -319,7 +348,7 @@ export function Shop({ hud, controls, send }: ShopProps) {
                       }}
                       aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
                     >
-                      <span>{full ? 'Full' : `+${it.pack}`}</span>
+                      <span>{out ? 'Sold out' : full ? 'Full' : `+${it.pack}`}</span>
                       <span className="price">{money(it.price)}</span>
                     </button>
                   </div>

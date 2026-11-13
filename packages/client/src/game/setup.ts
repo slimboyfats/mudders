@@ -150,6 +150,8 @@ export interface MatchSetup {
   roundBonus?: number | undefined;
   /** Round twists: about every other round one rule changes (Low gravity, Gale…); unset = off. */
   twists?: boolean | undefined;
+  /** Shop deals: every shop has a few weapons at half price and a couple sold out; unset = off. */
+  deals?: boolean | undefined;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
@@ -216,6 +218,7 @@ export function defaultSetup(): MatchSetup {
     drops: 'normal',
     roundBonus: 0,
     twists: false,
+    deals: false,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -311,6 +314,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     // the map's own events: Badlands' volcano, Glacier's avalanches
     mapEvents: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
+    ...(s.deals ? { shopDeals: true } : {}),
   };
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;

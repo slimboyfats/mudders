@@ -1,5 +1,7 @@
 import type { Input, RenderSnapshot } from '@mudders/shared';
 import {
+  DEAL_OUT,
+  DEAL_SALE,
   TICK_RATE,
   World,
   type ResolvedContent,
@@ -72,6 +74,8 @@ export interface ShopItem {
   damage?: number;
   /** Added in the newest changelog wave: NEW badge. */
   isNew?: boolean;
+  /** This shop's deal (shop deals rule): half price, or sold out. */
+  deal?: 'sale' | 'out';
 }
 
 export interface HudState {
@@ -283,7 +287,18 @@ export abstract class SimMatch implements SnapshotStream {
       command: w.commandable(),
       shop: [
         ...this.gearItems,
-        ...this.shopItems.map((i) => ({ ...i, price: w.prices[i.index] ?? i.price })),
+        ...this.shopItems.map((i) => {
+          const d = w.deals[i.index];
+          return {
+            ...i,
+            price: w.prices[i.index] ?? i.price,
+            ...(d === DEAL_SALE
+              ? { deal: 'sale' as const }
+              : d === DEAL_OUT
+                ? { deal: 'out' as const }
+                : {}),
+          };
+        }),
       ],
       tanks: w.tanks.map((t) => ({
         // follows the live tank, so an AI takeover (§6.1) shows in the HUD

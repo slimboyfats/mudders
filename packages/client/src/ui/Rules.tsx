@@ -143,6 +143,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Shop deals
+        <select
+          value={value.deals ? 'on' : 'off'}
+          onChange={(e) => onChange({ deals: e.target.value === 'on' })}
+        >
+          <option value="off">Off</option>
+          <option value="on">On (sales and sold out)</option>
+        </select>
+      </label>
+      <label>
         Supply drops
         <select
           value={value.drops ?? 'off'}
