@@ -67,12 +67,100 @@ const params = z.strictObject({
    * sloped island at the waterline.
    */
   lakeLevel: z.number().min(-0.3).max(0.3).optional(),
+  /**
+   * Chance (0–1) that a map gets one big landform on top of its hills: a deep valley, twin
+   * peaks, a flat open plain, a cliff wall or a mesa. 0 draws nothing from the rng, so maps
+   * without it are unchanged.
+   */
+  landform: z.number().min(0).max(1).default(0),
   /** Gas pockets buried in the soft ground per 1000 columns: [min, max] (gen.marsh: swamp gas). */
   gasPockets: z
     .tuple([z.number().int().min(0).max(40), z.number().int().min(0).max(40)])
     .default([0, 0]),
 });
 type Params = z.infer<typeof params>;
+
+/** Integer smoothstep of t in 0..256 → 0..256. */
+function smooth(t: number): number {
+  const c = Math.max(0, Math.min(256, t));
+  return Math.floor((c * c * (768 - 2 * c)) / 65536);
+}
+
+/** A bump of height `h` (cells, + = up) over `w` columns centred at `cx`: 256ths of `h` at x. */
+function bump(x: number, cx: number, w: number, h: number): number {
+  const half = Math.max(1, w >> 1);
+  const d = Math.abs(x - cx);
+  if (d >= half) return 0;
+  return Math.trunc((h * smooth(256 - Math.floor((d * 256) / half))) / 256);
+}
+
+export const LANDFORMS = ['valley', 'peaks', 'plain', 'cliff', 'mesa'] as const;
+
+/**
+ * Reshape the surface with one big landform (rows from the top, so up is minus). Integer maths;
+ * every draw comes from `rng`. Returns the landform's index in `LANDFORMS`.
+ */
+export function landform(rng: Prng, surface: Int32Array, W: number, H: number): number {
+  const kind = rng.int(LANDFORMS.length);
+  const cx = rng.range(Math.floor(W * 0.3), Math.floor(W * 0.7));
+  if (kind === 0) {
+    // a deep valley: one broad trough cut down through the hills
+    const w = rng.range(Math.floor(W * 0.22), Math.floor(W * 0.36));
+    const depth = rng.range(Math.floor(H * 0.14), Math.floor(H * 0.22));
+    for (let x = 0; x < W; x++) surface[x] = surface[x]! + bump(x, cx, w, depth);
+  } else if (kind === 1) {
+    // twin peaks: two tall summits with a saddle between
+    const gap = rng.range(Math.floor(W * 0.14), Math.floor(W * 0.22));
+    const w = rng.range(Math.floor(W * 0.14), Math.floor(W * 0.2));
+    const h = rng.range(Math.floor(H * 0.16), Math.floor(H * 0.24));
+    for (let x = 0; x < W; x++) {
+      surface[x] = surface[x]! - bump(x, cx - (gap >> 1), w, h) - bump(x, cx + (gap >> 1), w, h);
+    }
+  } else if (kind === 2) {
+    // a flat open plain: nowhere to hide across the middle of the map
+    const w = rng.range(Math.floor(W * 0.3), Math.floor(W * 0.45));
+    const x0 = Math.max(0, cx - (w >> 1));
+    const x1 = Math.min(W - 1, cx + (w >> 1));
+    let sum = 0;
+    for (let x = x0; x <= x1; x++) sum += surface[x]!;
+    const flat = Math.floor(sum / Math.max(1, x1 - x0 + 1));
+    const edge = 24;
+    for (let x = Math.max(0, x0 - edge); x <= Math.min(W - 1, x1 + edge); x++) {
+      const into = Math.min(x - (x0 - edge), x1 + edge - x);
+      const k = smooth(Math.floor((into * 256) / edge));
+      surface[x] = surface[x]! + Math.trunc(((flat - surface[x]!) * k) / 256);
+    }
+  } else if (kind === 3) {
+    // a cliff wall: one side of the map stands a storey higher behind a steep face
+    const up = rng.range(Math.floor(H * 0.12), Math.floor(H * 0.2));
+    const left = rng.int(2) === 0;
+    const face = 10;
+    for (let x = 0; x < W; x++) {
+      const d = left ? cx - x : x - cx;
+      surface[x] =
+        surface[x]! - Math.trunc((up * smooth(128 + Math.floor((d * 128) / face))) / 256);
+    }
+  } else {
+    // a mesa: a flat-topped table mountain with steep sides
+    const w = rng.range(Math.floor(W * 0.16), Math.floor(W * 0.26));
+    const h = rng.range(Math.floor(H * 0.14), Math.floor(H * 0.22));
+    let sum = 0;
+    for (let x = cx - (w >> 1); x <= cx + (w >> 1); x++) sum += surface[x]!;
+    const topY = Math.max(Math.floor(H * 0.2), Math.floor(sum / (2 * (w >> 1) + 1)) - h);
+    const side = 22;
+    for (
+      let x = Math.max(0, cx - (w >> 1) - side);
+      x <= Math.min(W - 1, cx + (w >> 1) + side);
+      x++
+    ) {
+      const into = Math.min(x - (cx - (w >> 1) - side), cx + (w >> 1) + side - x);
+      const k = smooth(Math.floor((into * 256) / side));
+      const t = Math.min(surface[x]!, topY);
+      surface[x] = surface[x]! + Math.trunc(((t - surface[x]!) * k) / 256);
+    }
+  }
+  return kind;
+}
 
 /** Sum of value-noise octaves, in 1/256 cells. Integer smoothstep, no trig (§6.3). */
 export function noise1d(
@@ -221,12 +309,12 @@ export default defineGenerator<Params>({
     const surface = new Int32Array(W);
     const top = Math.floor(H * 0.12);
     const floor = H - 12;
-    for (let x = 0; x < W; x++) {
-      surface[x] = Math.max(
-        top,
-        Math.min(floor, Math.round(p.baseLevel * H) - Math.trunc(n[x]! / 256)),
-      );
+    for (let x = 0; x < W; x++) surface[x] = Math.round(p.baseLevel * H) - Math.trunc(n[x]! / 256);
+    // now and then one big landform, so two maps of the same kind can play very differently
+    if (p.landform > 0 && rng.int(1000) < Math.round(p.landform * 1000)) {
+      landform(rng, surface, W, H);
     }
+    for (let x = 0; x < W; x++) surface[x] = Math.max(top, Math.min(floor, surface[x]!));
 
     // Spawns: evenly spaced with jitter, then a flat pad under each.
     const spawns: number[] = [];

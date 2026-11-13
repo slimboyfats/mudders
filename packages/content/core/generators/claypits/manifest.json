@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Clay pits",
-    "description": "Rolling hills over a thick bed of clay that lies bare in the valleys. Water softens it into slumping wet clay, and fire bakes crater walls into brick.",
+    "description": "Rolling hills over a thick bed of clay that lies bare in the valleys. Water softens it into slumping wet clay, and fire bakes crater walls into brick. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.21.0"
   },
   "extends": "gen.hills",
@@ -12,5 +12,6 @@
   "clayDepth": 28,
   "clayLevel": 0,
   "claySoil": 8,
-  "temperature": 27
+  "temperature": 27,
+  "landform": 0.7
 }

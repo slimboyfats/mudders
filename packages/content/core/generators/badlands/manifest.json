@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Badlands",
-    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head. Gunpowder seams run under the slopes and a magma pocket or two lies deep down.",
+    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head. Gunpowder seams run under the slopes and a magma pocket or two lies deep down. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.5.0"
   },
   "extends": "gen.hills",
@@ -38,5 +38,6 @@
     {
       "use": "terrainop.rumbling-volcano"
     }
-  ]
+  ],
+  "landform": 0.7
 }

@@ -1,0 +1,46 @@
+{
+  "id": "showcase.landform-peaks",
+  "schemaVersion": 1,
+  "description": "Village with twin peaks between the tanks (a big landform).",
+  "mode": "mode.classic",
+  "seed": 5,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.village"
+  },
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 300,
+    "untilSettled": true,
+    "extraTicks": 30
+  }
+}
