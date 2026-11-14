@@ -19,8 +19,10 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-14',
-    title: 'New explosion designs',
+    title: 'New explosion designs and shells that look alive in the air',
     items: [
+      'Shells fly with their own look by weapon type. Missiles point along their flight with a flickering exhaust flame and a short pixel smoke trail. Nukes, MIRV, Daisy Cutter and the other big bombs are fat finned casings with a hazard band and a blinking light, pouring dark smoke. Guided shells blink a green eye and their exhaust weaves from side to side. What a missile or bomb drops tumbles end over end, shedding embers',
+      'Napalm and the other fire weapons fly as a sloshing flask that drips fire; lasers and beams as a crackling energy ball; diggers as a turning drill bit spitting sparks; dirt weapons as a tumbling clod shedding crumbs; rollers as a rolling steel ball; terrain weapons with two motes orbiting them in a twisted trail; weird weapons as an orb that changes colour; mines with a blinking red light and the Repair Drone with a green cross',
       'More explosion designs. Implosion (Concussion Shell, Tandem Charge, Gravity Well, Rogue Black Hole, Glue Bomb, Telepathy): fire and sparks are sucked in to the point, then it goes off hard',
       'Rolling fireball (Incendiary, Napalm, Hot Napalm, Meteor): a ball of fire rolls off along the ground the way the shell was going, leaving a burning trail, and stops at a wall',
       'Canopy (Airburst, V3 spent stage, Magma Bomb, Fuel-Air cloud): sparks thrown high and wide that droop over and rain down',

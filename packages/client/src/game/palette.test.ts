@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '@mudders/content';
 import { rasterTrail } from '../render/pixel/renderer';
-import { paletteFrom, TRAIL_BY_CATEGORY, trailColors } from './palette';
+import { flightStyles, paletteFrom, TRAIL_BY_CATEGORY, trailColors } from './palette';
 
 describe('shell trail colours', () => {
   const content = loadContent();
@@ -24,6 +24,31 @@ describe('shell trail colours', () => {
     for (const w of content.list('weapon')) expect(shells[w.id]).toBeDefined();
     expect(shells['weapon.missile']).toMatchObject({ shell: 'spark', trail: true });
     expect(shells['weapon.meteor']).toMatchObject({ shell: 'meteor', trail: false });
+  });
+});
+
+describe('in-flight looks', () => {
+  const content = loadContent();
+  const flights = flightStyles(content);
+
+  it('gives each weapon family its own look', () => {
+    expect(flights.get('weapon.missile')).toBe('missile');
+    expect(flights.get('weapon.nuke')).toBe('bomb');
+    expect(flights.get('weapon.heat-seeker')).toBe('homing');
+    expect(flights.get('weapon.napalm')).toBe('flask');
+    expect(flights.get('weapon.digger')).toBe('drill');
+  });
+
+  it('makes what a missile or bomb drops tumble as a bomblet', () => {
+    expect(flights.get('weapon.mirv-warhead')).toBe('bomblet');
+    expect(flights.get('weapon.scatter-bomblet')).toBe('bomblet');
+  });
+
+  it('leaves weapons with their own manifest look alone', () => {
+    const shells = paletteFrom(content).shells!;
+    expect(shells['weapon.missile']?.flight).toBe('missile');
+    expect(shells['weapon.v3-rocket']?.flight).toBeUndefined();
+    expect(shells['weapon.napalm-glob']?.flight).toBeUndefined();
   });
 });
 

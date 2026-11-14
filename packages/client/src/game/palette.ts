@@ -1,6 +1,13 @@
+import type { WeaponManifest } from '@mudders/shared';
 import type { ResolvedContent } from '@mudders/sim';
 import { themeFrom, type PixelTheme } from '../render/pixel/theme';
-import type { MaterialLook, RenderPalette, ShellLook, TankLook } from '../render/types';
+import type {
+  FlightStyle,
+  MaterialLook,
+  RenderPalette,
+  ShellLook,
+  TankLook,
+} from '../render/types';
 
 /** Renderer palette from content: material colours (`meta.color`), material looks, themes, tanks. */
 export function paletteFrom(content: ResolvedContent): RenderPalette {
@@ -43,12 +50,15 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
     tanks[t.id] = { sprite: t.look.sprite, barrel: t.look.barrel };
   const shells: Record<string, ShellLook> = {};
   const colors = trailColors(content);
+  const flights = flightStyles(content);
   for (const w of content.list('weapon')) {
     const look: ShellLook = w.look
       ? { shell: w.look.shell, trail: w.look.trail, size: w.look.size }
       : { shell: 'spark', trail: true };
     const c = colors.get(w.id);
     if (c !== undefined) look.trailColor = c;
+    const f = flights.get(w.id);
+    if (f !== undefined && look.shell === 'spark') look.flight = f;
     shells[w.id] = look;
   }
   return { materials, looks, themes, tanks, shells, liquids, hotLiquids, heavyLiquids };
@@ -83,7 +93,64 @@ export function trailColors(content: ResolvedContent): Map<string, number> {
     const c = TRAIL_BY_CATEGORY[w.meta.category ?? ''];
     if (c !== undefined) out.set(w.id, c);
   }
-  // a few passes reach chains like nuke → nuke-core; the first parent in pack order wins
+  inheritFromSpawner(weapons, out, (c) => c);
+  return out;
+}
+
+/** Explosive weapons that fly as a fat finned bomb rather than a slim missile. */
+const BOMBS: ReadonlySet<string> = new Set([
+  'weapon.baby-nuke',
+  'weapon.nuke',
+  'weapon.heavy-nuke',
+  'weapon.supernova',
+  'weapon.grim-crown',
+  'weapon.mirv',
+  'weapon.daisy-cutter',
+  'weapon.fuel-air-bomb',
+  'weapon.chain-reactor',
+]);
+
+/** In-flight look per weapon family (`meta.category`), for plain shells. */
+const FLIGHT_BY_CATEGORY: Readonly<Record<string, FlightStyle>> = {
+  explosive: 'missile',
+  incendiary: 'flask',
+  digger: 'drill',
+  earthmover: 'clod',
+  roller: 'roller',
+  guided: 'homing',
+  beam: 'charge',
+  'terrain-dynamics': 'warp',
+  weird: 'prism',
+  mine: 'beacon',
+  support: 'medic',
+};
+
+/**
+ * In-flight looks by weapon id (renderer only, no content change). Submunitions fly like their
+ * spawner, except that what a missile or bomb drops tumbles as a bomblet.
+ */
+export function flightStyles(content: ResolvedContent): Map<string, FlightStyle> {
+  const out = new Map<string, FlightStyle>();
+  const weapons = content.list('weapon');
+  for (const w of weapons) {
+    const f = BOMBS.has(w.id) ? 'bomb' : FLIGHT_BY_CATEGORY[w.meta.category ?? ''];
+    if (f !== undefined) out.set(w.id, f);
+  }
+  inheritFromSpawner(weapons, out, (f) =>
+    f === 'missile' || f === 'bomb' || f === 'homing' ? 'bomblet' : f,
+  );
+  return out;
+}
+
+/**
+ * Give weapons with no entry the entry of the weapon that spawns them (`spawn` or `mine`),
+ * through `child`, following chains like nuke → nuke-core; the first parent in pack order wins.
+ */
+function inheritFromSpawner<T>(
+  weapons: readonly WeaponManifest[],
+  out: Map<string, T>,
+  child: (parent: T) => T,
+): void {
   for (let pass = 0; pass < 4; pass++) {
     let changed = false;
     for (const w of weapons) {
@@ -100,14 +167,13 @@ export function trailColors(content: ResolvedContent): Map<string, number> {
               : [];
         for (const k of kids) {
           if (out.has(k)) continue;
-          out.set(k, c);
+          out.set(k, child(c));
           changed = true;
         }
       }
     }
     if (!changed) break;
   }
-  return out;
 }
 
 /** Theme ids with display names, for the settings picker. */
