@@ -20,10 +20,11 @@
         "damageType": "heat",
         "effects": {
           "burst": {
-            "count": 36
+            "count": 36,
+            "style": 11
           },
           "flash": {
-            "strength": 1.0
+            "strength": 1
           },
           "fireball": {
             "strength": 1.4

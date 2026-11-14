@@ -31,6 +31,16 @@ export const BlastStyle = {
    * off in the air with no ground under it a Flash. See {@link landingStyle}.
    */
   Landing: 9,
+  /** Implosion: fire and sparks are sucked in to the point first, then it pops. */
+  Implode: 10,
+  /** Rolling fireball: a ball of fire rolls off along the ground, leaving a burning trail. */
+  Roll: 11,
+  /** Canopy: sparks thrown high and wide that droop and rain down like a willow. */
+  Canopy: 12,
+  /** Shrapnel: long white-hot streaks flung out in every way, in a dark puff of smoke. */
+  Shrapnel: 13,
+  /** Fire carpet: flames run out along the ground both ways and burn down behind. */
+  Carpet: 14,
 } as const;
 export type BlastStyle = (typeof BlastStyle)[keyof typeof BlastStyle];
 
@@ -101,6 +111,16 @@ export interface BlastShape {
   dustCloud: number;
   /** Hard white rays shot out from the centre in a star. */
   rays: number;
+  /** Ticks fire is sucked in before the blast goes off (0 = goes off at once). */
+  implode: number;
+  /** A ball of fire rolling off along the ground (size multiplier, 0 = none). */
+  roll: number;
+  /** Sparks thrown up high that droop and rain down (count multiplier). */
+  canopy: number;
+  /** Long fast white-hot streaks (count multiplier). */
+  shrapnel: number;
+  /** Flames running out along the ground both ways (reach multiplier). */
+  carpet: number;
 }
 
 const SOOT_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
@@ -135,6 +155,11 @@ const PLAIN: BlastShape = {
   tongueTicks: 0,
   dustCloud: 0,
   rays: 0,
+  implode: 0,
+  roll: 0,
+  canopy: 0,
+  shrapnel: 0,
+  carpet: 0,
 };
 
 const chem = (tint: number, light: number, smokeTones: readonly number[]): BlastShape => ({
@@ -229,6 +254,28 @@ export const BLAST_SHAPES: readonly BlastShape[] = [
   chem(0x86ff3c, 0x9cff60, [0x46564a, 0x5a6a5c, 0x6e7c6a, 0x4a5448]),
   chem(0x70d8ff, 0x9ee6ff, [0x5a6470, 0x707c88, 0x8a96a2, 0x64707c]),
   chem(0xc070ff, 0xd090ff, [0x4e4458, 0x62586e, 0x766c84, 0x584c62]),
+  // 9 Landing picks one of the others; this slot is never drawn
+  PLAIN,
+  // Implode: a short suck-in, then a packed, extra hard bang
+  { ...PLAIN, implode: 14, bang: 1.4, coneSpeed: 1, fire: 0.6, sparks: 1.5, glitter: 3 },
+  // Roll: a small bang; the fire goes into the ball that rolls away
+  { ...PLAIN, bang: 0.5, fire: 0.35, heart: 0.5, roll: 1, smoke: 0.8 },
+  // Canopy: a small bang; the fire is the drooping spray
+  { ...PLAIN, bang: 0.45, fire: 0.25, smoke: 0.4, sparks: 0.3, canopy: 1 },
+  // Shrapnel: a short bang in a dark puff, streaks everywhere
+  {
+    ...PLAIN,
+    bang: 0.4,
+    bangLife: 0.45,
+    fire: 0.2,
+    smoke: 2,
+    smokeTones: [0x2e2a2c, 0x3a3436, 0x463e40, 0x342e30],
+    sparks: 0.3,
+    shrapnel: 1,
+    ejecta: 1.3,
+  },
+  // Carpet: hardly any ball; the fire runs out along the ground
+  { ...PLAIN, bang: 0.45, fire: 0.25, heart: 0.4, rolls: 0.7, smoke: 0.7, carpet: 1 },
 ];
 
 /** A Cracker's small pops: a quick hard bang and little else. */

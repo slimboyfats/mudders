@@ -21,6 +21,12 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     date: '2026-11-14',
     title: 'New explosion designs',
     items: [
+      'More explosion designs. Implosion (Concussion Shell, Tandem Charge, Gravity Well, Rogue Black Hole, Glue Bomb, Telepathy): fire and sparks are sucked in to the point, then it goes off hard',
+      'Rolling fireball (Incendiary, Napalm, Hot Napalm, Meteor): a ball of fire rolls off along the ground the way the shell was going, leaving a burning trail, and stops at a wall',
+      'Canopy (Airburst, V3 spent stage, Magma Bomb, Fuel-Air cloud): sparks thrown high and wide that droop over and rain down',
+      'Shrapnel (Buzzsaw, Frag shards, Tectonic Charge, Cloud Whale slam): long white-hot streaks flung out every way from a dark puff of smoke',
+      'Fire carpet (Riot charges, gas pocket bursts, Quicksand): flames run out along the ground both ways and burn down behind',
+      'Diggers and dirt weapons now throw dirty blasts, storm weapons flash white, gas weapons burn green and frost weapons ice blue, so almost every weapon has its own look',
       'Explosions depend on how the shell lands: Missile, Baby Missile, Heat Seeker, Skipper, MIRV warheads, scatter bomblets and the rest of the plain shells throw a flat tongue of fire on a glancing hit, a tall pillar on a steep one, a fireball in between, a dirty blast when they go off buried and a white flash when they burst in the air',
       'Explosions no longer all look alike. Bunker Buster, Tandem Charge, Boomerang and Magma Lance blow a flat tongue of fire downrange the way the shell was going, with one big roll of fire at its tip',
       'Drill Torpedo, Tunnel Rat, Magnet Mine and the Orbital Lance punch a pillar of fire straight up out of the ground that rains sparks back down',

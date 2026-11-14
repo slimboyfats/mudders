@@ -21,7 +21,8 @@
         "terrainOp": null,
         "effects": {
           "burst": {
-            "count": 24
+            "count": 24,
+            "style": 11
           },
           "flash": {
             "strength": 0.7

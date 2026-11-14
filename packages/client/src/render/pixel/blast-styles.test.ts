@@ -31,8 +31,7 @@ const bangs = (out: Emit[]): Emit[] => out.filter((e) => e.kind === PKind.Bang);
 
 describe('explosion designs', () => {
   it('has a shape for every style, and unknown styles draw the plain blast', () => {
-    // every style but Landing, which picks one of the others
-    expect(BLAST_SHAPES.length).toBe(Object.keys(BlastStyle).length - 1);
+    expect(BLAST_SHAPES.length).toBe(Object.keys(BlastStyle).length);
     expect(blastShape(99)).toBe(BLAST_SHAPES[0]);
     expect(blastShape(undefined)).toBe(BLAST_SHAPES[0]);
   });
@@ -114,5 +113,50 @@ describe('explosion designs', () => {
     // a plumb hit on the surface (no shell seen): a Fountain, the bang thrown up
     const b = bangs(style(149));
     expect(b.filter((e) => e.vy < -2 * Math.abs(e.vx)).length / b.length).toBeGreaterThan(0.5);
+  });
+
+  it('Implode sucks in first and only goes off when it has all gone in', () => {
+    const { fx, out } = setup();
+    fx.handle(burst(BlastStyle.Implode));
+    // every cell so far is heading in toward the point
+    const inward = out.filter((e) => (e.x - 200) * e.vx + (e.y - 149) * e.vy < 0);
+    expect(inward.length).toBe(out.length);
+    expect(out.some((e) => e.kind === PKind.Fire)).toBe(false);
+    for (let t = 1; t <= 20; t++) fx.tick(t);
+    expect(out.some((e) => e.kind === PKind.Fire)).toBe(true);
+  });
+
+  it('Roll sends a ball of fire off along the ground', () => {
+    const { fx, out } = setup();
+    fx.handle(burst(BlastStyle.Roll));
+    const n = out.length;
+    for (let t = 1; t <= 40; t++) fx.tick(t);
+    const later = out.slice(n).filter((e) => e.kind === PKind.Bang || e.kind === PKind.Fire);
+    // the ball has rolled well clear of the blast, staying on the ground
+    expect(Math.max(...later.map((e) => e.x))).toBeGreaterThan(200 + 40);
+    expect(later.every((e) => e.y < 150)).toBe(true);
+  });
+
+  it('Carpet runs flames out along the ground both ways', () => {
+    const { fx, out } = setup();
+    fx.handle(burst(BlastStyle.Carpet));
+    const n = out.length;
+    for (let t = 1; t <= 30; t++) fx.tick(t);
+    const xs = out.slice(n).map((e) => e.x);
+    expect(Math.min(...xs)).toBeLessThan(200 - 40);
+    expect(Math.max(...xs)).toBeGreaterThan(200 + 40);
+  });
+
+  it('Canopy and Shrapnel throw their own sprays', () => {
+    const can = setup();
+    can.fx.handle(burst(BlastStyle.Canopy));
+    expect(
+      can.out.filter((e) => e.kind === PKind.Spark && e.vy < -1.5 && e.life > 60).length,
+    ).toBeGreaterThan(100);
+    const sh = setup();
+    sh.fx.handle(burst(BlastStyle.Shrapnel));
+    expect(
+      sh.out.filter((e) => e.kind === PKind.Spark && Math.hypot(e.vx, e.vy) > 3).length,
+    ).toBeGreaterThan(80);
   });
 });

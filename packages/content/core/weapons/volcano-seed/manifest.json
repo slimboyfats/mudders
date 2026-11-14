@@ -20,7 +20,8 @@
         "damageType": "heat",
         "effects": {
           "burst": {
-            "count": 8
+            "count": 8,
+            "style": 2
           },
           "shake": {
             "strength": 1

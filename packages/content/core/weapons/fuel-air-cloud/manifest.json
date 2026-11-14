@@ -10,7 +10,12 @@
   "flight": {
     "use": "flight.fuel-drift"
   },
-  "triggers": ["onSolid", { "onTimer": 80 }],
+  "triggers": [
+    "onSolid",
+    {
+      "onTimer": 80
+    }
+  ],
   "impact": [
     {
       "explosion": {
@@ -20,7 +25,8 @@
         "damageType": "heat",
         "effects": {
           "burst": {
-            "count": 8
+            "count": 8,
+            "style": 12
           },
           "flash": {
             "strength": 0.35

@@ -24,7 +24,8 @@
         "damageType": "shock",
         "effects": {
           "burst": {
-            "count": 60
+            "count": 60,
+            "style": 13
           },
           "shake": {
             "strength": 4
