@@ -20,7 +20,19 @@
       "explosion": {
         "use": "explosion.standard",
         "radius": 26,
-        "damage": 90
+        "damage": 90,
+        "effects": {
+          "burst": {
+            "count": 40,
+            "style": 1
+          },
+          "flash": {
+            "strength": 1
+          },
+          "shake": {
+            "strength": 2
+          }
+        }
       }
     }
   ],

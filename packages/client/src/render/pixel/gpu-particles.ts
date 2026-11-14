@@ -1,6 +1,7 @@
 import { QUAD_FS } from './shaders';
 import { compile } from './gl';
 import { LIGHT_BANDS, MAX_LIGHTS, type Lights } from './lighting';
+import { FIRE_RGB } from './blast-styles';
 import { PKind, type Emit, type ParticleSink, type Vortex } from './particles';
 
 /**
@@ -554,23 +555,38 @@ void main() {
     }
     show = show && th < cover;
   } else if (k == ${PKind.Bang}) {
-    // all fire, start to finish: white-hot for the first third, then down the ramp and out
+    // all fire, start to finish: white-hot for the first third, then down the ramp and out. A
+    // chemical flame (any colour but the plain fire's) runs white, its own colour, then deep
     float f = stepT(max(0.0, t - 0.3) / 0.7, th, 8.0);
-    col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
-                  : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), vec3(0.4, 0.1, 0.06), f * 2.0 - 1.0);
+    bool chem = rgb != ${FIRE_RGB}u;
+    vec3 hot = chem ? col : vec3(1.0, 0.816, 0.376);
+    if (chem) {
+      col = f < 0.5 ? ramp3(vec3(1.0), mix(vec3(1.0), col, 0.5), col, f * 2.0)
+                    : ramp3(col, shade(col, 0.55), shade(col, 0.3), f * 2.0 - 1.0);
+    } else {
+      col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
+                    : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), vec3(0.4, 0.1, 0.06), f * 2.0 - 1.0);
+    }
     show = show && th < (t < 0.7 ? 1.0 : (1.0 - t) / 0.3);
     if (u_pass == 1) {
       show = show && f < 0.5;
-      col = vec3(1.0, 0.816, 0.376);
+      col = hot;
       alpha = 0.4;
     }
   } else if (k == ${PKind.Fire}) {
     // burns through the fire ramp in its first third, then is soot that pales and thins
     float x = stepT(t, th, 12.0);
+    bool chem = rgb != ${FIRE_RGB}u;
+    vec3 hot = chem ? col : vec3(1.0, 0.816, 0.376);
     if (x < 0.3) {
       float f = x / 0.3;
-      col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
-                    : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), SOOT, f * 2.0 - 1.0);
+      if (chem) {
+        col = f < 0.5 ? ramp3(vec3(1.0), mix(vec3(1.0), col, 0.5), col, f * 2.0)
+                      : ramp3(col, shade(col, 0.5), SOOT, f * 2.0 - 1.0);
+      } else {
+        col = f < 0.5 ? ramp3(vec3(1.0, 0.97, 0.78), vec3(1.0, 0.8, 0.25), vec3(1.0, 0.45, 0.1), f * 2.0)
+                      : ramp3(vec3(1.0, 0.45, 0.1), vec3(0.72, 0.16, 0.06), SOOT, f * 2.0 - 1.0);
+      }
     } else {
       col = ramp3(SOOT, vec3(0.4, 0.37, 0.39), vec3(0.64, 0.61, 0.64), (x - 0.3) / 0.7);
     }
@@ -578,7 +594,7 @@ void main() {
     if (u_pass == 1) {
       // the hot cells also light up: one hard additive cell each
       show = show && x < 0.16;
-      col = vec3(1.0, 0.816, 0.376);
+      col = hot;
       alpha = 0.4;
     }
   } else if (k == ${PKind.Wisp}) {

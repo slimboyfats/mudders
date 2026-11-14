@@ -20,7 +20,8 @@
         "damageType": "corrosive",
         "effects": {
           "burst": {
-            "count": 6
+            "count": 6,
+            "style": 6
           },
           "acidSplash": {
             "count": 8

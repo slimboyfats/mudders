@@ -20,7 +20,8 @@
         "damageType": "cold",
         "effects": {
           "burst": {
-            "count": 16
+            "count": 16,
+            "style": 7
           },
           "flash": {
             "strength": 0.4
