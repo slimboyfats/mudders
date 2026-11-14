@@ -77,8 +77,24 @@ export interface BlastShape {
   chunkMin: number;
   /** Sparks shot up the column that arc over and rain back down. */
   fountain: number;
-  /** Small pops after the blast, all round it. */
+  /** Small pops after the blast, all round it (count multiplier). */
   pops: number;
+  /** Fire packed into the rising ball over the impact. */
+  heart: number;
+  /** Fire fed into the ground rolls, and extra for the roll behind the lean (the back one). */
+  rollFire: number;
+  backRoll: number;
+  /**
+   * A tongue: a stream of white-hot fire poured out of the impact for `tongueTicks` ticks along
+   * `tongueDir`, reaching about `tongueLen` blast radii. 0 = none.
+   */
+  tongueDir: Cone;
+  tongueLen: number;
+  tongueTicks: number;
+  /** A low billowing cloud of the ground's own dust, and a column of clods thrown straight up. */
+  dustCloud: number;
+  /** Hard white rays shot out from the centre in a star. */
+  rays: number;
 }
 
 const SOOT_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
@@ -105,6 +121,14 @@ const PLAIN: BlastShape = {
   chunkMin: 18,
   fountain: 0,
   pops: 0,
+  heart: 1,
+  rollFire: 1,
+  backRoll: 1,
+  tongueDir: Cone.None,
+  tongueLen: 0,
+  tongueTicks: 0,
+  dustCloud: 0,
+  rays: 0,
 };
 
 const chem = (tint: number, light: number, smokeTones: readonly number[]): BlastShape => ({
@@ -118,62 +142,83 @@ const chem = (tint: number, light: number, smokeTones: readonly number[]): Blast
 /** One shape per {@link BlastStyle}, in order. */
 export const BLAST_SHAPES: readonly BlastShape[] = [
   PLAIN,
-  // Lance
+  // Lance: no ball at all. A long flat tongue of fire roars out downrange along the ground,
+  // one roll curls up at its tip, the side behind stays almost bare
   {
     ...PLAIN,
     lean: 1,
     cone: Cone.Ahead,
-    coneShare: 0.7,
-    coneHalf: 0.3,
-    coneSpeed: 1.7,
-    heartUp: 0.8,
-    rolls: 1.1,
-    sparks: 1.6,
+    coneShare: 0.85,
+    coneHalf: 0.16,
+    coneSpeed: 2.4,
+    bang: 0.5,
+    heart: 0.1,
+    heartUp: 0.5,
+    rolls: 1.2,
+    backRoll: 0.08,
+    sparks: 2,
+    tongueDir: Cone.Ahead,
+    tongueLen: 5,
+    tongueTicks: 14,
+    smoke: 0.6,
   },
-  // Fountain
+  // Fountain: a tall narrow pillar of fire straight up, five or six radii high, that goes on
+  // pouring for most of a second, then sparks raining back down round it. Small ground rolls
   {
     ...PLAIN,
     cone: Cone.Up,
-    coneShare: 0.7,
-    coneHalf: 0.2,
-    coneSpeed: 2,
-    bangLife: 1.3,
-    heartUp: 1.9,
-    rolls: 0.6,
-    sparks: 0.5,
-    fountain: 1,
+    coneShare: 0.85,
+    coneHalf: 0.1,
+    coneSpeed: 2.6,
+    bang: 0.5,
+    bangLife: 1.4,
+    heart: 0.15,
+    heartUp: 2.2,
+    rolls: 0.5,
+    rollFire: 0.3,
+    sparks: 0.4,
+    fountain: 1.6,
+    tongueDir: Cone.Up,
+    tongueLen: 6,
+    tongueTicks: 24,
   },
-  // Dirty
+  // Dirty: hardly any fire. A brown dome of the ground's dust billows out low and wide, a
+  // column of clods shoots up out of the crater and rains back
   {
     ...PLAIN,
-    tint: FIRE_RGB,
-    bang: 0.35,
-    bangLife: 0.6,
-    fire: 0.35,
-    smoke: 2.2,
+    // the dust is lit dull, not by fire
+    light: 0x504030,
+    bang: 0.2,
+    bangLife: 0.5,
+    fire: 0.12,
+    heart: 0.5,
+    smoke: 1.5,
     smokeTones: [],
-    sparks: 0.3,
-    glitter: 0.4,
-    ejecta: 2.6,
+    sparks: 0.15,
+    glitter: 0.3,
+    ejecta: 1.4,
     dust: 3,
-    chunkMin: 9,
+    chunkMin: 6,
+    dustCloud: 1.4,
   },
-  // Flash
+  // Flash: a white star of hard rays and a hanging cloud of strobing sparkles; the bang is
+  // over in a blink and nothing burns or smokes after it
   {
     ...PLAIN,
     tint: 0xd8e6ff,
     light: 0xe8f0ff,
-    bang: 1.1,
-    bangLife: 0.55,
-    fire: 0.45,
-    smoke: 0.35,
+    bang: 0.8,
+    bangLife: 0.3,
+    fire: 0,
+    smoke: 0.08,
     smokeTones: [0x8c8a96, 0xa4a2ae, 0xbab8c4, 0x9a98a4],
-    sparks: 2.2,
-    glitter: 7,
-    ejecta: 0.7,
+    sparks: 2.5,
+    glitter: 10,
+    ejecta: 0.6,
+    rays: 1,
   },
-  // Cracker
-  { ...PLAIN, bang: 0.8, fire: 0.8, pops: 1, sparks: 1.3 },
+  // Cracker: a smaller blast, then a long rattle of pops all over and round it
+  { ...PLAIN, bang: 0.6, fire: 0.6, pops: 1, sparks: 1.3 },
   // Acid, Frost, Violet
   chem(0x86ff3c, 0x9cff60, [0x46564a, 0x5a6a5c, 0x6e7c6a, 0x4a5448]),
   chem(0x70d8ff, 0x9ee6ff, [0x5a6470, 0x707c88, 0x8a96a2, 0x64707c]),
