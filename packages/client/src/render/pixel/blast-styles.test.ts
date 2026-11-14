@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EffectEvent } from '@mudders/shared';
-import { BLAST_SHAPES, BlastStyle, blastShape, FIRE_RGB } from './blast-styles';
+import { BLAST_SHAPES, BlastStyle, blastShape, FIRE_RGB, landingStyle } from './blast-styles';
 import { EffectSystem } from './effects';
 import { PKind, type Emit } from './particles';
 
@@ -31,7 +31,8 @@ const bangs = (out: Emit[]): Emit[] => out.filter((e) => e.kind === PKind.Bang);
 
 describe('explosion designs', () => {
   it('has a shape for every style, and unknown styles draw the plain blast', () => {
-    expect(BLAST_SHAPES.length).toBe(Object.keys(BlastStyle).length);
+    // every style but Landing, which picks one of the others
+    expect(BLAST_SHAPES.length).toBe(Object.keys(BlastStyle).length - 1);
     expect(blastShape(99)).toBe(BLAST_SHAPES[0]);
     expect(blastShape(undefined)).toBe(BLAST_SHAPES[0]);
   });
@@ -85,5 +86,33 @@ describe('explosion designs', () => {
     expect(after).toBeGreaterThan(first);
     for (let t = 121; t <= 200; t++) fx.tick(t);
     expect(bangs(out).length).toBe(after);
+  });
+
+  it('a landing-picked blast follows how the shell landed', () => {
+    const at = (side: number, buried = false, airborne = false) =>
+      landingStyle({ side, buried, airborne });
+    expect(at(0)).toBe(BlastStyle.Fountain);
+    expect(at(-0.3)).toBe(BlastStyle.Fountain);
+    expect(at(0.7)).toBe(BlastStyle.Plain);
+    expect(at(-1)).toBe(BlastStyle.Lance);
+    expect(at(1, true)).toBe(BlastStyle.Dirty);
+    expect(at(0, false, true)).toBe(BlastStyle.Flash);
+  });
+
+  it('reads the landing off the ground: in the air, buried, plumb', () => {
+    const style = (y: number) => {
+      const { fx, out } = setup();
+      fx.handle({ ...burst(BlastStyle.Landing), y, radius: 12 });
+      return out;
+    };
+    // in the air: the Flash's rays and no fire at all
+    expect(style(60).some((e) => e.kind === PKind.Fire)).toBe(false);
+    // buried deep: a Dirty blast, hardly any bang
+    const plain = setup();
+    plain.fx.handle({ ...burst(BlastStyle.Plain), y: 175, radius: 12 });
+    expect(bangs(style(175)).length).toBeLessThan(bangs(plain.out).length * 0.5);
+    // a plumb hit on the surface (no shell seen): a Fountain, the bang thrown up
+    const b = bangs(style(149));
+    expect(b.filter((e) => e.vy < -2 * Math.abs(e.vx)).length / b.length).toBeGreaterThan(0.5);
   });
 });

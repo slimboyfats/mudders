@@ -25,6 +25,12 @@ export const BlastStyle = {
   Frost: 7,
   /** Chemical flame: the fireball burns violet. */
   Violet: 8,
+  /**
+   * Picked by how the shell lands: a glancing hit throws a Lance, a steep one a Fountain, one in
+   * between the plain blast, one going off buried under the ground a Dirty blast, and one going
+   * off in the air with no ground under it a Flash. See {@link landingStyle}.
+   */
+  Landing: 9,
 } as const;
 export type BlastStyle = (typeof BlastStyle)[keyof typeof BlastStyle];
 
@@ -227,6 +233,30 @@ export const BLAST_SHAPES: readonly BlastShape[] = [
 
 /** A Cracker's small pops: a quick hard bang and little else. */
 export const POP_SHAPE: BlastShape = { ...PLAIN, fire: 0.5, smoke: 0.4, bangLife: 0.7 };
+
+/** How a shell met the ground, as the renderer reads it at the blast. */
+export interface Landing {
+  /** How much of the shell's way in ran along the ground, -1..1 (0 = plumb). */
+  side: number;
+  /** Ground still over the blast: it went off buried, under a roof of earth. */
+  buried: boolean;
+  /** No ground anywhere under the blast within reach: it went off in the air. */
+  airborne: boolean;
+}
+
+/** Steeper than about 75 degrees to the ground is a steep hit, under about 45 a glancing one. */
+export const STEEP_SIDE = 0.35;
+export const GLANCING_SIDE = 0.95;
+
+/** The design a {@link BlastStyle.Landing} blast takes for the way the shell landed. */
+export function landingStyle(l: Landing): BlastStyle {
+  if (l.airborne) return BlastStyle.Flash;
+  if (l.buried) return BlastStyle.Dirty;
+  const a = Math.abs(l.side);
+  if (a >= GLANCING_SIDE) return BlastStyle.Lance;
+  if (a <= STEEP_SIDE) return BlastStyle.Fountain;
+  return BlastStyle.Plain;
+}
 
 /** The shape for a `style` number off a manifest (anything unknown draws the plain blast). */
 export function blastShape(style: number | undefined): BlastShape {

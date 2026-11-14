@@ -11,7 +11,7 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
+        "use": "explosion.landing",
         "radius": 12,
         "damage": 30
       }

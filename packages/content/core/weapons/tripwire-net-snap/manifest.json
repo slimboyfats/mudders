@@ -23,7 +23,8 @@
             "strength": 0.6
           },
           "burst": {
-            "count": 18
+            "count": 18,
+            "style": 5
           },
           "netDrop": {
             "radius": 22

@@ -19,7 +19,8 @@
         "damage": 60,
         "effects": {
           "burst": {
-            "count": 50
+            "count": 50,
+            "style": 3
           },
           "flash": {
             "strength": 1.3
