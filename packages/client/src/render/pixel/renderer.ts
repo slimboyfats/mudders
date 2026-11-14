@@ -81,6 +81,7 @@ import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck'
 import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
 import { Flights } from './flight';
+import { CloudWake, type CloudSky } from './cloud-wake';
 import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
@@ -484,6 +485,23 @@ export class PixelRenderer implements Renderer {
   private readonly flights = new Flights({ add: (e) => this.particles.add(e) }, () =>
     this.fluid?.ok ? this.air : null,
   );
+  /** Clouds torn by shells and blasts (renderer only), and what the clouds were last painted with. */
+  private readonly cloudWake = new CloudWake();
+  private readonly cloudSky: CloudSky = {
+    cover: 0,
+    drift: 0,
+    boil: 0,
+    camX: 0,
+    mapW: 1,
+    mapH: 1,
+    horizon: 1,
+    offX: 0,
+    offY: 0,
+    light: 0xffffff,
+    shadow: 0x808080,
+    top: 0,
+    bottom: 0,
+  };
   private zones: ZoneView[] = [];
   private readonly probe: AmbientProbe;
   private readonly critterProbe: CritterProbe;
@@ -1238,6 +1256,7 @@ export class PixelRenderer implements Renderer {
       if (e.type === 'birdHit') birdHit(e, this.particles);
       else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
+        this.cloudWake.blast(e.x, e.y, e.radius, this.fxTick, this.cloudSky);
         this.water.blast(e);
         this.liquid.blast(e.x, e.y, e.radius);
         if ((e.params.strength ?? 1) > 0) {
@@ -1308,6 +1327,7 @@ export class PixelRenderer implements Renderer {
     this.meteors.clear();
     this.rockets.clear();
     this.flights.clear();
+    this.cloudWake.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
@@ -1949,6 +1969,7 @@ export class PixelRenderer implements Renderer {
     this.stepWrecks();
     this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
+    this.cloudWake.step(this.fxTick, this.wind);
     emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
@@ -1963,6 +1984,9 @@ export class PixelRenderer implements Renderer {
       this.stepMeteors(shells);
       this.rockets.prune(this.fxTick);
       this.flights.prune(this.fxTick);
+      for (const e of this.entities)
+        if (e.kind === 'projectile')
+          this.cloudWake.shell(e.id, e.x, e.y, this.fxTick, this.cloudSky, this.probe.solid);
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -2486,6 +2510,7 @@ export class PixelRenderer implements Renderer {
 
     // sprites
     const mult = this.fx.mult;
+    this.cloudWake.draw(this.fxTick, this.cloudSky, this.normal);
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
     this.flights.drawSmoke(this.fxTick, this.wind, this.normal);
@@ -2616,6 +2641,23 @@ export class PixelRenderer implements Renderer {
     let key = `${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)},${Math.floor(this.fxTick / 10)}`;
     for (const k of [0.9, 0.85, 0.75, 0.55, 0.35]) {
       key += `,${Math.floor((dx * k) / 2)},${Math.floor((dy * k) / 2)}`;
+    }
+    const cs = this.cloudSky;
+    cs.cover = th.clouds.cover;
+    cs.drift = this.cloudX;
+    cs.boil = Math.floor(this.fxTick / 10);
+    cs.camX = camX;
+    cs.mapW = mw;
+    cs.mapH = mh;
+    cs.horizon = this.horizon < 0 ? mh * 0.6 : this.horizon;
+    cs.offX = this.apron.side;
+    cs.offY = this.sceneryTop;
+    cs.top = th.skyTop;
+    cs.bottom = th.skyBottom;
+    if (cs.light !== th.clouds.light || cs.shadow !== th.clouds.shadow) {
+      cs.light = th.clouds.light;
+      cs.shadow = th.clouds.shadow;
+      this.cloudWake.setTones(cs.light, cs.shadow);
     }
     if (key === this.sceneryKey) return;
     this.sceneryKey = key;
