@@ -75,7 +75,25 @@ export interface ShellLook {
   size?: number;
   /** 0xRRGGBB of the trail and the shell's glow, by weapon type; unset = the theme's trail. */
   trailColor?: number;
+  /** In-flight look of a plain (`spark`) shell, by weapon family; unset = the plain spark. */
+  flight?: FlightStyle;
 }
+
+/** Weapon-family looks for plain shells in flight (see `render/pixel/flight.ts`). */
+export type FlightStyle =
+  | 'missile'
+  | 'bomb'
+  | 'homing'
+  | 'bomblet'
+  | 'flask'
+  | 'charge'
+  | 'drill'
+  | 'clod'
+  | 'roller'
+  | 'warp'
+  | 'prism'
+  | 'beacon'
+  | 'medic';
 
 /** A material's renderer look (from its manifest `look`); plain data so it can cross the wire. */
 export interface MaterialLook {

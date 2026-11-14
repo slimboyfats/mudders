@@ -80,6 +80,7 @@ import {
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
+import { Flights } from './flight';
 import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
@@ -477,6 +478,10 @@ export class PixelRenderer implements Renderer {
   private readonly meteors = new Map<number, { x: number; y: number; dx: number; dy: number }>();
   /** V3 rockets and their spent stages (`rocket` / `stage` shell looks). */
   private readonly rockets = new Rockets({ add: (e) => this.particles.add(e) }, () =>
+    this.fluid?.ok ? this.air : null,
+  );
+  /** Plain shells' in-flight looks by weapon family (`ShellLook.flight`). */
+  private readonly flights = new Flights({ add: (e) => this.particles.add(e) }, () =>
     this.fluid?.ok ? this.air : null,
   );
   private zones: ZoneView[] = [];
@@ -1302,6 +1307,7 @@ export class PixelRenderer implements Renderer {
     this.liquid.clear();
     this.meteors.clear();
     this.rockets.clear();
+    this.flights.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
@@ -1956,6 +1962,7 @@ export class PixelRenderer implements Renderer {
     if (shells) {
       this.stepMeteors(shells);
       this.rockets.prune(this.fxTick);
+      this.flights.prune(this.fxTick);
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -2061,6 +2068,19 @@ export class PixelRenderer implements Renderer {
               kind: PKind.Glitter,
             });
           }
+          continue;
+        }
+        const flight = shells[e.weapon]?.flight;
+        if (flight && (look === undefined || look === 'spark')) {
+          this.flights.step(
+            e.id,
+            e.x,
+            e.y,
+            flight,
+            shells[e.weapon]?.trailColor ?? this.theme.trail,
+            this.fxTick,
+            QUALITY_PARTICLES[this.quality].mult,
+          );
           continue;
         }
         if (look === undefined || look === 'spark') {
@@ -2468,6 +2488,7 @@ export class PixelRenderer implements Renderer {
     const mult = this.fx.mult;
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
     this.drawTrails();
+    this.flights.drawSmoke(this.fxTick, this.wind, this.normal);
     this.fx.drawFunnels(this.normal, this.additive, t);
     this.fx.drawPosts(this.normal, t);
     this.fx.drawKaijus(this.normal, this.additive, t);
@@ -3674,6 +3695,19 @@ export class PixelRenderer implements Renderer {
         this.normal.push(x, y, 3, 3, 0x5a4c34, 1);
         this.normal.push(x, y + 1, 1, 1, 0x3a3020, 1);
         this.normal.push(x - 0.5, y - 1, 1, 1, 0xbcae86, 1);
+        continue;
+      }
+      if (look?.flight) {
+        this.flights.draw(
+          e.id,
+          e.x,
+          e.y,
+          look.flight,
+          look.trailColor ?? this.theme.trail,
+          this.fxTick,
+          g,
+          this.normal,
+        );
         continue;
       }
       // a plain shell: a halo, a 2-cell body with a lit cell spinning round it, white-hot heart
