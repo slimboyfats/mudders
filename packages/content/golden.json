@@ -1,5 +1,5 @@
 {
-  "contentHash": "0a0f67b1babecbe9",
+  "contentHash": "d929e2adf62f40b2",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -408,6 +408,10 @@
     "birds.swallows": {
       "ticks": 122,
       "hash": "19b84d573d96f795"
+    },
+    "explosion.dirty": {
+      "ticks": 292,
+      "hash": "609e09b9e94510e1"
     },
     "explosion.glob-splash": {
       "ticks": 46,

@@ -20,7 +20,8 @@
         "damageType": "kinetic",
         "effects": {
           "burst": {
-            "count": 22
+            "count": 22,
+            "style": 1
           },
           "shake": {
             "strength": 1.5

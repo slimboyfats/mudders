@@ -18,6 +18,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-14',
+    title: 'New explosion designs',
+    items: [
+      'Explosions no longer all look alike. Heat Seeker, Bunker Buster, Tandem Charge and Boomerang blow a tongue of fire downrange the way the shell was going, with one big roll of fire ahead',
+      'Drill Torpedo, Tunnel Rat and Magnet Mine punch a fountain of fire straight up out of the ground that rains sparks back down',
+      "Rollers, Anvil, Earthquake and Fault Line make dirty blasts: little fire, a dark wall of the ground's own dust and a spray of clods and grit",
+      'Laser, Heavy Laser and Hornet go off in a white magnesium flash with a cloud of strobing sparkles and almost no smoke',
+      'Frag Shell, Scatter Bomb and Grim Crown blow up, then crackle with a string of small pops all round the blast',
+      'Chemical flames: acid weapons burn green, Ice Wall and Hailstone ice blue, Plasma Blast and the Superstorm violet',
+    ],
+  },
+  {
     date: '2026-11-13',
     title:
       'Map shuffle, round twists, wilder map shapes, shop deals, random arsenal and lightning storms',

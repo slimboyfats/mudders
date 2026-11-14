@@ -4,6 +4,14 @@ import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
 import { drawKaiju, kaijuEmerged, KAIJU_STATES, toppleAngle, type KaijuFx } from './kaiju';
 import { Chunks } from './chunks';
+import {
+  BLAST_SHAPES,
+  blastShape,
+  Cone,
+  FIRE_RGB,
+  POP_SHAPE,
+  type BlastShape,
+} from './blast-styles';
 import { FxRng } from './gl';
 import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
 import { IonStrikes } from './ion';
@@ -308,11 +316,8 @@ export interface Incoming {
 const FIRE_FEED = 10;
 /** Ticks the crater goes on smoking into the blast's turning air after it. */
 const SMOKE_FEED = 70;
-/** How long a fireball lights what is around it (ticks), and in what colour. */
+/** How long a fireball lights what is around it (ticks). */
 const FIRE_LIGHT = 56;
-const FIRE_LIGHT_RGB = 0xff8a30;
-/** Blast smoke: sooty greys with a little brown in them, light enough to show on a night sky. */
-const SMOKE_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
 
 /** One side's roll of a blast: where its vortex turns, how wide, and how fast. */
 interface Roll {
@@ -345,10 +350,24 @@ interface BlastRolls {
   start: number;
   left: number;
   per: number;
+  /** The design's flame colour, its light, and how much soot follows, in what tones. */
+  tint: number;
+  light: number;
+  smoke: number;
+  tones: readonly number[];
+}
+
+/** A small pop still to go off round a Cracker blast. */
+interface Pop {
+  x: number;
+  y: number;
+  r: number;
+  at: number;
 }
 
 export class EffectSystem {
   private fires: BlastRolls[] = [];
+  private pops: Pop[] = [];
   /** Shells in flight just before this tick's events, so a blast knows the angle it came in at. */
   incoming: readonly Incoming[] = [];
   ripples: Ripple[] = [];
@@ -547,7 +566,7 @@ export class EffectSystem {
   handle(e: EffectEvent): void {
     switch (e.type) {
       case 'burst':
-        this.burst(e, e.params.count ?? 24);
+        this.burst(e, e.params.count ?? 24, blastShape(e.params.style));
         break;
       case 'flash': {
         const look = DT_LOOK[e.params.dt ?? 0] ?? DT_LOOK[0]!;
@@ -5201,6 +5220,12 @@ export class EffectSystem {
   }
 
   /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
+  /** Four tones of the ground's own dust round (x, y), for a dirty blast's smoke. */
+  private dustTones(x: number, y: number, r: number): readonly number[] {
+    const c = this.dustColor(x, y + r * 0.5);
+    return [shade(c, 0.45), shade(c, 0.6), shade(c, 0.75), shade(c, 0.9)];
+  }
+
   private dustColor(x: number, y: number): number {
     const p = this.probe;
     for (let r = 0; r < 12; r += 2) {
@@ -5331,14 +5356,17 @@ export class EffectSystem {
    * more of the blast downrange: that side's roll is bigger, faster and further out, the other
    * small and tight. A plumb hit gives two even rolls.
    */
-  private fireball2(e: EffectEvent, r: number): void {
-    const { nx, ny, side } = this.blastLean(e.x, e.y, r);
+  private fireball2(e: EffectEvent, r: number, s: BlastShape = BLAST_SHAPES[0]!): void {
+    const lean = this.blastLean(e.x, e.y, r);
+    const { nx, ny } = lean;
+    // a shaped design leans hard to the side the shell came from (a plumb hit: to the right)
+    const side = s.lean > 0 ? (lean.side < 0 ? -s.lean : s.lean) : lean.side;
     // along the ground, to the right
     const gx = -ny;
     const gy = nx;
     const roll = (sgn: 1 | -1): Roll => {
       const lead = 1 + 0.45 * side * sgn;
-      const R = Math.max(5, r * 0.5 * lead);
+      const R = Math.max(5, r * 0.5 * lead * s.rolls);
       // the eye coasts outward about a radius and a half, and lifts a little
       const out = R * 0.085;
       const spin = -sgn * (0.9 + r * 0.03) * lead;
@@ -5377,7 +5405,7 @@ export class EffectSystem {
     const jl = Math.hypot(jx, jy);
     jx /= jl;
     jy /= jl;
-    const up = 0.55 + r * 0.03;
+    const up = (0.55 + r * 0.03) * s.heartUp;
     this.fluid.splat(
       e.x + jx * r * 0.3,
       e.y + jy * r * 0.3,
@@ -5410,36 +5438,58 @@ export class EffectSystem {
     // the bang itself: a packed ball of white-hot cells blown out from the impact in every
     // direction the ground allows. It fills the blast radius in a few ticks and burns out fast;
     // what is left of it is caught by the turning air and rolled up
-    const nBang = Math.min(16000, Math.round(r * r * 13 * Math.max(0.3, this.mult)));
+    const nBang = Math.min(16000, Math.round(r * r * 13 * s.bang * Math.max(0.3, this.mult)));
     const vMax = 0.5 + r * 0.13;
     const bang = this.rngFor(e, 31);
+    // a design can aim part of the bang: downrange off the ground, or straight up out of it
+    let cx = nx;
+    let cy = ny;
+    if (s.cone === Cone.Ahead) {
+      const sg = side < 0 ? -1 : 1;
+      cx = gx * sg * 0.87 + nx * 0.5;
+      cy = gy * sg * 0.87 + ny * 0.5;
+    }
+    const ca0 = Math.atan2(cy, cx);
     for (let i = 0; i < nBang; i++) {
-      const a = bang.next() * Math.PI * 2;
-      let dx = Math.cos(a);
-      let dy = Math.sin(a);
+      const coned = s.cone !== Cone.None && bang.next() < s.coneShare;
+      let dx: number;
+      let dy: number;
+      let sp: number;
+      if (coned) {
+        // the tongue: packed along its axis, fast, the core fastest
+        const off = (bang.next() - bang.next()) * s.coneHalf;
+        dx = Math.cos(ca0 + off);
+        dy = Math.sin(ca0 + off);
+        sp =
+          (0.35 + 0.65 * Math.sqrt(bang.next())) * vMax * s.coneSpeed * (1 - Math.abs(off) * 0.8);
+      } else {
+        const a = bang.next() * Math.PI * 2;
+        dx = Math.cos(a);
+        dy = Math.sin(a);
+        sp = Math.sqrt(bang.next()) * vMax * (s.cone === Cone.None ? 1 : 0.6);
+      }
       // what would go into the ground comes back off it, slower
       const into = dx * nx + dy * ny;
-      let s = Math.sqrt(bang.next()) * vMax;
       if (into < 0) {
         dx -= 2 * into * nx;
         dy -= 2 * into * ny;
-        s *= 0.7;
+        sp *= 0.7;
       }
       const d = bang.next() * r * 0.2;
       this.sink.add({
         x: e.x + nx * 2 + dx * d,
         y: e.y + ny * 2 + dy * d,
-        vx: dx * s,
-        vy: dy * s,
-        life: bang.range(14, 44),
+        vx: dx * sp,
+        vy: dy * sp,
+        life: bang.range(14, 44) * s.bangLife * (coned ? 1.25 : 1),
         size: 1,
-        color: 0xffa020,
+        color: s.tint,
         kind: PKind.Bang,
       });
     }
     // the air goes with it: a hard shove outward, so smoke, dust and leaves around are blown back
     this.fluid.splat(e.x, e.y, r * 1.6, 0.6 + r * 0.06, 0, 0, 0, 0, true);
-    const n = Math.min(14000, Math.round(r * r * 11 * Math.max(0.3, this.mult)));
+    const n = Math.min(14000, Math.round(r * r * 11 * s.fire * Math.max(0.3, this.mult)));
     this.fires.push({
       jx,
       jy,
@@ -5453,6 +5503,10 @@ export class EffectSystem {
       start: e.tick,
       left: n,
       per: Math.ceil(n / FIRE_FEED),
+      tint: s.tint,
+      light: s.light,
+      smoke: s.smoke,
+      tones: s.smokeTones.length > 0 ? s.smokeTones : this.dustTones(e.x, e.y, r),
     });
   }
 
@@ -5483,7 +5537,7 @@ export class EffectSystem {
           vy: Math.sin(a) * s + f.jy * along,
           life: rng.range(70, 200),
           size: 1,
-          color: 0xffa020,
+          color: f.tint,
           kind: PKind.Fire,
         });
       }
@@ -5492,7 +5546,10 @@ export class EffectSystem {
       // caught by the same turning air, so the swirls go on as smoke when the fire is gone
       if (age >= 6 && age < SMOKE_FEED) {
         const k = 1 - age / SMOKE_FEED;
-        const puffs = Math.min(700, Math.round(f.r * f.r * 0.5 * Math.max(0.3, this.mult) * k * k));
+        const puffs = Math.min(
+          1400,
+          Math.round(f.r * f.r * 0.5 * f.smoke * Math.max(0.3, this.mult) * k * k),
+        );
         for (let i = 0; i < puffs; i++) {
           const a = rng.next() * Math.PI * 2;
           const d = Math.sqrt(rng.next()) * f.r * (0.5 + 0.7 * k);
@@ -5506,7 +5563,7 @@ export class EffectSystem {
             vy: Math.sin(a) * 0.25 + f.jy * rng.range(0.2, 0.6),
             life: rng.range(130, 310),
             size: 1,
-            color: SMOKE_TONES[Math.floor(rng.next() * SMOKE_TONES.length)]!,
+            color: f.tones[Math.floor(rng.next() * f.tones.length)]!,
             kind: PKind.Wisp,
           });
         }
@@ -5533,7 +5590,7 @@ export class EffectSystem {
             vy: f.nx * sgn * k + rng.range(-0.1, 0.1),
             life: rng.range(80, 210),
             size: 1,
-            color: 0xffa020,
+            color: f.tint,
             kind: PKind.Fire,
           });
         }
@@ -5542,13 +5599,13 @@ export class EffectSystem {
     this.fires = this.fires.filter((f) => f.left > 0 || t - f.start < SMOKE_FEED);
   }
 
-  private burst(e: EffectEvent, count: number): void {
+  private burst(e: EffectEvent, count: number, shape: BlastShape = BLAST_SHAPES[0]!): void {
     // `count: 0` asks for no burst at all: no sparks, and no hot soot in the air either
     if (count <= 0) return;
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
-    this.fireball2(e, r);
-    const nSpark = Math.round(count * 1.4 * this.mult);
+    this.fireball2(e, r, shape);
+    const nSpark = Math.round(count * 1.4 * shape.sparks * this.mult);
     const speed = 0.8 + r / 14;
     for (let i = 0; i < nSpark; i++) {
       const a = rng.range(Math.PI * 0.05, Math.PI * 0.95);
@@ -5560,12 +5617,15 @@ export class EffectSystem {
         vy: -Math.sin(a) * s,
         life: rng.range(14, 36),
         size: rng.range(0.5, 1.1),
-        color: rng.next() < 0.3 ? 0xfff0a0 : 0xff7a1a,
+        color: rng.next() < 0.3 ? 0xfff0a0 : shape.tint === FIRE_RGB ? 0xff7a1a : shape.tint,
         kind: PKind.Spark,
       });
     }
-    this.ejecta(e, r, count, rng);
-    if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
+    this.ejecta(e, r, Math.round(count * shape.ejecta), rng, shape.ejecta);
+    if (count > 0 && e.radius >= Math.min(CHUNK_MIN_RADIUS, shape.chunkMin))
+      this.throwChunks(e, rng);
+    if (shape.fountain > 0) this.fountain(e, r, rng, shape);
+    if (shape.pops > 0) this.queuePops(e, r, rng);
     // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
     // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
     const nRing = Math.round((24 + r * 1.2) * Math.max(0.5, this.mult));
@@ -5585,24 +5645,28 @@ export class EffectSystem {
       });
     }
     // flash motes: a cloud of white cells strobing inside the fireball for the first ticks
-    const nFlash = Math.round((10 + r) * Math.max(0.5, this.mult));
+    const nFlash = Math.round((10 + r) * shape.glitter * Math.max(0.5, this.mult));
+    // a big flash throws its motes wider and they hang, strobing, as they drift down
+    const wide = shape.glitter > 2;
+    const glint = shape.tint === FIRE_RGB ? 0xfff0a0 : shape.tint;
     for (let i = 0; i < nFlash; i++) {
       const a = rng.next() * Math.PI * 2;
-      const d = Math.sqrt(rng.next()) * r * 0.7;
+      const d = Math.sqrt(rng.next()) * r * (wide ? 1.1 : 0.7);
+      const v = wide ? rng.range(0.2, 1.1) : 0.3;
       this.particles.add({
         x: e.x + Math.cos(a) * d,
         y: e.y + Math.sin(a) * d,
-        vx: Math.cos(a) * 0.3,
-        vy: Math.sin(a) * 0.3,
-        life: rng.range(5, 11),
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v - (wide ? 0.3 : 0),
+        life: wide ? rng.range(12, 60) : rng.range(5, 11),
         size: 1,
-        color: rng.next() < 0.6 ? 0xffffff : 0xfff0a0,
+        color: rng.next() < 0.6 ? 0xffffff : glint,
         kind: PKind.Glitter,
       });
     }
     // dust kicked along the ground either side of the crater, rolling outward
-    this.groundDust(e, rng, r);
-    const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
+    this.groundDust(e, rng, r, shape.dust);
+    const nSmoke = Math.round((3 + r / 5) * Math.min(1, shape.smoke) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
         x: e.x + rng.range(-r, r) * 0.5,
@@ -5615,6 +5679,94 @@ export class EffectSystem {
         kind: PKind.Smoke,
       });
     }
+  }
+
+  /**
+   * The Fountain design's spray: hot sparks shot up the column the bang punched, fanning a
+   * little, that slow at the top, arc over and rain back down round the crater, with embers
+   * floating up off the column after them.
+   */
+  private fountain(e: EffectEvent, r: number, rng: FxRng, shape: BlastShape): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const n = Math.round((50 + r * 5) * shape.fountain * Math.max(0.4, this.mult));
+    const top = 2.2 + r / 9;
+    const axis = Math.atan2(ny, nx);
+    for (let i = 0; i < n; i++) {
+      const a = axis + (rng.next() - rng.next()) * 0.45;
+      const sp = rng.range(0.45, 1) * top;
+      this.particles.add({
+        x: e.x + nx * 2 + rng.range(-1.5, 1.5),
+        y: e.y + ny * 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(50, 110),
+        size: 1,
+        color: rng.next() < 0.35 ? 0xfff0a0 : shape.tint === FIRE_RGB ? 0xff8a20 : shape.tint,
+        kind: PKind.Spark,
+      });
+    }
+    const nEmber = Math.round((10 + r) * Math.max(0.4, this.mult));
+    for (let i = 0; i < nEmber; i++) {
+      const k = rng.range(0.2, 1.4);
+      this.particles.add({
+        x: e.x + nx * r * k + rng.range(-r, r) * 0.2,
+        y: e.y + ny * r * k,
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.3, 0.9),
+        life: rng.range(60, 140),
+        size: 1,
+        color: 0xff8a20,
+        kind: PKind.Ember,
+      });
+    }
+  }
+
+  /** Line up the Cracker design's small pops: round the blast, going off one after another. */
+  private queuePops(e: EffectEvent, r: number, rng: FxRng): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const n = Math.min(14, 6 + Math.round(r / 4));
+    let at = e.tick + 5;
+    for (let i = 0; i < n; i++) {
+      // over the impact, out to nearly twice the blast radius, never inside the ground
+      const a = Math.atan2(ny, nx) + rng.range(-1.35, 1.35);
+      const d = r * rng.range(0.5, 1.8);
+      at += Math.round(rng.range(1, 6));
+      this.pops.push({
+        x: e.x + Math.cos(a) * d,
+        y: e.y + Math.sin(a) * d,
+        r: rng.range(3, 4 + Math.min(4, r / 8)),
+        at,
+      });
+    }
+  }
+
+  /** Set off the pops due this tick: each a little bang of its own with a star of sparks. */
+  private firePops(t: number): void {
+    if (this.pops.length === 0) return;
+    for (const p of this.pops) {
+      if (p.at !== t) continue;
+      if (this.probe.material(Math.floor(p.x), Math.floor(p.y)) !== 0) continue;
+      const ev: EffectEvent = { type: 'burst', tick: t, x: p.x, y: p.y, radius: p.r, params: {} };
+      this.fireball2(ev, p.r, POP_SHAPE);
+      const rng = this.rngFor(ev, 7);
+      const ns = Math.round(10 * Math.max(0.5, this.mult));
+      for (let i = 0; i < ns; i++) {
+        const a = (i / ns) * Math.PI * 2 + rng.next() * 0.5;
+        const sp = rng.range(0.8, 1.6);
+        this.particles.add({
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: rng.range(8, 18),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffffff : 0xffd080,
+          kind: PKind.Spark,
+        });
+      }
+      this.kick(0.6, t);
+    }
+    this.pops = this.pops.filter((p) => p.at > t);
   }
 
   /**
@@ -5650,10 +5802,10 @@ export class EffectSystem {
 
   /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
   /** Grains of the local ground lifted along the surface either side of a blast, rolling out. */
-  private groundDust(e: EffectEvent, rng: FxRng, r: number): void {
+  private groundDust(e: EffectEvent, rng: FxRng, r: number, more = 1): void {
     const p = this.probe;
     const reach = Math.round(r * 2.2);
-    const n = Math.round(reach * 0.5 * Math.max(0.5, this.mult));
+    const n = Math.round(reach * 0.5 * more * Math.max(0.5, this.mult));
     for (let side = -1; side <= 1; side += 2) {
       for (let i = 0; i < n; i++) {
         const dx = r * 0.8 + rng.next() * (reach - r * 0.8);
@@ -5732,12 +5884,14 @@ export class EffectSystem {
    * shell was heading. Grains arc under gravity, bounce and lie where they stop before they
    * crumble away.
    */
-  private ejecta(e: EffectEvent, r: number, count: number, rng: FxRng): void {
+  private ejecta(e: EffectEvent, r: number, count: number, rng: FxRng, more = 1): void {
     const { nx, ny, side } = this.blastLean(e.x, e.y, r);
     // along the ground, to the right
     const gx = -ny;
     const gy = nx;
-    const n = Math.round(Math.min(2600, count + r * r * 0.9) * Math.max(0.3, this.mult));
+    const n = Math.round(
+      Math.min(2600 * more, count + r * r * 0.9 * more) * Math.max(0.3, this.mult),
+    );
     const speed = 1 + r / 11;
     for (let i = 0; i < n; i++) {
       // which side of the crater, and how far round its rim (0 = lip, 1 = floor)
@@ -5818,6 +5972,7 @@ export class EffectSystem {
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
     this.groundLife(t);
+    this.firePops(t);
     this.feedFires(t);
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
@@ -6502,10 +6657,10 @@ export class EffectSystem {
       if (k < 0 || k >= 1) continue;
       const s = 1 - Math.floor(k * 5) / 5;
       const rise = f.r * 0.7 + f.up * 0.5 * Math.min(age, 40);
-      lights.add(f.x + f.jx * rise, f.y + f.jy * rise, f.r * 4.5, 1.3 * s, FIRE_LIGHT_RGB);
+      lights.add(f.x + f.jx * rise, f.y + f.jy * rise, f.r * 4.5, 1.3 * s, f.light);
       const coast = (1 - Math.pow(0.95, age)) / 0.05;
       for (const ro of f.rolls) {
-        lights.add(ro.x + ro.vx * coast, ro.y + ro.vy * coast, ro.r * 4, 0.9 * s, FIRE_LIGHT_RGB);
+        lights.add(ro.x + ro.vx * coast, ro.y + ro.vy * coast, ro.r * 4, 0.9 * s, f.light);
       }
     }
   }
@@ -6892,6 +7047,7 @@ export class EffectSystem {
 
   clear(): void {
     this.fires = [];
+    this.pops = [];
     this.ripples = [];
     this.glows = [];
     this.fronts = [];

@@ -61,7 +61,8 @@ export const PKind = {
   /**
    * One cell of a fireball: burning gas carried by the air (the smoke fluid's velocity), so a
    * blast's fire rolls and curls with the flow. Burns white → yellow → orange → red, then goes
-   * on as soot that pales and winks out cell by cell. Its own colour is ignored. GPU only.
+   * on as soot that pales and winks out cell by cell. Plain fire is colour 0xffa020 (FIRE_RGB);
+   * any other colour burns as a chemical flame: white, that colour, then deep. GPU only.
    */
   Fire: 16,
   /**
