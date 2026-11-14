@@ -23,7 +23,8 @@
         },
         "effects": {
           "burst": {
-            "count": 30
+            "count": 30,
+            "style": 12
           },
           "flash": {
             "strength": 1

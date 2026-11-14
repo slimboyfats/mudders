@@ -23,7 +23,8 @@
         "damageType": "dig",
         "effects": {
           "burst": {
-            "count": 12
+            "count": 12,
+            "style": 3
           }
         }
       }

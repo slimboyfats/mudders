@@ -19,7 +19,8 @@
         "damage": 10,
         "effects": {
           "burst": {
-            "count": 6
+            "count": 6,
+            "style": 10
           }
         }
       }

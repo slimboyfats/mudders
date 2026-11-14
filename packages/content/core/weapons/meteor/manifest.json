@@ -20,7 +20,8 @@
         "damageType": "heat",
         "effects": {
           "burst": {
-            "count": 30
+            "count": 30,
+            "style": 11
           },
           "flash": {
             "strength": 1

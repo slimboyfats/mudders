@@ -20,7 +20,8 @@
         "damageType": "shock",
         "effects": {
           "burst": {
-            "count": 8
+            "count": 8,
+            "style": 4
           },
           "flash": {
             "strength": 0.6

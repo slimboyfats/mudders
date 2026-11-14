@@ -19,7 +19,8 @@
         "damage": 0,
         "effects": {
           "burst": {
-            "count": 60
+            "count": 60,
+            "style": 14
           },
           "shake": {
             "strength": 3
