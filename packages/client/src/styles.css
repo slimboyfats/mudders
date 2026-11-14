@@ -1908,7 +1908,11 @@ a.button {
   color: #ffb070;
   font-size: 0.9rem;
   font-weight: 800;
-  white-space: nowrap;
+  /* one line when it fits; a line break in the text (round banner + free weapons) starts a new one */
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  text-align: center;
+  white-space: pre-line;
   pointer-events: none;
   animation: drop-toast 3s ease-out forwards;
 }

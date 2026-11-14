@@ -153,6 +153,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Random arsenal
+        <select
+          value={value.arsenal ? 'on' : 'off'}
+          onChange={(e) => onChange({ arsenal: e.target.value === 'on' })}
+        >
+          <option value="off">Off</option>
+          <option value="on">On (free weapons each round)</option>
+        </select>
+      </label>
+      <label>
         Supply drops
         <select
           value={value.drops ?? 'off'}

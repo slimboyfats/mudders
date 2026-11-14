@@ -153,6 +153,8 @@ export interface MatchSetup {
   twists?: boolean | undefined;
   /** Shop deals: every shop has a few weapons at half price and a couple sold out; unset = off. */
   deals?: boolean | undefined;
+  /** Random arsenal: every round each tank gets the same few random weapons for free; unset = off. */
+  arsenal?: boolean | undefined;
   /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
@@ -220,6 +222,7 @@ export function defaultSetup(): MatchSetup {
     roundBonus: 0,
     twists: false,
     deals: false,
+    arsenal: false,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -316,6 +319,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     mapEvents: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
+    ...(s.arsenal ? { randomArsenal: true } : {}),
   };
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;

@@ -115,13 +115,15 @@ const BOT_MOVE_TICK = BOT_THINK_TICKS - 8;
 /** Longest flight the AI's predictor simulates. */
 const PREDICT_TICKS = 900;
 
-/** Match-rule overrides from the setup screen (§8); anything unset keeps the mode's value. */
 /** Shop deals (`rules.shopDeals`): half price, or sold out for this shop. */
 export const DEAL_SALE = 1;
 export const DEAL_OUT = 2;
+/** Free weapons per round under the random arsenal rule. */
+const ARSENAL_COUNT = 4;
 const SALE_COUNT = 4;
 const SOLD_OUT_COUNT = 2;
 
+/** Match-rule overrides from the setup screen (§8); anything unset keeps the mode's value. */
 export interface MatchRules {
   rounds?: number | undefined;
   turnTimer?: number | undefined;
@@ -159,6 +161,11 @@ export interface MatchRules {
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
   shopDeals?: boolean | undefined;
+  /**
+   * Random arsenal (kernel 0.53.0): at the start of every round each tank gets the same
+   * `ARSENAL_COUNT` weapons for free, one pack each, drawn from what the shop sells. Off unless set.
+   */
+  randomArsenal?: boolean | undefined;
 }
 
 /** A pickup a tank made, for the HUD (not part of the state). */
@@ -779,6 +786,8 @@ export class World implements SimApi {
   prices: number[] = [];
   /** This shop's deal per weapon: 0 none, `DEAL_SALE` half price, `DEAL_OUT` sold out. */
   deals: number[] = [];
+  /** This round's free weapons (random arsenal rule), by weapon index; empty when the rule is off. */
+  arsenal: number[] = [];
   /** Results of finished rounds. */
   readonly results: RoundResult[] = [];
   projectiles: Projectile[] = [];
@@ -1405,6 +1414,21 @@ export class World implements SimApi {
       tank.lastShotY = -1;
       tank.ready = false;
       tank.y = this.restingY(tank, res.spawnFrom);
+    }
+    this.arsenal = [];
+    if (this.options.rules?.randomArsenal === true) {
+      // the same free weapons for everyone, drawn from what the shop sells, in weapon order
+      const pool: number[] = [];
+      for (let i = 0; i < this.weapons.length; i++) if (this.weapons[i]!.price > 0) pool.push(i);
+      for (let k = 0; k < ARSENAL_COUNT && pool.length > 0; k++) {
+        const w = pool.splice(this.rng.int(pool.length), 1)[0]!;
+        this.arsenal.push(w);
+        const pack = Math.max(1, this.weapons[w]!.pack);
+        for (const tank of this.tanks) {
+          const have = tank.inventory[w] ?? 0;
+          if (have >= 0) tank.inventory[w] = have + pack;
+        }
+      }
     }
 
     this.order = this.modeB.turnOrder(this.modeApi, this.modeParams);
@@ -4930,6 +4954,7 @@ export class World implements SimApi {
     for (const o of this.order) h.num(o);
     for (const p of this.prices) h.num(p);
     if (this.options.rules?.shopDeals === true) for (const d of this.deals) h.num(d);
+    if (this.options.rules?.randomArsenal === true) for (const a of this.arsenal) h.num(a);
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
     h.bytes(new Uint8Array(g.flowVel.buffer, g.flowVel.byteOffset, g.flowVel.length));
