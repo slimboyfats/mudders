@@ -213,9 +213,11 @@ export abstract class SimMatch implements SnapshotStream {
     }
     // a match that changes map or sky between rounds says where this round is played
     const w = this.world;
-    if (w.options.perRound && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
+    const news = w.options.perRound !== undefined || w.arsenal.length > 0;
+    if (news && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
       this.shown = w.round;
-      this.alert = { text: roundLine(w), tick: s.tick };
+      const free = w.arsenal.map((i) => this.names[w.weaponId(i)] ?? w.weaponId(i));
+      this.alert = { text: roundLine(w, free), tick: s.tick };
     }
     for (const l of this.listeners) l(s);
   }
@@ -373,13 +375,13 @@ export class LocalMatch extends SimMatch {
 }
 
 /** "Round 2: Glacier, snow": where a round of a shuffled match is played. */
-export function roundLine(w: World): string {
+export function roundLine(w: World, free: readonly string[] = []): string {
   const map = w.content.get('gen', w.generator).meta.name;
   const sky = w.weather?.label;
   const twist = w.options.perRound?.[w.round % w.options.perRound.length]?.twist;
   return `Round ${w.round + 1}: ${map}${sky ? `, ${sky.toLowerCase()}` : ''}${
     twist ? ` · ${twist.toUpperCase()}!` : ''
-  }`;
+  }${free.length > 0 ? `\nFree: ${free.join(', ')}` : ''}`;
 }
 
 /** How the HUD words a map event, or '' for effects that aren't news. */

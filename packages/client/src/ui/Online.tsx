@@ -80,6 +80,7 @@ function rulesOf(): LobbyRules {
     roundBonus: s.roundBonus ?? 0,
     twists: s.twists ?? false,
     deals: s.deals ?? false,
+    arsenal: s.arsenal ?? false,
     teams: s.teams,
   };
 }
