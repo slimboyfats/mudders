@@ -355,6 +355,12 @@ interface BlastRolls {
   light: number;
   smoke: number;
   tones: readonly number[];
+  shape: BlastShape;
+  /** Which way the blast leans (1 right, -1 left): the roll on the other side is the back one. */
+  lean: number;
+  /** The tongue's unit direction (see {@link BlastShape.tongueDir}). */
+  tx: number;
+  ty: number;
 }
 
 /** A small pop still to go off round a Cracker blast. */
@@ -5223,7 +5229,12 @@ export class EffectSystem {
   /** Four tones of the ground's own dust round (x, y), for a dirty blast's smoke. */
   private dustTones(x: number, y: number, r: number): readonly number[] {
     const c = this.dustColor(x, y + r * 0.5);
-    return [shade(c, 0.45), shade(c, 0.6), shade(c, 0.75), shade(c, 0.9)];
+    // dust is the ground's colour gone grey and dull in the air
+    const r8 = (((c >> 16) & 255) + 0x62) >> 1;
+    const g8 = (((c >> 8) & 255) + 0x5c) >> 1;
+    const b8 = ((c & 255) + 0x58) >> 1;
+    const d = (r8 << 16) | (g8 << 8) | b8;
+    return [shade(d, 0.6), shade(d, 0.75), shade(d, 0.9), shade(d, 1.05)];
   }
 
   private dustColor(x: number, y: number): number {
@@ -5446,8 +5457,8 @@ export class EffectSystem {
     let cy = ny;
     if (s.cone === Cone.Ahead) {
       const sg = side < 0 ? -1 : 1;
-      cx = gx * sg * 0.87 + nx * 0.5;
-      cy = gy * sg * 0.87 + ny * 0.5;
+      cx = gx * sg * 0.94 + nx * 0.34;
+      cy = gy * sg * 0.94 + ny * 0.34;
     }
     const ca0 = Math.atan2(cy, cx);
     for (let i = 0; i < nBang; i++) {
@@ -5507,6 +5518,11 @@ export class EffectSystem {
       light: s.light,
       smoke: s.smoke,
       tones: s.smokeTones.length > 0 ? s.smokeTones : this.dustTones(e.x, e.y, r),
+      shape: s,
+      lean: side < 0 ? -1 : 1,
+      // a pillar stands up straight, leaning only a little with the slope
+      tx: s.tongueDir === Cone.Up ? nx * 0.3 : cx,
+      ty: s.tongueDir === Cone.Up ? -Math.sqrt(1 - nx * nx * 0.09) : cy,
     });
   }
 
@@ -5522,7 +5538,8 @@ export class EffectSystem {
       const age = t - f.start;
       // the heart: most of the fire, packed over the impact and thrown up the jet. Dense enough
       // to read as a ball; the fluid rolls it as it climbs
-      const heart = Math.round(n * 0.44);
+      const heart = Math.round(n * 0.44 * f.shape.heart);
+      if (f.shape.tongueLen > 0 && age < f.shape.tongueTicks) this.feedTongue(f, age, rng);
       const hx = f.x + f.jx * f.r * 0.7;
       const hy = f.y + f.jy * f.r * 0.7;
       for (let i = 0; i < heart; i++) {
@@ -5569,10 +5586,12 @@ export class EffectSystem {
         }
       }
       if (n === 0) continue;
-      for (const ro of f.rolls) {
+      for (let ri = 0; ri < f.rolls.length; ri++) {
+        const ro = f.rolls[ri]!;
         // a sheet of fire thrown out along the ground from the impact, into the underside of
         // this side's roll, which carries it up the far side and winds it in
-        const share = Math.round((n * 0.28 * ro.r) / (f.r * 0.5));
+        const back = (ri === 0 ? 1 : -1) !== f.lean ? f.shape.backRoll : 1;
+        const share = Math.round(((n * 0.28 * ro.r) / (f.r * 0.5)) * f.shape.rollFire * back);
         const sp = Math.abs(ro.spin);
         const sgn = ro.spin < 0 ? 1 : -1;
         for (let i = 0; i < share; i++) {
@@ -5596,7 +5615,55 @@ export class EffectSystem {
         }
       }
     }
-    this.fires = this.fires.filter((f) => f.left > 0 || t - f.start < SMOKE_FEED);
+    this.fires = this.fires.filter(
+      (f) => f.left > 0 || t - f.start < Math.max(SMOKE_FEED, f.shape.tongueTicks),
+    );
+  }
+
+  /**
+   * One tick of a blast's tongue: white-hot cells poured out of the impact along the tongue,
+   * fast and packed at the core, with burning gas round them, and the air shoved the same way
+   * so what follows streams after it. It pours hardest at first and dies down.
+   */
+  private feedTongue(f: BlastRolls, age: number, rng: FxRng): void {
+    const s = f.shape;
+    const k = 1 - age / s.tongueTicks;
+    // a Bang cell coasts about 20× its launch speed through still air
+    const v = (s.tongueLen * f.r) / 20;
+    const per = Math.round(f.r * f.r * 1.6 * k * Math.max(0.3, this.mult));
+    // across the tongue, to its right
+    const px = -f.ty;
+    const py = f.tx;
+    const ox = f.x + f.nx * 2;
+    const oy = f.y + f.ny * 2;
+    for (let i = 0; i < per; i++) {
+      const w = (rng.next() - rng.next()) * f.r * 0.18;
+      const sp = v * rng.range(0.55, 1.05) * (0.7 + 0.3 * k);
+      const core = rng.next() < 0.6;
+      this.sink.add({
+        x: ox + px * w,
+        y: oy + py * w,
+        vx: f.tx * sp + px * w * 0.03,
+        vy: f.ty * sp + py * w * 0.03,
+        life: core ? rng.range(18, 34) : rng.range(50, 120),
+        size: 1,
+        color: f.tint,
+        kind: core ? PKind.Bang : PKind.Fire,
+      });
+    }
+    // the air goes with it
+    this.fluid.splat(
+      ox + f.tx * f.r,
+      oy + f.ty * f.r,
+      f.r * 0.5,
+      f.tx * v * 0.5,
+      f.ty * v * 0.5,
+      0,
+      0.3 * k,
+      0,
+      false,
+      k,
+    );
   }
 
   private burst(e: EffectEvent, count: number, shape: BlastShape = BLAST_SHAPES[0]!): void {
@@ -5625,6 +5692,8 @@ export class EffectSystem {
     if (count > 0 && e.radius >= Math.min(CHUNK_MIN_RADIUS, shape.chunkMin))
       this.throwChunks(e, rng);
     if (shape.fountain > 0) this.fountain(e, r, rng, shape);
+    if (shape.dustCloud > 0) this.dustCloud(e, r, rng, shape.dustCloud);
+    if (shape.rays > 0) this.rays(e, r, rng, shape);
     if (shape.pops > 0) this.queuePops(e, r, rng);
     // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
     // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
@@ -5721,20 +5790,96 @@ export class EffectSystem {
     }
   }
 
-  /** Line up the Cracker design's small pops: round the blast, going off one after another. */
+  /**
+   * The Dirty design's cloud: a low dome of the ground's own dust billowing out wide either
+   * side and a little up, and a column of clods shot straight up out of the crater.
+   */
+  private dustCloud(e: EffectEvent, r: number, rng: FxRng, k: number): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const tones = this.dustTones(e.x, e.y, r);
+    const n = Math.round(Math.min(9000, r * r * 9 * k) * Math.max(0.3, this.mult));
+    for (let i = 0; i < n; i++) {
+      const sgn = rng.next() < 0.5 ? -1 : 1;
+      const out = rng.next();
+      const x = e.x + sgn * out * r * 0.9;
+      const y = e.y - rng.next() * r * 0.5 + 1;
+      if (this.probe.material(Math.floor(x), Math.floor(y)) !== 0) continue;
+      const sp = rng.range(0.4, 1.6) * (0.6 + r / 40);
+      this.particles.add({
+        x,
+        y,
+        vx: sgn * sp * (0.6 + out) + rng.range(-0.2, 0.2),
+        vy: -rng.range(0.15, 0.9) * sp * (1.2 - out * 0.6),
+        life: rng.range(150, 330),
+        size: 1,
+        color: tones[Math.floor(rng.next() * tones.length)]!,
+        kind: PKind.Wisp,
+      });
+    }
+    const nc = Math.round((40 + r * 9) * k * Math.max(0.4, this.mult));
+    for (let i = 0; i < nc; i++) {
+      const a = Math.atan2(ny, nx) + (rng.next() - rng.next()) * 0.35;
+      const sp = rng.range(0.6, 1) * (2 + r / 9);
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y + ny * 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(120, 220),
+        size: 1,
+        color: shade(
+          this.dustColor(e.x, e.y + 2),
+          DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]!,
+        ),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * The Flash design's star: hard white rays shot out from the centre, each a line of single
+   * cells spread along it that race outward and strobe out, longer ones between short ones.
+   */
+  private rays(e: EffectEvent, r: number, rng: FxRng, shape: BlastShape): void {
+    const n = 14 + Math.round(r / 3);
+    const off = rng.next() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = off + (i / n) * Math.PI * 2 + rng.range(-0.06, 0.06);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const len = r * (i % 2 === 0 ? rng.range(2.2, 3.2) : rng.range(1, 1.6));
+      const cells = Math.round(len * 0.8);
+      for (let j = 0; j < cells; j++) {
+        const d = (j / cells) * len * 0.4;
+        const sp = (j / cells) * len * 0.09;
+        this.particles.add({
+          x: e.x + ca * d,
+          y: e.y + sa * d,
+          vx: ca * sp,
+          vy: sa * sp,
+          life: rng.range(8, 16),
+          size: 1,
+          color: j < cells * 0.5 ? 0xffffff : shape.tint,
+          kind: PKind.Glitter,
+        });
+      }
+    }
+  }
+
+  /** Line up the Cracker design's small pops: all over the blast, rattling off one by one. */
   private queuePops(e: EffectEvent, r: number, rng: FxRng): void {
     const { nx, ny } = this.blastLean(e.x, e.y, r);
-    const n = Math.min(14, 6 + Math.round(r / 4));
-    let at = e.tick + 5;
+    const n = Math.min(24, 12 + Math.round(r / 2));
+    let at = e.tick + 6;
     for (let i = 0; i < n; i++) {
-      // over the impact, out to nearly twice the blast radius, never inside the ground
-      const a = Math.atan2(ny, nx) + rng.range(-1.35, 1.35);
-      const d = r * rng.range(0.5, 1.8);
+      // over the impact, out to well past the blast radius, low along the ground as well
+      const a = Math.atan2(ny, nx) + rng.range(-1.5, 1.5);
+      const d = r * rng.range(0.6, 2.6);
       at += Math.round(rng.range(1, 6));
       this.pops.push({
         x: e.x + Math.cos(a) * d,
-        y: e.y + Math.sin(a) * d,
-        r: rng.range(3, 4 + Math.min(4, r / 8)),
+        y: e.y + Math.sin(a) * d - 2,
+        r: rng.range(4, 6 + Math.min(4, r / 8)),
         at,
       });
     }
