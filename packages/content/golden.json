@@ -1,5 +1,5 @@
 {
-  "contentHash": "d929e2adf62f40b2",
+  "contentHash": "b8d8490811867282",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -416,6 +416,10 @@
     "explosion.glob-splash": {
       "ticks": 46,
       "hash": "034c8455c46f0ca3"
+    },
+    "explosion.landing": {
+      "ticks": 215,
+      "hash": "6e698b64479ab680"
     },
     "explosion.nuke-pull": {
       "ticks": 263,

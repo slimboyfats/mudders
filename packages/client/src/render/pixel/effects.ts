@@ -7,8 +7,10 @@ import { Chunks } from './chunks';
 import {
   BLAST_SHAPES,
   blastShape,
+  BlastStyle,
   Cone,
   FIRE_RGB,
+  landingStyle,
   POP_SHAPE,
   type BlastShape,
 } from './blast-styles';
@@ -571,9 +573,12 @@ export class EffectSystem {
   /** Spawn the visual for one effect event. */
   handle(e: EffectEvent): void {
     switch (e.type) {
-      case 'burst':
-        this.burst(e, e.params.count ?? 24, blastShape(e.params.style));
+      case 'burst': {
+        let style = e.params.style;
+        if (style === BlastStyle.Landing) style = this.landing(e);
+        this.burst(e, e.params.count ?? 24, blastShape(style));
         break;
+      }
       case 'flash': {
         const look = DT_LOOK[e.params.dt ?? 0] ?? DT_LOOK[0]!;
         const strength = e.params.strength ?? 1;
@@ -5311,6 +5316,23 @@ export class EffectSystem {
       });
     }
     this.kick(5, e.tick);
+  }
+
+  /** Which design a landing-picked blast takes: how steep it came in, buried, or in the air. */
+  private landing(e: EffectEvent): BlastStyle {
+    const r = Math.max(4, e.radius);
+    const p = this.probe;
+    const x = Math.round(e.x);
+    // the crater is dug before the blast is drawn, so ground still standing over its top means
+    // it went off under a roof of earth
+    const buried =
+      p.material(x, Math.round(e.y - r - 3)) !== 0 && p.material(x, Math.round(e.y - r - 8)) !== 0;
+    let airborne = true;
+    for (let dx = -1; dx <= 1 && airborne; dx++) {
+      const below = this.groundBelow(e.x + dx * r * 0.5, e.y - 2, r * 1.6 + 4);
+      if (below < e.y - 2 + r * 1.6 + 4) airborne = false;
+    }
+    return landingStyle({ side: this.blastLean(e.x, e.y, r).side, buried, airborne });
   }
 
   /** The first solid row at column x, looking down from `from` (or `from + span` if none). */

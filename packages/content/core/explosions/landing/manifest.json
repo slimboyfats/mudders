@@ -1,0 +1,22 @@
+{
+  "id": "explosion.landing",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Landing blast",
+    "description": "The standard blast whose look depends on how the shell lands (burst style 9): a glancing hit throws a flat tongue of fire, a steep one a pillar, one in between a fireball, a buried one a dirty blast and one in the air a white flash. Same crater and damage as the standard explosion.",
+    "since": "core@0.88.0"
+  },
+  "extends": "explosion.standard",
+  "effects": {
+    "burst": {
+      "count": 40,
+      "style": 9
+    },
+    "flash": {
+      "strength": 1
+    },
+    "shake": {
+      "strength": 2
+    }
+  }
+}

@@ -18,21 +18,9 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
+        "use": "explosion.landing",
         "radius": 26,
-        "damage": 90,
-        "effects": {
-          "burst": {
-            "count": 40,
-            "style": 1
-          },
-          "flash": {
-            "strength": 1
-          },
-          "shake": {
-            "strength": 2
-          }
-        }
+        "damage": 90
       }
     }
   ],

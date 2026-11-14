@@ -13,7 +13,7 @@ describe('weapon.baby-missile', () => {
     expect(baby.flight).toEqual(missile.flight);
     expect(baby.triggers).toEqual(missile.triggers);
     expect(baby.impact[0]).toMatchObject({
-      explosion: { ref: 'explosion.standard', radius: 12, damage: 30 },
+      explosion: { ref: 'explosion.landing', radius: 12, damage: 30 },
     });
   });
 
