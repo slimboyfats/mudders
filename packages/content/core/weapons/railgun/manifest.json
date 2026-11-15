@@ -24,7 +24,8 @@
             "strength": 1
           },
           "burst": {
-            "count": 22
+            "count": 22,
+            "style": 4
           },
           "railHit": {}
         }

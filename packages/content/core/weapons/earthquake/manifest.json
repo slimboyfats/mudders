@@ -23,7 +23,8 @@
             "strength": 6
           },
           "burst": {
-            "count": 30
+            "count": 30,
+            "style": 3
           }
         }
       }

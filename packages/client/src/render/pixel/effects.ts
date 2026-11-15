@@ -4,6 +4,16 @@ import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
 import { drawKaiju, kaijuEmerged, KAIJU_STATES, toppleAngle, type KaijuFx } from './kaiju';
 import { Chunks } from './chunks';
+import {
+  BLAST_SHAPES,
+  blastShape,
+  BlastStyle,
+  Cone,
+  FIRE_RGB,
+  landingStyle,
+  POP_SHAPE,
+  type BlastShape,
+} from './blast-styles';
 import { FxRng } from './gl';
 import { blastShake, SHAKE_MIN, shakeTicks } from '../impact';
 import { IonStrikes } from './ion';
@@ -304,15 +314,15 @@ export interface Incoming {
   vy: number;
 }
 
+/** Ticks a rolling fireball rolls, and a fire carpet runs out, before they burn out. */
+const ROLL_TICKS = 60;
+const CARPET_TICKS = 34;
 /** Ticks a fireball goes on letting go of burning cells into its two rolls. */
 const FIRE_FEED = 10;
 /** Ticks the crater goes on smoking into the blast's turning air after it. */
 const SMOKE_FEED = 70;
-/** How long a fireball lights what is around it (ticks), and in what colour. */
+/** How long a fireball lights what is around it (ticks). */
 const FIRE_LIGHT = 56;
-const FIRE_LIGHT_RGB = 0xff8a30;
-/** Blast smoke: sooty greys with a little brown in them, light enough to show on a night sky. */
-const SMOKE_TONES = [0x4e4648, 0x625a5c, 0x777073, 0x5a4e48] as const;
 
 /** One side's roll of a blast: where its vortex turns, how wide, and how fast. */
 interface Roll {
@@ -345,10 +355,55 @@ interface BlastRolls {
   start: number;
   left: number;
   per: number;
+  /** The design's flame colour, its light, and how much soot follows, in what tones. */
+  tint: number;
+  light: number;
+  smoke: number;
+  tones: readonly number[];
+  shape: BlastShape;
+  /** Which way the blast leans (1 right, -1 left): the roll on the other side is the back one. */
+  lean: number;
+  /** The tongue's unit direction (see {@link BlastShape.tongueDir}). */
+  tx: number;
+  ty: number;
+}
+
+/** A small pop still to go off round a Cracker blast. */
+interface Pop {
+  x: number;
+  y: number;
+  r: number;
+  at: number;
+  /** A held-back blast (an implosion's): goes off as this whole burst instead of a small pop. */
+  shape?: BlastShape;
+  count?: number;
+}
+
+/** A rolling fireball: a ball of fire rolling along the ground, slowing as it goes. */
+interface Roller {
+  x: number;
+  y: number;
+  r: number;
+  dir: number;
+  speed: number;
+  start: number;
+  spin: number;
+}
+
+/** A fire carpet: flames running out along the ground both ways from a blast. */
+interface Carpet {
+  x: number;
+  y: number;
+  r: number;
+  reach: number;
+  start: number;
 }
 
 export class EffectSystem {
   private fires: BlastRolls[] = [];
+  private pops: Pop[] = [];
+  private rollers: Roller[] = [];
+  private carpets: Carpet[] = [];
   /** Shells in flight just before this tick's events, so a blast knows the angle it came in at. */
   incoming: readonly Incoming[] = [];
   ripples: Ripple[] = [];
@@ -409,6 +464,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** How hard each weapon kicks when fired (`RenderPalette.muzzles`), by weapon index. */
+  muzzles: readonly number[] = [];
   /** The current wind (cells per tick², the sim's), for what the ground sheds. */
   wind = 0;
   /** Orbital Lance lock-ons and beams. */
@@ -546,9 +603,12 @@ export class EffectSystem {
   /** Spawn the visual for one effect event. */
   handle(e: EffectEvent): void {
     switch (e.type) {
-      case 'burst':
-        this.burst(e, e.params.count ?? 24);
+      case 'burst': {
+        let style = e.params.style;
+        if (style === BlastStyle.Landing) style = this.landing(e);
+        this.burst(e, e.params.count ?? 24, blastShape(style));
         break;
+      }
       case 'flash': {
         const look = DT_LOOK[e.params.dt ?? 0] ?? DT_LOOK[0]!;
         const strength = e.params.strength ?? 1;
@@ -757,7 +817,10 @@ export class EffectSystem {
       case 'muzzle': {
         const rng = this.rngFor(e, 3);
         const a = ((e.params.angle ?? 90) * Math.PI) / 180;
-        const n = Math.round(10 * this.mult) + 2;
+        // big guns throw more sparks, light up more ground and jolt the screen
+        const heft = this.muzzles[e.params.weapon ?? -1] ?? 0.25;
+        if (heft >= 0.5) this.kick(1 + heft * 2.5, e.tick);
+        const n = Math.round(10 * (0.6 + heft * 1.6) * this.mult) + 2;
         for (let i = 0; i < n; i++) {
           const s = rng.range(0.6, 2.2);
           const da = rng.range(-0.35, 0.35);
@@ -787,9 +850,9 @@ export class EffectSystem {
         this.glows.push({
           x: e.x,
           y: e.y,
-          r: 6,
+          r: 6 + 8 * heft,
           start: e.tick,
-          dur: 5,
+          dur: 4 + Math.round(3 * heft),
           color: 0xffd080,
           strength: 1,
         });
@@ -5201,6 +5264,17 @@ export class EffectSystem {
   }
 
   /** Average colour of solid terrain around (x, y), for dirt chunks and dust. */
+  /** Four tones of the ground's own dust round (x, y), for a dirty blast's smoke. */
+  private dustTones(x: number, y: number, r: number): readonly number[] {
+    const c = this.dustColor(x, y + r * 0.5);
+    // dust is the ground's colour gone grey and dull in the air
+    const r8 = (((c >> 16) & 255) + 0x62) >> 1;
+    const g8 = (((c >> 8) & 255) + 0x5c) >> 1;
+    const b8 = ((c & 255) + 0x58) >> 1;
+    const d = (r8 << 16) | (g8 << 8) | b8;
+    return [shade(d, 0.6), shade(d, 0.75), shade(d, 0.9), shade(d, 1.05)];
+  }
+
   private dustColor(x: number, y: number): number {
     const p = this.probe;
     for (let r = 0; r < 12; r += 2) {
@@ -5277,6 +5351,23 @@ export class EffectSystem {
     this.kick(5, e.tick);
   }
 
+  /** Which design a landing-picked blast takes: how steep it came in, buried, or in the air. */
+  private landing(e: EffectEvent): BlastStyle {
+    const r = Math.max(4, e.radius);
+    const p = this.probe;
+    const x = Math.round(e.x);
+    // the crater is dug before the blast is drawn, so ground still standing over its top means
+    // it went off under a roof of earth
+    const buried =
+      p.material(x, Math.round(e.y - r - 3)) !== 0 && p.material(x, Math.round(e.y - r - 8)) !== 0;
+    let airborne = true;
+    for (let dx = -1; dx <= 1 && airborne; dx++) {
+      const below = this.groundBelow(e.x + dx * r * 0.5, e.y - 2, r * 1.6 + 4);
+      if (below < e.y - 2 + r * 1.6 + 4) airborne = false;
+    }
+    return landingStyle({ side: this.blastLean(e.x, e.y, r).side, buried, airborne });
+  }
+
   /** The first solid row at column x, looking down from `from` (or `from + span` if none). */
   private groundBelow(x: number, from: number, span: number): number {
     const p = this.probe;
@@ -5331,14 +5422,17 @@ export class EffectSystem {
    * more of the blast downrange: that side's roll is bigger, faster and further out, the other
    * small and tight. A plumb hit gives two even rolls.
    */
-  private fireball2(e: EffectEvent, r: number): void {
-    const { nx, ny, side } = this.blastLean(e.x, e.y, r);
+  private fireball2(e: EffectEvent, r: number, s: BlastShape = BLAST_SHAPES[0]!): void {
+    const lean = this.blastLean(e.x, e.y, r);
+    const { nx, ny } = lean;
+    // a shaped design leans hard to the side the shell came from (a plumb hit: to the right)
+    const side = s.lean > 0 ? (lean.side < 0 ? -s.lean : s.lean) : lean.side;
     // along the ground, to the right
     const gx = -ny;
     const gy = nx;
     const roll = (sgn: 1 | -1): Roll => {
       const lead = 1 + 0.45 * side * sgn;
-      const R = Math.max(5, r * 0.5 * lead);
+      const R = Math.max(5, r * 0.5 * lead * s.rolls);
       // the eye coasts outward about a radius and a half, and lifts a little
       const out = R * 0.085;
       const spin = -sgn * (0.9 + r * 0.03) * lead;
@@ -5377,7 +5471,7 @@ export class EffectSystem {
     const jl = Math.hypot(jx, jy);
     jx /= jl;
     jy /= jl;
-    const up = 0.55 + r * 0.03;
+    const up = (0.55 + r * 0.03) * s.heartUp;
     this.fluid.splat(
       e.x + jx * r * 0.3,
       e.y + jy * r * 0.3,
@@ -5410,36 +5504,58 @@ export class EffectSystem {
     // the bang itself: a packed ball of white-hot cells blown out from the impact in every
     // direction the ground allows. It fills the blast radius in a few ticks and burns out fast;
     // what is left of it is caught by the turning air and rolled up
-    const nBang = Math.min(16000, Math.round(r * r * 13 * Math.max(0.3, this.mult)));
+    const nBang = Math.min(16000, Math.round(r * r * 13 * s.bang * Math.max(0.3, this.mult)));
     const vMax = 0.5 + r * 0.13;
     const bang = this.rngFor(e, 31);
+    // a design can aim part of the bang: downrange off the ground, or straight up out of it
+    let cx = nx;
+    let cy = ny;
+    if (s.cone === Cone.Ahead) {
+      const sg = side < 0 ? -1 : 1;
+      cx = gx * sg * 0.94 + nx * 0.34;
+      cy = gy * sg * 0.94 + ny * 0.34;
+    }
+    const ca0 = Math.atan2(cy, cx);
     for (let i = 0; i < nBang; i++) {
-      const a = bang.next() * Math.PI * 2;
-      let dx = Math.cos(a);
-      let dy = Math.sin(a);
+      const coned = s.cone !== Cone.None && bang.next() < s.coneShare;
+      let dx: number;
+      let dy: number;
+      let sp: number;
+      if (coned) {
+        // the tongue: packed along its axis, fast, the core fastest
+        const off = (bang.next() - bang.next()) * s.coneHalf;
+        dx = Math.cos(ca0 + off);
+        dy = Math.sin(ca0 + off);
+        sp =
+          (0.35 + 0.65 * Math.sqrt(bang.next())) * vMax * s.coneSpeed * (1 - Math.abs(off) * 0.8);
+      } else {
+        const a = bang.next() * Math.PI * 2;
+        dx = Math.cos(a);
+        dy = Math.sin(a);
+        sp = Math.sqrt(bang.next()) * vMax * (s.cone === Cone.None ? 1 : 0.6);
+      }
       // what would go into the ground comes back off it, slower
       const into = dx * nx + dy * ny;
-      let s = Math.sqrt(bang.next()) * vMax;
       if (into < 0) {
         dx -= 2 * into * nx;
         dy -= 2 * into * ny;
-        s *= 0.7;
+        sp *= 0.7;
       }
       const d = bang.next() * r * 0.2;
       this.sink.add({
         x: e.x + nx * 2 + dx * d,
         y: e.y + ny * 2 + dy * d,
-        vx: dx * s,
-        vy: dy * s,
-        life: bang.range(14, 44),
+        vx: dx * sp,
+        vy: dy * sp,
+        life: bang.range(14, 44) * s.bangLife * (coned ? 1.25 : 1),
         size: 1,
-        color: 0xffa020,
+        color: s.tint,
         kind: PKind.Bang,
       });
     }
     // the air goes with it: a hard shove outward, so smoke, dust and leaves around are blown back
     this.fluid.splat(e.x, e.y, r * 1.6, 0.6 + r * 0.06, 0, 0, 0, 0, true);
-    const n = Math.min(14000, Math.round(r * r * 11 * Math.max(0.3, this.mult)));
+    const n = Math.min(14000, Math.round(r * r * 11 * s.fire * Math.max(0.3, this.mult)));
     this.fires.push({
       jx,
       jy,
@@ -5453,6 +5569,15 @@ export class EffectSystem {
       start: e.tick,
       left: n,
       per: Math.ceil(n / FIRE_FEED),
+      tint: s.tint,
+      light: s.light,
+      smoke: s.smoke,
+      tones: s.smokeTones.length > 0 ? s.smokeTones : this.dustTones(e.x, e.y, r),
+      shape: s,
+      lean: side < 0 ? -1 : 1,
+      // a pillar stands up straight, leaning only a little with the slope
+      tx: s.tongueDir === Cone.Up ? nx * 0.3 : cx,
+      ty: s.tongueDir === Cone.Up ? -Math.sqrt(1 - nx * nx * 0.09) : cy,
     });
   }
 
@@ -5468,7 +5593,8 @@ export class EffectSystem {
       const age = t - f.start;
       // the heart: most of the fire, packed over the impact and thrown up the jet. Dense enough
       // to read as a ball; the fluid rolls it as it climbs
-      const heart = Math.round(n * 0.44);
+      const heart = Math.round(n * 0.44 * f.shape.heart);
+      if (f.shape.tongueLen > 0 && age < f.shape.tongueTicks) this.feedTongue(f, age, rng);
       const hx = f.x + f.jx * f.r * 0.7;
       const hy = f.y + f.jy * f.r * 0.7;
       for (let i = 0; i < heart; i++) {
@@ -5483,7 +5609,7 @@ export class EffectSystem {
           vy: Math.sin(a) * s + f.jy * along,
           life: rng.range(70, 200),
           size: 1,
-          color: 0xffa020,
+          color: f.tint,
           kind: PKind.Fire,
         });
       }
@@ -5492,7 +5618,10 @@ export class EffectSystem {
       // caught by the same turning air, so the swirls go on as smoke when the fire is gone
       if (age >= 6 && age < SMOKE_FEED) {
         const k = 1 - age / SMOKE_FEED;
-        const puffs = Math.min(700, Math.round(f.r * f.r * 0.5 * Math.max(0.3, this.mult) * k * k));
+        const puffs = Math.min(
+          1400,
+          Math.round(f.r * f.r * 0.5 * f.smoke * Math.max(0.3, this.mult) * k * k),
+        );
         for (let i = 0; i < puffs; i++) {
           const a = rng.next() * Math.PI * 2;
           const d = Math.sqrt(rng.next()) * f.r * (0.5 + 0.7 * k);
@@ -5506,16 +5635,18 @@ export class EffectSystem {
             vy: Math.sin(a) * 0.25 + f.jy * rng.range(0.2, 0.6),
             life: rng.range(130, 310),
             size: 1,
-            color: SMOKE_TONES[Math.floor(rng.next() * SMOKE_TONES.length)]!,
+            color: f.tones[Math.floor(rng.next() * f.tones.length)]!,
             kind: PKind.Wisp,
           });
         }
       }
       if (n === 0) continue;
-      for (const ro of f.rolls) {
+      for (let ri = 0; ri < f.rolls.length; ri++) {
+        const ro = f.rolls[ri]!;
         // a sheet of fire thrown out along the ground from the impact, into the underside of
         // this side's roll, which carries it up the far side and winds it in
-        const share = Math.round((n * 0.28 * ro.r) / (f.r * 0.5));
+        const back = (ri === 0 ? 1 : -1) !== f.lean ? f.shape.backRoll : 1;
+        const share = Math.round(((n * 0.28 * ro.r) / (f.r * 0.5)) * f.shape.rollFire * back);
         const sp = Math.abs(ro.spin);
         const sgn = ro.spin < 0 ? 1 : -1;
         for (let i = 0; i < share; i++) {
@@ -5533,22 +5664,83 @@ export class EffectSystem {
             vy: f.nx * sgn * k + rng.range(-0.1, 0.1),
             life: rng.range(80, 210),
             size: 1,
-            color: 0xffa020,
+            color: f.tint,
             kind: PKind.Fire,
           });
         }
       }
     }
-    this.fires = this.fires.filter((f) => f.left > 0 || t - f.start < SMOKE_FEED);
+    this.fires = this.fires.filter(
+      (f) => f.left > 0 || t - f.start < Math.max(SMOKE_FEED, f.shape.tongueTicks),
+    );
   }
 
-  private burst(e: EffectEvent, count: number): void {
+  /**
+   * One tick of a blast's tongue: white-hot cells poured out of the impact along the tongue,
+   * fast and packed at the core, with burning gas round them, and the air shoved the same way
+   * so what follows streams after it. It pours hardest at first and dies down.
+   */
+  private feedTongue(f: BlastRolls, age: number, rng: FxRng): void {
+    const s = f.shape;
+    const k = 1 - age / s.tongueTicks;
+    // a Bang cell coasts about 20× its launch speed through still air
+    const v = (s.tongueLen * f.r) / 20;
+    const per = Math.round(f.r * f.r * 1.6 * k * Math.max(0.3, this.mult));
+    // across the tongue, to its right
+    const px = -f.ty;
+    const py = f.tx;
+    const ox = f.x + f.nx * 2;
+    const oy = f.y + f.ny * 2;
+    for (let i = 0; i < per; i++) {
+      const w = (rng.next() - rng.next()) * f.r * 0.18;
+      const sp = v * rng.range(0.55, 1.05) * (0.7 + 0.3 * k);
+      const core = rng.next() < 0.6;
+      this.sink.add({
+        x: ox + px * w,
+        y: oy + py * w,
+        vx: f.tx * sp + px * w * 0.03,
+        vy: f.ty * sp + py * w * 0.03,
+        life: core ? rng.range(18, 34) : rng.range(50, 120),
+        size: 1,
+        color: f.tint,
+        kind: core ? PKind.Bang : PKind.Fire,
+      });
+    }
+    // the air goes with it
+    this.fluid.splat(
+      ox + f.tx * f.r,
+      oy + f.ty * f.r,
+      f.r * 0.5,
+      f.tx * v * 0.5,
+      f.ty * v * 0.5,
+      0,
+      0.3 * k,
+      0,
+      false,
+      k,
+    );
+  }
+
+  private burst(e: EffectEvent, count: number, shape: BlastShape = BLAST_SHAPES[0]!): void {
     // `count: 0` asks for no burst at all: no sparks, and no hot soot in the air either
     if (count <= 0) return;
+    if (shape.implode > 0) {
+      // the suck-in now; the blast itself is held back until it has all gone in
+      this.implode(e, Math.max(4, e.radius), shape.implode);
+      this.pops.push({
+        x: e.x,
+        y: e.y,
+        r: e.radius,
+        at: e.tick + shape.implode,
+        shape: { ...shape, implode: 0 },
+        count,
+      });
+      return;
+    }
     const rng = this.rngFor(e, 1);
     const r = Math.max(4, e.radius);
-    this.fireball2(e, r);
-    const nSpark = Math.round(count * 1.4 * this.mult);
+    this.fireball2(e, r, shape);
+    const nSpark = Math.round(count * 1.4 * shape.sparks * this.mult);
     const speed = 0.8 + r / 14;
     for (let i = 0; i < nSpark; i++) {
       const a = rng.range(Math.PI * 0.05, Math.PI * 0.95);
@@ -5560,12 +5752,22 @@ export class EffectSystem {
         vy: -Math.sin(a) * s,
         life: rng.range(14, 36),
         size: rng.range(0.5, 1.1),
-        color: rng.next() < 0.3 ? 0xfff0a0 : 0xff7a1a,
+        color: rng.next() < 0.3 ? 0xfff0a0 : shape.tint === FIRE_RGB ? 0xff7a1a : shape.tint,
         kind: PKind.Spark,
       });
     }
-    this.ejecta(e, r, count, rng);
-    if (count > 0 && e.radius >= CHUNK_MIN_RADIUS) this.throwChunks(e, rng);
+    this.ejecta(e, r, Math.round(count * shape.ejecta), rng, shape.ejecta);
+    if (count > 0 && e.radius >= Math.min(CHUNK_MIN_RADIUS, shape.chunkMin))
+      this.throwChunks(e, rng);
+    if (shape.fountain > 0) this.fountain(e, r, rng, shape);
+    if (shape.dustCloud > 0) this.dustCloud(e, r, rng, shape.dustCloud);
+    if (shape.rays > 0) this.rays(e, r, rng, shape);
+    if (shape.roll > 0) this.startRoller(e, r, shape.roll);
+    if (shape.canopy > 0) this.canopySpray(e, r, rng, shape.canopy);
+    if (shape.shrapnel > 0) this.shrapnelStreaks(e, r, rng, shape.shrapnel);
+    if (shape.carpet > 0)
+      this.carpets.push({ x: e.x, y: e.y, r, reach: r * 3.2 * shape.carpet, start: e.tick });
+    if (shape.pops > 0) this.queuePops(e, r, rng);
     // the shock front: a ring of sparks racing out from the centre with the blast, evenly spaced
     // so it reads as a ring, each a different brightness; the ones that meet the ground skitter
     const nRing = Math.round((24 + r * 1.2) * Math.max(0.5, this.mult));
@@ -5585,24 +5787,28 @@ export class EffectSystem {
       });
     }
     // flash motes: a cloud of white cells strobing inside the fireball for the first ticks
-    const nFlash = Math.round((10 + r) * Math.max(0.5, this.mult));
+    const nFlash = Math.round((10 + r) * shape.glitter * Math.max(0.5, this.mult));
+    // a big flash throws its motes wider and they hang, strobing, as they drift down
+    const wide = shape.glitter > 2;
+    const glint = shape.tint === FIRE_RGB ? 0xfff0a0 : shape.tint;
     for (let i = 0; i < nFlash; i++) {
       const a = rng.next() * Math.PI * 2;
-      const d = Math.sqrt(rng.next()) * r * 0.7;
+      const d = Math.sqrt(rng.next()) * r * (wide ? 1.1 : 0.7);
+      const v = wide ? rng.range(0.2, 1.1) : 0.3;
       this.particles.add({
         x: e.x + Math.cos(a) * d,
         y: e.y + Math.sin(a) * d,
-        vx: Math.cos(a) * 0.3,
-        vy: Math.sin(a) * 0.3,
-        life: rng.range(5, 11),
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v - (wide ? 0.3 : 0),
+        life: wide ? rng.range(12, 60) : rng.range(5, 11),
         size: 1,
-        color: rng.next() < 0.6 ? 0xffffff : 0xfff0a0,
+        color: rng.next() < 0.6 ? 0xffffff : glint,
         kind: PKind.Glitter,
       });
     }
     // dust kicked along the ground either side of the crater, rolling outward
-    this.groundDust(e, rng, r);
-    const nSmoke = Math.round((3 + r / 5) * Math.max(0.5, this.mult));
+    this.groundDust(e, rng, r, shape.dust);
+    const nSmoke = Math.round((3 + r / 5) * Math.min(1, shape.smoke) * Math.max(0.5, this.mult));
     for (let i = 0; i < nSmoke; i++) {
       this.particles.add({
         x: e.x + rng.range(-r, r) * 0.5,
@@ -5615,6 +5821,390 @@ export class EffectSystem {
         kind: PKind.Smoke,
       });
     }
+  }
+
+  /**
+   * The Fountain design's spray: hot sparks shot up the column the bang punched, fanning a
+   * little, that slow at the top, arc over and rain back down round the crater, with embers
+   * floating up off the column after them.
+   */
+  private fountain(e: EffectEvent, r: number, rng: FxRng, shape: BlastShape): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const n = Math.round((50 + r * 5) * shape.fountain * Math.max(0.4, this.mult));
+    const top = 2.2 + r / 9;
+    const axis = Math.atan2(ny, nx);
+    for (let i = 0; i < n; i++) {
+      const a = axis + (rng.next() - rng.next()) * 0.45;
+      const sp = rng.range(0.45, 1) * top;
+      this.particles.add({
+        x: e.x + nx * 2 + rng.range(-1.5, 1.5),
+        y: e.y + ny * 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(50, 110),
+        size: 1,
+        color: rng.next() < 0.35 ? 0xfff0a0 : shape.tint === FIRE_RGB ? 0xff8a20 : shape.tint,
+        kind: PKind.Spark,
+      });
+    }
+    const nEmber = Math.round((10 + r) * Math.max(0.4, this.mult));
+    for (let i = 0; i < nEmber; i++) {
+      const k = rng.range(0.2, 1.4);
+      this.particles.add({
+        x: e.x + nx * r * k + rng.range(-r, r) * 0.2,
+        y: e.y + ny * r * k,
+        vx: rng.range(-0.3, 0.3),
+        vy: -rng.range(0.3, 0.9),
+        life: rng.range(60, 140),
+        size: 1,
+        color: 0xff8a20,
+        kind: PKind.Ember,
+      });
+    }
+  }
+
+  /**
+   * The Dirty design's cloud: a low dome of the ground's own dust billowing out wide either
+   * side and a little up, and a column of clods shot straight up out of the crater.
+   */
+  private dustCloud(e: EffectEvent, r: number, rng: FxRng, k: number): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const tones = this.dustTones(e.x, e.y, r);
+    const n = Math.round(Math.min(9000, r * r * 9 * k) * Math.max(0.3, this.mult));
+    for (let i = 0; i < n; i++) {
+      const sgn = rng.next() < 0.5 ? -1 : 1;
+      const out = rng.next();
+      const x = e.x + sgn * out * r * 0.9;
+      const y = e.y - rng.next() * r * 0.5 + 1;
+      if (this.probe.material(Math.floor(x), Math.floor(y)) !== 0) continue;
+      const sp = rng.range(0.4, 1.6) * (0.6 + r / 40);
+      this.particles.add({
+        x,
+        y,
+        vx: sgn * sp * (0.6 + out) + rng.range(-0.2, 0.2),
+        vy: -rng.range(0.15, 0.9) * sp * (1.2 - out * 0.6),
+        life: rng.range(150, 330),
+        size: 1,
+        color: tones[Math.floor(rng.next() * tones.length)]!,
+        kind: PKind.Wisp,
+      });
+    }
+    const nc = Math.round((40 + r * 9) * k * Math.max(0.4, this.mult));
+    for (let i = 0; i < nc; i++) {
+      const a = Math.atan2(ny, nx) + (rng.next() - rng.next()) * 0.35;
+      const sp = rng.range(0.6, 1) * (2 + r / 9);
+      this.particles.add({
+        x: e.x + rng.range(-r, r) * 0.3,
+        y: e.y + ny * 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(120, 220),
+        size: 1,
+        color: shade(
+          this.dustColor(e.x, e.y + 2),
+          DIRT_BANDS[Math.floor(rng.next() * DIRT_BANDS.length)]!,
+        ),
+        kind: PKind.Chunk,
+      });
+    }
+  }
+
+  /**
+   * The Flash design's star: hard white rays shot out from the centre, each a line of single
+   * cells spread along it that race outward and strobe out, longer ones between short ones.
+   */
+  private rays(e: EffectEvent, r: number, rng: FxRng, shape: BlastShape): void {
+    const n = 14 + Math.round(r / 3);
+    const off = rng.next() * Math.PI * 2;
+    for (let i = 0; i < n; i++) {
+      const a = off + (i / n) * Math.PI * 2 + rng.range(-0.06, 0.06);
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const len = r * (i % 2 === 0 ? rng.range(2.2, 3.2) : rng.range(1, 1.6));
+      const cells = Math.round(len * 0.8);
+      for (let j = 0; j < cells; j++) {
+        const d = (j / cells) * len * 0.4;
+        const sp = (j / cells) * len * 0.09;
+        this.particles.add({
+          x: e.x + ca * d,
+          y: e.y + sa * d,
+          vx: ca * sp,
+          vy: sa * sp,
+          life: rng.range(8, 16),
+          size: 1,
+          color: j < cells * 0.5 ? 0xffffff : shape.tint,
+          kind: PKind.Glitter,
+        });
+      }
+    }
+  }
+
+  /** Line up the Cracker design's small pops: all over the blast, rattling off one by one. */
+  private queuePops(e: EffectEvent, r: number, rng: FxRng): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const n = Math.min(24, 12 + Math.round(r / 2));
+    let at = e.tick + 6;
+    for (let i = 0; i < n; i++) {
+      // over the impact, out to well past the blast radius, low along the ground as well
+      const a = Math.atan2(ny, nx) + rng.range(-1.5, 1.5);
+      const d = r * rng.range(0.6, 2.6);
+      at += Math.round(rng.range(1, 6));
+      this.pops.push({
+        x: e.x + Math.cos(a) * d,
+        y: e.y + Math.sin(a) * d - 2,
+        r: rng.range(4, 6 + Math.min(4, r / 8)),
+        at,
+      });
+    }
+  }
+
+  /**
+   * An implosion's suck-in: a wide ring of hot cells and sparks, all drawn in to the blast point
+   * so they arrive just as it goes off, with the air pulled in after them.
+   */
+  private implode(e: EffectEvent, r: number, ticks: number): void {
+    const rng = this.rngFor(e, 61);
+    const n = Math.round(Math.min(6000, r * r * 5) * Math.max(0.3, this.mult));
+    // a Bang cell coasts in ~(1 - 0.95^t) / 0.05 times its launch speed by tick t
+    const reach = (1 - Math.pow(0.95, ticks)) / 0.05;
+    for (let i = 0; i < n; i++) {
+      const a = rng.next() * Math.PI * 2;
+      const d = r * rng.range(1.4, 2.6);
+      const x = e.x + Math.cos(a) * d;
+      const y = e.y + Math.sin(a) * d;
+      if (this.probe.material(Math.floor(x), Math.floor(y)) !== 0) continue;
+      const sp = d / reach;
+      this.sink.add({
+        x,
+        y,
+        vx: -Math.cos(a) * sp,
+        vy: -Math.sin(a) * sp,
+        life: ticks + rng.range(0, 3),
+        size: 1,
+        color: rng.next() < 0.3 ? 0xffffff : FIRE_RGB,
+        kind: PKind.Bang,
+      });
+    }
+    // the air rushes in too, so smoke and leaves round it are pulled toward the point
+    this.fluid.splat(e.x, e.y, r * 2.4, -(0.4 + r * 0.04), 0, 0, 0, 0, true);
+  }
+
+  /** Start a rolling fireball off the blast, the way the shell was going (right on a plumb hit). */
+  private startRoller(e: EffectEvent, r: number, k: number): void {
+    // it rolls downhill; on the flat, the way the shell was going
+    const hl = this.groundBelow(e.x - r * 1.5, e.y - r * 2, r * 5);
+    const hr = this.groundBelow(e.x + r * 1.5, e.y - r * 2, r * 5);
+    const dir = hl > hr + 2 ? -1 : hr > hl + 2 ? 1 : this.blastLean(e.x, e.y, r).side < 0 ? -1 : 1;
+    const R = Math.max(4, r * 0.5 * k);
+    // it starts out of the crater, on its rim
+    const x0 = e.x + dir * r * 1.05;
+    this.rollers.push({
+      x: x0,
+      y: this.groundBelow(x0, e.y - r * 2, r * 5) - R,
+      r: R,
+      dir,
+      speed: 1.1 + r / 22,
+      start: e.tick,
+      spin: dir,
+    });
+  }
+
+  /**
+   * Roll each rolling fireball on a tick: it hugs the ground, slows, and is a packed, turning
+   * ball of fire (cells thrown round its rim, the top going forward) that drops burning cells
+   * on the ground behind it. It stops at a wall it can't climb, and burns out.
+   */
+  private rollFireballs(t: number): void {
+    if (this.rollers.length === 0) return;
+    for (const b of this.rollers) {
+      const age = t - b.start;
+      const rng = new FxRng(
+        Math.imul(t + 3, 0x9e3779b1) ^ Math.imul(Math.round(b.x) + 11, 0x85ebca6b),
+      );
+      const nx = b.x + b.dir * b.speed;
+      const g = this.groundBelow(nx, b.y - b.r * 2, b.r * 5);
+      // a step up of more than half a ball stops it
+      if (g < b.y + b.r - b.r * 0.5) b.speed *= 0.5;
+      else {
+        b.x = nx;
+        b.y = Math.min(g - b.r, b.y + 2);
+      }
+      b.speed *= 0.965;
+      const k = 1 - age / ROLL_TICKS;
+      const n = Math.round(b.r * b.r * 1.3 * k * Math.max(0.3, this.mult));
+      const w = (b.speed / b.r) * b.spin;
+      for (let i = 0; i < n; i++) {
+        const a = rng.next() * Math.PI * 2;
+        const d = Math.sqrt(rng.next()) * b.r;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        // turning: the rim moves at the ball's speed about its centre, plus the ball's own speed
+        const vx = b.dir * b.speed * 0.6 - sa * d * w * 1.4;
+        const vy = ca * d * w * 1.4 - 0.05;
+        this.sink.add({
+          x: b.x + ca * d,
+          y: b.y + sa * d,
+          vx,
+          vy,
+          life: age < 24 && rng.next() < 0.5 ? rng.range(6, 12) : rng.range(14, 40),
+          size: 1,
+          color: FIRE_RGB,
+          kind: age < 24 && rng.next() < 0.5 ? PKind.Bang : PKind.Fire,
+        });
+      }
+      // the trail: cells left burning on the ground it rolled over
+      const nt = Math.round((2 + b.r * 0.4) * k * Math.max(0.4, this.mult));
+      for (let i = 0; i < nt; i++) {
+        this.particles.add({
+          x: b.x - b.dir * rng.range(0, b.r),
+          y: b.y + b.r - 1 - rng.next() * 2,
+          vx: rng.range(-0.1, 0.1),
+          vy: -rng.range(0.1, 0.5),
+          life: rng.range(40, 110),
+          size: 1,
+          color: 0xff8a20,
+          kind: PKind.Ember,
+        });
+      }
+      this.fluid.splat(
+        b.x,
+        b.y,
+        b.r * 1.2,
+        b.dir * b.speed * 0.5,
+        -0.2,
+        0.05 * k,
+        0.4 * k,
+        0,
+        false,
+        0.6 * k,
+      );
+    }
+    this.rollers = this.rollers.filter((b) => t - b.start < ROLL_TICKS);
+  }
+
+  /** The Canopy's spray: sparks thrown high and wide that droop over and rain down in arcs. */
+  private canopySpray(e: EffectEvent, r: number, rng: FxRng, k: number): void {
+    const n = Math.round((60 + r * 22) * k * Math.max(0.4, this.mult));
+    const top = 1.8 + r / 14;
+    for (let i = 0; i < n; i++) {
+      // from straight up out to 80 degrees either side, more toward the sides
+      const off = (rng.next() < 0.5 ? -1 : 1) * Math.sqrt(rng.next()) * 1.4;
+      const a = -Math.PI / 2 + off;
+      const sp = top * rng.range(0.55, 1);
+      this.particles.add({
+        x: e.x + rng.range(-1.5, 1.5),
+        y: e.y - 2,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: rng.range(70, 140),
+        size: 1,
+        color: rng.next() < 0.25 ? 0xfff0a0 : rng.next() < 0.6 ? 0xffb030 : 0xff7020,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /** The Shrapnel design's streaks: fast white-hot fragments flung out every way off the ground. */
+  private shrapnelStreaks(e: EffectEvent, r: number, rng: FxRng, k: number): void {
+    const { nx, ny } = this.blastLean(e.x, e.y, r);
+    const n = Math.round((50 + r * 7) * k * Math.max(0.4, this.mult));
+    for (let i = 0; i < n; i++) {
+      const a = rng.next() * Math.PI * 2;
+      let dx = Math.cos(a);
+      let dy = Math.sin(a);
+      const into = dx * nx + dy * ny;
+      if (into < 0) {
+        dx -= 2 * into * nx;
+        dy -= 2 * into * ny;
+      }
+      const sp = rng.range(3, 6.5) * (0.8 + r / 60);
+      this.particles.add({
+        x: e.x + nx * 2,
+        y: e.y + ny * 2,
+        vx: dx * sp,
+        vy: dy * sp,
+        life: rng.range(8, 24),
+        size: 1,
+        color: rng.next() < 0.5 ? 0xffffff : 0xffe0a0,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
+  /**
+   * Burn each fire carpet on a tick: the fronts run out along the ground both ways, fast at
+   * first and slowing, standing up in a wall of flame where they are, and leaving flames that
+   * burn lower behind them.
+   */
+  private burnCarpets(t: number): void {
+    if (this.carpets.length === 0) return;
+    for (const c of this.carpets) {
+      const age = t - c.start;
+      const k = age / CARPET_TICKS;
+      const rng = new FxRng(
+        Math.imul(t + 5, 0x9e3779b1) ^ Math.imul(Math.round(c.x) + 13, 0x85ebca6b),
+      );
+      const front = c.reach * Math.sqrt(k);
+      const h = c.r * 0.6 * (1 - k * 0.5);
+      for (const sgn of [-1, 1]) {
+        const n = Math.round((12 + c.r * 3) * (1 - k * 0.6) * Math.max(0.4, this.mult));
+        for (let i = 0; i < n; i++) {
+          // most at the front, the rest burning down behind it
+          const back = rng.next() < 0.6 ? rng.next() * 4 : rng.next() * front;
+          const x = c.x + sgn * Math.max(c.r * 0.6, front - back);
+          const g = this.groundBelow(x, c.y - c.r * 1.5, c.r * 4);
+          if (g >= c.y - c.r * 1.5 + c.r * 4) continue;
+          const atFront = back < 4;
+          this.sink.add({
+            x: x + rng.range(-1, 1),
+            y: g - 1 - rng.next() * (atFront ? h * 0.5 : 2),
+            vx: sgn * (atFront ? 0.4 : 0.05) + rng.range(-0.1, 0.1),
+            vy: -rng.range(0.3, 1) * (atFront ? 0.6 + h * 0.15 : 0.5),
+            life: atFront ? rng.range(14, 30) : rng.range(20, 50),
+            size: 1,
+            color: FIRE_RGB,
+            kind: atFront && rng.next() < 0.5 ? PKind.Bang : PKind.Fire,
+          });
+        }
+      }
+    }
+    this.carpets = this.carpets.filter((c) => t - c.start < CARPET_TICKS);
+  }
+
+  /** Set off the pops due this tick: each a little bang of its own with a star of sparks. */
+  private firePops(t: number): void {
+    if (this.pops.length === 0) return;
+    for (const p of this.pops) {
+      if (p.at !== t) continue;
+      if (p.shape) {
+        // an implosion going off: the whole blast, now
+        const ev: EffectEvent = { type: 'burst', tick: t, x: p.x, y: p.y, radius: p.r, params: {} };
+        this.burst(ev, p.count ?? 40, p.shape);
+        this.kick(blastShake(p.r, 1.2), t);
+        continue;
+      }
+      if (this.probe.material(Math.floor(p.x), Math.floor(p.y)) !== 0) continue;
+      const ev: EffectEvent = { type: 'burst', tick: t, x: p.x, y: p.y, radius: p.r, params: {} };
+      this.fireball2(ev, p.r, POP_SHAPE);
+      const rng = this.rngFor(ev, 7);
+      const ns = Math.round(10 * Math.max(0.5, this.mult));
+      for (let i = 0; i < ns; i++) {
+        const a = (i / ns) * Math.PI * 2 + rng.next() * 0.5;
+        const sp = rng.range(0.8, 1.6);
+        this.particles.add({
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: rng.range(8, 18),
+          size: 1,
+          color: rng.next() < 0.5 ? 0xffffff : 0xffd080,
+          kind: PKind.Spark,
+        });
+      }
+      this.kick(0.6, t);
+    }
+    this.pops = this.pops.filter((p) => p.at > t);
   }
 
   /**
@@ -5650,10 +6240,10 @@ export class EffectSystem {
 
   /** First solid cell under (x, y) within a crater's depth, less a cell; `y` itself if none. */
   /** Grains of the local ground lifted along the surface either side of a blast, rolling out. */
-  private groundDust(e: EffectEvent, rng: FxRng, r: number): void {
+  private groundDust(e: EffectEvent, rng: FxRng, r: number, more = 1): void {
     const p = this.probe;
     const reach = Math.round(r * 2.2);
-    const n = Math.round(reach * 0.5 * Math.max(0.5, this.mult));
+    const n = Math.round(reach * 0.5 * more * Math.max(0.5, this.mult));
     for (let side = -1; side <= 1; side += 2) {
       for (let i = 0; i < n; i++) {
         const dx = r * 0.8 + rng.next() * (reach - r * 0.8);
@@ -5732,12 +6322,14 @@ export class EffectSystem {
    * shell was heading. Grains arc under gravity, bounce and lie where they stop before they
    * crumble away.
    */
-  private ejecta(e: EffectEvent, r: number, count: number, rng: FxRng): void {
+  private ejecta(e: EffectEvent, r: number, count: number, rng: FxRng, more = 1): void {
     const { nx, ny, side } = this.blastLean(e.x, e.y, r);
     // along the ground, to the right
     const gx = -ny;
     const gy = nx;
-    const n = Math.round(Math.min(2600, count + r * r * 0.9) * Math.max(0.3, this.mult));
+    const n = Math.round(
+      Math.min(2600 * more, count + r * r * 0.9 * more) * Math.max(0.3, this.mult),
+    );
     const speed = 1 + r / 11;
     for (let i = 0; i < n; i++) {
       // which side of the crater, and how far round its rim (0 = lip, 1 = floor)
@@ -5818,6 +6410,9 @@ export class EffectSystem {
   tick(t: number): void {
     this.chunks.step(CHUNK_GRAVITY, this.probe.height);
     this.groundLife(t);
+    this.firePops(t);
+    this.rollFireballs(t);
+    this.burnCarpets(t);
     this.feedFires(t);
     // mushroom clouds are built from GPU motes, spawned each tick along the cloud's shape
     for (const m of this.mushrooms) {
@@ -6502,10 +7097,10 @@ export class EffectSystem {
       if (k < 0 || k >= 1) continue;
       const s = 1 - Math.floor(k * 5) / 5;
       const rise = f.r * 0.7 + f.up * 0.5 * Math.min(age, 40);
-      lights.add(f.x + f.jx * rise, f.y + f.jy * rise, f.r * 4.5, 1.3 * s, FIRE_LIGHT_RGB);
+      lights.add(f.x + f.jx * rise, f.y + f.jy * rise, f.r * 4.5, 1.3 * s, f.light);
       const coast = (1 - Math.pow(0.95, age)) / 0.05;
       for (const ro of f.rolls) {
-        lights.add(ro.x + ro.vx * coast, ro.y + ro.vy * coast, ro.r * 4, 0.9 * s, FIRE_LIGHT_RGB);
+        lights.add(ro.x + ro.vx * coast, ro.y + ro.vy * coast, ro.r * 4, 0.9 * s, f.light);
       }
     }
   }
@@ -6892,6 +7487,9 @@ export class EffectSystem {
 
   clear(): void {
     this.fires = [];
+    this.pops = [];
+    this.rollers = [];
+    this.carpets = [];
     this.ripples = [];
     this.glows = [];
     this.fronts = [];

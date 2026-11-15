@@ -21,7 +21,8 @@
         "damageType": "kinetic",
         "effects": {
           "burst": {
-            "count": 10
+            "count": 10,
+            "style": 7
           },
           "flash": {
             "strength": 0.4

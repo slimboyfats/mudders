@@ -23,7 +23,8 @@
             "strength": 0.7
           },
           "burst": {
-            "count": 24
+            "count": 24,
+            "style": 4
           },
           "shake": {
             "strength": 3

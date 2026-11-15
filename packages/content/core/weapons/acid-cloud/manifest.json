@@ -20,7 +20,8 @@
         "damageType": "corrosive",
         "effects": {
           "burst": {
-            "count": 10
+            "count": 10,
+            "style": 6
           },
           "gasBurst": {
             "count": 14

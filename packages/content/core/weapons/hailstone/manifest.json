@@ -7,7 +7,10 @@
     "category": "submunition",
     "since": "core@0.77.0"
   },
-  "flight": { "use": "flight.ballistic", "windScale": 0.5 },
+  "flight": {
+    "use": "flight.ballistic",
+    "windScale": 0.5
+  },
   "triggers": ["onSolid", "onTank"],
   "impact": [
     {
@@ -16,16 +19,34 @@
         "radius": 7,
         "damage": 22,
         "damageType": "kinetic",
-        "effects": { "burst": { "count": 10 } }
+        "effects": {
+          "burst": {
+            "count": 10,
+            "style": 7
+          }
+        }
       }
     },
     {
-      "terrainOp": { "use": "terrainop.add", "material": "material.ice-shards" },
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.ice-shards"
+      },
       "radius": 2,
       "damageType": "kinetic"
     }
   ],
-  "shop": { "price": 0, "pack": 1, "tier": 0 },
-  "ai": { "expectedDamage": 0, "terrainValue": 0 },
-  "look": { "shell": "shard", "trail": false }
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  },
+  "look": {
+    "shell": "shard",
+    "trail": false
+  }
 }

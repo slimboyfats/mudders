@@ -19,7 +19,8 @@
         "damage": 85,
         "effects": {
           "burst": {
-            "count": 48
+            "count": 48,
+            "style": 5
           },
           "flash": {
             "strength": 1.2
@@ -35,7 +36,7 @@
         "weapon": "weapon.frag-shard",
         "count": 14,
         "inherit": 0.1,
-        "spread": 1.0,
+        "spread": 1,
         "jitter": 0.3,
         "up": 2.4
       }

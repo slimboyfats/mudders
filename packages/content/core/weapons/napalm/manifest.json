@@ -21,7 +21,8 @@
         "terrainOp": null,
         "effects": {
           "burst": {
-            "count": 24
+            "count": 24,
+            "style": 11
           },
           "flash": {
             "strength": 0.8
@@ -45,7 +46,7 @@
         "weapon": "weapon.napalm-glob",
         "count": 8,
         "inherit": 0,
-        "spread": 2.0,
+        "spread": 2,
         "jitter": 0.7,
         "up": 2.4
       }

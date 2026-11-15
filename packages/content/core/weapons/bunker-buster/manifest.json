@@ -29,7 +29,8 @@
         "damageType": "blast",
         "effects": {
           "burst": {
-            "count": 70
+            "count": 70,
+            "style": 1
           },
           "flash": {
             "strength": 1.3

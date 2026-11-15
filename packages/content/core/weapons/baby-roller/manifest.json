@@ -14,7 +14,7 @@
   "impact": [
     {
       "explosion": {
-        "use": "explosion.standard",
+        "use": "explosion.dirty",
         "radius": 14,
         "damage": 30
       }

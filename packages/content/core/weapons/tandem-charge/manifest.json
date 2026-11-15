@@ -21,7 +21,8 @@
         "strip": true,
         "effects": {
           "burst": {
-            "count": 20
+            "count": 20,
+            "style": 10
           },
           "flash": {
             "strength": 0.9

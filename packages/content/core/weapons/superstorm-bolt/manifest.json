@@ -28,7 +28,8 @@
             "storm": 1
           },
           "burst": {
-            "count": 24
+            "count": 24,
+            "style": 4
           },
           "flash": {
             "strength": 0.9

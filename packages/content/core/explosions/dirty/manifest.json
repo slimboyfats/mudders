@@ -1,0 +1,22 @@
+{
+  "id": "explosion.dirty",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dirty blast",
+    "description": "A round blast drawn as a dirty one: little fire, a dark wall of the ground's own dust, clods and grit (burst style 3). Same crater and damage as the standard explosion.",
+    "since": "core@0.87.0"
+  },
+  "extends": "explosion.standard",
+  "effects": {
+    "burst": {
+      "count": 40,
+      "style": 3
+    },
+    "flash": {
+      "strength": 1
+    },
+    "shake": {
+      "strength": 2
+    }
+  }
+}

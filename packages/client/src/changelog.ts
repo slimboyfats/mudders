@@ -18,6 +18,40 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-15',
+    title: 'More spectacle when you fire and when it lands',
+    pack: 'core@0.90.0',
+    items: [
+      'Blasts on the ground drive a low wall of dust out along the surface both ways. It follows the slopes, flicks up grit as it passes and stops at a cliff',
+      'Steam: a blast in or beside water keeps boiling it into white steam for a second or two after the fireball clears, and burning shells (napalm, meteors, fire globs) hiss out a gout of steam where they plunge in',
+      'Tanks flinch: a blast close to a tank rocks it away and bounces it off its tracks, shaking dust out from under them. The nearer and bigger the blast, the harder the tank is rocked',
+      'Napalm floats: in a lake it spreads as a burning film on top of the water instead of sinking, boils steam off it and burns out sooner there. Water itself never burns',
+      'Firing kick: every shot throws a tongue of fire out of the barrel and the barrel slams back and eases out again. Big guns vent jets out to the sides, rock the tank, jolt the screen and blow a sheet of dust and clods off the ground around the tank. A Missile gives a small pop, a nuke the full kick',
+    ],
+  },
+  {
+    date: '2026-11-14',
+    title: 'New explosion designs and shells that look alive in the air',
+    items: [
+      'Clouds answer back: a shell that flies through a cloud punches a tunnel through it that slowly fills back in and throws puffs of cloud out either side, and a blast close to a cloud blows a ragged hole in it and flings the puffs away',
+      'Shells fly with their own look by weapon type. Missiles point along their flight with a flickering exhaust flame and a short pixel smoke trail. Nukes, MIRV, Daisy Cutter and the other big bombs are fat finned casings with a hazard band and a blinking light, pouring dark smoke. Guided shells blink a green eye and their exhaust weaves from side to side. What a missile or bomb drops tumbles end over end, shedding embers',
+      'Napalm and the other fire weapons fly as a sloshing flask that drips fire; lasers and beams as a crackling energy ball; diggers as a turning drill bit spitting sparks; dirt weapons as a tumbling clod shedding crumbs; rollers as a rolling steel ball; terrain weapons with two motes orbiting them in a twisted trail; weird weapons as an orb that changes colour; mines with a blinking red light and the Repair Drone with a green cross',
+      'More explosion designs. Implosion (Concussion Shell, Tandem Charge, Gravity Well, Rogue Black Hole, Glue Bomb, Telepathy): fire and sparks are sucked in to the point, then it goes off hard',
+      'Rolling fireball (Incendiary, Napalm, Hot Napalm, Meteor): a ball of fire rolls off along the ground the way the shell was going, leaving a burning trail, and stops at a wall',
+      'Canopy (Airburst, V3 spent stage, Magma Bomb, Fuel-Air cloud): sparks thrown high and wide that droop over and rain down',
+      'Shrapnel (Buzzsaw, Frag shards, Tectonic Charge, Cloud Whale slam): long white-hot streaks flung out every way from a dark puff of smoke',
+      'Fire carpet (Riot charges, gas pocket bursts, Quicksand): flames run out along the ground both ways and burn down behind',
+      'Diggers and dirt weapons now throw dirty blasts, storm weapons flash white, gas weapons burn green and frost weapons ice blue, so almost every weapon has its own look',
+      'Explosions depend on how the shell lands: Missile, Baby Missile, Heat Seeker, Skipper, MIRV warheads, scatter bomblets and the rest of the plain shells throw a flat tongue of fire on a glancing hit, a tall pillar on a steep one, a fireball in between, a dirty blast when they go off buried and a white flash when they burst in the air',
+      'Explosions no longer all look alike. Bunker Buster, Tandem Charge, Boomerang and Magma Lance blow a flat tongue of fire downrange the way the shell was going, with one big roll of fire at its tip',
+      'Drill Torpedo, Tunnel Rat, Magnet Mine and the Orbital Lance punch a pillar of fire straight up out of the ground that rains sparks back down',
+      "Rollers, Anvil, Earthquake, Fault Line, Dirt Bomb and Daisy Cutter make dirty blasts: little fire, a cloud of the ground's own dust and a column of clods",
+      'Lasers, Railgun, Hornet and storm bolts go off in a white flash: a star of hard rays and strobing sparkles, no fire and almost no smoke',
+      'Frag Shell, Scatter Bomb, Grim Crown and Tripwire Net blow up, then rattle with a long string of small pops all round the blast',
+      'Chemical flames: acid weapons and Chain Reactor burn green, Ice Wall and Hailstone ice blue, Plasma Blast, Ricochet Ball and the Superstorm violet',
+    ],
+  },
+  {
     date: '2026-11-13',
     title:
       'Map shuffle, round twists, wilder map shapes, shop deals, random arsenal and lightning storms',
