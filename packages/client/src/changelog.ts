@@ -22,6 +22,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     title: 'More spectacle when you fire and when it lands',
     pack: 'core@0.90.0',
     items: [
+      'Solo challenges: a new ladder on the start screen with set pieces on fixed maps. Each gives you a set kit and a goal and scores one to three stars. Range: knock out still targets, lob over a mesa, beat a headwind and shoot under low gravity. Duels: beat a Moron bot, then a Shooter while you start hurt. Each challenge opens when you clear the one before it',
       'Blasts on the ground drive a low wall of dust out along the surface both ways. It follows the slopes, flicks up grit as it passes and stops at a cliff',
       'Steam: a blast in or beside water keeps boiling it into white steam for a second or two after the fireball clears, and burning shells (napalm, meteors, fire globs) hiss out a gout of steam where they plunge in',
       'Tanks flinch: a blast close to a tank rocks it away and bounces it off its tracks, shaking dust out from under them. The nearer and bigger the blast, the harder the tank is rocked',
