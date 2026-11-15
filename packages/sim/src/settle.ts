@@ -563,6 +563,8 @@ export function settleStep(
   grid.surfSeenMaxX = seenMax;
   // only open water rippling out and a trickle of liquid cells are left
   grid.ripple = !capped && moved === wetMoved && wetMoved <= TRICKLE && !grid.surfBusy;
+  // nothing but liquid on the move (rain, a pool filling, a lake draining)
+  grid.wetOnly = !capped && moved === wetMoved;
   if (capped) {
     // Keep the old region and grow it by what moved; the rest continues next tick.
     grid.extendSettle(nMinX - 1, nMaxX + 1, nMaxY + 1);

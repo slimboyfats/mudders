@@ -56,7 +56,10 @@ export class MaterialTable {
   readonly ruleChance = new Uint32Array(256 * MAX_REACTIONS + 1);
   /** Gas cells: 1 rises, 255 (-1) sinks, 0 = not a gas. */
   readonly gasLift = new Int8Array(256);
-  /** Tagged `hot` / `wet` (process counters for the renderer and the soundscape; not sim rules). */
+  /**
+   * Tagged `hot` / `wet` (process counters for the renderer and the soundscape). The only sim
+   * rule: a harmless `wet` cell decaying (mud setting) doesn't hold the turn.
+   */
   readonly hot = new Uint8Array(256);
   readonly wet = new Uint8Array(256);
   /** Gas vertical and sideways step chances per tick ×65536. */

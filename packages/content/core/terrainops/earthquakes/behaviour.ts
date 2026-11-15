@@ -38,7 +38,7 @@ const EPI = 2;
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.earthquakes',
-  version: 1,
+  version: 2,
   params,
   start(api) {
     return [api.turn, -1, 0];
@@ -72,7 +72,10 @@ export default defineTerrainOp<Params>({
     const slideOdds = Math.round(p.slide * 1024);
     const kick = Math.round(p.kick * FP);
     let minY = g.height;
-    for (let x = 0; x < W; x++) {
+    // only the ground near the epicentre shakes (keeps the busy region small)
+    const x0 = Math.max(0, epi - p.reach);
+    const x1 = Math.min(W - 1, epi + p.reach);
+    for (let x = x0; x <= x1; x++) {
       const s = g.surfaceY(x);
       if (s >= g.height) continue;
       if (s < minY) minY = s;
@@ -103,7 +106,7 @@ export default defineTerrainOp<Params>({
         api.launch(i, vx, -(api.rng.int(48) << 9));
       }
     }
-    if (minY < g.height) g.markDirty(0, minY, W - 1, Math.min(g.height - 1, minY + 200));
+    if (minY < g.height) g.markDirty(x0, minY, x1, Math.min(g.height - 1, minY + 200));
     api.emit('quake', epi, g.surfaceY(epi), p.reach, { strength: (3 * fade) >> 10 || 1 });
     return 'idle';
   },

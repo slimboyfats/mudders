@@ -10,6 +10,8 @@ describe('terrainop.liquefy', () => {
     w.run(5);
     dropAt(w, 'weapon.quicksand', 200);
     expect(w.grid.surfaceY(200)).toBeGreaterThan(110);
+    // the mud goes on setting after the turn
+    w.run(400);
     expect(countCells(w, 'material.liquid-dirt')).toBe(0);
   });
 });

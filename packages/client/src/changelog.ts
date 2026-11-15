@@ -20,11 +20,13 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
-    pack: 'core@0.90.0 – 0.91.0',
+    pack: 'core@0.90.0 – 0.92.0',
     items: [
+      'Faster turns: water that is only still running (rain, a pool filling, a lake draining) no longer holds up the turn, it just keeps flowing into the next one. The longest a turn waits on sliding ground is now 4 s instead of 8 s',
+      'Lighter weather on phones: plain rain wets the ground with fewer puddles, and the Cloudburst, Earthquake and Flood wave twists each keep their busy area small instead of working over the whole map every frame',
       'Solo challenges: two more chapters, 25 challenges in all. Trick shots: a target across a big map, three around the lakes, Rollers on the glacier, flat shots under a cave roof and a strong tailwind. Survival: live through a set number of turns against a Poolshark and a Shooter, under a meteor shower, while the water rises, and against a Cyborg with only a Heavy Shield to hide behind. Bots in a challenge now all side against you',
-      'New round twist, Earthquakes: every turn starts with a quake that shakes the ground for a few seconds. Steep slopes shake loose and slide down into the valleys, and every quake opens a sinkhole somewhere that swallows the ground for good, so the land wears away over the round',
-      'New round twist, Cloudburst: every turn starts with a downpour of real water. It washes the slopes loose as mud that slides down into the valleys and gathers there in lakes that swell with each storm and soak away between them',
+      'New round twist, Earthquakes: every turn starts with a quake that shakes the ground for a few seconds around its epicentre, a different spot each time. Steep slopes shake loose and slide down into the valleys, and every quake opens a sinkhole somewhere that swallows the ground for good, so the land wears away over the round',
+      'New round twist, Cloudburst: every turn starts with a storm over one stretch of the map. Its run-off gathers as real water in the lowest dip under it, and it shakes the steep slopes there loose so they slump into the valleys. The pool soaks away again after the storm',
       'New round twist, Flood wave: every other turn a wave of real water surges in from one edge of the map, rolls inland over the ground (pushing tanks along), climbs what slopes it can and pours into the valleys. The lakes it leaves soak away before the next wave',
       'New round twist, Fault lines: about every other turn the ground splits open somewhere: fissures crack out, the ground between them drops into a rift valley, the slabs beside it tilt and magma glows in the deepest cracks',
       'Mud flows with real momentum now, like water and lava: Quicksand and other runny mud pours down a slope with speed, runs out over the flat at the bottom and carries tanks down with it faster',

@@ -23,6 +23,8 @@ const params = z.strictObject({
 });
 type Params = z.infer<typeof params>;
 
+/** Width of the strip the soaking works through. */
+const SOAK_STRIP = 24;
 const LAST = 0;
 /** Tick the current wave started, or -1 when none is rolling in. */
 const SINCE = 1;
@@ -43,7 +45,7 @@ const CREST = 3;
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.flood-wave',
-  version: 1,
+  version: 2,
   params,
   start(api) {
     return [api.turn, -1, 1, 0];
@@ -73,9 +75,14 @@ export default defineTerrainOp<Params>({
     const since = d[SINCE]!;
     if (since >= 0 && api.tick - since >= p.surge) d[SINCE] = -1;
     if (d[SINCE]! < 0) {
-      // between waves what is left soaks away into the ground, top cells first
+      // between waves what is left soaks away into the ground, top cells first, through a strip
+      // that sweeps back and forth over the map (one small busy region at a time)
+      const strip = Math.min(SOAK_STRIP, W);
+      const span = Math.max(1, W - strip);
+      const pos = api.tick % (2 * span);
+      const x0 = pos < span ? pos : 2 * span - pos;
       for (let n = 0; n < p.soak; n++) {
-        const x = api.rng.int(W);
+        const x = x0 + api.rng.int(strip);
         const y = g.surfaceY(x);
         if (y >= g.height) continue;
         const i = y * W + x;
