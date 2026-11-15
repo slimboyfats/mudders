@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { PROTOCOL_VERSION } from '@mudders/shared';
 import { hasUnseen } from '../changelog';
+import { CHALLENGES, loadProgress, totalStars } from '../game/challenges';
 import { SIGNAL_URL } from '../config';
 import { installState, promptInstall, subscribeInstall } from '../pwa';
 
@@ -18,6 +19,7 @@ export function Title({ onPlay }: Props) {
   const [lobby, setLobby] = useState<LobbyStatus>('checking');
   const [webgl2] = useState(hasWebGL2);
   const [unseen] = useState(hasUnseen);
+  const [stars] = useState(() => totalStars(loadProgress()));
   const install = useSyncExternalStore(subscribeInstall, installState);
 
   useEffect(() => {
@@ -56,6 +58,17 @@ export function Title({ onPlay }: Props) {
             <small>Hot-seat and bots on this device</small>
           </span>
         </button>
+        <a className="secondary tile solo-tile" href="#challenges" data-testid="challenges">
+          <span className="tile-icon" aria-hidden="true">
+            ★
+          </span>
+          <span>
+            Solo challenges
+            <small>
+              {stars} / {CHALLENGES.length * 3} stars
+            </small>
+          </span>
+        </a>
         <div className="menu-group" role="group" aria-label="Online">
           <span className="menu-label">Online</span>
           <div className="menu-tiles">

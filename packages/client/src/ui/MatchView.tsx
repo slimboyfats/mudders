@@ -24,6 +24,8 @@ interface Props {
   side?: React.ReactNode;
   /** Overlay on the playfield (online: connection state). */
   banner?: React.ReactNode;
+  /** The caller shows its own match-over card (solo challenges), so the HUD doesn't. */
+  ownEnd?: boolean;
 }
 
 interface Drag {
@@ -44,7 +46,16 @@ interface PanDrag {
   vy: number;
 }
 
-export function MatchView({ match, settings, controls, onExit, onRematch, side, banner }: Props) {
+export function MatchView({
+  match,
+  settings,
+  controls,
+  onExit,
+  onRematch,
+  side,
+  banner,
+  ownEnd,
+}: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
@@ -518,6 +529,7 @@ export function MatchView({ match, settings, controls, onExit, onRematch, side, 
         sendAs={(p, input) => match.input(p, input)}
         controls={controls}
         renderer={rendererRef}
+        ownEnd={ownEnd ?? false}
         {...(onExit ? { onExit } : {})}
         {...(onRematch ? { onRematch } : {})}
       />

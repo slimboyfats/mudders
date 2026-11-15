@@ -22,6 +22,8 @@ interface Props {
   renderer: RefObject<Renderer | null>;
   onExit?: () => void;
   onRematch?: () => void;
+  /** Leave the match-over card to the caller (solo challenges). */
+  ownEnd?: boolean;
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -262,7 +264,17 @@ function ExitFullIcon() {
   );
 }
 
-export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onRematch }: Props) {
+export function Hud({
+  hud,
+  canAim,
+  send,
+  sendAs,
+  controls,
+  renderer,
+  onExit,
+  onRematch,
+  ownEnd,
+}: Props) {
   const t = hud.tanks[hud.activePlayer];
   const [menu, setMenu] = useState(false);
   const fs = useFullscreen();
@@ -477,7 +489,7 @@ export function Hud({ hud, canAim, send, sendAs, controls, renderer, onExit, onR
 
       {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
 
-      {hud.phase === 'over' && (
+      {hud.phase === 'over' && !ownEnd && (
         <div className="round-over" role="dialog">
           <h2>
             {hud.teams && hud.winnerTeam >= 0 ? (
