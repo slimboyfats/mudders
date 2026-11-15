@@ -83,7 +83,9 @@ function Attempt({
           <strong>{c.name}</strong>
           <span>{c.brief}</span>
           <span className="challenge-meta">
-            Shots {shots}
+            {c.survive !== undefined
+              ? `Turn ${Math.min(shots + 1, c.survive)} of ${c.survive}`
+              : `Shots ${shots}`}
             {left >= 0 && ` · ${left} left`} · {starGoal(c)}
           </span>
           {hint && <span className="challenge-hint">Hint: {hint}</span>}
