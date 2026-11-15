@@ -22,6 +22,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.91.0',
     items: [
+      'Solo challenges: two more chapters, 25 challenges in all. Trick shots: a target across a big map, three around the lakes, Rollers on the glacier, flat shots under a cave roof and a strong tailwind. Survival: live through a set number of turns against a Poolshark and a Shooter, under a meteor shower, while the water rises, and against a Cyborg with only a Heavy Shield to hide behind. Bots in a challenge now all side against you',
       'New round twist, Earthquakes: every turn starts with a quake that shakes the ground for a few seconds. Steep slopes shake loose and slide down into the valleys, and every quake opens a sinkhole somewhere that swallows the ground for good, so the land wears away over the round',
       'New round twist, Cloudburst: every turn starts with a downpour of real water. It washes the slopes loose as mud that slides down into the valleys and gathers there in lakes that swell with each storm and soak away between them',
       'New round twist, Flood wave: every other turn a wave of real water surges in from one edge of the map, rolls inland over the ground (pushing tanks along), climbs what slopes it can and pours into the valleys. The lakes it leaves soak away before the next wave',

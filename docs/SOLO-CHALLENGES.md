@@ -52,6 +52,13 @@ screen → **Solo challenges** (`#challenges`, one challenge at `#challenge/<id>
   health).
 - Gauntlet: Two on one (two Tossers, you in the middle), Gale (Shooter in a 250% wind), Meteor
   night (Poolshark under falling rocks), Last stand (Cyborg).
+- Trick shots (harder still targets): Long shot (a big map), Lake district, Ice rink (Rollers on
+  the glacier), Low ceiling (flat shots under the cave roof), Tailwind (three shots in a strong
+  wind at your back).
+- Survival (`survive: n`, live through n of your turns; killing every foe wins too): Hold out
+  (Poolshark and Shooter), Meteor shower (Tosser on a meteor night), High water (Poolshark while
+  the water rises), Iron wall (Cyborg and Tosser, with a Heavy Shield).
+- All foes are on one team, so bots gang up on you rather than on each other.
 
 ## Next
 

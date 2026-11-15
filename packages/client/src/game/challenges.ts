@@ -50,6 +50,11 @@ export interface Challenge {
   twist?: Omit<RoundPlan, 'generator' | 'weather'> & { twist: string };
   /** Seconds per turn; 0 = untimed (the default for puzzles). */
   turnTimer?: number;
+  /**
+   * Survival: the challenge is won once you have fired this many shots and lived through the
+   * bots' answer to the last one (killing every foe first wins too). Unset = destroy them all.
+   */
+  survive?: number;
   /** Shots you may fire before the challenge is lost; unset = until the kit runs out. */
   shots?: number;
   stars: StarRule;
@@ -61,7 +66,14 @@ export interface Challenge {
   solution?: readonly (readonly [string, number, number])[];
 }
 
-export const CHAPTERS = ['Range', 'Tools of the trade', 'Duels', 'Gauntlet'] as const;
+export const CHAPTERS = [
+  'Range',
+  'Tools of the trade',
+  'Duels',
+  'Gauntlet',
+  'Trick shots',
+  'Survival',
+] as const;
 
 const SMALL = { width: 800, height: 400 } as const;
 
@@ -330,6 +342,171 @@ export const CHALLENGES: readonly Challenge[] = [
     turnTimer: 20,
     stars: { by: 'health', three: 50, two: 20 },
   },
+  // ── 5 Trick shots: harder still targets ────────────────────────────────────────────────────
+  {
+    id: 'trick.long-shot',
+    chapter: 4,
+    name: 'Long shot',
+    brief: 'One target on the far side of a big map.',
+    hint: 'Full power at about 45° goes farthest.',
+    seed: 1111,
+    map: { generator: 'gen.hills', width: 1600, height: 800 },
+    you: { x: 150, inventory: { 'weapon.missile': -1 } },
+    foes: [{ x: 1200, health: 40 }],
+    wind: 0,
+    stars: { by: 'shots', three: 1, two: 3 },
+  },
+  {
+    id: 'trick.lake-district',
+    chapter: 4,
+    name: 'Lake district',
+    brief: 'Three targets around the lakes, four missiles.',
+    seed: 9,
+    map: { generator: 'gen.lakeland', ...SMALL },
+    you: { x: 100, inventory: { 'weapon.missile': 4 } },
+    foes: [
+      { x: 360, health: 30 },
+      { x: 540, health: 30 },
+      { x: 720, health: 30 },
+    ],
+    wind: 0.002,
+    stars: { by: 'shots', three: 3, two: 4 },
+  },
+  {
+    id: 'trick.ice-rink',
+    chapter: 4,
+    name: 'Ice rink',
+    brief: 'Targets on the glacier. Two Rollers, one Missile.',
+    seed: 4,
+    map: { generator: 'gen.glacier', ...SMALL },
+    you: { x: 110, inventory: { 'weapon.roller': 2, 'weapon.missile': 1 } },
+    foes: [
+      { x: 520, health: 30 },
+      { x: 690, health: 30 },
+    ],
+    wind: 0,
+    stars: { by: 'shots', three: 2, two: 3 },
+    solution: [
+      ['weapon.roller', 20, 700],
+      ['weapon.roller', 24, 900],
+    ],
+  },
+  {
+    id: 'trick.low-ceiling',
+    chapter: 4,
+    name: 'Low ceiling',
+    brief: 'The cave roof stops any lob. Four Baby Missiles.',
+    hint: 'Shoot flat and hard under the roof.',
+    seed: 3,
+    map: { generator: 'gen.caves', ...SMALL },
+    you: { x: 420, inventory: { 'weapon.baby-missile': 4 } },
+    foes: [{ x: 580, health: 30 }],
+    wind: 0,
+    stars: { by: 'shots', three: 2, two: 3 },
+    solution: [
+      ['weapon.baby-missile', 3, 815],
+      ['weapon.baby-missile', 3, 850],
+    ],
+  },
+  {
+    id: 'trick.tailwind',
+    chapter: 4,
+    name: 'Tailwind',
+    brief: 'A strong wind at your back. Three shots, two targets.',
+    hint: 'With the wind behind you, use much less power.',
+    seed: 1212,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: { x: 100, inventory: { 'weapon.missile': -1 } },
+    foes: [
+      { x: 480, health: 30 },
+      { x: 700, health: 30 },
+    ],
+    wind: 0.011,
+    shots: 3,
+    stars: { by: 'shots', three: 2, two: 3 },
+    solution: [
+      ['weapon.missile', 11, 995],
+      ['weapon.missile', 21, 545],
+    ],
+  },
+  // ── 6 Survival: live through it ──────────────────────────────────────────────────────────
+  {
+    id: 'survive.hold-out',
+    chapter: 5,
+    name: 'Hold out',
+    brief: 'Live through four turns against a Poolshark and a Shooter.',
+    seed: 1313,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: { x: 400, inventory: { 'weapon.missile': -1, 'gear.shield': 2 } },
+    foes: [
+      { x: 150, bot: 'ai.poolshark', inventory: { 'weapon.missile': -1 } },
+      { x: 650, bot: 'ai.shooter', inventory: { 'weapon.missile': -1 } },
+    ],
+    windType: 'perTurn',
+    turnTimer: 20,
+    survive: 4,
+    stars: { by: 'health', three: 60, two: 30 },
+  },
+  {
+    id: 'survive.meteor-shower',
+    chapter: 5,
+    name: 'Meteor shower',
+    brief: 'Five turns under falling rocks with a Tosser lobbing at you.',
+    seed: 1414,
+    map: { generator: 'gen.village', ...SMALL },
+    you: {
+      x: 160,
+      inventory: { 'weapon.missile': -1, 'gear.shield': 1, 'gear.parachute': 2 },
+    },
+    foes: [{ x: 640, bot: 'ai.tosser', inventory: { 'weapon.missile': -1 } }],
+    windType: 'perTurn',
+    twist: { twist: 'Meteor night', events: ['terrainop.meteor-night'] },
+    turnTimer: 20,
+    survive: 5,
+    stars: { by: 'health', three: 60, two: 30 },
+  },
+  {
+    id: 'survive.high-water',
+    chapter: 5,
+    name: 'High water',
+    brief: 'The water rises. Keep your head above it for four turns.',
+    seed: 1515,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: { x: 200, inventory: { 'weapon.missile': -1, 'weapon.dirt-ball': 3 } },
+    foes: [{ x: 620, bot: 'ai.poolshark', inventory: { 'weapon.missile': -1 } }],
+    windType: 'perTurn',
+    twist: { twist: 'Rising water', events: ['terrainop.rising-water'] },
+    turnTimer: 20,
+    survive: 4,
+    stars: { by: 'health', three: 60, two: 30 },
+  },
+  {
+    id: 'survive.iron-wall',
+    chapter: 5,
+    name: 'Iron wall',
+    brief: 'A Cyborg and a Tosser. Survive three turns.',
+    hint: 'Raise the Heavy Shield before they fire.',
+    seed: 1616,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: {
+      x: 400,
+      inventory: {
+        'weapon.missile': -1,
+        'weapon.baby-nuke': 1,
+        'gear.heavy-shield': 1,
+        'gear.shield': 1,
+        'gear.parachute': 2,
+      },
+    },
+    foes: [
+      { x: 110, bot: 'ai.cyborg', inventory: { 'weapon.missile': -1 } },
+      { x: 690, bot: 'ai.tosser', inventory: { 'weapon.missile': -1 } },
+    ],
+    windType: 'perTurn',
+    turnTimer: 20,
+    survive: 3,
+    stars: { by: 'health', three: 50, two: 20 },
+  },
 ];
 
 /** The challenge after `id` in the ladder, or null at the end. */
@@ -384,6 +561,8 @@ export function challengeOptions(c: Challenge, content: ResolvedContent): WorldO
       })),
     ],
     bots: [null, ...c.foes.map((f) => f.bot ?? null)],
+    // every foe on one side: bots gang up on you instead of on each other
+    teams: [0, ...c.foes.map(() => 1)],
     turnOrder,
     rules,
     ...(c.wind !== undefined ? { wind: c.wind } : {}),
@@ -445,6 +624,11 @@ export class ChallengeRun {
     // only judged between shots, once everything has landed and it is your turn again
     if (phase === 'over') return this.set({ state: 'lost', reason: 'Out of turns.' });
     if (phase !== 'aim' || w.activePlayer !== 0) return false;
+    const live = this.challenge.survive;
+    if (live !== undefined && this.shots >= live) {
+      const pct = Math.round((100 * Math.max(0, me.health)) / this.fullHealth);
+      return this.set({ state: 'won', stars: starsFor(this.challenge, this.shots, pct) });
+    }
     if (this.shotsLeft === 0) return this.set({ state: 'lost', reason: 'Out of shots.' });
     if (me.inventory.every((n) => n === 0))
       return this.set({ state: 'lost', reason: 'Out of ammo.' });

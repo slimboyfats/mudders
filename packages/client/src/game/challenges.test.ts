@@ -89,7 +89,7 @@ describe('solo challenges', () => {
         if (f.health) expect(t.health).toBe(f.health);
       });
     }
-  });
+  }, 60_000);
 
   it('every target challenge can be cleared within its two-star shots (solution or solver)', () => {
     for (let i = 0; i < CHALLENGES.length; i++) {
@@ -121,7 +121,7 @@ describe('solo challenges', () => {
     expect(run.shots).toBeGreaterThan(0);
   }, 60_000);
 
-  it('a sharp player can beat every bot challenge with plain missiles', () => {
+  it('a sharp player can beat every bot and survival challenge with plain missiles', () => {
     for (let i = 0; i < CHALLENGES.length; i++) {
       const { c, w } = build(i);
       if (!c.foes.some((f) => f.bot)) continue;
@@ -141,6 +141,9 @@ describe('solo challenges', () => {
                   break search;
                 }
               }
+          // shields up when the kit has them (a useless use is refused)
+          for (const g of ['gear.heavy-shield', 'gear.shield'])
+            w.applyInput(0, { type: 'useGear', gear: g });
           w.applyInput(0, { type: 'selectWeapon', weapon: 'weapon.missile' });
           w.applyInput(0, { type: 'aim', angle: shot[0], power: shot[1] });
           w.applyInput(0, { type: 'fire' });
@@ -166,6 +169,21 @@ describe('solo challenges', () => {
     }
     expect(run.status).toEqual({ state: 'lost', reason: 'Out of shots.' });
     expect(run.shots).toBe(1);
+  });
+
+  it('a survival challenge is won by living through its turns', () => {
+    const { c, w } = build(0);
+    const run = new ChallengeRun({ ...c, survive: 2 }, w);
+    for (let k = 0; k < 6000 && run.status.state === 'playing'; k++) {
+      if (w.phase === 'aim' && w.activePlayer === 0) {
+        w.applyInput(0, { type: 'aim', angle: 45, power: 200 });
+        w.applyInput(0, { type: 'fire' });
+      }
+      w.step();
+      run.observe(w);
+    }
+    expect(run.status.state).toBe('won');
+    expect(run.shots).toBe(2);
   });
 
   it('scores stars by shots or health left', () => {
