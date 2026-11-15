@@ -20,10 +20,12 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-15',
     title: 'More spectacle when you fire and when it lands',
+    pack: 'core@0.90.0',
     items: [
       'Blasts on the ground drive a low wall of dust out along the surface both ways. It follows the slopes, flicks up grit as it passes and stops at a cliff',
       'Steam: a blast in or beside water keeps boiling it into white steam for a second or two after the fireball clears, and burning shells (napalm, meteors, fire globs) hiss out a gout of steam where they plunge in',
       'Tanks flinch: a blast close to a tank rocks it away and bounces it off its tracks, shaking dust out from under them. The nearer and bigger the blast, the harder the tank is rocked',
+      'Napalm floats: in a lake it spreads as a burning film on top of the water instead of sinking, boils steam off it and burns out sooner there. Water itself never burns',
       'Firing kick: every shot throws a tongue of fire out of the barrel and the barrel slams back and eases out again. Big guns vent jets out to the sides, rock the tank, jolt the screen and blow a sheet of dust and clods off the ground around the tank. A Missile gives a small pop, a nuke the full kick',
     ],
   },

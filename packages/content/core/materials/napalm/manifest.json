@@ -3,13 +3,13 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Napalm",
-    "description": "Burning jelly. Flows downhill, scorches the dirt it runs over into ash, burns tanks sitting in it for as long as they stay, and burns out after a few seconds.",
+    "description": "Burning jelly. Floats on water and burns on top of it, hissing the water into steam and burning out sooner there. Flows downhill, scorches the dirt it runs over into ash, burns tanks sitting in it for as long as they stay, and burns out after a few seconds.",
     "since": "core@0.3.0",
     "color": "#ff9a2a"
   },
   "cell": 8,
   "settle": "flow",
-  "density": 70,
+  "density": 40,
   "strength": {
     "blast": 0.3,
     "kinetic": 0.3,
@@ -44,6 +44,11 @@
       "with": "material.ice",
       "other": "air",
       "chance": 0.05
+    },
+    {
+      "with": "material.water",
+      "into": "air",
+      "chance": 0.015
     },
     {
       "with": "#burns",
