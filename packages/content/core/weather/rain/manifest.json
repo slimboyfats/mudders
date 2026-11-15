@@ -19,8 +19,8 @@
   "soak": 500,
   "seep": 250,
   "mudDepth": 6,
-  "puddle": 350,
-  "maxWater": 120,
+  "puddle": 80,
+  "maxWater": 40,
   "patter": 120,
   "temperature": -6
 }

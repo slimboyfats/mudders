@@ -9,6 +9,8 @@ describe('weapon.liquid-dirt', () => {
     g.clearSettle();
     const b = countCells(w, 'material.dirt');
     dropAt(w, 'weapon.liquid-dirt', 200);
+    // mud setting doesn't hold the turn: it goes on setting into the next one
+    w.run(240);
     expect(countCells(w, 'material.liquid-dirt')).toBe(0);
     expect(countCells(w, 'material.dirt')).toBeGreaterThan(b + 300);
     expect(g.material[169 * g.width + 225]).not.toBe(0);

@@ -73,6 +73,10 @@ export class Grid {
   surfBusy = false;
   /** Set by settle: the only thing still moving is open water rippling out (a turn needn't wait). */
   ripple = false;
+  /** Set by settle: only liquid cells moved this tick (no ground, sand or debris). */
+  wetOnly = false;
+  /** Set by the reaction pass: something more than flows ageing is going on (fire, decay). */
+  hot = false;
   surfMinX = 0;
   surfMaxX = 0;
   surfMaxY = 0;
@@ -191,6 +195,8 @@ export class Grid {
     this.surfSeenMaxX = -1;
     this.surfBusy = false;
     this.ripple = false;
+    this.wetOnly = false;
+    this.hot = false;
     this.group.fill(0);
     this.groupMat.fill(0);
     this.shade.fill(0);

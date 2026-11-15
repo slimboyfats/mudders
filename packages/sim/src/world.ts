@@ -98,10 +98,12 @@ const CONTACT_EVERY = 15;
 const CONTACT_SHARE = 4;
 /** Ticks after a blast that a tree it undermined still falls away from it. */
 const HIT_LINGER = 40;
-/** Longest a turn waits on flowing or reacting ground once everything else is still (8 s). */
-const FLOW_GRACE = 480;
+/** Longest a turn waits on flowing or reacting ground once everything else is still (4 s). */
+const FLOW_GRACE = 240;
 /** Ticks of nothing but ripples and a trickle after which the turn goes on. */
 const RIPPLE_TICKS = 30;
+/** Ticks of nothing but liquid flowing (rain, a pool filling) after which the turn goes on (1 s). */
+const WET_TICKS = 60;
 /** Highest power (of 1000) a frosted tank can fire with. */
 export const CHILL_POWER = 500;
 /**
@@ -829,6 +831,7 @@ export class World implements SimApi {
   /** Ticks the turn has waited on nothing but flowing or reacting ground (see `settled`). */
   private flowWait = 0;
   private rippleFor = 0;
+  private wetFor = 0;
   private pendingDeaths: PendingDeath[] = [];
   private effects: EffectEvent[] = [];
   private readonly modeApi: ModeApi;
@@ -1588,6 +1591,7 @@ export class World implements SimApi {
   private shotSettled(): boolean {
     if (!this.still) {
       this.rippleFor = 0;
+      this.wetFor = 0;
       this.flowWait = 0;
       return false;
     }
@@ -1596,6 +1600,10 @@ export class World implements SimApi {
     // once it has been no more than that for a while
     this.rippleFor = this.grid.ripple && !this.grid.reacting ? this.rippleFor + 1 : 0;
     if (this.rippleFor >= RIPPLE_TICKS) return true;
+    // water that only runs on (rain, a pool filling, a lake draining) carries into the next turn
+    const g = this.grid;
+    this.wetFor = (!g.settling || g.wetOnly) && !(g.reacting && g.hot) ? this.wetFor + 1 : 0;
+    if (this.wetFor >= WET_TICKS) return true;
     return ++this.flowWait >= FLOW_GRACE;
   }
 
@@ -1730,6 +1738,7 @@ export class World implements SimApi {
       }
       if (this.still) {
         this.rippleFor = 0;
+        this.wetFor = 0;
         this.flowWait = 0;
         this.endTurn();
       }
@@ -4974,6 +4983,7 @@ export class World implements SimApi {
     // turn-end grace for flowing ground (kernel 0.37.0): only hashed while it counts
     if (this.flowWait !== 0) h.num(this.flowWait);
     if (this.rippleFor !== 0) h.num(this.rippleFor ^ 0x5a5a);
+    if (this.wetFor !== 0) h.num(this.wetFor ^ 0x3c3c);
     // temperature (kernel 0.18.0)
     h.num(this.temperature).num(this.tempBase);
     // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes

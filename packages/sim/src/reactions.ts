@@ -135,6 +135,11 @@ export function react(
   return spawned;
 }
 
+/** A harmless wet material (water, mud): its reactions and decay don't hold the turn. */
+function mild(mats: MaterialTable, m: number): boolean {
+  return mats.wet[m] !== 0 && mats.contactDamage[m] === 0;
+}
+
 /**
  * One reaction pass (§4b) over the grid's reaction region only: tick decays (fire burning out,
  * liquid dirt setting), spread ageing (flows stop spreading), adjacency reactions. The region
@@ -158,6 +163,8 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
   let aMaxX = -1;
   let aMinY = grid.height;
   let aMaxY = -1;
+  // anything more than flows ageing (a fire burning, mud setting, a reaction firing)
+  let hot = false;
   for (let y = y0; y <= y1; y++) {
     for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
       const m = mat[i]!;
@@ -177,10 +184,13 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
           }
           place(grid, mats, i, mats.decayInto[m]!);
           dirty(grid, i);
+          hot = true;
           continue;
         }
         state[i] = s;
         alive = true;
+        // wet mud quietly setting doesn't count; fire burning down does
+        if (!mild(mats, m)) hot = true;
       } else if (fm & ACT_SPREAD) {
         const a = state[i]! & AGE_MASK;
         if (a < mats.spread[m]!) {
@@ -194,6 +204,7 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
           coat[i] = mats.decayInto[c]!;
           dirty(grid, i);
         } else alive = true;
+        hot = true;
       }
       if (
         fm & ACT_BURST &&
@@ -207,9 +218,14 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
         // (queue full: stay in the region and try again next tick)
         if (grid.pocketCount < grid.pockets.length) grid.pockets[grid.pocketCount++] = i;
         else alive = true;
+        hot = true;
       }
-      if (fm & ACT_REACT && m !== 0) react(grid, mats, i, m, SRC_CELL, tick);
-      if (fc & ACT_REACT && c !== 0 && mat[i] !== 0) react(grid, mats, i, c, SRC_COATING, tick);
+      // (water soaking dirt into mud doesn't count either: the other side of a real reaction,
+      // lava or fire, is hot)
+      if (fm & ACT_REACT && m !== 0 && react(grid, mats, i, m, SRC_CELL, tick) && !mild(mats, m))
+        hot = true;
+      if (fc & ACT_REACT && c !== 0 && mat[i] !== 0 && react(grid, mats, i, c, SRC_COATING, tick))
+        hot = true;
       if (alive) {
         if (x < aMinX) aMinX = x;
         if (x > aMaxX) aMaxX = x;
@@ -219,6 +235,7 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
     }
   }
   if (aMaxX >= 0) grid.extendReact(aMinX - 1, aMinY - 1, aMaxX + 1, aMaxY + 1);
+  grid.hot = hot;
 }
 
 /** End of turn: cells with `decay.turns` age by one turn and convert when due (lava cools). */
