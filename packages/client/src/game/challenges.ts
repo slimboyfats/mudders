@@ -53,6 +53,12 @@ export interface Challenge {
   /** Shots you may fire before the challenge is lost; unset = until the kit runs out. */
   shots?: number;
   stars: StarRule;
+  /**
+   * A known clear, shot by shot (weapon, angle, power), replayed by the tests so a map or physics
+   * change that breaks the puzzle is caught. Target challenges without one must be cleared by
+   * the tests' direct-hit solver.
+   */
+  solution?: readonly (readonly [string, number, number])[];
 }
 
 export const CHAPTERS = ['Range', 'Tools of the trade', 'Duels', 'Gauntlet'] as const;
@@ -134,6 +140,90 @@ export const CHALLENGES: readonly Challenge[] = [
     twist: { twist: 'Low gravity', gravity: 50 },
     stars: { by: 'shots', three: 2, two: 4 },
   },
+  // ── 2 Tools of the trade: special ammo for awkward targets ────────────────────────────────
+  {
+    id: 'tools.roll-call',
+    chapter: 1,
+    name: 'Roll call',
+    brief: 'The target sits deep in a valley. Two Rollers.',
+    hint: 'Land a Roller on the near slope and let it roll down.',
+    seed: 202,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: { x: 100, inventory: { 'weapon.roller': 2 } },
+    foes: [{ x: 600, health: 40 }],
+    wind: 0,
+    stars: { by: 'shots', three: 1, two: 2 },
+    solution: [['weapon.roller', 28, 600]],
+  },
+  {
+    id: 'tools.firestorm',
+    chapter: 1,
+    name: 'Firestorm',
+    brief: 'Two targets share a valley. One Napalm, two Baby Missiles.',
+    hint: 'Napalm runs downhill: drop it above them.',
+    seed: 202,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: { x: 100, inventory: { 'weapon.napalm': 1, 'weapon.baby-missile': 2 } },
+    foes: [
+      { x: 570, health: 30 },
+      { x: 630, health: 30 },
+    ],
+    wind: 0,
+    stars: { by: 'shots', three: 1, two: 2 },
+    solution: [['weapon.napalm', 20, 1000]],
+  },
+  {
+    id: 'tools.bunker',
+    chapter: 1,
+    name: 'Bunker',
+    brief: 'Towers stand in the way. The Bunker Buster goes straight through them.',
+    hint: 'The Bunker Buster goes through walls and goes off inside.',
+    seed: 7,
+    map: { generator: 'gen.city', ...SMALL },
+    you: { x: 120, inventory: { 'weapon.bunker-buster': 2, 'weapon.baby-missile': 2 } },
+    foes: [{ x: 500, health: 40 }],
+    wind: 0,
+    stars: { by: 'shots', three: 1, two: 2 },
+    solution: [['weapon.bunker-buster', 36, 550]],
+  },
+  {
+    id: 'tools.island-hop',
+    chapter: 1,
+    name: 'Island hop',
+    brief: 'Targets on floating islands. Heat Seekers find them.',
+    seed: 11,
+    map: { generator: 'gen.islands', ...SMALL },
+    you: { x: 120, inventory: { 'weapon.heat-seeker': 3 } },
+    foes: [
+      { x: 470, health: 40 },
+      { x: 680, health: 40 },
+    ],
+    wind: 0.004,
+    stars: { by: 'shots', three: 2, two: 3 },
+    solution: [
+      ['weapon.heat-seeker', 52, 950],
+      ['weapon.heat-seeker', 56, 600],
+    ],
+  },
+  {
+    id: 'tools.hopscotch',
+    chapter: 1,
+    name: 'Hopscotch',
+    brief: 'Two targets past the peaks. Skippers hop on along the ground.',
+    seed: 5,
+    map: { generator: 'gen.lakeland', ...SMALL },
+    you: { x: 110, inventory: { 'weapon.skipper': 3 } },
+    foes: [
+      { x: 560, health: 30 },
+      { x: 660, health: 30 },
+    ],
+    wind: 0,
+    stars: { by: 'shots', three: 2, two: 3 },
+    solution: [
+      ['weapon.skipper', 20, 950],
+      ['weapon.skipper', 56, 550],
+    ],
+  },
   // ── 3 Duels: bots that shoot back ─────────────────────────────────────────────────────────
   {
     id: 'duel.first-blood',
@@ -164,6 +254,81 @@ export const CHALLENGES: readonly Challenge[] = [
     windType: 'perTurn',
     turnTimer: 20,
     stars: { by: 'health', three: 50, two: 25 },
+  },
+  // ── 4 Gauntlet: bots under twists and map events ──────────────────────────────────────────
+  {
+    id: 'gauntlet.two-on-one',
+    chapter: 3,
+    name: 'Two on one',
+    brief: 'Two Tossers, one of you.',
+    seed: 707,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: {
+      x: 400,
+      inventory: { 'weapon.missile': -1, 'weapon.frag-shell': 2, 'gear.parachute': 2 },
+    },
+    foes: [
+      { x: 110, bot: 'ai.tosser', inventory: { 'weapon.missile': -1 } },
+      { x: 690, bot: 'ai.tosser', inventory: { 'weapon.missile': -1 } },
+    ],
+    windType: 'perTurn',
+    turnTimer: 20,
+    stars: { by: 'health', three: 60, two: 30 },
+  },
+  {
+    id: 'gauntlet.gale',
+    chapter: 3,
+    name: 'Gale',
+    brief: 'A gale blows and the Shooter still aims true.',
+    seed: 808,
+    map: { generator: 'gen.badlands', ...SMALL },
+    you: { x: 140, inventory: { 'weapon.missile': -1, 'weapon.heat-seeker': 2 } },
+    foes: [{ x: 650, bot: 'ai.shooter', inventory: { 'weapon.missile': -1 } }],
+    windType: 'perTurn',
+    twist: { twist: 'Gale', wind: 250 },
+    turnTimer: 20,
+    stars: { by: 'health', three: 60, two: 30 },
+  },
+  {
+    id: 'gauntlet.meteor-night',
+    chapter: 3,
+    name: 'Meteor night',
+    brief: 'Rocks fall from the sky. The Poolshark does not mind.',
+    seed: 909,
+    map: { generator: 'gen.village', ...SMALL },
+    you: {
+      x: 150,
+      inventory: { 'weapon.missile': -1, 'weapon.mirv': 1, 'gear.shield': 1 },
+    },
+    foes: [{ x: 640, bot: 'ai.poolshark', inventory: { 'weapon.missile': -1 } }],
+    windType: 'perTurn',
+    twist: { twist: 'Meteor night', events: ['terrainop.meteor-night'] },
+    turnTimer: 20,
+    stars: { by: 'health', three: 50, two: 25 },
+  },
+  {
+    id: 'gauntlet.last-stand',
+    chapter: 3,
+    name: 'Last stand',
+    brief: 'The Cyborg never misses by much. Make every shot count.',
+    seed: 1010,
+    map: { generator: 'gen.hills', ...SMALL },
+    you: {
+      x: 130,
+      inventory: {
+        'weapon.missile': -1,
+        'weapon.baby-nuke': 1,
+        'weapon.heat-seeker': 1,
+        'gear.shield': 1,
+        'gear.parachute': 1,
+      },
+    },
+    foes: [
+      { x: 670, bot: 'ai.cyborg', inventory: { 'weapon.missile': -1, 'weapon.baby-missile': 4 } },
+    ],
+    windType: 'perTurn',
+    turnTimer: 20,
+    stars: { by: 'health', three: 50, two: 20 },
   },
 ];
 

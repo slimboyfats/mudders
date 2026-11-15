@@ -49,6 +49,24 @@ function solve(c: (typeof CHALLENGES)[number], w: World): ChallengeRun {
   return run;
 }
 
+/** Replays a challenge's stored solution. */
+function replay(c: (typeof CHALLENGES)[number], w: World): ChallengeRun {
+  const run = new ChallengeRun(c, w);
+  const shots = [...(c.solution ?? [])];
+  for (let guard = 0; guard < 40_000 && run.status.state === 'playing'; guard++) {
+    if (w.phase === 'aim' && w.activePlayer === 0) {
+      const s = shots.shift();
+      if (!s) break;
+      w.applyInput(0, { type: 'selectWeapon', weapon: s[0] });
+      w.applyInput(0, { type: 'aim', angle: s[1], power: s[2] });
+      w.applyInput(0, { type: 'fire' });
+    }
+    w.step();
+    run.observe(w);
+  }
+  return run;
+}
+
 describe('solo challenges', () => {
   it('have unique ids and a known chapter', () => {
     expect(new Set(CHALLENGES.map((c) => c.id)).size).toBe(CHALLENGES.length);
@@ -73,11 +91,11 @@ describe('solo challenges', () => {
     }
   });
 
-  it('every target challenge can be cleared within its two-star shots', () => {
+  it('every target challenge can be cleared within its two-star shots (solution or solver)', () => {
     for (let i = 0; i < CHALLENGES.length; i++) {
       const { c, w } = build(i);
       if (c.foes.some((f) => f.bot)) continue;
-      const run = solve(c, w);
+      const run = c.solution ? replay(c, w) : solve(c, w);
       expect(run.status.state, c.id).toBe('won');
       if (c.stars.by === 'shots') expect(run.shots, c.id).toBeLessThanOrEqual(c.stars.two);
     }
@@ -102,6 +120,37 @@ describe('solo challenges', () => {
     expect(botTurns).toBeGreaterThan(0);
     expect(run.shots).toBeGreaterThan(0);
   }, 60_000);
+
+  it('a sharp player can beat every bot challenge with plain missiles', () => {
+    for (let i = 0; i < CHALLENGES.length; i++) {
+      const { c, w } = build(i);
+      if (!c.foes.some((f) => f.bot)) continue;
+      const run = new ChallengeRun(c, w);
+      const me = w.tanks[0]!;
+      const missile = w.weaponByIndex('weapon.missile');
+      for (let g = 0; g < 60_000 && run.status.state === 'playing'; g++) {
+        if (w.phase === 'aim' && w.activePlayer === 0) {
+          let shot: [number, number] = [60, 500];
+          search: for (let a = 20; a <= 85; a++)
+            for (let p = 200; p <= 1000; p += 10)
+              for (const angle of [a, 180 - a]) {
+                const r = w.predict(me, missile, angle, p);
+                const t = w.tanks[r.tank];
+                if (r.landed && t && t.player !== 0 && t.alive) {
+                  shot = [angle, p];
+                  break search;
+                }
+              }
+          w.applyInput(0, { type: 'selectWeapon', weapon: 'weapon.missile' });
+          w.applyInput(0, { type: 'aim', angle: shot[0], power: shot[1] });
+          w.applyInput(0, { type: 'fire' });
+        }
+        w.step();
+        run.observe(w);
+      }
+      expect(run.status.state, c.id).toBe('won');
+    }
+  }, 300_000);
 
   it('is lost when the shot budget runs out', () => {
     const { c, w } = build(0);
