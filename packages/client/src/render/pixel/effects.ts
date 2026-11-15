@@ -464,6 +464,8 @@ export class EffectSystem {
   /** Chromatic split in cells (nukes), decaying. */
   split = 0;
   mult = 1;
+  /** How hard each weapon kicks when fired (`RenderPalette.muzzles`), by weapon index. */
+  muzzles: readonly number[] = [];
   /** The current wind (cells per tick², the sim's), for what the ground sheds. */
   wind = 0;
   /** Orbital Lance lock-ons and beams. */
@@ -815,7 +817,10 @@ export class EffectSystem {
       case 'muzzle': {
         const rng = this.rngFor(e, 3);
         const a = ((e.params.angle ?? 90) * Math.PI) / 180;
-        const n = Math.round(10 * this.mult) + 2;
+        // big guns throw more sparks, light up more ground and jolt the screen
+        const heft = this.muzzles[e.params.weapon ?? -1] ?? 0.25;
+        if (heft >= 0.5) this.kick(1 + heft * 2.5, e.tick);
+        const n = Math.round(10 * (0.6 + heft * 1.6) * this.mult) + 2;
         for (let i = 0; i < n; i++) {
           const s = rng.range(0.6, 2.2);
           const da = rng.range(-0.35, 0.35);
@@ -845,9 +850,9 @@ export class EffectSystem {
         this.glows.push({
           x: e.x,
           y: e.y,
-          r: 6,
+          r: 6 + 8 * heft,
           start: e.tick,
-          dur: 5,
+          dur: 4 + Math.round(3 * heft),
           color: 0xffd080,
           strength: 1,
         });

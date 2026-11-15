@@ -82,6 +82,7 @@ import { drawWarp, type WarpFx } from './warp';
 import { Rockets } from './rocket';
 import { Flights } from './flight';
 import { CloudWake, type CloudSky } from './cloud-wake';
+import { type KickTank, MuzzleKick } from './muzzle';
 import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
@@ -487,6 +488,8 @@ export class PixelRenderer implements Renderer {
   );
   /** Clouds torn by shells and blasts (renderer only), and what the clouds were last painted with. */
   private readonly cloudWake = new CloudWake();
+  /** Muzzle flashes, barrel recoil and blast dust of each shot (renderer only). */
+  private readonly muzzleKick = new MuzzleKick();
   private readonly cloudSky: CloudSky = {
     cover: 0,
     drift: 0,
@@ -1010,6 +1013,7 @@ export class PixelRenderer implements Renderer {
       });
     }
     this.fx.mult = q.mult;
+    this.fx.muzzles = this.palette.muzzles ?? [];
     this.water.mult = q.mult;
     this.liquid.mult = q.mult;
   }
@@ -1253,6 +1257,7 @@ export class PixelRenderer implements Renderer {
         this.wall.absorb(p.side ?? 0, e.y, (p.vx ?? 0) / 1000, (p.vy ?? 0) / 1000);
       }
       if (e.type.startsWith('drop')) this.dropFx.handle(e, this.particles, s.wind);
+      if (e.type === 'muzzle') this.fireKick(e, s.entities);
       if (e.type === 'birdHit') birdHit(e, this.particles);
       else if (e.type === 'birdPulp') birdPulp(e, this.particles);
       if (e.type === 'flash') {
@@ -1315,6 +1320,33 @@ export class PixelRenderer implements Renderer {
     }
   }
 
+  /** A shot leaves the barrel: flash, recoil and blast dust sized by the weapon's heft. */
+  private fireKick(e: EffectEvent, entities: readonly EntityView[]): void {
+    const heft = this.palette.muzzles?.[e.params.weapon ?? -1] ?? 0.25;
+    const tanks: KickTank[] = [];
+    for (const t of entities) if (t.kind === 'tank') tanks.push(t);
+    const W = this.mapWidth;
+    const H = this.mapHeight;
+    this.muzzleKick.fire(
+      e.x,
+      e.y,
+      e.params.angle ?? 90,
+      heft,
+      e.tick,
+      tanks,
+      {
+        solid: this.probe.solid,
+        dust: (x, y) => {
+          const m = x >= 0 && y >= 0 && x < W && y < H ? this.terrain[y * W + x]! : 0;
+          return shade(this.palette.materials[m] ?? 0x7a5a3a, 0.6);
+        },
+      },
+      this.particles,
+      this.fx.mult,
+      this.air,
+    );
+  }
+
   /** Drop every cosmetic left over from the last round, so a new map starts clean. */
   private clearRoundFx(): void {
     this.swayBlasts.clear();
@@ -1328,6 +1360,7 @@ export class PixelRenderer implements Renderer {
     this.rockets.clear();
     this.flights.clear();
     this.cloudWake.clear();
+    this.muzzleKick.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
@@ -1970,6 +2003,7 @@ export class PixelRenderer implements Renderer {
     this.stepDeaths();
     this.cloudX += 0.012 + this.wind * 0.004;
     this.cloudWake.step(this.fxTick, this.wind);
+    this.muzzleKick.prune(this.fxTick);
     emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
@@ -2528,6 +2562,7 @@ export class PixelRenderer implements Renderer {
     drawRabbits(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     drawFish(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.drawTanks(t);
+    this.muzzleKick.draw(this.normal, Math.floor(t));
     drawCrows(this.normal, this.critters, t, (x, y) => this.tankLight(x, y));
     this.fx.drawGoo(this.normal, t);
     // everything so far goes under the particles, which draw straight from GPU state
@@ -2954,9 +2989,10 @@ export class PixelRenderer implements Renderer {
     const looks = this.palette.tanks;
     for (const w of this.wrecks) if (w) drawTurret(b, w, t);
     for (const e of this.entities) if (e.kind === 'decoy') this.drawDecoy(e, t);
+    const ft = Math.floor(t);
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
-      const x = e.x;
+      const x = e.x + this.muzzleKick.jolt(e.player, ft);
       const y = this.tankY(e);
       const col = playerColor(e.player);
       const look = (e.tank && looks?.[e.tank]) || STANDARD_LOOK;
@@ -3000,9 +3036,11 @@ export class PixelRenderer implements Renderer {
       const px = x + br.x;
       const py = y - br.y + lean(br.x + (sw >> 1));
       const off = br.width >> 1;
+      // the barrel slams back into the turret when it fires and eases out again
+      const back = this.muzzleKick.recoil(e.player, ft);
       for (let i = 1; i <= br.length; i++) {
-        const cx = Math.round(px + ca * i);
-        const cy = Math.round(py - sa * i);
+        const cx = Math.round(px + ca * (i - back));
+        const cy = Math.round(py - sa * (i - back));
         b.rect(
           cx - off,
           cy - off,

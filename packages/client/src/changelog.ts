@@ -18,6 +18,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-15',
+    title: 'More spectacle when you fire and when it lands',
+    items: [
+      'Firing kick: every shot throws a tongue of fire out of the barrel and the barrel slams back and eases out again. Big guns vent jets out to the sides, rock the tank, jolt the screen and blow a sheet of dust and clods off the ground around the tank. A Missile gives a small pop, a nuke the full kick',
+    ],
+  },
+  {
     date: '2026-11-14',
     title: 'New explosion designs and shells that look alive in the air',
     items: [

@@ -38,6 +38,8 @@ export interface RenderPalette {
   hotLiquids?: readonly number[];
   /** Material cells of slurries (mud, wet clay): a sluggish, plopping surface. */
   heavyLiquids?: readonly number[];
+  /** How hard each weapon kicks when fired (0.1-1), by weapon index (`muzzle` event `weapon`). */
+  muzzles?: readonly number[];
 }
 
 /** A tank type's pixel look (manifest `look`); plain data so it can cross the wire. */

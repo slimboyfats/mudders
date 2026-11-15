@@ -17,6 +17,8 @@ export interface WireInit {
   tanks: Record<string, TankLook>;
   shells: Record<string, ShellLook>;
   liquids: number[];
+  /** Muzzle heft per weapon index (`RenderPalette.muzzles`). */
+  muzzles?: number[];
   quality: Quality;
   theme: string;
   /** Canvas size in CSS px and device pixel ratio. */

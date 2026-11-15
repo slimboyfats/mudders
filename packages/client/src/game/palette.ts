@@ -61,7 +61,58 @@ export function paletteFrom(content: ResolvedContent): RenderPalette {
     if (f !== undefined && look.shell === 'spark') look.flight = f;
     shells[w.id] = look;
   }
-  return { materials, looks, themes, tanks, shells, liquids, hotLiquids, heavyLiquids };
+  return {
+    materials,
+    looks,
+    themes,
+    tanks,
+    shells,
+    liquids,
+    hotLiquids,
+    heavyLiquids,
+    muzzles: muzzleHeft(content),
+  };
+}
+
+/**
+ * How hard each weapon kicks when it fires, 0 (a pea) to 1 (a nuke), by weapon index (the sim's
+ * `muzzle` event `weapon` param): the biggest blast it or anything it spawns can set off, against
+ * the standard 24-cell blast, with the shop price as a floor for shells that do their work without
+ * a blast (rollers, beams, gear). Renderer only: sizes the muzzle flash, recoil and blast dust.
+ */
+export function muzzleHeft(content: ResolvedContent): number[] {
+  const weapons = content.list('weapon');
+  const byId = new Map<string, WeaponManifest>();
+  for (const w of weapons) byId.set(w.id, w);
+  const memo = new Map<string, number>();
+  const blast = (id: string, depth: number): number => {
+    const hit = memo.get(id);
+    if (hit !== undefined) return hit;
+    const w = byId.get(id);
+    if (!w || depth > 6) return 0;
+    let r = 0;
+    for (const imp of [...w.impact, ...w.pulse]) {
+      if ('explosion' in imp) r = Math.max(r, imp.explosion.radius);
+      const kids =
+        'spawn' in imp
+          ? typeof imp.spawn.weapon === 'string'
+            ? [imp.spawn.weapon]
+            : imp.spawn.weapon
+          : 'mine' in imp
+            ? [imp.mine.weapon]
+            : [];
+      for (const k of kids) if (k !== id) r = Math.max(r, blast(k, depth + 1));
+    }
+    memo.set(id, r);
+    return r;
+  };
+  return weapons.map((w) => {
+    const byBlast = Math.min(1, Math.max(0, (blast(w.id, 0) - 8) / 72));
+    const price = w.shop ? w.shop.price / Math.max(1, w.shop.pack) : 0;
+    const byPrice = Math.min(1, Math.log2(Math.max(1, price / 150)) / 8);
+    const h = Math.max(byBlast, byPrice * 0.85, (byBlast + byPrice) / 2 + 0.1 * byBlast * byPrice);
+    return Math.round(Math.min(1, Math.max(0.1, h)) * 100) / 100;
+  });
 }
 
 /**

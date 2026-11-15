@@ -71,6 +71,7 @@ const api: CaptureApi = {
         tanks: init.tanks,
         shells: init.shells,
         liquids: init.liquids,
+        ...(init.muzzles ? { muzzles: init.muzzles } : {}),
       },
       shake: init.shake,
       preserveDrawingBuffer: true,
