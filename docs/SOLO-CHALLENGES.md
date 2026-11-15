@@ -33,8 +33,11 @@ screen → **Solo challenges** (`#challenges`, one challenge at `#challenge/<id>
 1. Add an entry to `CHALLENGES` in ladder order, with a new permanent id
    (`<chapter>.<name>`).
 2. `pnpm vitest run packages/client/src/game/challenges.test.ts`: a target challenge must be
-   solvable by the greedy solver (predicted direct hits) within its two-star shot count. Pick a
-   seed and columns that make it so.
+   cleared within its two-star shot count, either by the greedy solver (predicted direct hits)
+   or by its stored `solution` (weapon, angle, power per shot). Puzzles that need special ammo
+   (rollers, napalm, diggers) store a solution, found by a brute-force search over weapon,
+   angle and power in the real sim. A bot challenge must be won by the test's perfect-aim
+   player with plain missiles, so it can't be unbeatable.
 3. To look at the map, write a scenario with the same seed, map, columns and inputs, and run
    `pnpm sim:preview <id>` or `pnpm capture <id>`.
 
@@ -42,13 +45,16 @@ screen → **Solo challenges** (`#challenges`, one challenge at `#challenge/<id>
 
 - Range (still targets): First shot, Over the top (lob over the village mesa), Three cans,
   Headwind, Moon shot (Low gravity).
+- Tools of the trade (special ammo): Roll call (Rollers into a valley), Firestorm (one Napalm,
+  two targets), Bunker (Bunker Buster past the towers), Island hop (Heat Seekers on the
+  floating islands), Hopscotch (Skippers past the peaks).
 - Duels (bots shoot back): First blood (Moron), Sharpshooter (Shooter, and you start at 60
   health).
+- Gauntlet: Two on one (two Tossers, you in the middle), Gale (Shooter in a 250% wind), Meteor
+  night (Poolshark under falling rocks), Last stand (Cyborg).
 
 ## Next
 
-- Tools of the trade: puzzles with limited special ammo, such as digging to a buried target,
-  rolling one down a slope, napalm into a valley, and a target on a far island in Lakeland.
-- Gauntlet: bots under map events and twists (Meteor night, Rising water, Gale). Reuse the new
-  map events from the map-events thread as modifiers once they merge.
+- Use the new map events from the map-events thread (earthquake, cloudburst, flood, mud,
+  electricity) as Gauntlet modifiers once they merge.
 - Match awards and talking bots, if Joel wants them.
