@@ -1,0 +1,15 @@
+{
+  "id": "terrainop.fault-lines",
+  "schemaVersion": 1,
+  "extends": "terrainop.meteor-night",
+  "meta": {
+    "name": "Fault Lines",
+    "description": "A round twist. From the second turn on, the ground splits open somewhere about every other turn: fissures crack out from the spot, the ground between them drops into a rift valley and the slabs beside it tilt, and magma glows at the bottom of the deepest cracks. No ground is added, it only breaks and falls.",
+    "since": "core@0.91.0"
+  },
+  "meteor": "weapon.fault-line",
+  "count": [0, 1],
+  "near": 0,
+  "margin": 60,
+  "ground": true
+}

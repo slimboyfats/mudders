@@ -4001,10 +4001,13 @@ export class World implements SimApi {
     }
   }
 
-  /** On a flowing slope (quicksand) the tank slides one cell toward the lower side. */
+  /**
+   * On a flowing slope (quicksand) the tank slides one cell toward the lower side, every other
+   * tick: the flow runs downhill with real speed (kernel 0.54.0) and carries the tank along.
+   */
   private slide(t: Tank): void {
     const g = this.grid;
-    if (t.y >= g.height || (this.tick & 3) !== 0) return;
+    if (t.y >= g.height || (this.tick & 1) !== 0) return;
     const row = t.y * g.width;
     let flow = 0;
     let solid = 0;

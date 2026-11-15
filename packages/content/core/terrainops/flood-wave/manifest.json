@@ -1,0 +1,21 @@
+{
+  "id": "terrainop.flood-wave",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Flood Wave",
+    "description": "A round twist. Every other turn from the second on, a wave of real water surges in from one edge of the map, rolls inland over the ground pushing tanks along, climbs the slopes it can and pours into the valleys. The lakes it leaves soak away again before the next wave.",
+    "since": "core@0.91.0"
+  },
+  "behaviour": "terrainop.flood-wave",
+  "water": "material.water",
+  "first": 1,
+  "every": 2,
+  "surge": 120,
+  "rate": 90,
+  "band": 30,
+  "margin": 4,
+  "reach": 25,
+  "height": 16,
+  "speed": 24,
+  "soak": 3
+}

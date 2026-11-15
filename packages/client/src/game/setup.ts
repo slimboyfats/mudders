@@ -100,6 +100,10 @@ export const TWISTS = [
   { name: 'Meteor night', events: ['terrainop.meteor-night'] },
   { name: 'Rising water', events: ['terrainop.rising-water'] },
   { name: 'Lightning storm', weather: 'weather.rain', events: ['terrainop.lightning-storm'] },
+  { name: 'Earthquakes', events: ['terrainop.earthquakes', 'terrainop.quake-sinkholes'] },
+  { name: 'Cloudburst', weather: 'weather.rain', events: ['terrainop.cloudburst'] },
+  { name: 'Flood wave', events: ['terrainop.flood-wave'] },
+  { name: 'Fault lines', events: ['terrainop.fault-lines'] },
 ] as const;
 
 /** Odds a round gets a twist, out of 100. */

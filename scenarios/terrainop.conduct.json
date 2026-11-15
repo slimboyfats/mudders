@@ -1,0 +1,62 @@
+{
+  "id": "terrainop.conduct",
+  "schemaVersion": 1,
+  "description": "Electricity in water: a Lightning strike on a tank standing in a lake charges the whole lake.",
+  "subject": "terrainop.conduct",
+  "mode": "mode.classic",
+  "seed": 1,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.lakeland"
+  },
+  "tanks": [
+    {
+      "x": 270,
+      "inventory": {
+        "weapon.lightning": 1
+      }
+    },
+    {
+      "x": 650
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "mapEvents": true,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.lightning"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 500,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

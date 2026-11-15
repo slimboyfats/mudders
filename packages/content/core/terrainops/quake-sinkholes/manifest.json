@@ -1,0 +1,15 @@
+{
+  "id": "terrainop.quake-sinkholes",
+  "schemaVersion": 1,
+  "extends": "terrainop.meteor-night",
+  "meta": {
+    "name": "Quake Sinkholes",
+    "description": "Part of the Earthquakes twist: every quake from the second turn on also opens a sinkhole somewhere on the map. The ground there drops out into a deep pit and is gone, so the land wears away over the round.",
+    "since": "core@0.91.0"
+  },
+  "meteor": "weapon.sinkhole",
+  "count": [1, 1],
+  "near": 0,
+  "margin": 40,
+  "ground": true
+}

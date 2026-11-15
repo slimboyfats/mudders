@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Lightning",
-    "description": "Calls a bolt down from the sky onto the highest enemy tank, wherever it is. The strike fuses the crater walls into glass and sends arcs crawling along the ground. Aim does not matter; cover overhead does.",
+    "description": "Calls a bolt down from the sky onto the highest enemy tank, wherever it is. The strike fuses the crater walls into glass and sends arcs crawling along the ground. Aim does not matter; cover overhead does. Water conducts it: a strike in or beside a lake shocks every tank standing in that water.",
     "category": "weird",
     "since": "core@0.7.0"
   },
@@ -45,6 +45,13 @@
       },
       "radius": 27,
       "damageType": "heat"
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.conduct"
+      },
+      "radius": 24,
+      "damageType": "shock"
     }
   ],
   "shop": {

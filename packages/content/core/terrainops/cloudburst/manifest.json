@@ -1,0 +1,19 @@
+{
+  "id": "terrainop.cloudburst",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Cloudburst",
+    "description": "A round twist. From the second turn on, every turn starts with a downpour of real water. It runs down the slopes, washing the ground loose as mud that slides down into the valleys, and gathers there in lakes that swell with each storm and soak away again between them, so the hills wear down over the round.",
+    "since": "core@0.91.0"
+  },
+  "behaviour": "terrainop.cloudburst",
+  "water": "material.water",
+  "first": 1,
+  "rate": 6,
+  "pour": 240,
+  "height": [6, 30],
+  "margin": 10,
+  "mud": "material.liquid-dirt",
+  "erode": 0.5,
+  "soak": 3
+}

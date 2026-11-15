@@ -19,9 +19,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-15',
-    title: 'More spectacle when you fire and when it lands',
-    pack: 'core@0.90.0',
+    title: 'A world that wears away, shocking water and more spectacle',
+    pack: 'core@0.90.0 – 0.91.0',
     items: [
+      'New round twist, Earthquakes: every turn starts with a quake that shakes the ground for a few seconds. Steep slopes shake loose and slide down into the valleys, and every quake opens a sinkhole somewhere that swallows the ground for good, so the land wears away over the round',
+      'New round twist, Cloudburst: every turn starts with a downpour of real water. It washes the slopes loose as mud that slides down into the valleys and gathers there in lakes that swell with each storm and soak away between them',
+      'New round twist, Flood wave: every other turn a wave of real water surges in from one edge of the map, rolls inland over the ground (pushing tanks along), climbs what slopes it can and pours into the valleys. The lakes it leaves soak away before the next wave',
+      'New round twist, Fault lines: about every other turn the ground splits open somewhere: fissures crack out, the ground between them drops into a rift valley, the slabs beside it tilt and magma glows in the deepest cracks',
+      'Mud flows with real momentum now, like water and lava: Quicksand and other runny mud pours down a slope with speed, runs out over the flat at the bottom and carries tanks down with it faster',
+      'Water conducts electricity: a Lightning shot, a storm bolt or a Superstorm bolt that strikes in or beside a lake (or runny mud) charges all the water joined to it, and every tank standing in that water is shocked, however far from the strike',
       'Blasts on the ground drive a low wall of dust out along the surface both ways. It follows the slopes, flicks up grit as it passes and stops at a cliff',
       'Steam: a blast in or beside water keeps boiling it into white steam for a second or two after the fireball clears, and burning shells (napalm, meteors, fire globs) hiss out a gout of steam where they plunge in',
       'Tanks flinch: a blast close to a tank rocks it away and bounces it off its tracks, shaking dust out from under them. The nearer and bigger the blast, the harder the tank is rocked',
