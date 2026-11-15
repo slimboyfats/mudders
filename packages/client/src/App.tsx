@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { MAX_PLAYERS } from '@mudders/shared';
 import { setAudioSettings } from './audio/bridge';
 import { loadSettings, type Settings as SettingsT } from './game/settings';
+import { challengeById, type Challenge } from './game/challenges';
 import { loadSetup, type MapSize, type MatchSetup } from './game/setup';
 import { Settings } from './ui/Settings';
 import { Title } from './ui/Title';
@@ -9,6 +10,10 @@ import { Title } from './ui/Title';
 // The match (renderer, sim, content), the setup screen and the sandbox are code-split (§9).
 const Play = lazy(() => import('./ui/Play').then((m) => ({ default: m.Play })));
 const Setup = lazy(() => import('./ui/Setup').then((m) => ({ default: m.Setup })));
+const Challenges = lazy(() => import('./ui/Challenges').then((m) => ({ default: m.Challenges })));
+const ChallengePlay = lazy(() =>
+  import('./ui/ChallengePlay').then((m) => ({ default: m.ChallengePlay })),
+);
 const Changelog = lazy(() => import('./ui/Changelog').then((m) => ({ default: m.Changelog })));
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
 const HostGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.HostGame })));
@@ -20,6 +25,8 @@ type Route =
   | { name: 'setup' }
   | { name: 'settings' }
   | { name: 'changelog' }
+  | { name: 'challenges' }
+  | { name: 'challenge'; challenge: Challenge }
   | { name: 'play'; quick?: { players: number; size: MapSize } }
   | { name: 'sandbox' }
   | { name: 'host'; mode: 'online' | 'direct' }
@@ -33,6 +40,10 @@ function fromHash(): Route {
   if (h.startsWith('#setup')) return { name: 'setup' };
   if (h.startsWith('#settings')) return { name: 'settings' };
   if (h.startsWith('#changelog')) return { name: 'changelog' };
+  if (h === '#challenges') return { name: 'challenges' };
+  const ch = /^#challenge\/([a-z0-9.-]+)$/.exec(h);
+  const challenge = ch?.[1] ? challengeById(ch[1]) : undefined;
+  if (challenge) return { name: 'challenge', challenge };
   if (h === '#host') return { name: 'host', mode: 'online' };
   if (h === '#direct') return { name: 'direct' };
   if (h === '#browse') return { name: 'browse' };
@@ -111,6 +122,18 @@ export function App() {
         <Settings settings={settings} setSettings={setSettings} onBack={() => go('')} />
       )}
       {route.name === 'changelog' && <Changelog onBack={() => go('')} />}
+      {route.name === 'challenges' && (
+        <Challenges onPick={(id) => go(`#challenge/${id}`)} onBack={() => go('')} />
+      )}
+      {route.name === 'challenge' && (
+        <ChallengePlay
+          key={route.challenge.id}
+          challenge={route.challenge}
+          settings={settings}
+          onNext={(id) => go(`#challenge/${id}`)}
+          onList={() => go('#challenges')}
+        />
+      )}
       {route.name === 'play' && (
         <Play setup={playSetup} settings={settings} onExit={() => go('')} />
       )}

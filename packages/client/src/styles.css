@@ -3431,3 +3431,139 @@ a.button {
     background: #4a8cf0;
   }
 }
+
+/* ── Solo challenges ── */
+
+.title .menu .solo-tile {
+  min-height: 56px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.title .menu .solo-tile small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.challenges-total {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.challenge-chapter h3 {
+  margin: 8px 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.challenge-chapter ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.challenge-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #261c15;
+  border: 1px solid #3f3126;
+  color: var(--fg);
+  text-align: left;
+}
+
+.challenge-card.cleared {
+  border-color: #6b4a1f;
+}
+
+.challenge-card.locked {
+  opacity: 0.5;
+}
+
+.challenge-num {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #3a2a1c;
+  color: #ffb35c;
+  font-weight: 900;
+}
+
+.challenge-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.challenge-text small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.stars {
+  flex: none;
+  color: #ffc23c;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+.stars-off {
+  color: #5a4632;
+}
+
+.challenge-banner {
+  position: absolute;
+  /* under the HUD's top row (wind, round), clear of the controls at the bottom */
+  top: calc(env(safe-area-inset-top) + 46px * var(--ui-scale, 1));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-width: min(92%, 520px);
+  padding: 4px 12px;
+  border-radius: 10px;
+  background: rgb(20 14 10 / 0.78);
+  border: 1px solid #4a3a2c;
+  font-size: 0.78rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.challenge-banner strong {
+  color: #ff8a3c;
+}
+
+.challenge-meta {
+  color: #ffc23c;
+}
+
+.challenge-hint {
+  color: #9fd4ff;
+}
+
+.challenge-result .stars {
+  font-size: 2rem;
+}
+
+.challenge-result p {
+  margin: 0;
+}
