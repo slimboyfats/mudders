@@ -83,6 +83,9 @@ import { Rockets } from './rocket';
 import { Flights } from './flight';
 import { CloudWake, type CloudSky } from './cloud-wake';
 import { type KickTank, MuzzleKick } from './muzzle';
+import { BlastSkirts, type SkirtGround } from './skirt';
+import { SteamFx } from './steam';
+import { type FlinchTank, TankFlinch } from './flinch';
 import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
@@ -226,6 +229,9 @@ const PLAGUE_PUFF = [0, 0];
 
 /** A toxic cloud's cells, from its dense heart out to its rim. */
 const CLOUD_TONES = [0x4a7a0c, 0x8cc81a, 0xa6e024, 0xb8ec2c] as const;
+
+/** Shell looks that burn: they hiss into steam in water. */
+const HOT_SHELLS: ReadonlySet<string> = new Set(['fire', 'meteor', 'plasma', 'star']);
 
 export class PixelRenderer implements Renderer {
   readonly camera: Camera;
@@ -490,6 +496,14 @@ export class PixelRenderer implements Renderer {
   private readonly cloudWake = new CloudWake();
   /** Muzzle flashes, barrel recoil and blast dust of each shot (renderer only). */
   private readonly muzzleKick = new MuzzleKick();
+  /** Dust walls big ground blasts drive out along the surface (renderer only). */
+  private readonly skirts = new BlastSkirts();
+  private dustGround: SkirtGround | null = null;
+  /** Tanks rocked by blasts close to them (renderer only). */
+  private readonly flinch = new TankFlinch();
+  /** Water boiled off by blasts and burning shells (renderer only). */
+  private readonly steam = new SteamFx();
+  private readonly steamWater = { liquid: (x: number, y: number) => this.water.isLiquid(x, y) };
   private readonly cloudSky: CloudSky = {
     cover: 0,
     drift: 0,
@@ -1265,6 +1279,12 @@ export class PixelRenderer implements Renderer {
         this.water.blast(e);
         this.liquid.blast(e.x, e.y, e.radius);
         if ((e.params.strength ?? 1) > 0) {
+          this.skirts.blast(e.x, e.y, e.radius, e.params.strength ?? 1, e.tick, this.groundDust());
+          this.steam.blast(e.x, e.y, e.radius, e.params.strength ?? 1, e.tick, this.steamWater);
+          const near: FlinchTank[] = [];
+          for (const t of s.entities) if (t.kind === 'tank') near.push(t);
+          const g = this.groundDust();
+          this.flinch.blast(e.x, e.y, e.radius, e.tick, near, g.dust, this.particles, this.fx.mult);
           this.scorch(e.x, e.y, e.radius, e.tick);
           this.clearGrass(e.x, e.y, e.radius);
         }
@@ -1325,8 +1345,6 @@ export class PixelRenderer implements Renderer {
     const heft = this.palette.muzzles?.[e.params.weapon ?? -1] ?? 0.25;
     const tanks: KickTank[] = [];
     for (const t of entities) if (t.kind === 'tank') tanks.push(t);
-    const W = this.mapWidth;
-    const H = this.mapHeight;
     this.muzzleKick.fire(
       e.x,
       e.y,
@@ -1334,17 +1352,29 @@ export class PixelRenderer implements Renderer {
       heft,
       e.tick,
       tanks,
-      {
-        solid: this.probe.solid,
-        dust: (x, y) => {
-          const m = x >= 0 && y >= 0 && x < W && y < H ? this.terrain[y * W + x]! : 0;
-          return shade(this.palette.materials[m] ?? 0x7a5a3a, 0.6);
-        },
-      },
+      this.groundDust(),
       this.particles,
       this.fx.mult,
       this.air,
     );
+  }
+
+  /** The ground as blast dust sees it: what is solid, and a dimmed tone of its colour. */
+  private groundDust(): SkirtGround {
+    const W = this.mapWidth;
+    const H = this.mapHeight;
+    if (this.dustGround?.width === W && this.dustGround.height === H) return this.dustGround;
+    this.dustGround = {
+      width: W,
+      height: H,
+      solid: this.probe.solid,
+      dust: (x, y) => {
+        const m = x >= 0 && y >= 0 && x < W && y < H ? this.terrain[y * W + x]! : 0;
+        // lifted dust is paler than the ground it came off, so it reads against it
+        return mix(this.palette.materials[m] ?? 0x7a5a3a, 0x9c8668, 0.55);
+      },
+    };
+    return this.dustGround;
   }
 
   /** Drop every cosmetic left over from the last round, so a new map starts clean. */
@@ -1361,6 +1391,9 @@ export class PixelRenderer implements Renderer {
     this.flights.clear();
     this.cloudWake.clear();
     this.muzzleKick.clear();
+    this.skirts.clear();
+    this.steam.clear();
+    this.flinch.clear();
     this.starColor = new Map();
     this.shieldHitAt = [];
     this.shieldUpAt = [];
@@ -2004,6 +2037,10 @@ export class PixelRenderer implements Renderer {
     this.cloudX += 0.012 + this.wind * 0.004;
     this.cloudWake.step(this.fxTick, this.wind);
     this.muzzleKick.prune(this.fxTick);
+    this.skirts.tick(this.fxTick, this.groundDust(), this.particles, this.fx.mult, this.air);
+    this.skirts.prune(this.fxTick);
+    this.steam.tick(this.fxTick, this.steamWater, this.particles, this.fx.mult);
+    this.steam.prune(this.fxTick);
     emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
@@ -2019,8 +2056,13 @@ export class PixelRenderer implements Renderer {
       this.rockets.prune(this.fxTick);
       this.flights.prune(this.fxTick);
       for (const e of this.entities)
-        if (e.kind === 'projectile')
+        if (e.kind === 'projectile') {
           this.cloudWake.shell(e.id, e.x, e.y, this.fxTick, this.cloudSky, this.probe.solid);
+          // burning shells hiss into steam where they plunge into water
+          const lk = shells[e.weapon];
+          if (lk && (HOT_SHELLS.has(lk.shell) || lk.flight === 'flask'))
+            this.steam.shell(e.id, e.x, e.y, this.fxTick, this.steamWater, this.particles);
+        }
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
         const look = shells[e.weapon]?.shell;
@@ -2992,8 +3034,9 @@ export class PixelRenderer implements Renderer {
     const ft = Math.floor(t);
     for (const e of this.entities) {
       if (e.kind !== 'tank') continue;
-      const x = e.x + this.muzzleKick.jolt(e.player, ft);
-      const y = this.tankY(e);
+      const [fx, fy] = e.alive ? this.flinch.offset(e.player, ft) : [0, 0];
+      const x = e.x + this.muzzleKick.jolt(e.player, ft) + fx;
+      const y = this.tankY(e) + fy;
       const col = playerColor(e.player);
       const look = (e.tank && looks?.[e.tank]) || STANDARD_LOOK;
       const rows = look.sprite;
