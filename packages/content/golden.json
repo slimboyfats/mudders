@@ -1,5 +1,5 @@
 {
-  "contentHash": "37de99a2bedcfc35",
+  "contentHash": "77dbe06903e465cc",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -571,7 +571,7 @@
     },
     "material.ash": {
       "ticks": 387,
-      "hash": "2e72ea9933aa5a0e"
+      "hash": "9dcb70795a607f2d"
     },
     "material.birch-bark": {
       "ticks": 235,
@@ -647,7 +647,7 @@
     },
     "material.gas-flare": {
       "ticks": 973,
-      "hash": "afd4a400e194d495"
+      "hash": "b8e7fea245496429"
     },
     "material.gas-pocket": {
       "ticks": 123,
@@ -707,7 +707,7 @@
     },
     "material.marsh-gas": {
       "ticks": 973,
-      "hash": "afd4a400e194d495"
+      "hash": "b8e7fea245496429"
     },
     "material.meteorite": {
       "ticks": 96,
@@ -723,7 +723,7 @@
     },
     "material.napalm": {
       "ticks": 387,
-      "hash": "2e72ea9933aa5a0e"
+      "hash": "9dcb70795a607f2d"
     },
     "material.needles": {
       "ticks": 235,
@@ -803,7 +803,7 @@
     },
     "material.tar": {
       "ticks": 869,
-      "hash": "8258e095a354799a"
+      "hash": "dd2d6572a981fbba"
     },
     "material.water": {
       "ticks": 1216,
@@ -1547,7 +1547,7 @@
     },
     "weapon.hot-napalm": {
       "ticks": 392,
-      "hash": "a1a0af5fa82397a3"
+      "hash": "89243f3f4236bd35"
     },
     "weapon.ice-wall": {
       "ticks": 615,
@@ -1655,7 +1655,7 @@
     },
     "weapon.napalm": {
       "ticks": 387,
-      "hash": "2e72ea9933aa5a0e"
+      "hash": "9dcb70795a607f2d"
     },
     "weapon.nuke-core": {
       "ticks": 211,
@@ -1683,7 +1683,7 @@
     },
     "weapon.plasma-blast": {
       "ticks": 324,
-      "hash": "044df0d0a36f0db7"
+      "hash": "b51b42c2b6e5067c"
     },
     "weapon.plasma-cannon": {
       "ticks": 900,
