@@ -19,9 +19,15 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-15',
-    title: 'More spectacle when you fire and when it lands',
-    pack: 'core@0.90.0',
+    title: 'A world that wears away, shocking water and more spectacle',
+    pack: 'core@0.90.0 – 0.91.0',
     items: [
+      'New round twist, Earthquakes: every turn starts with a quake that shakes the ground for a few seconds. Steep slopes shake loose and slide down into the valleys, and every quake opens a sinkhole somewhere that swallows the ground for good, so the land wears away over the round',
+      'New round twist, Cloudburst: every turn starts with a downpour of real water. It washes the slopes loose as mud that slides down into the valleys and gathers there in lakes that swell with each storm and soak away between them',
+      'New round twist, Flood wave: every other turn a wave of real water surges in from one edge of the map, rolls inland over the ground (pushing tanks along), climbs what slopes it can and pours into the valleys. The lakes it leaves soak away before the next wave',
+      'New round twist, Fault lines: about every other turn the ground splits open somewhere: fissures crack out, the ground between them drops into a rift valley, the slabs beside it tilt and magma glows in the deepest cracks',
+      'Mud flows with real momentum now, like water and lava: Quicksand and other runny mud pours down a slope with speed, runs out over the flat at the bottom and carries tanks down with it faster',
+      'Water conducts electricity: a Lightning shot, a storm bolt or a Superstorm bolt that strikes in or beside a lake (or runny mud) charges all the water joined to it, and every tank standing in that water is shocked, however far from the strike',
       'Solo challenges, two new chapters. Tools of the trade: puzzles where the kit is the trick, such as Rollers into a valley, one Napalm for two targets, a Bunker Buster past the towers, Heat Seekers among floating islands and Skippers past the peaks. Gauntlet: two Tossers at once, the Shooter in a gale, the Poolshark on a meteor night and a last stand against the Cyborg',
       'Solo challenges: a new ladder on the start screen with set pieces on fixed maps. Each gives you a set kit and a goal and scores one to three stars. Range: knock out still targets, lob over a mesa, beat a headwind and shoot under low gravity. Duels: beat a Moron bot, then a Shooter while you start hurt. Each challenge opens when you clear the one before it',
       'Blasts on the ground drive a low wall of dust out along the surface both ways. It follows the slopes, flicks up grit as it passes and stops at a cliff',

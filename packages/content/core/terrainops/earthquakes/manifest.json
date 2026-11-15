@@ -1,0 +1,19 @@
+{
+  "id": "terrainop.earthquakes",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Earthquakes",
+    "description": "A round twist. From the second turn on, every turn starts with an earthquake: the ground shakes for a few seconds, steep slopes shake loose and slide down into the valleys, and tanks perched on a ledge can come down with them. Strongest near the epicentre, felt across the whole map. Rock and props hold.",
+    "since": "core@0.91.0"
+  },
+  "behaviour": "terrainop.earthquakes",
+  "first": 1,
+  "ticks": 150,
+  "pulse": 6,
+  "reach": 200,
+  "depth": 10,
+  "steps": 6,
+  "slide": 0.7,
+  "kick": 0.9,
+  "steep": 4
+}

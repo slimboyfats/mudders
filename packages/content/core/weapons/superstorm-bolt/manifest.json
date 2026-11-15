@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Superstorm bolt",
-    "description": "One of the huge ion-thick lightning bolts a Superstorm hammers down. It hangs a moment over where it will hit, then strikes: the ground around the hit implodes, sucked into a swirling vortex that drags tanks in, and a moment later it all blows out again as a Superstorm blast.",
+    "description": "One of the huge ion-thick lightning bolts a Superstorm hammers down. It hangs a moment over where it will hit, then strikes: the ground around the hit implodes, sucked into a swirling vortex that drags tanks in, and a moment later it all blows out again as a Superstorm blast. Water conducts it: a strike in or beside a lake shocks every tank standing in that water.",
     "category": "submunition",
     "since": "core@0.39.0"
   },
@@ -62,6 +62,13 @@
         "inherit": 0,
         "count": 1
       }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.conduct"
+      },
+      "radius": 16,
+      "damageType": "shock"
     }
   ],
   "shop": {

@@ -220,8 +220,8 @@ export const CHALLENGES: readonly Challenge[] = [
     wind: 0,
     stars: { by: 'shots', three: 2, two: 3 },
     solution: [
-      ['weapon.skipper', 20, 950],
-      ['weapon.skipper', 56, 550],
+      ['weapon.skipper', 20, 925],
+      ['weapon.skipper', 44, 675],
     ],
   },
   // ── 3 Duels: bots that shoot back ─────────────────────────────────────────────────────────

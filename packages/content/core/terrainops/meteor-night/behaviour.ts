@@ -13,6 +13,11 @@ const params = z.strictObject({
   spread: z.number().int().min(0).max(200),
   /** Keep landings this many columns from the map edges. */
   margin: z.number().int().min(0).max(200),
+  /**
+   * Set the shell off at the ground instead of dropping it from the sky (a sinkhole or fault
+   * opening under the map, not something falling onto it). Unset = from the sky.
+   */
+  ground: z.boolean().optional(),
 });
 type Params = z.infer<typeof params>;
 
@@ -52,7 +57,10 @@ export default defineTerrainOp<Params>({
         x = tx + api.rng.range(-p.spread, p.spread);
       } else x = api.rng.range(lo, hi);
       x = Math.max(lo, Math.min(hi, x));
-      api.throwShell(w, -1, x * FP + (FP >> 1), 0, 0, 0);
+      if (p.ground === true) {
+        const y = Math.max(0, api.grid.surfaceY(x) - 2);
+        api.throwShell(w, -1, x * FP + (FP >> 1), y * FP, 0, FP);
+      } else api.throwShell(w, -1, x * FP + (FP >> 1), 0, 0, 0);
     }
     if (n > 0) api.emit('meteorNight', W >> 1, 0, 0, { count: n });
     return 'idle';

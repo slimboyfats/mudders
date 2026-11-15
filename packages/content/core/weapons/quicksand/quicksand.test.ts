@@ -10,8 +10,12 @@ describe('weapon.quicksand', () => {
     w.grid.markDirty(150, 100, 260, 150);
     w.run(5);
     w.tanks[1]!.y = w.grid.surfaceY(215);
+    const y0 = w.tanks[1]!.y;
     dropAt(w, 'weapon.quicksand', 200);
-    expect(w.tanks[1]!.y).toBeGreaterThan(140);
+    // carried down the flank and out past its foot (the mud runs out over the flat as a sheet,
+    // so the tank ends a little above the old floor)
+    expect(w.tanks[1]!.x).toBeGreaterThan(245);
+    expect(w.tanks[1]!.y - y0).toBeGreaterThan(20);
   });
 
   it('sinks a tank on flat ground a few cells into the mud, then it sets', () => {

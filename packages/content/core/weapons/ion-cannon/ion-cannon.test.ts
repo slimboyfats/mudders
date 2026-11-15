@@ -43,14 +43,14 @@ describe('weapon.ion-cannon', () => {
   });
 
   it('ends the turn while a breached lake is still draining into the crater', () => {
-    // Lakeland seed 1: the strike opens a lake that drains down the crater wall for minutes
+    // Lakeland seed 2: the strike opens a lake that drains down the crater wall for minutes
     const w = makeWorld({
-      seed: 1,
+      seed: 2,
       players: 4,
       map: { generator: 'gen.lakeland' },
       rules: { turnTimer: 0, suddenDeath: false },
     });
-    const ticks = dropAt(w, 'weapon.ion-cannon', 840, 3000);
+    const ticks = dropAt(w, 'weapon.ion-cannon', 600, 3000);
     expect(w.phase).toBe('aim');
     expect(ticks).toBeLessThan(1000);
     // the water is still running, into the next player's turn

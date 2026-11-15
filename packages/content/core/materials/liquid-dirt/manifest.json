@@ -10,6 +10,8 @@
   "cell": 7,
   "settle": "flow",
   "density": 120,
+  "disperse": 2,
+  "viscosity": 1,
   "strength": {
     "blast": 0.7,
     "kinetic": 0.6,

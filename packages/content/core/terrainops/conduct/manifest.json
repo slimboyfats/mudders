@@ -1,0 +1,14 @@
+{
+  "id": "terrainop.conduct",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Conduct",
+    "description": "Electricity runs through water: a lightning strike that lands in or beside water charges all of the water (and runny mud) joined to it, and every tank standing in that water is shocked. Dry ground stops it.",
+    "since": "core@0.91.0"
+  },
+  "behaviour": "terrainop.conduct",
+  "through": ["material.water", "material.liquid-dirt"],
+  "cells": 60000,
+  "damage": 30,
+  "sparks": 12
+}
