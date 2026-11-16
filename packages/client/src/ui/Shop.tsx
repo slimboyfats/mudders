@@ -50,9 +50,28 @@ export function Scoreboard({ hud, final }: ScoreProps) {
               {hud.teams && <small> Team {teamName(t.team)}</small>}
               {t.bot && <small> {t.bot}</small>}
               {won(t) && <span className="crown"> ★</span>}
+              {!final && last?.bountyOn === t.player && (
+                <small className="earn-note"> had the bounty</small>
+              )}
             </td>
             {!final && <td>{last?.points[t.player] ?? 0}</td>}
-            {!final && <td>+{money(last?.earned[t.player] ?? 0)}</td>}
+            {!final && (
+              <td>
+                +{money(last?.earned[t.player] ?? 0)}
+                {(last?.bounty?.[t.player] ?? 0) > 0 && (
+                  <small className="earn-note">
+                    {' '}
+                    bounty {money(last?.bounty?.[t.player] ?? 0)}
+                  </small>
+                )}
+                {(last?.comeback?.[t.player] ?? 0) > 0 && (
+                  <small className="earn-note">
+                    {' '}
+                    comeback {money(last?.comeback?.[t.player] ?? 0)}
+                  </small>
+                )}
+              </td>
+            )}
             <td>{wins(t)}</td>
             <td>{t.score}</td>
           </tr>

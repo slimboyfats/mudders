@@ -33,7 +33,7 @@ const params = z.strictObject({
 });
 
 /**
- * Tosser (§3.7): solves the shot like Poolshark, but lobs: it only tries steep angles, so its
+ * Lobber (§3.7): solves the shot like Trickshot, but lobs: it only tries steep angles, so its
  * shells drop over cover onto the nearest tank, and it spends on the heaviest weapons it can.
  * It drives to keep its distance, or to a spot where a lob gets through.
  */

@@ -127,7 +127,7 @@ export interface SimApi extends EffectSink {
   weaponByIndex(id: string): number;
   /**
    * Change the weather mid-round (`weather.*` id, null = clear skies), as a passing weather
-   * front does (kernel 0.56.0). Drag and the weather's turn-start effects follow from the next
+   * front does (kernel 0.57.0). Drag and the weather's turn-start effects follow from the next
    * tick; the renderer picks the new sky up from the snapshot.
    */
   setSky(weather: string | null): void;

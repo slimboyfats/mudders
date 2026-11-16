@@ -1,0 +1,27 @@
+{
+  "id": "showcase.bot-chatter",
+  "schemaVersion": 1,
+  "description": "Bot chatter: P1 lobs a missile that lands short, then three bots (Moron, Cyborg, Poolshark) take turns. Taunts as each bot's turn starts, a jeer at P1's miss, yelps and close calls when hit, gloats and last words on a kill.",
+  "mode": "mode.classic",
+  "seed": 11,
+  "players": 4,
+  "map": {
+    "width": 640,
+    "height": 320
+  },
+  "tanks": [{ "x": 90 }, { "x": 260, "health": 30 }, { "x": 420 }, { "x": 560, "health": 40 }],
+  "turnOrder": [0, 1, 2, 3],
+  "wind": 0,
+  "bots": [null, "ai.moron", "ai.cyborg", "ai.poolshark"],
+  "rules": { "rounds": 1, "turnCap": 2, "suddenDeath": false },
+  "inputs": [
+    { "t": 40, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.missile" } },
+    { "t": 40, "player": 0, "action": { "type": "aim", "angle": 60, "power": 300 } },
+    { "t": 60, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 3600,
+    "untilSettled": true,
+    "extraTicks": 200
+  }
+}

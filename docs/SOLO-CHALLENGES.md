@@ -48,20 +48,22 @@ screen → **Solo challenges** (`#challenges`, one challenge at `#challenge/<id>
 - Tools of the trade (special ammo): Roll call (Rollers into a valley), Firestorm (one Napalm,
   two targets), Bunker (Bunker Buster past the towers), Island hop (Heat Seekers on the
   floating islands), Hopscotch (Skippers past the peaks).
-- Duels (bots shoot back): First blood (Moron), Sharpshooter (Shooter, and you start at 60
+- Duels (bots shoot back): First blood (Bumbler), Sharpshooter (Brawler, and you start at 60
   health).
-- Gauntlet: Two on one (two Tossers, you in the middle), Gale (Shooter in a 250% wind), Meteor
-  night (Poolshark under falling rocks), Last stand (Cyborg).
+- Gauntlet: Two on one (two Lobbers, you in the middle), Gale (Brawler in a 250% wind), Meteor
+  night (Trickshot under falling rocks), Last stand (Deadeye).
 - Trick shots (harder still targets): Long shot (a big map), Lake district, Ice rink (Rollers on
   the glacier), Low ceiling (flat shots under the cave roof), Tailwind (three shots in a strong
   wind at your back).
 - Survival (`survive: n`, live through n of your turns; killing every foe wins too): Hold out
-  (Poolshark and Shooter), Meteor shower (Tosser on a meteor night), High water (Poolshark while
-  the water rises), Iron wall (Cyborg and Tosser, with a Heavy Shield).
+  (Trickshot and Brawler), Meteor shower (Lobber on a meteor night), High water (Trickshot while
+  the water rises), Iron wall (Deadeye and Lobber, with a Heavy Shield).
+- Wild world (the map events from #192 as twists): Shaky ground (Earthquakes), Live wire
+  (Lightning into a lake shocks every tank in it), Mudslide (Cloudburst), Flood wave (survive vs
+  Trickshot), Fault lines (duel vs Trickshot), Thunder lake (survive a Lightning storm on an
+  island).
 - All foes are on one team, so bots gang up on you rather than on each other.
 
 ## Next
 
-- Use the new map events from the map-events thread (earthquake, cloudburst, flood, mud,
-  electricity) as Gauntlet modifiers once they merge.
 - Match awards and talking bots, if Joel wants them.

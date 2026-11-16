@@ -21,7 +21,7 @@ describe('ai.cyborg', () => {
     }
   });
 
-  it('beats a Moron over a match', () => {
+  it('beats a Bumbler over a match', () => {
     const w = makeWorld({
       seed: 9,
       map: { width: 600, height: 300 },

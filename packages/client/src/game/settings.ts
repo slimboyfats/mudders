@@ -10,6 +10,8 @@ export interface Settings {
   slowmo: boolean;
   /** Each round is played at a later time of day: day, sunset, night, dawn (cosmetic). */
   dayNight: boolean;
+  /** Bots say things in speech bubbles (taunts, yelps, last words). */
+  chatter: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -34,6 +36,7 @@ function defaults(): Settings {
     shake: !mq('(prefers-reduced-motion: reduce)'),
     slowmo: true,
     dayNight: true,
+    chatter: true,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,

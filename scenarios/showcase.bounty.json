@@ -1,0 +1,62 @@
+{
+  "id": "showcase.bounty",
+  "schemaVersion": 1,
+  "description": "P2 leads the match and carries the bounty (a gold $ over the tank); P1 lands a missile on it for the kill.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "rules": {
+    "bounty": true
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 608,
+      "health": 12,
+      "score": 300
+    },
+    {
+      "x": 690,
+      "score": 120
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 150
+  }
+}

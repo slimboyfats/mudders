@@ -135,6 +135,8 @@ export interface RendererOptions {
   shake?: boolean;
   /** The sky turns from day to sunset, night and dawn as the rounds go by (default on). */
   dayNight?: boolean;
+  /** Bots say things in speech bubbles over their tanks (default on). */
+  chatter?: boolean;
   /** Keep the drawing buffer so it can be read back (headless capture). */
   preserveDrawingBuffer?: boolean;
   /**

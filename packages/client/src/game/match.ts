@@ -48,6 +48,8 @@ export interface HudTank {
   money: number;
   score: number;
   ready: boolean;
+  /** Cash for destroying this tank while it carries the leader's bounty; 0 = no bounty. */
+  bounty: number;
 }
 
 export interface HudGear {
@@ -216,7 +218,7 @@ export abstract class SimMatch implements SnapshotStream {
     }
     // a match that changes map or sky between rounds says where this round is played
     const w = this.world;
-    const news = w.options.perRound !== undefined || w.arsenal.length > 0;
+    const news = w.options.perRound !== undefined || w.arsenal.length > 0 || w.bountyPlayer >= 0;
     if (news && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
       this.shown = w.round;
       const free = w.arsenal.map((i) => this.names[w.weaponId(i)] ?? w.weaponId(i));
@@ -311,6 +313,10 @@ export abstract class SimMatch implements SnapshotStream {
         money: t.money,
         score: t.score,
         ready: t.ready,
+        bounty:
+          t.player === w.bountyPlayer && w.phase !== 'shop' && w.phase !== 'over'
+            ? w.bountyValue()
+            : 0,
         player: t.player,
         team: t.team,
         alive: t.alive,
@@ -384,7 +390,11 @@ export function roundLine(w: World, free: readonly string[] = []): string {
   const twist = w.options.perRound?.[w.round % w.options.perRound.length]?.twist;
   return `Round ${w.round + 1}: ${map}${sky ? `, ${sky.toLowerCase()}` : ''}${
     twist ? ` · ${twist.toUpperCase()}!` : ''
-  }${free.length > 0 ? `\nFree: ${free.join(', ')}` : ''}`;
+  }${free.length > 0 ? `\nFree: ${free.join(', ')}` : ''}${
+    w.bountyPlayer >= 0
+      ? `\nBounty on P${w.bountyPlayer + 1}: $${w.bountyValue().toLocaleString('en')} for the kill`
+      : ''
+  }`;
 }
 
 /** How the HUD words a weather front, from the sky it brings. */

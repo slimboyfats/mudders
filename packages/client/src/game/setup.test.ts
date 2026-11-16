@@ -91,6 +91,9 @@ describe('match setup', () => {
       toWorldOptions({ ...base, startingCash: 0, roundBonus: 0 }, 1).rules?.roundBonus,
     ).toBeUndefined();
     expect(toWorldOptions({ ...base, startingCash: 0 }, 1).rules?.roundBonus).toBeUndefined();
+    // bounty + comeback cash: passed on when switched on, left out otherwise
+    expect(toWorldOptions({ ...base, startingCash: 0, bounty: true }, 1).rules?.bounty).toBe(true);
+    expect(toWorldOptions({ ...base, startingCash: 0 }, 1).rules?.bounty).toBeUndefined();
   });
 });
 

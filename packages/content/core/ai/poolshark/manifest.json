@@ -2,7 +2,7 @@
   "id": "ai.poolshark",
   "schemaVersion": 1,
   "meta": {
-    "name": "Poolshark",
+    "name": "Trickshot",
     "description": "Solves the shot through the real wind and terrain by simulating its own shells, then misses a little on purpose. Goes for the weakest tank and buys the best damage per coin.",
     "since": "core@0.2.0"
   },
