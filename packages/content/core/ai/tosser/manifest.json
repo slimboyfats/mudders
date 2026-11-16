@@ -2,8 +2,8 @@
   "id": "ai.tosser",
   "schemaVersion": 1,
   "meta": {
-    "name": "Tosser",
-    "description": "Solves the shot through wind and terrain like Poolshark, but only ever lobs: steep, high shells that drop over cover onto the nearest tank. Buys the heaviest weapons it can afford.",
+    "name": "Lobber",
+    "description": "Solves the shot through wind and terrain like Trickshot, but only ever lobs: steep, high shells that drop over cover onto the nearest tank. Buys the heaviest weapons it can afford.",
     "since": "core@0.7.0"
   },
   "behaviour": "ai.tosser",

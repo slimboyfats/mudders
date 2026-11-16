@@ -34,7 +34,7 @@ describe('weapon.volcano-seed', () => {
 });
 
 describe('weapon.volcano-seed in a bot match', () => {
-  it('a Cyborg that owns one plants it near the enemy', () => {
+  it('a Deadeye that owns one plants it near the enemy', () => {
     const w = makeWorld({
       seed: 4,
       map: { width: 800, height: 300 },

@@ -28,7 +28,7 @@ describe('weapon.decoy-tank', () => {
     expect(Math.abs(w.tanks[0]!.lastShotX - 220)).toBeLessThan(12);
   });
 
-  it('fools bots: a Cyborg shoots the decoy in front of it, not the tank behind', () => {
+  it('fools bots: a Deadeye shoots the decoy in front of it, not the tank behind', () => {
     const w = makeWorld({
       seed: 3,
       map: { width: 800, height: 400 },

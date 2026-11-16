@@ -52,7 +52,7 @@ function prey(api: AiApi): AiTankView | undefined {
 }
 
 /**
- * Cyborg (§3.7): near-perfect aim. Picks the weakest enemy (closest on a tie), then tries its
+ * Deadeye (§3.7): near-perfect aim. Picks the weakest enemy (closest on a tie), then tries its
  * most damaging weapons and every candidate angle through the sim's own predictor until one
  * lands on the target, with no deliberate error. When no shot connects from where it stands it
  * drives to the nearest spot that has one (§3.2). Shops for fuel, then damage per coin.
