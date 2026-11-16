@@ -1,0 +1,66 @@
+{
+  "id": "prop.girder",
+  "schemaVersion": 1,
+  "description": "A storm bolt lands on the near end of a steel girder lying on the ground: the charge runs along the lattice and shocks the tank parked against its far end.",
+  "subject": "prop.girder",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.thunderstorm-bolt": 1
+      }
+    },
+    {
+      "x": 491
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "props": [
+    {
+      "prop": "prop.girder",
+      "x": 470
+    }
+  ],
+  "rules": {
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.thunderstorm-bolt"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 510
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 600,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

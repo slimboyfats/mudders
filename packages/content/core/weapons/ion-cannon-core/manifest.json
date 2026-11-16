@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Ion Cannon strike",
-    "description": "The beam an Ion Cannon beacon calls down after its charge: a crater twice as wide as a Heavy Nuke's, crackling bolts and the first of three shockwaves.",
+    "description": "The beam an Ion Cannon beacon calls down after its charge: a crater twice as wide as a Heavy Nuke's, crackling bolts and the first of three shockwaves. The charge runs on out through any water or steel in the blast, shocking every tank touching it.",
     "category": "submunition",
     "since": "core@0.37.0"
   },
@@ -16,6 +16,14 @@
     }
   ],
   "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.conduct",
+        "damage": 25
+      },
+      "radius": 200,
+      "damageType": "shock"
+    },
     {
       "explosion": {
         "use": "explosion.standard",

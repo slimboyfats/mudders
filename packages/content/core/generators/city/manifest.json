@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "City",
-    "description": "Low, gently rolling ground built up with concrete office towers, brick apartment blocks and the odd house between the tanks. Every building soaks up hits, cracks and then comes down as rubble; a tower's top can be shot off on its own. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
+    "description": "Low, gently rolling ground built up with concrete office towers, brick apartment blocks, the odd house and a dumped steel girder or two between the tanks. Every building soaks up hits, cracks and then comes down as rubble; a tower's top can be shot off on its own. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
     "since": "core@0.20.0"
   },
   "extends": "gen.hills",
@@ -23,6 +23,11 @@
     },
     {
       "prop": "prop.house",
+      "count": [1, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.girder",
       "count": [1, 2],
       "cluster": false
     }

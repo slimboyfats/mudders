@@ -62,6 +62,8 @@ export class MaterialTable {
    */
   readonly hot = new Uint8Array(256);
   readonly wet = new Uint8Array(256);
+  /** Cell bytes carrying each tag, in manifest order (see `cellsTagged`). */
+  private tagCells: Readonly<Record<string, readonly number[]>> = {};
   /** Gas vertical and sideways step chances per tick ×65536. */
   readonly gasRise = new Uint32Array(256);
   readonly gasDrift = new Uint32Array(256);
@@ -184,6 +186,7 @@ export class MaterialTable {
       if (m.tags?.includes('hot')) this.hot[m.cell] = 1;
       if (m.tags?.includes('wet')) this.wet[m.cell] = 1;
     }
+    this.tagCells = tagged;
     // 1 = set by a tag rule, 2 = set by an id rule (an id rule beats any tag rule)
     const by = new Uint8Array(256 * 256);
     let rule = 0;
@@ -296,6 +299,14 @@ export class MaterialTable {
     const c = this.cells[id];
     if (c === undefined) throw new Error(`unknown material ${id}`);
     return c;
+  }
+
+  /**
+   * Cell bytes of every material carrying `tag`, in manifest order (empty for an unknown tag), so
+   * a content op can act on a kind of material (`conducts`) without naming each id.
+   */
+  cellsTagged(tag: string): readonly number[] {
+    return Object.hasOwn(this.tagCells, tag) ? this.tagCells[tag]! : [];
   }
 
   strengthOf(cell: number, damageType: number): number {

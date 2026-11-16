@@ -1,0 +1,66 @@
+{
+  "id": "material.steel",
+  "schemaVersion": 1,
+  "description": "A lightning bolt lands on the roof of a steel-framed office tower: the charge runs along the roof beam and down the corner girders, sparks crawl through the metal, and the tank leaning on the tower's foot 100 rows below is shocked.",
+  "subject": "material.steel",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.thunderstorm-bolt": 1
+      }
+    },
+    {
+      "x": 544
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "props": [
+    {
+      "prop": "prop.tower",
+      "x": 520
+    }
+  ],
+  "rules": {
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.thunderstorm-bolt"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 600
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 600,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
