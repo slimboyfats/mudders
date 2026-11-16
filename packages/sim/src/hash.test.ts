@@ -30,6 +30,21 @@ describe('Hasher', () => {
     expect(new Set(hs).size).toBe(hs.length);
   });
 
+  it('hashes bytes as their length, then little-endian words, then the odd bytes', () => {
+    const buf = new Uint8Array(1024).map((_, i) => (Math.imul(i + 3, 2654435761) >>> 24) & 255);
+    // word-aligned and not, with and without bytes left over
+    for (const view of [buf.subarray(0, 1000), buf.subarray(4, 1007), buf.subarray(1, 998)]) {
+      const want = new Hasher().u32(view.length);
+      const words = view.length >>> 2;
+      for (let w = 0; w < words; w++) {
+        const i = w * 4;
+        want.u32(view[i]! | (view[i + 1]! << 8) | (view[i + 2]! << 16) | (view[i + 3]! << 24));
+      }
+      for (let i = words * 4; i < view.length; i++) want.u32(view[i]!);
+      expect(new Hasher().bytes(view).hex()).toBe(want.hex());
+    }
+  });
+
   it('handles unaligned byte views', () => {
     const buf = new Uint8Array(9).map((_, i) => i);
     const view = buf.subarray(1);

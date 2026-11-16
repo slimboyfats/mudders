@@ -2,6 +2,9 @@
  * Fast 64-bit (two-lane) non-cryptographic hash for state hashes and content hashes. Integer-only
  * (`Math.imul`), so identical on every engine.
  */
+/** Whether a `Uint32Array` over bytes reads them as little-endian words (true on every phone and PC). */
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
 export class Hasher {
   private h1 = 0x9747b28c | 0;
   private h2 = 0x85ebca6b | 0;
@@ -28,14 +31,42 @@ export class Hasher {
     return this.u32(0x7ff00000).u32(u[0]!).u32(u[1]!);
   }
 
-  /** Bytes as little-endian words, composed by hand so alignment and endianness never matter. */
+  /**
+   * Bytes as little-endian words. The mix is `u32`'s, run on locals: a grid layer is hundreds of
+   * thousands of words, and this is hashed every two seconds of online play. Where the machine is
+   * little-endian and the bytes are word-aligned the words are read straight from memory; else
+   * they are composed by hand, so alignment and endianness never change the result.
+   */
   bytes(arr: Uint8Array): this {
     const n = arr.length;
     this.u32(n);
     const words = n >>> 2;
-    for (let w = 0, i = 0; w < words; w++, i += 4) {
-      this.u32(arr[i]! | (arr[i + 1]! << 8) | (arr[i + 2]! << 16) | (arr[i + 3]! << 24));
+    let h1 = this.h1;
+    let h2 = this.h2;
+    if (LITTLE_ENDIAN && (arr.byteOffset & 3) === 0) {
+      const v = new Uint32Array(arr.buffer, arr.byteOffset, words);
+      for (let w = 0; w < words; w++) {
+        const k = v[w]! | 0;
+        let a = Math.imul(h1 ^ k, 0xcc9e2d51);
+        a = (a << 15) | (a >>> 17);
+        let b = Math.imul(h2 ^ k, 0x1b873593);
+        b = (b << 13) | (b >>> 19);
+        h1 = (a + b) | 0;
+        h2 = (b + Math.imul(a, 5) + 0xe6546b64) | 0;
+      }
+    } else {
+      for (let w = 0, i = 0; w < words; w++, i += 4) {
+        const k = arr[i]! | (arr[i + 1]! << 8) | (arr[i + 2]! << 16) | (arr[i + 3]! << 24);
+        let a = Math.imul(h1 ^ k, 0xcc9e2d51);
+        a = (a << 15) | (a >>> 17);
+        let b = Math.imul(h2 ^ k, 0x1b873593);
+        b = (b << 13) | (b >>> 19);
+        h1 = (a + b) | 0;
+        h2 = (b + Math.imul(a, 5) + 0xe6546b64) | 0;
+      }
     }
+    this.h1 = h1;
+    this.h2 = h2;
     for (let i = words * 4; i < n; i++) this.u32(arr[i]!);
     return this;
   }
