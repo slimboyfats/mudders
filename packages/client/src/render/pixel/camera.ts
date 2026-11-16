@@ -1,6 +1,14 @@
 import type { CameraControl, Vec2 } from '../types';
 
 const MAX_SCALE = 16;
+/**
+ * How far past the whole-map view the zoom may go out, as a share of the fit scale: the land past
+ * the map edges (the apron, ≥ 60% of the map each side) fills the extra room, and the player
+ * markers keep every tank findable when they are a few pixels tall.
+ */
+export const MIN_OUT = 0.5;
+/** One zoom-out step below the fit view multiplies the scale by this. */
+const OUT_STEP = 0.7;
 /** Zoom glide time constant (ms): ~95% of the way in three of these. */
 const GLIDE_MS = 45;
 /** Fling momentum decay time constant (ms). */
@@ -65,7 +73,10 @@ export class Camera implements CameraControl {
     this.vw = Math.max(1, Math.round(cssW * dpr));
     this.vh = Math.max(1, Math.round(cssH * dpr));
     if (this.fitted) this.fit();
-    else this.clamp();
+    else {
+      this.s = Math.max(this.minScale(), this.s);
+      this.clamp();
+    }
   }
 
   fit(): void {
@@ -85,21 +96,45 @@ export class Camera implements CameraControl {
     return Math.round(this.vh / 2 - this.cy * this.s);
   }
 
-  zoomBy(steps: number, screen?: Vec2): void {
+  /** Smallest scale: zoomed out past the whole map, down to `MIN_OUT` of the fit view. */
+  minScale(): number {
+    return this.fitScale() * MIN_OUT;
+  }
+
+  /**
+   * The scale `steps` zoom steps from `from`. Above the fit view the steps are whole cell scales
+   * (crisp pixels); at or below it they are `OUT_STEP` multiples down to `minScale`, and zooming
+   * back in from there stops at the fit view first.
+   */
+  private stepFrom(from: number, steps: number): number {
     const fit = this.fitScale();
-    let next: number;
+    const min = fit * MIN_OUT;
+    const near = (a: number, b: number) => Math.abs(a - b) <= 0.02 * b;
+    let next = from;
     if (steps > 0) {
-      next = this.s < 1 ? 1 : Math.floor(this.s) + steps;
+      for (let i = 0; i < steps; i++) {
+        if (next < fit && !near(next, fit)) next = Math.min(fit, next / OUT_STEP);
+        else next = next < 1 ? 1 : Math.floor(next) + 1;
+      }
     } else {
-      next = Math.ceil(this.s) + steps;
-      if (next < 1 || next < fit) next = fit;
+      for (let i = 0; i < -steps; i++) {
+        if (next > fit && !near(next, fit)) {
+          const n = Math.ceil(next) - 1;
+          next = n < 1 || n < fit ? fit : n;
+        } else next = Math.max(min, next * OUT_STEP);
+      }
+      if (near(next, min)) next = min;
     }
-    this.zoomAround(Math.min(MAX_SCALE, next), screen);
+    return Math.max(min, Math.min(MAX_SCALE, next));
+  }
+
+  zoomBy(steps: number, screen?: Vec2): void {
+    this.zoomAround(this.stepFrom(this.s, steps), screen);
   }
 
   zoomTo(scale: number, screen: Vec2, snap = true): void {
     const fit = this.fitScale();
-    let next = Math.max(fit, Math.min(MAX_SCALE, scale));
+    let next = Math.max(this.minScale(), Math.min(MAX_SCALE, scale));
     if (snap && next >= 1) next = Math.max(fit, Math.round(next));
     this.zoomAround(next, screen);
   }
@@ -107,15 +142,8 @@ export class Camera implements CameraControl {
   /** Like `zoomBy`, but eases there over a few frames (wheel, zoom buttons). */
   glideBy(steps: number, screen?: Vec2): void {
     const from = this.glide?.to ?? this.s;
-    const fit = this.fitScale();
-    let next: number;
-    if (steps > 0) next = from < 1 ? 1 : Math.floor(from) + steps;
-    else {
-      next = Math.ceil(from) + steps;
-      if (next < 1 || next < fit) next = fit;
-    }
     this.vx = this.vy = 0;
-    this.glide = { to: Math.min(MAX_SCALE, next), at: screen };
+    this.glide = { to: this.stepFrom(from, steps), at: screen };
   }
 
   /**

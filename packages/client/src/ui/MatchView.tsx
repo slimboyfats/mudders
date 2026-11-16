@@ -13,6 +13,7 @@ import { HitStop } from '../render/impact';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { PerfMeter, PerfOverlay, type PerfStats } from './Perf';
 import { Hud } from './Hud';
+import { PlayerMarkers, measureInsets, type MarkerTank } from './markers';
 
 interface Props {
   match: SimMatch;
@@ -59,6 +60,7 @@ export function MatchView({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const markersRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const hudStore = useMemo(() => new HudStore(match), [match]);
   const hud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
@@ -139,6 +141,10 @@ export function MatchView({
     const auto = settings.autoQuality ? new AutoQuality(settings.quality) : null;
     let quality = settings.quality;
     let resize: (() => void) | undefined;
+    // player markers: chips over tiny tanks when zoomed out, arrows at the edge for off-screen ones
+    const markers = markersRef.current ? new PlayerMarkers(markersRef.current) : null;
+    const marks: MarkerTank[] = [];
+    let frames = 0;
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
@@ -181,6 +187,27 @@ export function MatchView({
       if (tank) {
         const p = r.project({ x: tank.x + 0.5, y: tank.y - 7.5 });
         setAnchor((a) => (a && a.x === p.x && a.y === p.y ? a : p));
+      }
+      if (markers) {
+        const ts = match.world.tanks;
+        const huds = hudStore.get().tanks;
+        marks.length = ts.length;
+        for (const [i, t] of ts.entries()) {
+          marks[i] = {
+            player: i,
+            alive: t.alive,
+            x: t.x + 0.5,
+            y: t.y - 14,
+            health: t.health,
+            maxHealth: t.maxHealth,
+            name: huds[i]?.bot ?? '',
+            active: i === match.world.activePlayer,
+          };
+        }
+        // the HUD can reflow (a player row wraps, the shop closes): re-measure now and then
+        if (frames++ % 30 === 0) markers.setInsets(measureInsets(wrap));
+        const cell = r.camera.scale / renderDpr(quality, window.devicePixelRatio);
+        markers.update(marks, (q) => r.project(q), cell, wrap.clientWidth, wrap.clientHeight);
       }
     };
     void loadRenderer('pixel', w.grid.width, w.grid.height)
@@ -239,6 +266,7 @@ export function MatchView({
     settings.chatter,
     settings.theme,
     refreshHud,
+    hudStore,
   ]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
@@ -458,6 +486,7 @@ export function MatchView({
           data-testid="playfield"
         >
           <canvas ref={canvasRef} className="game-canvas" />
+          <div className="markers" ref={markersRef} aria-hidden="true" />
           {settings.perfHud && perf && <PerfOverlay stats={perf} />}
           <svg className="overlay" aria-hidden="true">
             {aimLine && anchor && (

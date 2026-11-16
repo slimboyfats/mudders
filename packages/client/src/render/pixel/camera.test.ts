@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Camera } from './camera';
+import { Camera, MIN_OUT } from './camera';
 
 describe('Camera', () => {
   it('fits at an integer scale on standard-density screens', () => {
@@ -42,9 +42,28 @@ describe('Camera', () => {
     expect(Math.abs(after.x - m.x)).toBeLessThan(1);
     expect(Math.abs(after.y - m.y)).toBeLessThan(1);
     expect(c.isFit).toBe(false);
-    c.zoomBy(-5);
+    c.zoomBy(-1);
     expect(c.scale).toBe(2);
     expect(c.isFit).toBe(true);
+  });
+
+  it('zooms out past the whole map down to MIN_OUT of the fit, and back in via the fit', () => {
+    const c = new Camera(800, 400);
+    c.setViewport(1600, 800, 1);
+    c.zoomBy(-1);
+    expect(c.scale).toBeCloseTo(1.4);
+    expect(c.isFit).toBe(false);
+    c.zoomBy(-10);
+    expect(c.scale).toBeCloseTo(2 * MIN_OUT);
+    c.zoomTo(0.1, { x: 10, y: 10 }, false);
+    expect(c.scale).toBeCloseTo(2 * MIN_OUT);
+    // back in: the fit view is a stop on the way
+    c.zoomBy(1);
+    c.zoomBy(1);
+    expect(c.scale).toBe(2);
+    expect(c.isFit).toBe(true);
+    c.zoomBy(1);
+    expect(c.scale).toBe(3);
   });
 
   it('lets the view centre go anywhere on the map, but no further', () => {
