@@ -105,6 +105,44 @@ function Wind({
 }
 
 /** Air temperature (§3.4): °C plus a word, so cold and hot never rely on colour alone (§8). */
+type HudTank = HudState['tanks'][number];
+
+/** Tank stains (§4b) plus frost, as tiny pixel badges: glyph, class, what it does. */
+const STAIN_BADGES: readonly {
+  key: 'wet' | 'oiled' | 'muddy' | 'burning' | 'chill';
+  glyph: string;
+  label: string;
+}[] = [
+  { key: 'burning', glyph: '▲', label: 'Burning: hurts and spreads fire at the end of its turn' },
+  { key: 'oiled', glyph: '◆', label: 'Oiled: fire hurts more and burns longer' },
+  { key: 'wet', glyph: '≈', label: "Wet: can't catch fire, shocks hurt more" },
+  { key: 'muddy', glyph: '▪', label: 'Muddy: driving burns more fuel' },
+  { key: 'chill', glyph: '❄', label: 'Frosted: shots capped at half power' },
+];
+
+/** The stains on a tank, as small badges on its player chip (nothing when clean). */
+function Stains({ tank }: { tank: HudTank }) {
+  const on = STAIN_BADGES.filter((b) => tank[b.key] > 0);
+  if (on.length === 0) return null;
+  return (
+    <span
+      className="stains"
+      role="img"
+      aria-label={on.map((b) => b.label.split(':')[0]).join(', ')}
+    >
+      {on.map((b) => (
+        <span
+          key={b.key}
+          className={`stain stain-${b.key}`}
+          title={`${b.label} (${tank[b.key]} turn${tank[b.key] > 1 ? 's' : ''})`}
+        >
+          {b.glyph}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Temperature({ temp }: { temp: number }) {
   const band = temp <= TEMP_COLD ? 'cold' : temp >= TEMP_HOT ? 'hot' : 'mild';
   const word = band === 'cold' ? 'Freezing' : band === 'hot' ? 'Scorching' : '';
@@ -327,6 +365,7 @@ export function Hud({
                 <span className="pscore" aria-label="score">
                   ★{p.score}
                 </span>
+                {p.alive && <Stains tank={p} />}
               </div>
             );
           })}

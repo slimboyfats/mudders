@@ -35,6 +35,13 @@ export const DAMAGE_TYPES = [
 export type DamageType = (typeof DAMAGE_TYPES)[number];
 
 /**
+ * Tank stains (§4b): touching a liquid or gas with a `stain` leaves the tank wet, oiled, muddy or
+ * burning for a turn or two. What each does is the mode's `stains` rules; frost is `chill`.
+ */
+export const STAIN_KINDS = ['wet', 'oiled', 'muddy', 'burning'] as const;
+export type StainKind = (typeof STAIN_KINDS)[number];
+
+/**
  * Air temperature (§3.4), whole °C. Each round starts at the map's base (plus the weather's offset
  * and a small seeded jitter) and drifts a few degrees every turn. Between `TEMP_COLD` and `TEMP_HOT`
  * nothing plays differently; below or above it, content scales fuel, fire, frost and drag by how far

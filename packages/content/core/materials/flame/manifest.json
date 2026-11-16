@@ -26,6 +26,9 @@
   "contact": {
     "damage": 6
   },
+  "stain": {
+    "burning": 1
+  },
   "reactions": [
     {
       "with": "material.water",

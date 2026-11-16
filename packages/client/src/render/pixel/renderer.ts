@@ -79,6 +79,7 @@ import {
 } from './theme';
 import { drawHull, drawTurret, makeWreck, stepWreck, type Wreck } from './wreck';
 import { drawWarp, type WarpFx } from './warp';
+import { STAIN_BURNING, drawBurning, stainBits, stainTint } from './stains';
 import { Rockets } from './rocket';
 import { Flights } from './flight';
 import { CloudWake, type CloudSky } from './cloud-wake';
@@ -3093,14 +3094,19 @@ export class PixelRenderer implements Renderer {
         );
       }
       const shieldOn = e.shield > 0;
+      // stains (§4b): wet, oiled, muddy, burning tint the hull cell by cell
+      const stains = e.alive ? stainBits(e) : 0;
       for (let r = 0; r < sh; r++) {
         const row = rows[r]!;
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
-          b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(spriteColor(code, col, shieldOn), lit));
+          let rgb = spriteColor(code, col, shieldOn);
+          if (stains !== 0) rgb = stainTint(rgb, c, r, sh, stains, t);
+          b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(rgb, lit));
         }
       }
+      if (stains & STAIN_BURNING) drawBurning(b, x0, y0 + lean(sw >> 1), sw, t);
       if (shieldOn) this.drawShield(e, x, y, sw, sh, t);
       this.coverTank(x, y, sw, sh);
       if (e.chute) this.drawChute(e.player, x, y0, t);

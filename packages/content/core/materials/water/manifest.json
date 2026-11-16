@@ -24,6 +24,9 @@
   },
   "coating": false,
   "tags": ["wet"],
+  "stain": {
+    "wet": 2
+  },
   "reactions": [
     {
       "with": "material.lava",

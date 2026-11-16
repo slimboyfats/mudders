@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Tank stains',
+    pack: 'core@0.93.0',
+    items: [
+      "Tanks get stained by what they touch, for a turn or two. Wet (water, mud): can't catch fire, water puts a burning tank out, and shocks hit half again as hard, so lightning into the lake you're parked in hurts. Oiled (oil, tar, napalm): fire hits half again as hard and a burn lasts a turn longer. Muddy (mud, runny mud): driving burns half again as much fuel. Burning (fire, flames, burning oil): the tank loses health at the end of each of its turns and sets fire around its tracks. Small badges on the player bar and a tint on the tank show each stain",
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',

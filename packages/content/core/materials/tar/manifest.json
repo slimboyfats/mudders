@@ -19,6 +19,9 @@
   },
   "cohesion": 0.4,
   "coating": false,
+  "stain": {
+    "oiled": 2
+  },
   "sticky": {
     "drive": 3
   },

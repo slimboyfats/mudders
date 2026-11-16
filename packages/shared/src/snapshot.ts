@@ -60,6 +60,11 @@ export interface TankView {
   markBy?: number;
   /** Own turns left with a full-arc aim preview (Spotter Flare). */
   scope?: number;
+  /** Own turns left stained (§4b, absent = not): wet, oiled, muddy, burning. */
+  wet?: number;
+  oiled?: number;
+  muddy?: number;
+  burning?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
 }

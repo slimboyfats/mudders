@@ -1,4 +1,4 @@
-import { DAMAGE_TYPES, type DamageType, type MaterialManifest } from '@mudders/shared';
+import { DAMAGE_TYPES, STAIN_KINDS, type DamageType, type MaterialManifest } from '@mudders/shared';
 
 export const SETTLE_STATIC = 0;
 export const SETTLE_FALL = 1;
@@ -8,6 +8,12 @@ export const SETTLE_FLOW = 3;
 export const SETTLE_GAS = 4;
 
 export const NUM_DAMAGE_TYPES = DAMAGE_TYPES.length;
+/** Tank stain kinds (`STAIN_KINDS` order): wet, oiled, muddy, burning. */
+export const NUM_STAINS = STAIN_KINDS.length;
+export const STAIN_WET = 0;
+export const STAIN_OILED = 1;
+export const STAIN_MUDDY = 2;
+export const STAIN_BURNING = 3;
 /** Strength is stored ×256 (256 = 1.0, dirt baseline). */
 export const STRENGTH_ONE = 256;
 /** Reaction rules per material (manifest limit). */
@@ -78,6 +84,10 @@ export class MaterialTable {
   /** Fall/slide materials: chance in 8 a moving grain keeps its speed per cell (0 = no momentum). */
   readonly glide = new Uint8Array(256);
   readonly contactDamage = new Uint8Array(256);
+  /** Tank stains (§4b): own turns a touch stains for, at `cell * NUM_STAINS + kind` (0 = none). */
+  readonly stainTurns = new Uint8Array(256 * NUM_STAINS);
+  /** Whether any material stains (the world then runs its stain pass). */
+  anyStain = false;
   /** Ticks per sunk cell (0 = tanks do not sink) and the deepest a tank sinks. */
   readonly sinkTicks = new Uint8Array(256);
   readonly sinkDepth = new Uint8Array(256);
@@ -231,6 +241,13 @@ export class MaterialTable {
           ? Math.round((m.glide ?? 0) * 8)
           : 0;
       this.contactDamage[c] = m.contact?.damage ?? 0;
+      if (m.stain) {
+        for (let k = 0; k < NUM_STAINS; k++) {
+          const turns = m.stain[STAIN_KINDS[k]!] ?? 0;
+          this.stainTurns[c * NUM_STAINS + k] = turns;
+          if (turns > 0) this.anyStain = true;
+        }
+      }
       this.sinkTicks[c] = m.sink?.ticks ?? 0;
       this.sinkDepth[c] = m.sink?.depth ?? 0;
       this.slickTicks[c] = m.slick?.ticks ?? 0;

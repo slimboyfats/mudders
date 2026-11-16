@@ -1,0 +1,138 @@
+{
+  "id": "showcase.tank-stains",
+  "schemaVersion": 1,
+  "description": "Tank stains: an oil slick leaves the left tank oiled; the right tank stands in a lake, so it is wet and the Lightning strike that charges the water hits it half again as hard. Then Napalm lights the oiled slope: the left tank burns harder, comes out oiled and burning, and at the end of its next turn burns again and sets fire around its treads.",
+  "mode": "mode.classic",
+  "seed": 1,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.lakeland"
+  },
+  "tanks": [
+    {
+      "x": 270,
+      "inventory": {
+        "weapon.lightning": 1
+      }
+    },
+    {
+      "x": 650,
+      "inventory": {
+        "weapon.napalm": 1,
+        "weapon.oil-slick": 1
+      },
+      "health": 200
+    }
+  ],
+  "turnOrder": [1, 0],
+  "wind": 0,
+  "rules": {
+    "mapEvents": true,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.oil-slick"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 130,
+        "power": 570
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.lightning"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 500
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.napalm"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 130,
+        "power": 560
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 150,
+        "power": 300
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1400,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
