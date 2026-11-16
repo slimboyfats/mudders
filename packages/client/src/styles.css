@@ -1754,6 +1754,33 @@ a.button {
   opacity: 0.85;
 }
 
+/* Bot difficulty per seat */
+.slot select.skill-pick,
+.seat select.skill-pick {
+  min-width: 5.5em;
+}
+
+.skill-badge {
+  margin-left: 4px;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+.skill-pick.skill-easy,
+.skill-badge.skill-easy {
+  color: #9fe29a;
+}
+
+.skill-pick.skill-hard,
+.skill-badge.skill-hard {
+  color: #ffc46b;
+}
+
+.skill-pick.skill-ace,
+.skill-badge.skill-ace {
+  color: #ff7b6b;
+}
+
 .player .shield {
   margin-left: 2px;
   color: #7fe0ff;

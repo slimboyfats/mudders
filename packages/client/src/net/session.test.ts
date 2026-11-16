@@ -140,6 +140,21 @@ describe('host and guest sessions', () => {
     expect(match.world.tanks[1]!.type.id).toBe('tank.scout');
   });
 
+  it('bot difficulty: the host sets it per bot seat, a new personality keeps it, guests see it', () => {
+    const e = env();
+    const host = new HostSession(content, 'Host', rules, e);
+    const g = new GuestSession(content, 'G', undefined, e);
+    connect(host, g);
+    host.setSeat(2, 'ai.shooter');
+    host.setSkill(2, 'ace');
+    host.setSkill(1, 'hard'); // the guest's seat: ignored
+    host.setSeat(2, 'ai.cyborg');
+    expect(g.lobby?.setup.skills?.slice(0, 3)).toEqual(['normal', 'normal', 'ace']);
+    host.setSeat(2, 'open');
+    host.setSeat(2, 'ai.tosser');
+    expect(g.lobby?.setup.skills?.[2]).toBe('normal');
+  });
+
   it('refuses a guest with different content or protocol, a full game and a started match', () => {
     const e = env();
     const host = new HostSession(content, 'Host', rules, e);

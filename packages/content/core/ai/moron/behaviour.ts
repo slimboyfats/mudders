@@ -1,6 +1,15 @@
 import { z } from '@mudders/shared';
 import { AI_FUEL, defineAi, type AiPurchase } from '@mudders/sim';
-import { GearPlanSchema, enemies, me } from '../../../src/ai';
+import {
+  AI_ACE,
+  AI_HARD,
+  GearPlanSchema,
+  enemies,
+  flatPower,
+  me,
+  nearest,
+  skillOf,
+} from '../../../src/ai';
 
 const params = z.strictObject({
   minPower: z.number().int().min(0).max(1000),
@@ -16,7 +25,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.moron',
-  version: 3,
+  version: 4,
   params,
   move(api) {
     if (!api.rng.chance(1, 2)) return me(api).x;
@@ -33,6 +42,15 @@ export default defineAi<z.infer<typeof params>>({
     const foes = enemies(api);
     const left = foes.filter((t) => t.x < m.x).length;
     const towardLeft = left * 2 > foes.length || (left * 2 === foes.length && api.rng.chance(1, 2));
+    const target = nearest(api);
+    if (skillOf(api) >= AI_HARD && target) {
+      const w = api.weapons[api.rng.int(api.weapons.length)]!;
+      // hard and ace: still a random weapon, but a rough flat-ground guess at the nearest tank
+      const a = api.rng.range(38, 52);
+      const err = skillOf(api) >= AI_ACE ? 70 : 140;
+      const power = flatPower(api, target.x - m.x) + api.rng.range(-err, err);
+      return { weapon: w.index, angle: target.x < m.x ? 180 - a : a, power };
+    }
     const a = api.rng.range(25, 80);
     const w = api.weapons[api.rng.int(api.weapons.length)]!;
     return {

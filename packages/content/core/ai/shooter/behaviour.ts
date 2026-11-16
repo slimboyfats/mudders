@@ -2,16 +2,18 @@ import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
 import {
   dropInReach,
-  buyByValue,
   cheapest,
   driveEnd,
   flatPower,
   me,
-  moneyAfter,
   nearest,
+  skillError,
+  skillOf,
+  skillShop,
+  solvePower,
   strongest,
-  topUpFuel,
-  buyGear,
+  AI_ACE,
+  AI_HARD,
   gearToUse,
   GearPlanSchema,
 } from '../../../src/ai';
@@ -35,7 +37,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.shooter',
-  version: 3,
+  version: 4,
   params,
   move(api, p) {
     const m = me(api);
@@ -70,18 +72,23 @@ export default defineAi<z.infer<typeof params>>({
       const sameSide = (last.x - m.x) * dx > 0;
       const k = sameSide ? Math.sqrt(Math.abs(dx) / got) : 1.25;
       power = Math.round(mem[1] * Math.max(0.6, Math.min(1.5, k)));
+    } else if (skillOf(api) >= AI_HARD) {
+      // hard and ace read the wind for their opening shot instead of guessing flat ground
+      power = solvePower(api, w.index, angle, target.x, 10).power;
     } else {
       power = flatPower(api, dx);
     }
-    power = Math.max(60, Math.min(1000, power + api.rng.range(-p.jitter, p.jitter)));
+    if (skillOf(api) >= AI_ACE) {
+      // ace re-solves every shot through wind and terrain; it still brackets in its memory
+      power = solvePower(api, w.index, angle, target.x, 11).power;
+    }
+    const j = skillError(api, p.jitter, 40);
+    power = Math.max(60, Math.min(1000, power + api.rng.range(-j, j)));
     mem[0] = target.player;
     mem[1] = power;
     return { weapon: w.index, angle, power };
   },
   shop(api, p) {
-    const fuel = topUpFuel(api, p.fuel, 0);
-    const gear = buyGear(api, p.gear, 0 + api.money - moneyAfter(api, fuel));
-    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
-    return [...fuel, ...gear, ...buyByValue(api, (i) => i.expectedDamage, spent, 2)];
+    return skillShop(api, p, 0, 2, (i) => i.expectedDamage);
   },
 });

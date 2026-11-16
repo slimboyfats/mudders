@@ -28,6 +28,9 @@ import {
 } from '@mudders/shared';
 import {
   AI_FUEL,
+  AI_EASY,
+  AI_NORMAL,
+  AI_ACE,
   type AiApi,
   type AiBehaviour,
   type AiDropView,
@@ -286,6 +289,11 @@ export interface WorldOptions {
   teams?: readonly number[] | undefined;
   /** AI personality id per player (`ai.*`); null/undefined = human. */
   bots?: readonly (string | null | undefined)[] | undefined;
+  /**
+   * Difficulty per player for its bot (kernel 0.57.0): AI_EASY 0 … AI_ACE 3; null/undefined =
+   * AI_NORMAL. Also applies to a bot standing in for that player.
+   */
+  botSkills?: readonly (number | null | undefined)[] | undefined;
   /** Extra props at fixed centre columns (showcases), placed after the generator's. */
   props?: readonly { prop: string; x: number }[] | undefined;
   /**
@@ -2214,6 +2222,7 @@ export class World implements SimApi {
     return {
       rng: this.rng,
       me: t.player,
+      skill: this.botSkill(t.player),
       tanks: this.aiTanks(
         charmed ? this.tanks.map((u) => (u === t ? { ...u, team } : u)) : this.tanks,
       ),
@@ -2241,6 +2250,14 @@ export class World implements SimApi {
       power: t.power,
       ...(this.dropsOn && this.drops.count > 0 ? { drops: this.dropViews() } : {}),
     };
+  }
+
+  /** A seat's bot difficulty (AI_EASY … AI_ACE), AI_NORMAL when unset or out of range. */
+  private botSkill(p: number): number {
+    const s = this.options.botSkills?.[p];
+    return typeof s === 'number' && Number.isInteger(s) && s >= AI_EASY && s <= AI_ACE
+      ? s
+      : AI_NORMAL;
   }
 
   /** Crates on the map, for bots. */
@@ -4840,6 +4857,7 @@ export class World implements SimApi {
     const api: AiShopApi = {
       rng: this.rng,
       me: t.player,
+      skill: this.botSkill(t.player),
       money: t.money,
       round: this.round,
       fuel: t.fuel,

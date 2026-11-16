@@ -11,7 +11,7 @@ import {
   type Preset,
 } from '../game/setup';
 
-export type RulesValue = Omit<MatchSetup, 'slots' | 'tanks'>;
+export type RulesValue = Omit<MatchSetup, 'slots' | 'tanks' | 'skills'>;
 
 interface Props {
   value: RulesValue;
