@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countCells, dropAt, flatWorld } from '../../../src/testing';
+import { dropAt, flatWorld } from '../../../src/testing';
 
 describe('weapon.mud-flask', () => {
   it('leaves a heap of mud where it smashes', () => {
