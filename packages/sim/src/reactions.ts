@@ -141,6 +141,29 @@ function mild(mats: MaterialTable, m: number): boolean {
 }
 
 /**
+ * For skipping cells with nothing to do four at a time: `inert[m]` is the word four cells of `m`
+ * make when `m` needs no reaction pass and has no turn decay, and a word no such four cells can
+ * make otherwise.
+ */
+const inert = new Uint32Array(256);
+/**
+ * The same for the inside of a body of one material: `shut[m]` is the word four cells of `m` make
+ * when `m` does nothing among its own kind once it has stopped spreading.
+ */
+const shut = new Uint32Array(256);
+let inertOf: MaterialTable | null = null;
+/** The material and coating layers last scanned, four cells to a word. */
+let matWords: Uint32Array = new Uint32Array(0);
+let coatWords: Uint32Array = new Uint32Array(0);
+let wordsOf: Uint8Array | null = null;
+
+function words(a: Uint8Array): Uint32Array {
+  return (a.byteOffset & 3) === 0
+    ? new Uint32Array(a.buffer, a.byteOffset, a.length >> 2)
+    : new Uint32Array(0);
+}
+
+/**
  * One reaction pass (§4b) over the grid's reaction region only: tick decays (fire burning out,
  * liquid dirt setting), spread ageing (flows stop spreading), adjacency reactions. The region
  * shrinks to cells that are still ticking plus whatever changed, so a quiet map costs nothing.
@@ -148,6 +171,37 @@ function mild(mats: MaterialTable, m: number): boolean {
  */
 export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
   if (!grid.reacting) return;
+  if (inertOf !== mats) {
+    inertOf = mats;
+    for (let m = 0; m < 256; m++) {
+      // (a cell's coating is checked as a word of zeros, so air itself must be inert)
+      const quiet =
+        mats.active[0] === 0 && mats.active[m] === 0 && (m === 0 || mats.decayTurns[m] === 0);
+      inert[m] = Math.imul(quiet ? m : m ^ 1, 0x01010101);
+      // a cell that only reacts with neighbours (and maybe spreads while young), and not with
+      // its own kind: deep inside a body of it nothing can happen
+      const self =
+        mats.active[0] === 0 &&
+        m !== 0 &&
+        (mats.active[m]! & ACT_REACT) !== 0 &&
+        (mats.active[m]! & (ACT_DECAY | ACT_BURST)) === 0 &&
+        mats.decayTurns[m] === 0 &&
+        mats.pairRule[m * 256 + m] === 0;
+      shut[m] = Math.imul(self ? m : m ^ 1, 0x01010101);
+    }
+  }
+  if (wordsOf !== grid.material) {
+    wordsOf = grid.material;
+    matWords = words(grid.material);
+    coatWords = words(grid.coating);
+  }
+  const mw = matWords;
+  const cw = coatWords;
+  const nw = Math.min(mw.length, cw.length);
+  // words per row, when rows line up with words (so the rows above and below can be looked at)
+  const rows = (grid.width & 3) === 0;
+  const wpr = grid.width >> 2;
+  const H = grid.height;
   const W = grid.width;
   const x0 = grid.reactMinX;
   const x1 = grid.reactMaxX;
@@ -167,6 +221,40 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
   let hot = false;
   for (let y = y0; y <= y1; y++) {
     for (let x = x0, i = y * W + x0; x <= x1; x++, i++) {
+      // air, plain ground and anything else with nothing to do: four cells in one look
+      if ((i & 3) === 0) {
+        let k = i >> 2;
+        while (x + 3 <= x1 && k < nw && cw[k] === 0 && inert[mw[k]! & 255] === mw[k]) {
+          x += 4;
+          k++;
+        }
+        i = k << 2;
+        if (x > x1) break;
+        // the inside of a lake: four cells of a liquid with only its own kind around them
+        if (rows && y > 0 && y < H - 1 && x > 0) {
+          for (;;) {
+            if (x + 4 > x1 || x + 4 >= W || k >= nw || cw[k] !== 0) break;
+            const w = mw[k]!;
+            const m4 = w & 255;
+            if (shut[m4] !== w || mw[k - wpr] !== w || mw[k + wpr] !== w) break;
+            if (mat[i - 1] !== m4 || mat[i + 4] !== m4) break;
+            if ((act[m4]! & ACT_SPREAD) !== 0) {
+              const sp = mats.spread[m4]!;
+              if (
+                (state[i]! & AGE_MASK) < sp ||
+                (state[i + 1]! & AGE_MASK) < sp ||
+                (state[i + 2]! & AGE_MASK) < sp ||
+                (state[i + 3]! & AGE_MASK) < sp
+              )
+                break;
+            }
+            x += 4;
+            k++;
+            i += 4;
+          }
+          if (x > x1) break;
+        }
+      }
       const m = mat[i]!;
       const c = coat[i]!;
       const fm = act[m]!;
