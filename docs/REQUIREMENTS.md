@@ -251,13 +251,13 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 
 ### 3.7 AI opponents
 Several AI personalities, selectable per bot slot. Minimum set:
-- **Moron** — random angle/power, never adjusts.
-- **Shooter** — adjusts toward the last miss by bracketing.
-- **Poolshark** — solves the ballistic equation directly, accounts for wind; small random error.
-- **Tosser** — like Poolshark but prefers lobbing (high angles) and heavy weapons.
-- **Cyborg** — near-perfect aim, buys optimally, targets the weakest/closest player.
+- **Bumbler** — random angle/power, never adjusts.
+- **Brawler** — adjusts toward the last miss by bracketing.
+- **Trickshot** — solves the ballistic equation directly, accounts for wind; small random error.
+- **Lobber** — like Trickshot but prefers lobbing (high angles) and heavy weapons.
+- **Deadeye** — near-perfect aim, buys optimally, targets the weakest/closest player.
 AI decisions run inside the deterministic simulation so all peers compute the same result.
-- Bots can do everything a human player can except host: pick a tank type, drive (burning fuel), buy weapons and fuel in the shop, and fire any weapon they own. Implemented in core@0.17.0: Cyborg and Poolshark drive to a spot with a clear shot when theirs is blocked, Tosser backs off from close tanks, Shooter closes in on far ones and dodges after a hit, Moron wanders at random; each tops up its fuel in the shop, and Poolshark/Tosser now and then use the dirt and terrain weapons they buy.
+- Bots can do everything a human player can except host: pick a tank type, drive (burning fuel), buy weapons and fuel in the shop, and fire any weapon they own. Implemented in core@0.17.0: Deadeye and Trickshot drive to a spot with a clear shot when theirs is blocked, Lobber backs off from close tanks, Brawler closes in on far ones and dodges after a hit, Bumbler wanders at random; each tops up its fuel in the shop, and Trickshot/Lobber now and then use the dirt and terrain weapons they buy.
 
 ---
 

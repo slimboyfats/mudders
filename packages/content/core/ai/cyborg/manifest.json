@@ -2,7 +2,7 @@
   "id": "ai.cyborg",
   "schemaVersion": 1,
   "meta": {
-    "name": "Cyborg",
+    "name": "Deadeye",
     "description": "Near-perfect aim through wind and terrain, no deliberate error. Hunts the weakest tank (the closest on a tie), tries its most damaging weapons until one connects, and buys damage per coin.",
     "since": "core@0.7.0"
   },

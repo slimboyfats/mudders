@@ -26,8 +26,8 @@ win, one thread each. P3 = nice to have, or needs a design call.
    health bar in the corner changes.
 4. **Put a beat between turns and a round-end moment** (§2.2): the next turn starts on the exact tick the
    dirt settles, and a round ends straight into the shop with the result in a small header.
-5. **Tune the Missile and the bots** (§1.2, §1.3): the unlimited Missile kills in two hits; Poolshark
-   and Cyborg win 29 of 30 simulated rounds; Shooter and Moron never score.
+5. **Tune the Missile and the bots** (§1.2, §1.3): the unlimited Missile kills in two hits; Trickshot
+   and Deadeye win 29 of 30 simulated rounds; Brawler and Bumbler never score.
 6. **Shrink the 8-player chip stack** (§3.2): with 8 players the health chips cover a third of the map on
    a phone.
 7. **Add the missing sounds** (§6.1): driving, shield hits, the sudden-death burn, drive blocked,
@@ -46,12 +46,12 @@ win, one thread each. P3 = nice to have, or needs a design call.
 Numbers below come from a headless simulation of `mode.classic` (3 rounds, opening shop, village
 map 1200×600, 60 Hz). Five seeds per row.
 
-| Bots                               | Players | Round length (s) | Play per match ex. shop (s) | Winner's money after 3 rounds | Losers' money |
-| ---------------------------------- | ------- | ---------------- | --------------------------- | ----------------------------- | ------------- |
-| Cyborg, Poolshark                  | 2       | 9–22             | 39–51                       | $8.4–9.3k                     | $0.7–1.8k     |
-| Cyborg, Poolshark, Tosser, Shooter | 4       | 30–121           | 104–216                     | $13–16k                       | $0.1–4.3k     |
-| Shooter, Poolshark                 | 2       | 12–54            | 79–116                      | $5.3–8.9k                     | $0.07–0.5k    |
-| Shooter, Poolshark, Tosser, Moron  | 4       | 62–121           | 210–290                     | $14.6–16.6k                   | $0.3–6.6k     |
+| Bots                                | Players | Round length (s) | Play per match ex. shop (s) | Winner's money after 3 rounds | Losers' money |
+| ----------------------------------- | ------- | ---------------- | --------------------------- | ----------------------------- | ------------- |
+| Deadeye, Trickshot                  | 2       | 9–22             | 39–51                       | $8.4–9.3k                     | $0.7–1.8k     |
+| Deadeye, Trickshot, Lobber, Brawler | 4       | 30–121           | 104–216                     | $13–16k                       | $0.1–4.3k     |
+| Brawler, Trickshot                  | 2       | 12–54            | 79–116                      | $5.3–8.9k                     | $0.07–0.5k    |
+| Brawler, Trickshot, Lobber, Bumbler | 4       | 62–121           | 210–290                     | $14.6–16.6k                   | $0.3–6.6k     |
 
 Average shot resolution was 1.8–2.7 s and the longest 7.2 s, so the "~3 s" rule (§3.3) holds for
 almost every shot; the outliers are chain reactions and long settles, which is fine.
@@ -106,19 +106,19 @@ was never reached in 30 rounds. Two-player rounds against a competent bot last 1
 
 ### 1.3 The AI spread is wrong: two bots own every match, two never score (P1)
 
-**Evidence.** Poolshark won all 15 2-player rounds against Shooter; Cyborg won all 15 against
-Poolshark. In 4-player games Shooter and Moron scored 0–130 points in a whole match. There is no
-difficulty label, and the setup screen's default opponent is Shooter, which cannot hit anything
+**Evidence.** Trickshot won all 15 2-player rounds against Brawler; Deadeye won all 15 against
+Trickshot. In 4-player games Brawler and Bumbler scored 0–130 points in a whole match. There is no
+difficulty label, and the setup screen's default opponent is Brawler, which cannot hit anything
 against hills and wind (it "ignores wind until it sees where the shell went" and brackets only on
 power).
 
 **Proposal.**
 
-- Label bots with a **difficulty tier** in the setup/lobby select ("Easy · Moron", "Medium · Shooter",
-  "Hard · Poolshark", "Brutal · Cyborg") and order them that way.
-- Give Shooter wind compensation after its first miss and bracket on angle as well as power, so it
+- Label bots with a **difficulty tier** in the setup/lobby select ("Easy · Bumbler", "Medium · Brawler",
+  "Hard · Trickshot", "Brutal · Deadeye") and order them that way.
+- Give Brawler wind compensation after its first miss and bracket on angle as well as power, so it
   lands within ~2–3 shots like a learning human.
-- Add a deliberate error to Poolshark and Cyborg that **shrinks with the round** (big miss on turn 1,
+- Add a deliberate error to Trickshot and Deadeye that **shrinks with the round** (big miss on turn 1,
   near-perfect by turn 5), which is also how a human plays and makes rounds last.
 - Make the default opponent the Medium bot once it can hit.
 
@@ -169,7 +169,7 @@ highlighted on the map behind it.
 
 ### 2.3 Bot turns are too fast to read (P2)
 
-`BOT_THINK_TICKS = 50` (0.8 s), aim at 0.4 s, fire. The banner says "Shooter is aiming…" but the
+`BOT_THINK_TICKS = 50` (0.8 s), aim at 0.4 s, fire. The banner says "Brawler is aiming…" but the
 barrel snaps and the shell is already in the air. Proposal: 1.2–1.5 s think, tween the barrel over
 20 ticks (render-only), a short "charging" tick sound, and the bot's aim guide drawn like the human's
 so the player sees where it is going.
@@ -377,7 +377,7 @@ Not played in this audit beyond code reading; `play:net` passed in earlier threa
 - The lobby shows the room code and a copy/share link; good. Guests have no "ready" state and no
   chat; a "👍 ready" toggle per seat gives the host a reason to press Start.
 - "AI plays for them after 10/20/60 s" is the only disconnect option shown; fine, but surface the
-  takeover in the match as a banner ("P3 lost connection, Poolshark is playing") instead of a silent
+  takeover in the match as a banner ("P3 lost connection, Trickshot is playing") instead of a silent
   bot name on the chip.
 - Lobby cold start on Render takes tens of seconds; the title screen says "Lobby checking" with no
   spinner or ETA. Show "Waking the lobby server (up to 60 s)…" with a progress hint, per §7.
