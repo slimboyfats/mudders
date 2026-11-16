@@ -1,6 +1,7 @@
 import { QUAD_FS } from './shaders';
 import { compile } from './gl';
 import { LIGHT_BANDS, MAX_LIGHTS, type Lights } from './lighting';
+import { ParticleLanes } from './particle-lanes';
 import { FIRE_RGB } from './blast-styles';
 import { PKind, type Emit, type ParticleSink, type Vortex } from './particles';
 
@@ -805,18 +806,8 @@ export class GpuParticles implements ParticleSink {
    * (which makes the next frame later still); captures keep the long-stall limit.
    */
   maxPasses = MAX_PASSES;
-  /** Next ring slot to fill, and the highest slot in use + 1. */
-  private head = 0;
-  /** The live window is the ring range [tail, tail + count): older slots have all died. */
-  private tail = 0;
-  private count = 0;
-  /** Tick each slot dies at (CPU copy, to move the tail). */
-  private readonly death: Float32Array;
-  /** The tick by which every particle so far has died. */
-  private lastDeath = 0;
-  /** Slots written since the last upload: a ring range [pendStart, pendStart + pendCount). */
-  private pendStart = 0;
-  private pendCount = 0;
+  /** Which buffer slots may hold a live particle: rings by lifetime, so the passes stay short. */
+  private readonly lanes: ParticleLanes;
 
   private readonly dyn: Float32Array;
   private readonly statF: Float32Array;
@@ -847,9 +838,10 @@ export class GpuParticles implements ParticleSink {
   ) {
     this.gl = gl;
     this.cap = cap;
-    this.dyn = new Float32Array(cap * 4);
-    this.death = new Float32Array(cap);
-    const stat = new ArrayBuffer(cap * STAT_BYTES);
+    this.lanes = new ParticleLanes(cap);
+    const slots = this.lanes.slots;
+    this.dyn = new Float32Array(slots * 4);
+    const stat = new ArrayBuffer(slots * STAT_BYTES);
     this.statF = new Float32Array(stat);
     this.statU = new Uint32Array(stat);
 
@@ -907,8 +899,8 @@ export class GpuParticles implements ParticleSink {
       gl.bufferData(gl.ARRAY_BUFFER, bytes, usage);
       return buf;
     };
-    this.dynBuf = [mk(cap * DYN_BYTES, gl.DYNAMIC_COPY), mk(cap * DYN_BYTES, gl.DYNAMIC_COPY)];
-    this.statBuf = mk(cap * STAT_BYTES, gl.DYNAMIC_DRAW);
+    this.dynBuf = [mk(slots * DYN_BYTES, gl.DYNAMIC_COPY), mk(slots * DYN_BYTES, gl.DYNAMIC_COPY)];
+    this.statBuf = mk(slots * STAT_BYTES, gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
     const vao = (dyn: WebGLBuffer, divisor: number): WebGLVertexArrayObject => {
@@ -936,7 +928,7 @@ export class GpuParticles implements ParticleSink {
 
   /** Slots that may hold a live particle (the range each pass touches). */
   get n(): number {
-    return this.count;
+    return this.lanes.n;
   }
 
   vortex(v: Vortex): void {
@@ -1076,12 +1068,7 @@ export class GpuParticles implements ParticleSink {
     kind: number,
     color: number,
   ): void {
-    const i = this.head;
-    this.head = i + 1 === this.cap ? 0 : i + 1;
-    // full: the oldest slot is overwritten and the window slides
-    if (this.count === this.cap) this.tail = this.head;
-    else this.count++;
-    this.death[i] = this.tick + life;
+    const i = this.lanes.put(this.tick, life);
     const o = i * 4;
     this.dyn[o] = x;
     this.dyn[o + 1] = y;
@@ -1091,9 +1078,6 @@ export class GpuParticles implements ParticleSink {
     this.statF[o + 1] = life;
     this.statF[o + 2] = size;
     this.statU[o + 3] = ((kind & 255) << 24) | (color & 0xffffff);
-    if (this.tick + life > this.lastDeath) this.lastDeath = this.tick + life;
-    if (this.pendCount === 0) this.pendStart = i;
-    if (this.pendCount < this.cap) this.pendCount++;
   }
 
   /** One sim tick. The GPU pass itself runs at the next draw. */
@@ -1101,16 +1085,11 @@ export class GpuParticles implements ParticleSink {
     this.gravity = gravity;
     this.wind = wind;
     this.tick++;
-    if (this.tick >= this.lastDeath) {
-      // everything has burnt out: rewind the ring so passes stay short
+    // drop the dead front of each lane's window, so passes and draws skip it
+    if (!this.lanes.step(this.tick)) {
+      // everything has burnt out
       this.clear();
       return;
-    }
-    // drop the dead prefix of the window, so passes and draws skip it
-    const d = this.death;
-    while (this.count > 0 && d[this.tail]! <= this.tick) {
-      this.tail = this.tail + 1 === this.cap ? 0 : this.tail + 1;
-      this.count--;
     }
     this.passes++;
   }
@@ -1119,23 +1098,18 @@ export class GpuParticles implements ParticleSink {
   private wind = 0;
 
   private upload(): void {
-    if (this.pendCount === 0) return;
+    const pend = this.lanes.takePending();
+    if (pend.length === 0) return;
     const gl = this.gl;
-    const seg = (start: number, count: number): void => {
+    for (let g = 0; g < pend.length; g += 2) {
+      const start = pend[g]!;
+      const count = pend[g + 1]!;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.dynBuf[this.cur]);
       gl.bufferSubData(gl.ARRAY_BUFFER, start * DYN_BYTES, this.dyn, start * 4, count * 4);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.statBuf);
       gl.bufferSubData(gl.ARRAY_BUFFER, start * STAT_BYTES, this.statF, start * 4, count * 4);
-    };
-    if (this.pendCount >= this.cap) {
-      seg(0, this.cap);
-    } else {
-      const first = Math.min(this.pendCount, this.cap - this.pendStart);
-      seg(this.pendStart, first);
-      if (first < this.pendCount) seg(0, this.pendCount - first);
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    this.pendCount = 0;
   }
 
   /** Run owed update passes against the terrain texture. */
@@ -1143,8 +1117,8 @@ export class GpuParticles implements ParticleSink {
     const passes = Math.min(this.passes, this.maxPasses);
     // a long stall: age the clock without moving (they died off-screen anyway)
     this.passes = 0;
-    if (passes === 0 || this.count === 0) return;
-    const segs = this.segments();
+    if (passes === 0 || this.lanes.n === 0) return;
+    const segs = this.lanes.segments();
     const gl = this.gl;
     gl.useProgram(this.updProg);
     gl.activeTexture(gl.TEXTURE9);
@@ -1208,9 +1182,9 @@ export class GpuParticles implements ParticleSink {
   ): void {
     this.upload();
     this.update(terrain, mapW, mapH, flow);
-    if (this.count === 0) return;
+    if (this.lanes.n === 0) return;
     const gl = this.gl;
-    const segs = this.segments();
+    const segs = this.lanes.segments();
     gl.useProgram(this.drawProg);
     gl.uniform2f(this.uDraw.u_view!, view[0], view[1]);
     gl.uniform2f(this.uDraw.u_origin!, origin[0], origin[1]);
@@ -1238,13 +1212,6 @@ export class GpuParticles implements ParticleSink {
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
   }
 
-  /** The live window as [start, len] pairs (two when it wraps the ring). */
-  private segments(): number[] {
-    const end = this.tail + this.count;
-    if (end <= this.cap) return [this.tail, this.count];
-    return [this.tail, this.cap - this.tail, 0, end - this.cap];
-  }
-
   /** Point the draw VAO's per-instance attributes at slot `start` of the state buffers. */
   private pointDraw(dyn: WebGLBuffer, start: number): void {
     const gl = this.gl;
@@ -1257,12 +1224,8 @@ export class GpuParticles implements ParticleSink {
 
   clear(): void {
     this.vB.fill(0);
-    this.head = 0;
-    this.tail = 0;
-    this.count = 0;
+    this.lanes.clear(this.tick);
     this.passes = 0;
-    this.pendCount = 0;
-    this.lastDeath = this.tick;
   }
 
   dispose(): void {
