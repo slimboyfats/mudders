@@ -18,6 +18,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Solo challenges in a wild world',
+    items: [
+      'Solo challenges, new chapter Wild world: the map fights back. Shaky ground (a quake every turn moves the targets), Live wire (one Lightning bolt into the lake shocks every tank in it), Mudslide (cloudbursts wash the slopes down), Flood wave (live through four turns while waves roll in), Fault lines (beat the Poolshark while the ground splits) and Thunder lake (survive a lightning storm on a tiny island)',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',
