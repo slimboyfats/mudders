@@ -1,4 +1,4 @@
-import { FP } from '@mudders/shared';
+import { FP, FP_SHIFT } from '@mudders/shared';
 import { grainShade, type Grid } from './grid';
 import { SETTLE_FALL, SETTLE_SLIDE, type MaterialTable } from './materials';
 
@@ -86,14 +86,18 @@ export class DebrisPool {
       const vy = this.vy[i]! + gravity;
       this.vy[i] = vy;
       const dx = this.vx[i]!;
-      const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(vy)) / FP));
-      let lx = Math.floor(x0 / FP);
-      let ly = Math.floor(y0 / FP);
+      // whole numbers throughout (gravity too): a shift floors like `Math.floor(v / FP)` and
+      // `| 0` truncates like `Math.trunc`, without the float division
+      const ax = dx < 0 ? -dx : dx;
+      const ay = vy < 0 ? -vy : vy;
+      const n = Math.max(1, ((ax > ay ? ax : ay) + FP - 1) >> FP_SHIFT);
+      let lx = x0 >> FP_SHIFT;
+      let ly = y0 >> FP_SHIFT;
       let landed = false;
       let lost = false;
       for (let s = 1; s <= n; s++) {
-        const cx = Math.floor((x0 + Math.trunc((dx * s) / n)) / FP);
-        const cy = Math.floor((y0 + Math.trunc((vy * s) / n)) / FP);
+        const cx = (x0 + (((dx * s) / n) | 0)) >> FP_SHIFT;
+        const cy = (y0 + (((vy * s) / n) | 0)) >> FP_SHIFT;
         if (cx < 0 || cx >= W) {
           lost = true;
           break;
