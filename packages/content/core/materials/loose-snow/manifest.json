@@ -13,5 +13,6 @@
   "glide": 0.85,
   "look": {
     "glint": false
-  }
+  },
+  "tags": ["dissolves"]
 }

@@ -20,7 +20,7 @@
   },
   "cohesion": 0,
   "coating": false,
-  "tags": ["wet"],
+  "tags": ["wet", "dissolves"],
   "compact": {
     "into": "material.packed-mud",
     "ratio": 1,

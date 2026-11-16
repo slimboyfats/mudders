@@ -20,8 +20,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-16',
     title:
-      'Smarter bots with a difficulty per seat, bounty on the leader, talking bots and match awards',
-    pack: 'core@0.93.0',
+      'Smarter bots with a difficulty per seat, bounty on the leader, talking bots, match awards, material flasks and acid',
+    pack: 'core@0.93.0 – 0.94.0',
     items: [
       'Every AI seat now has a difficulty next to its personality, locally and in the online lobby: Easy, Normal, Hard or Ace. Normal plays exactly as before',
       'Easy bots aim with a human wobble, buy little and carry almost no gear. Hard bots halve their aim error, read the wind for their opening shot, switch to a tank they can actually hit when their favourite target is behind cover, avoid shots that would land on themselves or a teammate, and finish weak tanks with a cheap shell',
@@ -31,6 +31,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Match awards: the match-over card now hands out awards, among them Best shot (most damage in one shot), Most dirt moved, Most kills, Longest kill, Sharp eye (best hit rate), Nine lives (most close calls survived), Punching bag and Own worst enemy',
       'Bounty and comeback (a new rules switch, on by default): from round 2 the player in the lead carries a bounty, shown as a gold $ over their tank and in their score chip. Every hit on them pays double cash and destroying them pays a big bonus, and the round banner says what they are worth. At every round end each player behind the leader also gets a fifth of the points gap as cash, so a bad round is easier to come back from. The scoreboard shows the bounty and comeback cash each player earned',
       'Solo challenges, new chapter Wild world: the map fights back. Shaky ground (a quake every turn moves the targets), Live wire (one Lightning bolt into the lake shocks every tank in it), Mudslide (cloudbursts wash the slopes down), Flood wave (live through four turns while waves roll in), Fault lines (beat the Trickshot while the ground splits) and Thunder lake (survive a lightning storm on a tiny island)',
+      'Material flasks: five cheap glass flasks, two to a pack, that smash with a tinkle and let out their payload and nothing else. Water Flask (a pool of water), Oil Flask (a small oil slick), Mud Flask (a heap of soft mud), Sand Flask (a little heap of sand) and Acid Flask. Each does little alone; the fun is the next shot: oil, then fire',
+      'Acid: a new glowing green liquid that runs like water and slowly eats soft ground (dirt, sand, mud, clay, snow, wood and leaves) into a fizz of pale green fumes, using itself up as it goes. Rock, metal and glass shrug it off, heat boils it away, and a tank sitting in it loses a little health at the end of every turn',
     ],
   },
   {

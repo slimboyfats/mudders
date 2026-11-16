@@ -1,0 +1,57 @@
+{
+  "id": "material.acid",
+  "schemaVersion": 1,
+  "description": "An Acid Flask on the far slope: the acid runs down and eats into the dirt, fizzing.",
+  "subject": "material.acid",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.acid-flask": 2
+      }
+    },
+    {
+      "x": 740
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.acid-flask"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 605
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1500,
+    "untilSettled": true,
+    "extraTicks": 120
+  }
+}
