@@ -19,9 +19,10 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-16',
-    title: 'Bounty on the leader and comeback cash',
+    title: 'Bounty on the leader, comeback cash and solo challenges in a wild world',
     items: [
       'Bounty and comeback (a new rules switch, on by default): from round 2 the player in the lead carries a bounty, shown as a gold $ over their tank and in their score chip. Every hit on them pays double cash and destroying them pays a big bonus, and the round banner says what they are worth. At every round end each player behind the leader also gets a fifth of the points gap as cash, so a bad round is easier to come back from. The scoreboard shows the bounty and comeback cash each player earned',
+      'Solo challenges, new chapter Wild world: the map fights back. Shaky ground (a quake every turn moves the targets), Live wire (one Lightning bolt into the lake shocks every tank in it), Mudslide (cloudbursts wash the slopes down), Flood wave (live through four turns while waves roll in), Fault lines (beat the Poolshark while the ground splits) and Thunder lake (survive a lightning storm on a tiny island)',
     ],
   },
   {
