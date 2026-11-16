@@ -1,6 +1,10 @@
 import { z } from '@mudders/shared';
 import {
+  AI_ACE,
+  AI_EASY,
   AI_FUEL,
+  AI_HARD,
+  AI_NORMAL,
   type AiApi,
   type AiGearView,
   type AiPurchase,
@@ -382,4 +386,198 @@ export function gearToUse(api: AiApi): number[] {
     out.push(battery.index);
   }
   return out;
+}
+
+// ── difficulty per seat (kernel 0.57.0) ─────────────────────────────────────────────────────
+//
+// Every personality keeps its own style; the seat's skill scales how well it plays it. Normal is
+// exactly the personality as it always played (same RNG draws), so old replays and goldens hold.
+
+export { AI_ACE, AI_EASY, AI_HARD, AI_NORMAL };
+
+/** The seat's skill (older kernels: normal). */
+export function skillOf(api: { readonly skill?: number }): number {
+  return api.skill ?? AI_NORMAL;
+}
+
+/**
+ * A deliberate aim error scaled by skill: easy at least `easyMin` (and 2½× the base), normal the
+ * base, hard half of it, ace none.
+ */
+export function skillError(
+  api: { readonly skill?: number },
+  base: number,
+  easyMin: number,
+): number {
+  const s = skillOf(api);
+  if (s <= AI_EASY) return Math.max(easyMin, Math.round(base * 2.5));
+  if (s === AI_HARD) return base >> 1;
+  if (s >= AI_ACE) return 0;
+  return base;
+}
+
+/** Shop: how many different weapons to buy, by skill (easy buys little, ace stocks up). */
+export function skillPicks(api: AiShopApi, base: number): number {
+  const s = skillOf(api);
+  if (s <= AI_EASY) return Math.max(1, base >> 1);
+  if (s === AI_HARD) return base + 1;
+  if (s >= AI_ACE) return base + 2;
+  return base;
+}
+
+/** Shop: money held back, by skill (hard and ace spend more of it, more so as rounds go by). */
+export function skillReserve(api: AiShopApi, base: number): number {
+  const s = skillOf(api);
+  if (s <= AI_NORMAL) return base;
+  const r = s >= AI_ACE ? base >> 2 : base >> 1;
+  return api.round >= 2 ? r >> 1 : r;
+}
+
+/** Shop: gear plan by skill (easy carries just a parachute, hard and ace one more shield). */
+export function skillGear(api: AiShopApi, plan: GearPlan): GearPlan {
+  const s = skillOf(api);
+  if (s <= AI_EASY) return { chute: Math.min(1, plan.chute), shield: 0, battery: 0 };
+  if (s === AI_HARD) return { ...plan, shield: plan.shield + 1 };
+  if (s >= AI_ACE) {
+    return { chute: plan.chute + 1, shield: plan.shield + 1, battery: plan.battery + 1 };
+  }
+  return plan;
+}
+
+/** Damage at which a shell counts as a real shot when hard and ace bots plan their ammo. */
+const GOOD_SHOT = 40;
+
+/**
+ * Hard and ace shop (§3.7): a turn, not a coin, is what a bot is short of, so instead of the most
+ * damage per coin (stacks of Baby Missiles) it plans `shots` good shells for the round. It splits
+ * the money over the shots it still lacks and buys, a pack at a time, the best weapon (by
+ * `value`) whose price per shell fits that share, so a fat wallet buys heavy weapons.
+ */
+export function buyForShots(
+  api: AiShopApi,
+  value: (item: AiShopApi['items'][number]) => number,
+  reserve: number,
+  shots: number,
+): AiPurchase[] {
+  let money = api.money - reserve;
+  let have = 0;
+  for (const i of api.items) if (i.count > 0 && i.expectedDamage >= GOOD_SHOT) have += i.count;
+  const out: AiPurchase[] = [];
+  for (let k = 0; k < 12 && have < shots && money > 0; k++) {
+    const share = Math.floor(money / (shots - have));
+    let best: AiShopApi['items'][number] | undefined;
+    for (const i of api.items) {
+      if (i.price <= 0 || i.count < 0 || i.price > money || i.expectedDamage < GOOD_SHOT) continue;
+      // a pack's price per shell must fit the share (half again over is fine for the last shots)
+      if (i.price * 2 > share * i.pack * 3) continue;
+      const v = value(i);
+      if (v <= 0) continue;
+      if (
+        !best ||
+        v > value(best) ||
+        (v === value(best) && i.price * best.pack < best.price * i.pack)
+      ) {
+        best = i;
+      }
+    }
+    if (!best) break;
+    const last = out[out.length - 1];
+    if (last && last.item === best.index && last.gear !== true) last.packs++;
+    else out.push({ item: best.index, packs: 1 });
+    money -= best.price;
+    have += best.pack;
+  }
+  return out;
+}
+
+/** Effective health of a tank: health plus shield left. */
+export function toughness(t: AiTankView): number {
+  return t.health + t.shield;
+}
+
+/**
+ * Hard and ace (§3.7): the enemy worth shooting this turn. Tries `first` (the personality's own
+ * pick), then the other enemies weakest first, and takes the first one a solved shot hits with
+ * `weapon`; failing that, `first`. Normal and easy keep `first`.
+ */
+export function skillTarget(
+  api: AiApi,
+  first: AiTankView | undefined,
+  weapon: number,
+  angles: readonly number[],
+): AiTankView | undefined {
+  if (!first || skillOf(api) < AI_HARD) return first;
+  const m = me(api);
+  const rest = enemies(api)
+    .filter((t) => t !== first)
+    .sort((a, b) => toughness(a) - toughness(b) || a.player - b.player)
+    .slice(0, skillOf(api) >= AI_ACE ? 2 : 1);
+  // a coarse search (few angles, 8 halvings) keeps a turn's thinking short on phones
+  const tries = Math.min(skillOf(api) >= AI_ACE ? 4 : 3, angles.length);
+  for (const t of [first, ...rest]) {
+    const dir = t.x >= m.x ? 1 : -1;
+    for (let k = 0; k < tries; k++) {
+      const a = angles[k]!;
+      const s = solvePower(api, weapon, dir > 0 ? a : 180 - a, t.x, 8);
+      if (s.hit === t.player) return t;
+    }
+  }
+  return first;
+}
+
+/**
+ * Hard and ace: a shot that would land this close to me or a teammate (and hit no enemy) is one
+ * to avoid; returns the penalty to add to a plan's miss score.
+ */
+export function selfRisk(api: AiApi, landX: number, hit: number): number {
+  if (skillOf(api) < AI_HARD || !Number.isFinite(landX)) return 0;
+  const m = me(api);
+  if (hit >= 0 && api.tanks[hit] && api.tanks[hit]!.team !== m.team) return 0;
+  for (const t of api.tanks) {
+    if (!t.alive || t.team !== m.team) continue;
+    if (Math.abs(t.x - landX) < 18 + t.half) return 1000;
+  }
+  return 0;
+}
+
+/**
+ * Hard and ace: when the target is nearly dead, finish it with the cheapest weapon that still
+ * does the job (keeps the big shells for the next fight); else `w`.
+ */
+export function finisher(
+  api: AiApi,
+  target: AiTankView | undefined,
+  w: AiWeaponView,
+): AiWeaponView {
+  if (!target || skillOf(api) < AI_HARD) return w;
+  const need = toughness(target);
+  let best: AiWeaponView | undefined;
+  for (const v of api.weapons) {
+    if (v.expectedDamage < need + 5) continue;
+    if (!best || (best.count >= 0 && v.count < 0)) best = v;
+    else if (best.count < 0 === v.count < 0 && v.expectedDamage < best.expectedDamage) best = v;
+  }
+  return best ?? w;
+}
+
+/** Shop with the skill applied: fuel, then gear, then weapons by (skill-weighted) value. */
+export function skillShop(
+  api: AiShopApi,
+  p: { fuel: number; gear: GearPlan },
+  reserve: number,
+  picks: number,
+  value: (i: AiShopApi['items'][number]) => number,
+): AiPurchase[] {
+  const keep = skillReserve(api, reserve);
+  const fuel = topUpFuel(api, p.fuel, keep);
+  const gear = buyGear(api, skillGear(api, p.gear), keep + api.money - moneyAfter(api, fuel));
+  const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
+  const s = skillOf(api);
+  if (s >= AI_HARD) {
+    // ammo for the round first, then the usual value buys with what is left
+    const shots = buyForShots(api, value, keep + spent, s >= AI_ACE ? 8 : 5);
+    const left = keep + spent + api.money - moneyAfter(api, shots);
+    return [...fuel, ...gear, ...shots, ...buyByValue(api, value, left, picks)];
+  }
+  return [...fuel, ...gear, ...buyByValue(api, value, keep + spent, skillPicks(api, picks))];
 }

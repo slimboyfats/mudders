@@ -8,6 +8,8 @@ import {
   type PeerMessage,
   type PeerStart,
   type TankPick,
+  BOT_SKILLS,
+  type BotSkill,
 } from '@mudders/shared';
 import { KERNEL_VERSION, type ResolvedContent } from '@mudders/sim';
 import type { Link } from './link';
@@ -22,8 +24,8 @@ export const TAKEOVER_MS = 20_000;
 /** The personality that stands in for a dropped human. */
 export const STAND_IN = 'ai.shooter';
 
-/** Lobby rules without the slots and tanks: the seats decide those. */
-export type LobbyRules = Omit<NetSetup, 'slots' | 'tanks'>;
+/** Lobby rules without the slots, tanks and bot skills: the seats decide those. */
+export type LobbyRules = Omit<NetSetup, 'slots' | 'tanks' | 'skills'>;
 
 /** Is this a tank pick the content can honour ("auto", "random" or a loaded `tank.*`)? */
 export function validTankPick(content: ResolvedContent, tank: string): tank is TankPick {
@@ -47,6 +49,8 @@ export interface HostSeat {
   standIn?: string;
   /** Tank pick (§3.2); unset = "auto". Guests choose their own, the host the rest. */
   tank?: TankPick;
+  /** Bot seats: how well it plays; unset = normal. */
+  skill?: BotSkill;
 }
 
 /** Things the session needs from its environment; tests pass fakes. */
@@ -125,6 +129,7 @@ export class HostSession {
         s.kind === 'open' ? 'off' : s.kind === 'bot' ? (s.bot ?? 'ai.shooter') : 'human',
       ),
       tanks: this.seats.map((s) => s.tank ?? 'auto'),
+      skills: this.seats.map((s) => (s.kind === 'bot' ? (s.skill ?? 'normal') : 'normal')),
     };
   }
 
@@ -171,8 +176,20 @@ export class HostSession {
   setSeat(i: number, value: 'open' | string): void {
     const s = this.seats[i];
     if (this.match || !s || s.kind === 'host' || s.kind === 'guest') return;
+    // a new personality keeps the seat's difficulty
+    const skill = s.kind === 'bot' ? s.skill : undefined;
     this.seats[i] =
-      value === 'open' ? { kind: 'open', name: '' } : { kind: 'bot', name: '', bot: value };
+      value === 'open'
+        ? { kind: 'open', name: '' }
+        : { kind: 'bot', name: '', bot: value, ...(skill ? { skill } : {}) };
+    this.changed();
+  }
+
+  /** Host: how well a bot seat plays. */
+  setSkill(i: number, skill: BotSkill): void {
+    const s = this.seats[i];
+    if (this.match || !s || s.kind !== 'bot' || !BOT_SKILLS.includes(skill)) return;
+    s.skill = skill;
     this.changed();
   }
 

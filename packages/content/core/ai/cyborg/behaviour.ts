@@ -2,14 +2,16 @@ import { z } from '@mudders/shared';
 import { defineAi, type AiApi, type AiTankView } from '@mudders/sim';
 import {
   dropInReach,
-  buyByValue,
   enemies,
   me,
-  moneyAfter,
   moveForShot,
+  selfRisk,
+  skillError,
+  skillOf,
+  skillShop,
+  AI_ACE,
+  AI_EASY,
   solvePower,
-  topUpFuel,
-  buyGear,
   gearToUse,
   GearPlanSchema,
 } from '../../../src/ai';
@@ -60,13 +62,15 @@ function prey(api: AiApi): AiTankView | undefined {
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.cyborg',
-  version: 3,
+  version: 4,
   params,
   move(api, p) {
     const crate = dropInReach(api, 0);
     if (crate >= 0) return crate;
     const best = ranked(api, 1)[0] ?? api.weapons[0]!;
-    return moveForShot(api, prey(api), [best.index], p.angles.slice(0, 4), p.step, 0, 3);
+    // ace moves for even a small gain
+    const gain = skillOf(api) >= AI_ACE ? 1 : 3;
+    return moveForShot(api, prey(api), [best.index], p.angles.slice(0, 4), p.step, 0, gain);
   },
   gear(api) {
     return gearToUse(api);
@@ -74,26 +78,36 @@ export default defineAi<z.infer<typeof params>>({
   aim(api, p) {
     const m = me(api);
     const target = prey(api);
-    const top = ranked(api, p.weapons);
+    // ace tries two more of its weapons before settling
+    const top = ranked(api, p.weapons + (skillOf(api) >= AI_ACE ? 2 : 0));
     const first = top[0] ?? api.weapons[0]!;
     if (!target) return { weapon: first.index, angle: 90, power: 300 };
+    const shot = (weapon: number, angle: number, power: number) => {
+      if (skillOf(api) > AI_EASY) return { weapon, angle, power };
+      // easy: near-perfect aim gets a human's wobble
+      const ae = skillError(api, 0, 4);
+      const pe = skillError(api, 0, 40);
+      return {
+        weapon,
+        angle: angle + api.rng.range(-ae, ae),
+        power: power + api.rng.range(-pe, pe),
+      };
+    };
     const dir = target.x >= m.x ? 1 : -1;
     let best = { weapon: first.index, angle: 90, power: 300, score: Infinity };
     for (const w of top) {
       for (const a of p.angles) {
         const angle = dir > 0 ? a : 180 - a;
         const s = solvePower(api, w.index, angle, target.x, 12);
-        const score = s.hit === target.player ? -1 : Math.abs(s.miss);
+        const score =
+          s.hit === target.player ? -1 : Math.abs(s.miss) + selfRisk(api, target.x + s.miss, s.hit);
         if (score < best.score) best = { weapon: w.index, angle, power: s.power, score };
-        if (score < 0) return { weapon: w.index, angle, power: s.power };
+        if (score < 0) return shot(w.index, angle, s.power);
       }
     }
-    return { weapon: best.weapon, angle: best.angle, power: best.power };
+    return shot(best.weapon, best.angle, best.power);
   },
   shop(api, p) {
-    const fuel = topUpFuel(api, p.fuel, p.reserve);
-    const gear = buyGear(api, p.gear, p.reserve + api.money - moneyAfter(api, fuel));
-    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
-    return [...fuel, ...gear, ...buyByValue(api, (i) => i.expectedDamage, p.reserve + spent, 4)];
+    return skillShop(api, p, p.reserve, 4, (i) => i.expectedDamage);
   },
 });

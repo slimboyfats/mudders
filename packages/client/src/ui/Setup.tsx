@@ -7,11 +7,15 @@ import {
   canStart,
   defaultTeams,
   saveSetup,
+  SKILL_ABOUT,
+  SKILL_NAMES,
   type MatchSetup,
   type Slot,
 } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { BOT_SKILLS, type BotSkill } from '@mudders/shared';
 import { Rules } from './Rules';
+import { SkillPick } from './SkillPick';
 import { TankAbout, TankPick, useFavourites, useTanks } from './Tanks';
 import { TeamPick, TeamsToggle } from './Teams';
 
@@ -40,6 +44,11 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
     const next = [...setup.tanks];
     next[i] = t;
     update({ ...setup, tanks: next });
+  };
+  const setSkill = (i: number, k: BotSkill) => {
+    const next = [...setup.skills];
+    next[i] = k;
+    update({ ...setup, skills: next });
   };
   const update = (s: MatchSetup) => {
     saveSetup(s);
@@ -106,6 +115,9 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
                 onChange={(t) => setTank(i, t)}
               />
             )}
+            {slot.startsWith('ai.') && (
+              <SkillPick value={setup.skills[i]} seat={i} onChange={(k) => setSkill(i, k)} />
+            )}
             {teams && slot !== 'off' && (
               <TeamPick team={teams[i] ?? i % 2} seat={i} onChange={(t) => setTeam(i, t)} />
             )}
@@ -133,6 +145,11 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
             {bots.map((b) => (
               <li key={b.id}>
                 <b>{b.name}</b>: {b.desc}
+              </li>
+            ))}
+            {BOT_SKILLS.map((k) => (
+              <li key={k}>
+                <b>{SKILL_NAMES[k]}</b>: {SKILL_ABOUT[k]}
               </li>
             ))}
           </ul>

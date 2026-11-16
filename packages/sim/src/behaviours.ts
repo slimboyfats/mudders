@@ -370,9 +370,20 @@ export interface AiDropView {
   readonly resting: boolean;
 }
 
+/**
+ * How well a bot seat plays (kernel 0.57.0): set per seat in the lobby. Personalities read it
+ * to scale their aim error, targeting and shopping; normal plays exactly as before.
+ */
+export const AI_EASY = 0;
+export const AI_NORMAL = 1;
+export const AI_HARD = 2;
+export const AI_ACE = 3;
+
 export interface AiApi {
   readonly rng: Prng;
   readonly me: number;
+  /** This seat's difficulty: AI_EASY … AI_ACE (AI_NORMAL unless the lobby set one). */
+  readonly skill: number;
   readonly tanks: readonly AiTankView[];
   readonly weapons: readonly AiWeaponView[];
   /** Every gear item, in id order, with how many I carry. */
@@ -435,6 +446,8 @@ export interface AiShopItem {
 export interface AiShopApi {
   readonly rng: Prng;
   readonly me: number;
+  /** This seat's difficulty, as in `AiApi.skill`. */
+  readonly skill: number;
   readonly money: number;
   /** Rounds played so far. */
   readonly round: number;
