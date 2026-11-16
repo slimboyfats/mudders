@@ -126,6 +126,14 @@ export interface SimApi extends EffectSink {
   /** Index of the weapon with content id `id` (for `throwShell`), or -1 if it isn't loaded. */
   weaponByIndex(id: string): number;
   /**
+   * Change the weather mid-round (`weather.*` id, null = clear skies), as a passing weather
+   * front does (kernel 0.58.0). Drag and the weather's turn-start effects follow from the next
+   * tick; the renderer picks the new sky up from the snapshot.
+   */
+  setSky(weather: string | null): void;
+  /** The weather now (`weather.*` id), or null for clear skies. */
+  readonly sky: string | null;
+  /**
    * If someone is aiming, their turn ends now as if they had fired, credited to `owner` (a
    * resident op grabbing a tank that drove up to it). Does nothing while a shot resolves.
    */

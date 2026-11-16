@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.93.0",
+  "version": "0.94.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -273,10 +273,12 @@
     "terrainop.supernova",
     "terrainop.tectonic",
     "terrainop.terraform",
+    "terrainop.tides",
     "terrainop.tornado",
     "terrainop.upfall",
     "terrainop.volcano",
     "terrainop.warp",
+    "terrainop.weather-fronts",
     "theme.arcade",
     "theme.day",
     "theme.default",

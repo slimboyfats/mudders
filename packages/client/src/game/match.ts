@@ -210,7 +210,10 @@ export abstract class SimMatch implements SnapshotStream {
   protected publish(full = false): void {
     const s = full ? this.fullSnapshot() : this.world.snapshot();
     for (const e of s.effectEvents) {
-      const text = alertText(e.type, e.params);
+      const text =
+        e.type === 'weatherFront'
+          ? frontText(this.world.weather?.label)
+          : alertText(e.type, e.params);
       if (text) this.alert = { text, tick: s.tick };
     }
     // a match that changes map or sky between rounds says where this round is played
@@ -394,10 +397,21 @@ export function roundLine(w: World, free: readonly string[] = []): string {
   }`;
 }
 
+/** How the HUD words a weather front, from the sky it brings. */
+export function frontText(label: string | undefined): string {
+  return label ? `${label} moving in…` : 'The skies are clearing';
+}
+
 /** How the HUD words a map event, or '' for effects that aren't news. */
 export function alertText(type: string, params: Readonly<Record<string, number>>): string {
   if (type === 'rumble') return params.turns === 1 ? 'The volcano is rumbling…' : 'Eruption!';
   if (type === 'avalanche') return 'Avalanche!';
+  if (type === 'tide')
+    return params.rising === 1
+      ? 'The tide is coming in'
+      : params.rising === 0
+        ? 'The tide is going out'
+        : '';
   return '';
 }
 
@@ -409,7 +423,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

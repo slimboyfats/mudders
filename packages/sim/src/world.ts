@@ -1332,6 +1332,18 @@ export class World implements SimApi {
     };
   }
 
+  /** Whether a weather front changed the sky mid-round (hashed from then on). */
+  private skyShifted = false;
+
+  get sky(): string | null {
+    return this.weather?.id ?? null;
+  }
+
+  setSky(weather: string | null): void {
+    this.setWeather(weather ?? undefined);
+    this.skyShifted = true;
+  }
+
   /** Bind a weather (`weather.*` id) for the rounds that follow; undefined = clear skies. */
   private setWeather(id: string | undefined): void {
     const weather = id ? this.content.get('weather', id) : null;
@@ -5121,6 +5133,8 @@ export class World implements SimApi {
     if (this.wetFor !== 0) h.num(this.wetFor ^ 0x3c3c);
     // temperature (kernel 0.18.0)
     h.num(this.temperature).num(this.tempBase);
+    // weather fronts (kernel 0.58.0): only hashed once one has changed the sky
+    if (this.skyShifted) h.str(this.weather?.id ?? 'clear');
     // gusty wind (kernel 0.9.0): only hashed when in use, so other matches keep their hashes
     if (this.gust !== 0 || this.modeMem.length > 0) {
       h.num(this.windBase).num(this.gust).num(this.modeMem.length);
