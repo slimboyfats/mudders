@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Bots that talk back and match awards',
+    items: [
+      'Bots talk: a speech bubble pops up over a bot tank and types itself out. Taunts when its turn starts, a shrug when it misses, a yelp when hit, relief after a close call, last words on the way out, a gloat after a kill, and a jeer when your shot misses everyone. Each bot has its own voice: the Moron is confused, the Cyborg cold, the Poolshark smooth. Both players see the same lines online. Switch it off in Settings',
+      'Match awards: the match-over card now hands out awards, among them Best shot (most damage in one shot), Most dirt moved, Most kills, Longest kill, Sharp eye (best hit rate), Nine lives (most close calls survived), Punching bag and Own worst enemy',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',

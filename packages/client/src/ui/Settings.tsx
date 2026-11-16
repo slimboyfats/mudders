@@ -134,6 +134,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.chatter}
+            onChange={(e) => update({ ...settings, chatter: e.target.checked })}
+          />
+          Bots talk (speech bubbles)
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.perfHud}
             onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
           />

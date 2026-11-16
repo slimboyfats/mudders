@@ -62,6 +62,8 @@ export interface TankView {
   scope?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
+  /** `ai.*` id of the bot driving it; absent for a human (cosmetic: bot chatter). */
+  bot?: string;
 }
 
 export interface ProjectileView {

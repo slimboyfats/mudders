@@ -29,6 +29,7 @@ import { WaterFx } from './splash';
 import { LiquidSurface } from './liquid';
 import { apronSize, buildApron, type Apron } from './apron';
 import { CalloutTracker, drawCallouts } from './callouts';
+import { SpeechTracker, drawSpeech } from './speech';
 import { Critters, type CritterProbe, drawCrows, drawFish, drawRabbits, mapSeed } from './critters';
 import { QuadBatch, Shape } from './batch';
 import { Camera } from './camera';
@@ -538,6 +539,9 @@ export class PixelRenderer implements Renderer {
   private lastTick = 0;
   /** Hit numbers and callouts over the tanks. */
   private readonly hits = new CalloutTracker();
+  /** Bot chatter: speech bubbles over bot tanks. */
+  private readonly speech = new SpeechTracker();
+  private chatterOn = true;
   /** Rabbits and fish (cosmetic, seeded from the map so every client sees the same). */
   private readonly critters = new Critters();
   private fxTick = -1;
@@ -614,6 +618,7 @@ export class PixelRenderer implements Renderer {
     this.theme = this.baseTheme;
     this.shakeOn = options.shake ?? true;
     this.dayNightOn = options.dayNight ?? true;
+    this.chatterOn = options.chatter ?? true;
     this.onCues = options.onCues;
     this.onProcesses = options.onProcesses;
     this.catchUp = options.catchUp ?? Infinity;
@@ -1215,6 +1220,7 @@ export class PixelRenderer implements Renderer {
     if (this.horizon < 0) this.horizon = meanGround(s.terrain, s.width, s.height);
     this.entities = s.entities;
     this.hits.ingest(s);
+    this.speech.ingest(s);
     this.critters.step(s, this.critterProbe, this.particles);
     this.zones = [];
     for (const e of s.entities) if (e.kind === 'zone') this.zones.push(e);
@@ -2674,6 +2680,7 @@ export class PixelRenderer implements Renderer {
     this.wall.drawParticles(this.normal, this.additive, zone);
     // hit numbers and callouts on top of everything
     drawCallouts(this.normal, this.hits, t, scale);
+    if (this.chatterOn) drawSpeech(this.normal, this.speech, t, scale, this.mapWidth);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     this.normal.flush(view, origin, scale);
