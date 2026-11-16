@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Shield Breaker",
-    "description": "An EMP shell. It barely scratches the ground, but the pulse that rolls out from it collapses every shield in reach, cooks the spare batteries in their holds, and fries their electrics so they can't drive or switch on gear on their next turn. Crack a turtle open, then hit it with something real.",
+    "description": "An EMP shell. It barely scratches the ground, but the pulse that rolls out from it collapses every shield in reach, cooks the spare batteries in their holds, and fries their electrics so they can't drive or switch on gear on their next turn. The pulse also runs out through water and steel, shocking every tank touching them. Crack a turtle open, then hit it with something real.",
     "category": "weird",
     "since": "core@0.51.0"
   },
@@ -42,6 +42,14 @@
           }
         }
       }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.conduct",
+        "damage": 15
+      },
+      "radius": 56,
+      "damageType": "shock"
     }
   ],
   "shop": {

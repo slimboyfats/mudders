@@ -29,6 +29,11 @@
       "prop": "prop.boulder",
       "count": [2, 4],
       "cluster": false
+    },
+    {
+      "prop": "prop.girder",
+      "count": [0, 1],
+      "cluster": false
     }
   ],
   "seams": [3, 5],

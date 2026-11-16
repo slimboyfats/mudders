@@ -1,0 +1,39 @@
+{
+  "id": "prop.girder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Girder",
+    "description": "A dumped length of steel lattice girder. It shrugs off a few hits before it breaks loose and tumbles, but it carries electricity: lightning anywhere on it shocks every tank touching the metal.",
+    "since": "core@0.96.0"
+  },
+  "shape": [
+    "SSSSSSSSSSSSSSSSSSSSSSSSS",
+    "S   S   S   S   S   S   S",
+    "S   S   S   S   S   S   S",
+    "S   S   S   S   S   S   S",
+    "SSSSSSSSSSSSSSSSSSSSSSSSS"
+  ],
+  "legend": {
+    "S": "steel"
+  },
+  "materials": {
+    "steel": "material.steel"
+  },
+  "groups": [
+    {
+      "name": "girder",
+      "tumble": true,
+      "roles": ["steel"],
+      "integrity": 400,
+      "resistance": {
+        "blast": 1.5,
+        "kinetic": 1.5,
+        "heat": 4
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 8,
+    "clearance": 12
+  }
+}

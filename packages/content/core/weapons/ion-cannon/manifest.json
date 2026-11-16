@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Ion Cannon",
-    "description": "Lob a targeting beacon like a shell. A satellite charges up over it, then a colossal ion beam slams down from the sky: a blast twice the size of a Heavy Nuke, a storm of huge electric bolts instead of a mushroom cloud, and three shockwaves rolling out one after another, each shoving the ground around.",
+    "description": "Lob a targeting beacon like a shell. A satellite charges up over it, then a colossal ion beam slams down from the sky: a blast twice the size of a Heavy Nuke, a storm of huge electric bolts instead of a mushroom cloud, and three shockwaves rolling out one after another, each shoving the ground around. Water and steel in the blast carry the charge on to every tank touching them.",
     "category": "beam",
     "since": "core@0.37.0"
   },

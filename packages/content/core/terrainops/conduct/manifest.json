@@ -3,12 +3,21 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Conduct",
-    "description": "Electricity runs through water: a lightning strike that lands in or beside water charges all of the water (and runny mud) joined to it, and every tank standing in that water is shocked. Dry ground stops it.",
+    "description": "Electricity runs through anything that conducts: a lightning strike that lands in or beside water, runny mud or steel charges all of it joined to the strike, and every tank touching the charged cells is shocked. Steel girders carry the charge three times as far as water. Dry ground stops it.",
     "since": "core@0.91.0"
   },
   "behaviour": "terrainop.conduct",
-  "through": ["material.water", "material.liquid-dirt"],
+  "tag": "conducts",
   "cells": 60000,
+  "reach": 480,
+  "step": 3,
+  "cost": [
+    {
+      "material": "material.steel",
+      "cost": 1
+    }
+  ],
   "damage": 30,
-  "sparks": 12
+  "sparks": 12,
+  "crawls": 14
 }
