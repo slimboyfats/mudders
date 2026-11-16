@@ -4,6 +4,7 @@ import { Shape, type QuadBatch } from './batch';
 import { drawPost, makePost, type Post } from './bumper';
 import { drawKaiju, kaijuEmerged, KAIJU_STATES, toppleAngle, type KaijuFx } from './kaiju';
 import { Chunks } from './chunks';
+import { crawlLife, crawlPath, drawCrawls, type SparkCrawl } from './spark-crawl';
 import {
   BLAST_SHAPES,
   blastShape,
@@ -410,6 +411,8 @@ export class EffectSystem {
   private glows: Glow[] = [];
   private fronts: Front[] = [];
   private bolts: Bolt[] = [];
+  /** Single-cell sparks running through a charged conductor (see `spark-crawl.ts`). */
+  private crawls: SparkCrawl[] = [];
   private jets: Jet[] = [];
   /** Frost Bomb starbursts: jagged ice spikes out of the impact. */
   private crystals: Crystal[] = [];
@@ -1054,6 +1057,9 @@ export class EffectSystem {
         break;
       case 'volcanoErupt':
         this.eruption(e, 0.9);
+        break;
+      case 'sparkCrawl':
+        this.sparkCrawl(e);
         break;
       case 'arcs':
         this.arcs(e, e.params.strength ?? 1);
@@ -4781,6 +4787,41 @@ export class EffectSystem {
   }
 
   /**
+   * A charge running through a conductor (`terrainop.conduct`): two single-cell sparks jink away
+   * from this charged cell through the same material, starting later the farther the cell is
+   * from where the charge went in (`d`, in the op's cost units), so the crackle visibly runs out
+   * along a girder frame or across a lake.
+   */
+  private sparkCrawl(e: EffectEvent): void {
+    const rng = this.rngFor(e, 163);
+    const p = this.probe;
+    const mat = e.params.mat ?? -1;
+    const len = Math.max(4, e.params.len ?? 24);
+    const delay = Math.min(40, Math.floor((e.params.d ?? 0) / 8));
+    const x = Math.round(e.x);
+    const y = Math.round(e.y);
+    for (let a = 0; a < 2; a++) {
+      const cells = crawlPath(
+        (cx, cy) => p.material(cx, cy),
+        p.width,
+        p.height,
+        x,
+        y,
+        mat,
+        len,
+        rng,
+      );
+      if (cells.length < 4) continue;
+      this.crawls.push({
+        cells,
+        start: e.tick + delay + Math.floor(rng.next() * 4),
+        dur: crawlLife(cells),
+        seed: rng.next() * 4294967296,
+      });
+    }
+  }
+
+  /**
    * Electric arcs crawling out along the ground from a strike: short jagged bolts that hug the
    * surface, flickering, with sparks spat off them.
    */
@@ -6516,6 +6557,7 @@ export class EffectSystem {
     this.glows = this.glows.filter((g) => t - g.start <= g.dur * 4 + 16);
     for (const b of this.bolts) this.boltBits(b, t);
     this.bolts = this.bolts.filter((b) => t - b.start <= b.dur);
+    this.crawls = this.crawls.filter((s) => t - s.start <= s.dur);
     if (this.ions.active) {
       const rumble = this.ions.tick(t, this.mult);
       if (rumble > 0) {
@@ -7301,6 +7343,7 @@ export class EffectSystem {
    * dropping out one by one.
    */
   drawBolts(additive: QuadBatch, t: number): void {
+    drawCrawls(additive, this.crawls, t);
     for (const b of this.bolts) {
       const age = t - b.start;
       if (age < 0 || age > b.dur) continue;
@@ -7494,6 +7537,7 @@ export class EffectSystem {
     this.glows = [];
     this.fronts = [];
     this.bolts = [];
+    this.crawls = [];
     this.jets = [];
     this.crystals = [];
     this.mushrooms = [];

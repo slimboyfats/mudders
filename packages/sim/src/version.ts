@@ -1,2 +1,2 @@
 /** Bumped whenever kernel behaviour changes in a way that alters simulation results. Hashed into content. */
-export const KERNEL_VERSION = '0.58.0';
+export const KERNEL_VERSION = '0.59.0';

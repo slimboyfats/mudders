@@ -1,0 +1,28 @@
+{
+  "id": "material.steel",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Steel",
+    "description": "Girders, rebar and scrap plate. Shrugs off blasts and fire and bridges long gaps, but it carries electricity far: a lightning strike on a steel frame runs along all of the metal joined to it and shocks every tank touching it.",
+    "since": "core@0.96.0",
+    "color": "#6f7f92"
+  },
+  "cell": 100,
+  "settle": "static",
+  "density": 230,
+  "strength": {
+    "blast": 2.6,
+    "kinetic": 3,
+    "heat": 6,
+    "shock": 3,
+    "dig": 4,
+    "corrosive": 0.8
+  },
+  "cohesion": 0,
+  "span": 40,
+  "coating": false,
+  "tags": ["conducts"],
+  "look": {
+    "glint": true
+  }
+}

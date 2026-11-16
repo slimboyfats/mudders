@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Storm bolt",
-    "description": "A lightning bolt cracking down out of a Thunderstorm cloud onto whatever stands tallest beneath it. Smaller than a Lightning shot, but it fuses the ground it hits into glass all the same. Water conducts it: a strike in or beside a lake shocks every tank standing in that water.",
+    "description": "A lightning bolt cracking down out of a Thunderstorm cloud onto whatever stands tallest beneath it. Smaller than a Lightning shot, but it fuses the ground it hits into glass all the same. Water and steel conduct it: a strike in or beside a lake shocks every tank standing in that water, and one on a girder frame shocks every tank touching the metal.",
     "category": "submunition",
     "since": "core@0.39.0"
   },

@@ -26,6 +26,11 @@
       "prop": "prop.bush",
       "count": [2, 3],
       "cluster": false
+    },
+    {
+      "prop": "prop.girder",
+      "count": [0, 2],
+      "cluster": false
     }
   ],
   "events": [

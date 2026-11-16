@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.95.0",
+  "version": "0.96.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -203,6 +203,7 @@
     "material.snow",
     "material.splinter",
     "material.steam",
+    "material.steel",
     "material.tar",
     "material.water",
     "material.wet-clay",
@@ -215,6 +216,7 @@
     "prop.boulder",
     "prop.bush",
     "prop.cave-roof",
+    "prop.girder",
     "prop.house",
     "prop.maple",
     "prop.pine",
