@@ -66,9 +66,11 @@ export class LiquidSurface {
   /**
    * Columns whose cells changed since the last scan (from the snapshot's dirty rects), or all of
    * them. A column's surface depends only on its own cells, so the others keep their answer:
-   * rescanning the whole map every tick cost ~1 ms a tick here and several on a phone.
+   * rescanning the whole map every tick cost ~1 ms a tick here and several on a phone. Each
+   * entry is the top changed row + 1 (0 = unchanged): the rows above it are as the last scan
+   * saw them, so the rescan starts there instead of at the sky.
    */
-  private readonly dirtyCol: Uint8Array;
+  private readonly dirtyCol: Int16Array;
   private allDirty = true;
   private needScan = true;
   /** Any liquid surface at all after the last scan. */
@@ -94,7 +96,7 @@ export class LiquidSurface {
     this.h = new Float32Array(width);
     this.hn = new Float32Array(width);
     this.v = new Float32Array(width);
-    this.dirtyCol = new Uint8Array(width);
+    this.dirtyCol = new Int16Array(width);
   }
 
   get enabled(): boolean {
@@ -106,7 +108,7 @@ export class LiquidSurface {
    * The cells to read. `changed` (the snapshot's dirty rects) limits the next rescan to the
    * columns they touch; without it, or with a new array, every column is rescanned.
    */
-  setTerrain(t: Uint8Array, changed?: readonly { x: number; w: number }[]): void {
+  setTerrain(t: Uint8Array, changed?: readonly { x: number; w: number; y?: number }[]): void {
     if (t !== this.terrain || !changed) {
       this.terrain = t;
       this.allDirty = true;
@@ -116,7 +118,10 @@ export class LiquidSurface {
     const cols = this.dirtyCol;
     for (const r of changed) {
       const x1 = Math.min(this.width, r.x + r.w);
-      for (let x = Math.max(0, r.x); x < x1; x++) cols[x] = 1;
+      const top = Math.max(0, r.y ?? 0) + 1;
+      for (let x = Math.max(0, r.x); x < x1; x++) {
+        if (cols[x] === 0 || top < cols[x]!) cols[x] = top;
+      }
       if (x1 > r.x) this.needScan = true;
     }
   }
@@ -148,10 +153,14 @@ export class LiquidSurface {
     this.needScan = false;
     for (let x = 0; x < w; x++) {
       if (!all && cols[x] === 0) continue;
+      const top = all ? 0 : cols[x]! - 1;
       cols[x] = 0;
+      // a surface above everything that changed is still the first one down
+      if (top > 0 && this.sy[x]! >= 0 && this.sy[x]! < top) continue;
+      // no surface above the top changed row last time, and nothing changed up there since
       let found = -1;
-      let above = 0;
-      for (let y = 0; y < hgt; y++) {
+      let above = top > 0 ? t[(top - 1) * w + x]! : 0;
+      for (let y = top; y < hgt; y++) {
         const c = t[y * w + x]!;
         if (above === 0 && k[c] !== 0) {
           found = y;

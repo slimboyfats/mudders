@@ -88,7 +88,7 @@ import { type KickTank, MuzzleKick } from './muzzle';
 import { BlastSkirts, type SkirtGround } from './skirt';
 import { SteamFx } from './steam';
 import { type FlinchTank, TankFlinch } from './flinch';
-import { SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
+import { SWAY_REACH, SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
 const SAW_RIM: readonly (readonly [number, number])[] = [
@@ -394,6 +394,10 @@ export class PixelRenderer implements Renderer {
   /** Trees in the wind (sway.ts): the per-cell field, its texture, and what sways. */
   private sway = new Uint8Array(0);
   private swayRun = new Int32Array(0);
+  /** Swaying cells per column, and the columns whose terrain changed since the field was built. */
+  private swayCount = new Int32Array(0);
+  private swayX0 = 0;
+  private swayX1 = -1;
   private swayTex!: WebGLTexture;
   private swayLooks: SwayLooks = { flex: new Uint8Array(256), limb: new Uint8Array(256) };
   private swayOn = false;
@@ -841,6 +845,9 @@ export class PixelRenderer implements Renderer {
     this.sway = new Uint8Array(this.mapWidth * this.mapHeight);
     this.swayShown = new Uint8Array(this.mapWidth * this.mapHeight);
     this.swayRun = new Int32Array(this.mapHeight);
+    this.swayCount = new Int32Array(this.mapWidth);
+    this.swayX0 = 0;
+    this.swayX1 = this.mapWidth - 1;
     this.swayTex = texture(gl);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -1006,6 +1013,8 @@ export class PixelRenderer implements Renderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 10, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
     this.meter?.setLooks(this.lookFlags, this.palette.liquids ?? []);
     this.swayLooks = swayLooks(this.palette.looks ?? []);
+    this.swayX0 = 0;
+    this.swayX1 = this.mapWidth - 1;
   }
 
   setQuality(quality: Quality): void {
@@ -1088,6 +1097,8 @@ export class PixelRenderer implements Renderer {
       gl.pixelStorei(gl.UNPACK_ROW_LENGTH, s.width);
       for (const r of s.dirtyRects) {
         if (r.w <= 0 || r.h <= 0) continue;
+        if (r.x < this.swayX0) this.swayX0 = r.x;
+        if (r.x + r.w - 1 > this.swayX1) this.swayX1 = r.x + r.w - 1;
         gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, r.x);
         gl.pixelStorei(gl.UNPACK_SKIP_ROWS, r.y);
         gl.texSubImage2D(
@@ -1739,9 +1750,26 @@ export class PixelRenderer implements Renderer {
     const was = this.swayOn;
     const w = this.mapWidth;
     const h = this.mapHeight;
-    this.swayOn = swayField(this.terrain, w, h, this.swayLooks, this.sway, this.swayRun);
+    // only the columns the terrain changed in since the last build (and the marks beside them)
+    const x0 = this.swayX0;
+    const x1 = this.swayX1;
+    this.swayX0 = w;
+    this.swayX1 = -1;
+    if (x1 < x0) return;
+    this.swayOn = swayField(
+      this.terrain,
+      w,
+      h,
+      this.swayLooks,
+      this.sway,
+      this.swayRun,
+      x0,
+      x1,
+      this.swayCount,
+    );
     if (!this.swayOn && !was) return;
-    uploadChanged(this.gl, this.swayTex, this.sway, this.swayShown, w, h);
+    const pad = 2 * SWAY_REACH;
+    uploadChanged(this.gl, this.swayTex, this.sway, this.swayShown, w, h, x0 - pad, x1 + pad);
   }
 
   /** Rebuild and upload the heat field lava and flames light the ground from. */
