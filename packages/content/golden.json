@@ -1,5 +1,5 @@
 {
-  "contentHash": "1c590d8cf6b24d69",
+  "contentHash": "7905f702b7c7d982",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1087,7 +1087,7 @@
     },
     "terrainop.conduct": {
       "ticks": 217,
-      "hash": "a98921bd007a69b2"
+      "hash": "d6ae11337252cd72"
     },
     "terrainop.convert": {
       "ticks": 210,
@@ -1233,6 +1233,10 @@
       "ticks": 173,
       "hash": "7f36f3413979146a"
     },
+    "terrainop.tides": {
+      "ticks": 2400,
+      "hash": "65c521819adc2823"
+    },
     "terrainop.tornado": {
       "ticks": 46,
       "hash": "f78bef441c2a5fc4"
@@ -1248,6 +1252,10 @@
     "terrainop.warp": {
       "ticks": 46,
       "hash": "f78bef441c2a5fc4"
+    },
+    "terrainop.weather-fronts": {
+      "ticks": 700,
+      "hash": "7f1e1767a2ad8008"
     },
     "theme.arcade": {
       "ticks": 329,

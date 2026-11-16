@@ -4,7 +4,7 @@
   "meta": {
     "name": "Flask smash",
     "description": "A glass flask bursting: a tiny tinkle of glittering shards that barely scratches a tank and digs no crater. The flask's own terrain op lets the payload out.",
-    "since": "core@0.94.0"
+    "since": "core@0.95.0"
   },
   "extends": "explosion.standard",
   "radius": 3,

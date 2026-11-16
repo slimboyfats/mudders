@@ -5,7 +5,7 @@
     "name": "Acid Flask",
     "description": "A glass flask of glowing green acid. It smashes into a puddle that runs downhill and slowly eats soft ground (dirt, sand, mud, wood) into a fizz of fumes, using itself up as it goes. Rock, metal and glass shrug it off. A tank sitting in it loses a little health every turn.",
     "category": "terrain-dynamics",
-    "since": "core@0.94.0"
+    "since": "core@0.95.0"
   },
   "flight": {
     "use": "flight.ballistic"

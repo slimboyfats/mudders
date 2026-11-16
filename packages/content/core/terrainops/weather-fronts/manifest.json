@@ -1,0 +1,13 @@
+{
+  "id": "terrainop.weather-fronts",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Weather Fronts",
+    "description": "A round twist. Every few turns a front moves in and the weather changes: clear skies cloud over into rain, the rain turns to snow, a storm clears again. The new weather's rules come with it, so rain starts dragging shells short and puddling the hollows mid-round, and you have to read the sky before every shot.",
+    "since": "core@0.94.0"
+  },
+  "behaviour": "terrainop.weather-fronts",
+  "skies": ["clear", "weather.rain", "weather.snow"],
+  "first": 1,
+  "every": [1, 3]
+}

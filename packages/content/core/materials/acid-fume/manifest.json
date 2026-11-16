@@ -4,7 +4,7 @@
   "meta": {
     "name": "Acid fume",
     "description": "The fizz that rises where acid eats into the ground: a thin, pale green haze that drifts up with the wind and is gone in a few seconds. Harmless.",
-    "since": "core@0.94.0",
+    "since": "core@0.95.0",
     "color": "#c4ec8a"
   },
   "cell": 111,

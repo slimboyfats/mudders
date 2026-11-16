@@ -20,9 +20,11 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-16',
     title:
-      'Smarter bots with a difficulty per seat, bounty on the leader, talking bots, match awards, material flasks and acid',
-    pack: 'core@0.93.0 – 0.94.0',
+      'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks and acid',
+    pack: 'core@0.93.0 – 0.95.0',
     items: [
+      'Lakeland tides (with map events on): the lakes rise and fall over the round. For a few turns they swell until they stand well above their old shores, flooding the low ground and any tank parked on it, then they ebb until their beds lie bare, and back again. A lake a crater has drained fills again at high tide',
+      'New round twist, Changing weather: every few turns a front moves in and the sky changes between clear, rain and snow, with the new weather’s rules (rain drags shells short and puddles the hollows, snow settles on the ground). The HUD calls each front out',
       'Every AI seat now has a difficulty next to its personality, locally and in the online lobby: Easy, Normal, Hard or Ace. Normal plays exactly as before',
       'Easy bots aim with a human wobble, buy little and carry almost no gear. Hard bots halve their aim error, read the wind for their opening shot, switch to a tank they can actually hit when their favourite target is behind cover, avoid shots that would land on themselves or a teammate, and finish weak tanks with a cheap shell',
       'Ace bots aim with no deliberate error, re-solve every shot, try more weapons and targets and drive for even a small gain. In the shop, Hard and Ace bots plan their ammo for the round and spend on heavy shells instead of stacks of Baby Missiles, and Ace carries more shields, batteries and parachutes',
