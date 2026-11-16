@@ -64,6 +64,10 @@ const SPRAY_MIN = 6;
 let stamp = new Int32Array(0);
 let pass = 0;
 
+/** The material layer of the grid last settled, four cells to a word (to skip runs of air fast). */
+let words: Uint32Array = new Uint32Array(0);
+let wordsOf: Uint8Array | null = null;
+
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
  * cells accelerate downward (1 cell/tick² up to MAX_FALL_SPEED), `slide` cells also move one cell
@@ -96,6 +100,13 @@ export function settleStep(
   const W = grid.width;
   const H = grid.height;
   const mat = grid.material;
+  if (wordsOf !== mat) {
+    wordsOf = mat;
+    words =
+      mat.byteOffset % 4 === 0
+        ? new Uint32Array(mat.buffer, mat.byteOffset, mat.length >> 2)
+        : new Uint32Array(0);
+  }
   const coat = grid.coating;
   const gas = grid.gas;
   const state = grid.cellState;
@@ -134,7 +145,26 @@ export function settleStep(
 
   rows: for (let y = Math.min(grid.settleMaxY, H - 2); y >= 0; y--) {
     const row = y * W;
-    for (let i = 0; i <= span; i++) {
+    // Air does nothing, and nothing moves into a cell the scan has yet to reach except from a
+    // cell it visits first: the scan starts at the row's first cell that holds anything. A region
+    // reaches down from row 0, so most of it is sky, skipped here four cells at a time.
+    let i: number;
+    if (ltr) {
+      let p = row + x0;
+      const end = row + x1;
+      while (p <= end && (p & 3) !== 0 && mat[p] === 0) p++;
+      if ((p & 3) === 0) while (p + 3 <= end && words[p >> 2] === 0) p += 4;
+      while (p <= end && mat[p] === 0) p++;
+      i = p - row - x0;
+    } else {
+      let p = row + x1;
+      const end = row + x0;
+      while (p >= end && (p & 3) !== 3 && mat[p] === 0) p--;
+      if ((p & 3) === 3) while (p - 3 >= end && words[p >> 2] === 0) p -= 4;
+      while (p >= end && mat[p] === 0) p--;
+      i = row + x1 - p;
+    }
+    for (; i <= span; i++) {
       const x = ltr ? x0 + i : x1 - i;
       const idx = row + x;
       const m = mat[idx]!;
@@ -197,6 +227,18 @@ export function settleStep(
       }
       const gl = live ? glide[m]! : 0;
       const pv = vel[idx]!;
+      // Ground at rest, the bulk of any region: standing on something, not moving, not shaken
+      // loose, and not a lone spire. None of the rules below would touch it.
+      if (
+        pv === 0 &&
+        mb !== 0 &&
+        k === SETTLE_FALL &&
+        state[idx] === 0 &&
+        (mat[idx - 1] !== 0 || mat[idx + 1] !== 0)
+      ) {
+        if (gl !== 0 && stamp[idx] === pass) stamp[idx] = 0;
+        continue;
+      }
       const fv = pv & FALL_MASK;
       let sv = gl !== 0 ? (pv >> SLIDE_SHIFT) & SLIDE_MAX : 0;
       let sd = (pv & SLIDE_LEFT) !== 0 ? -1 : 1;

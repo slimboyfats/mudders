@@ -16,6 +16,10 @@ const MAX_THICKNESS = 32;
 /** Cells released per material in the current pass (transient scratch). */
 const perMaterial = new Int32Array(256);
 
+/** Per column while climbing: is the cell below grounded, and the bottom row of the open run. */
+let colBelow = new Uint8Array(0);
+let colRun = new Int16Array(0);
+
 /** Order-free hash: how ragged the break line is per row. */
 function jag(y: number, x: number): number {
   let h = Math.imul((y * 0x9e37) ^ (x >> 5) ^ 0x3c6ef372, 0x85ebca6b);
@@ -84,48 +88,91 @@ export function supportPass(
   const rx1 = Math.min(W - 1, cx1 + MAX_REACH);
   grid.clearStruct();
 
+  // Nothing hangs (the usual case on soft ground) unless some solid cell that neither holds on
+  // its own nor belongs to a group has air right under it: the lowest hanging cell of a column
+  // is such a cell. One cheap look for that first; without one there is nothing to work out.
+  let any = false;
+  look: for (let y = H - 2; y >= 0; y--) {
+    for (let i = y * W + rx0, end = y * W + rx1; i <= end; i++) {
+      const m = mat[i]!;
+      if (m === 0 || mat[i + W] !== 0 || group[i] !== 0) continue;
+      if (settle[m] === SETTLE_STATIC && spanOf[m] === 255) continue;
+      any = true;
+      break look;
+    }
+  }
+  if (!any) return 0;
+
   const grounded = scratch.tmpCoat; // 1 = grounded (or a support in its own right)
   const dist = scratch.tmpMat; // path length to the nearest grounded cell, 255 = none found
   const thick = scratch.tmpState; // rows in this cell's hanging run
   const q = scratch.queue;
   let tail = 0;
   let hanging = 0;
-  // one pass up each column: grounded or hanging, and the thickness of every hanging run
-  for (let x = rx0; x <= rx1; x++) {
-    let below = 1;
-    let run = -1; // bottom row of the hanging run being climbed, or -1
-    for (let y = H - 1, i = y * W + x; y >= -1; y--, i -= W) {
+  // one pass up every column: grounded or hanging, and the thickness of every hanging run. The
+  // columns climb together, a row at a time, so the layers are read in memory order (a column at a
+  // time touched a new cache line per cell, and this pass runs after every change to the ground).
+  if (colBelow.length < W) {
+    colBelow = new Uint8Array(W);
+    colRun = new Int16Array(W);
+  }
+  const colB = colBelow;
+  const colR = colRun;
+  // the box the hanging cells lie in: all the later passes have to look at
+  let hx0 = W;
+  let hx1 = -1;
+  let hy0 = H;
+  let hy1 = -1;
+  colB.fill(1, rx0, rx1 + 1);
+  colR.fill(-1, rx0, rx1 + 1);
+  // a row of air over a row of air (the sky over the land) changes nothing: every run is closed
+  // and nothing in it is ever read back
+  let wasAir = false;
+  for (let y = H - 1; y >= -1; y--) {
+    if (y >= 0) {
+      let p = y * W + rx0;
+      const end = y * W + rx1;
+      while (p <= end && mat[p] === 0) p++;
+      const air = p > end;
+      if (air && wasAir) continue;
+      wasAir = air;
+    }
+    for (let x = rx0, i = y * W + rx0; x <= rx1; x++, i++) {
       const m = y < 0 ? 0 : mat[i]!;
       let g = 0;
       if (m === 0) {
-        below = 0;
+        colB[x] = 0;
       } else {
         g =
-          below !== 0 || group[i] !== 0 || (settle[m] === SETTLE_STATIC && spanOf[m] === 255)
+          colB[x] !== 0 || group[i] !== 0 || (settle[m] === SETTLE_STATIC && spanOf[m] === 255)
             ? 1
             : 0;
-        below = g;
+        colB[x] = g;
         if (g === 0) {
           hanging++;
           dist[i] = 255;
-          if (run < 0) run = y;
+          if (colR[x]! < 0) colR[x] = y;
+          if (x < hx0) hx0 = x;
+          if (x > hx1) hx1 = x;
+          if (y < hy0) hy0 = y;
+          if (y > hy1) hy1 = y;
         }
       }
-      if (y >= 0) grounded[i] = m === 0 ? 0 : g;
+      if (y >= 0) grounded[i] = g;
+      const run = colR[x]!;
       if (run >= 0 && (m === 0 || g !== 0)) {
         const t = Math.min(255, run - y);
         for (let k = y + 1, kk = i + W; k <= run; k++, kk += W) thick[kk] = t;
-        run = -1;
+        colR[x] = -1;
       }
     }
   }
-  // nothing hangs (the usual case on soft ground): done after the one column pass
   if (hanging === 0) return 0;
   // grounded cells next to a hanging one seed the search
   const seeded = scratch.nextMarkGen();
   const mark = scratch.mark;
-  for (let x = rx0; x <= rx1; x++) {
-    for (let y = 0, i = x; y < H; y++, i += W) {
+  for (let y = hy0; y <= hy1; y++) {
+    for (let x = hx0, i = y * W + hx0; x <= hx1; x++, i++) {
       if (mat[i] === 0 || grounded[i] !== 0) continue;
       for (let n = 0; n < 4; n++) {
         const nx = n === 0 ? x - 1 : n === 1 ? x + 1 : x;
@@ -167,8 +214,10 @@ export function supportPass(
   const rel = scratch.nextMarkGen();
   let n = 0;
   // from the bottom row up, so each cell knows whether the one under it is going
-  for (let y = H - 1; y >= 0; y--) {
-    for (let x = cx1, i = y * W + cx1; x >= cx0; x--, i--) {
+  const ex0 = Math.max(cx0, hx0);
+  const ex1 = Math.min(cx1, hx1);
+  for (let y = hy1; y >= hy0; y--) {
+    for (let x = ex1, i = y * W + ex1; x >= ex0; x--, i--) {
       if (!loose(mats, mat, grounded, thick, dist, i, x, y)) continue;
       // resting on a cell that stays: it would only land straight back where it is (and be
       // released again, forever), so it holds too
