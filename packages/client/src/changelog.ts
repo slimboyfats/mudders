@@ -18,6 +18,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Bounty on the leader and comeback cash',
+    items: [
+      'Bounty and comeback (a new rules switch, on by default): from round 2 the player in the lead carries a bounty, shown as a gold $ over their tank and in their score chip. Every hit on them pays double cash and destroying them pays a big bonus, and the round banner says what they are worth. At every round end each player behind the leader also gets a fifth of the points gap as cash, so a bad round is easier to come back from. The scoreboard shows the bounty and comeback cash each player earned',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',

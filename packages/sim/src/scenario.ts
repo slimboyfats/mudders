@@ -23,7 +23,11 @@ export class ScenarioDriver {
       map: scenario.map,
       tankColumns: scenario.tanks?.map((t) => t.x),
       tanks: scenario.tanks?.map((t) => t.tank),
-      tankSetup: scenario.tanks?.map((t) => ({ health: t.health, inventory: t.inventory })),
+      tankSetup: scenario.tanks?.map((t) => ({
+        health: t.health,
+        inventory: t.inventory,
+        score: t.score,
+      })),
       wind: scenario.wind,
       weather: scenario.weather,
       perRound: scenario.perRound,
