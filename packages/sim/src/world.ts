@@ -2689,30 +2689,59 @@ export class World implements SimApi {
    */
   private trace(x0: number, y0: number, p: Projectile, w: RtWeapon): boolean {
     const g = this.grid;
+    const gw = g.width;
+    const gh = g.height;
+    const mat = g.material;
     const hit = this.hit;
     const dx = p.x - x0;
     const dy = p.y - y0;
     const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / FP));
-    let fx = Math.max(0, Math.min(g.width - 1, Math.floor(x0 / FP)));
-    let fy = Math.max(0, Math.min(g.height - 1, Math.floor(y0 / FP)));
+    let fx = Math.max(0, Math.min(gw - 1, Math.floor(x0 / FP)));
+    let fy = Math.max(0, Math.min(gh - 1, Math.floor(y0 / FP)));
+    // Every cell walked lies in the box between the two ends. Tanks and lures are looked for
+    // cell by cell only when that box touches one of theirs, which most flight steps (and nearly
+    // all of a bot's trial shots) never do.
+    let bodies = false;
+    if (w.onTank) {
+      const bx0 = Math.floor(Math.min(x0, p.x) / FP);
+      const bx1 = Math.floor(Math.max(x0, p.x) / FP);
+      const by0 = Math.floor(Math.min(y0, p.y) / FP);
+      const by1 = Math.floor(Math.max(y0, p.y) / FP);
+      for (const t of this.tanks) {
+        if (!t.alive) continue;
+        if (bx1 >= t.x - t.half && bx0 < t.x + t.half && by1 >= t.y - t.h && by0 < t.y) {
+          bodies = true;
+          break;
+        }
+      }
+      for (let i = 0; i < this.lures.length && !bodies; i++) {
+        const l = this.lures[i]!;
+        bodies =
+          l.alive && bx1 >= l.x - l.half && bx0 < l.x + l.half && by1 >= l.y - l.h && by0 < l.y;
+      }
+    }
+    const onSolid = w.onSolid;
     for (let i = 1; i <= n; i++) {
       const cx = Math.floor((x0 + Math.trunc((dx * i) / n)) / FP);
       const cy = Math.floor((y0 + Math.trunc((dy * i) / n)) / FP);
-      if (cx < 0 || cx >= g.width) continue;
-      if (cy >= g.height) {
+      if (cx < 0 || cx >= gw) continue;
+      if (cy >= gh) {
         hit.x = cx;
-        hit.y = g.height - 1;
+        hit.y = gh - 1;
         hit.freeX = fx;
         hit.freeY = fy;
         hit.tank = -1;
         return true;
       }
       if (cy < 0) continue;
-      const solid = w.onSolid && g.material[cy * g.width + cx] !== 0;
-      let tank = w.onTank ? this.tankAt(cx, cy, p) : -1;
-      if (tank < 0 && w.onTank && this.lures.length > 0) {
-        const l = this.lureAt(cx, cy);
-        if (l >= 0) tank = this.tanks.length + l;
+      const solid = onSolid && mat[cy * gw + cx] !== 0;
+      let tank = -1;
+      if (bodies) {
+        tank = this.tankAt(cx, cy, p);
+        if (tank < 0 && this.lures.length > 0) {
+          const l = this.lureAt(cx, cy);
+          if (l >= 0) tank = this.tanks.length + l;
+        }
       }
       if (solid || tank >= 0) {
         hit.x = cx;

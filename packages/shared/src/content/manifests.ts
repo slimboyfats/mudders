@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { DAMAGE_TYPES, STAIN_KINDS } from '../constants';
 
+// Every schema parses its manifests once, at load. Zod's default compiles a fast parser per schema
+// (with `new Function`), which only pays off when the same schema parses many times: here the
+// compiling was about a third of the time to load the content. Interpreted, the results are the same.
+z.config({ jitless: true });
+
 /**
  * Zod schemas for content manifests (§2c). These describe *resolved* manifests: the loader in
  * `@mudders/sim` first resolves every `extends` and `use` reference into a flat object and only
