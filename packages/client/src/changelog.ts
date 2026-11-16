@@ -23,6 +23,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks, acid, lightning through steel and tank stains',
     pack: 'core@0.93.0 – 0.97.0',
     items: [
+      'Zoom out further: pinch out (or press −) past the whole-map view to see the land around it, down to half the old size. Once tanks are small, each one gets a chip with its player number, bot name and life bar. A tank that is off the screen gets the chip pinned to the screen edge with an arrow pointing at it',
       'Lakeland tides (with map events on): the lakes rise and fall over the round. For a few turns they swell until they stand well above their old shores, flooding the low ground and any tank parked on it, then they ebb until their beds lie bare, and back again. A lake a crater has drained fills again at high tide',
       'New round twist, Changing weather: every few turns a front moves in and the sky changes between clear, rain and snow, with the new weather’s rules (rain drags shells short and puddles the hollows, snow settles on the ground). The HUD calls each front out',
       'Every AI seat now has a difficulty next to its personality, locally and in the online lobby: Easy, Normal, Hard or Ace. Normal plays exactly as before',

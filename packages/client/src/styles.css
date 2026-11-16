@@ -3742,3 +3742,123 @@ a.button {
 .challenge-result p {
   margin: 0;
 }
+
+/* player markers (zoomed out / off-screen tanks): moved every frame by ui/markers.ts */
+.markers {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pmark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  --a: 1.5708rad;
+  will-change: transform;
+}
+
+.pmark[hidden] {
+  display: none;
+}
+
+.pm-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-areas:
+    'num name'
+    'bar bar';
+  align-items: center;
+  column-gap: 4px;
+  row-gap: 2px;
+  padding: 2px 5px 3px 3px;
+  border-radius: 5px;
+  border: 1px solid rgb(0 0 0 / 0.6);
+  background: rgb(14 10 8 / 0.72);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+  /* on screen: sits above the tank, the arrow's tip on the tank */
+  transform: translate(-50%, calc(-100% - 7px));
+}
+
+.pm-num {
+  grid-area: num;
+  min-width: 13px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  background: var(--pc);
+  color: #000;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pm-name {
+  grid-area: name;
+  color: #f2ead8;
+}
+
+.pm-name[hidden] {
+  display: none;
+}
+
+.pm-bar {
+  grid-area: bar;
+  position: relative;
+  height: 3px;
+  min-width: 26px;
+  background: rgb(0 0 0 / 0.7);
+}
+
+.pm-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #5ad35a;
+}
+
+.pm-fill.mid {
+  background: #f0c040;
+}
+
+.pm-fill.low {
+  background: #e04040;
+}
+
+/* a triangle whose tip is at the marker's anchor, pointing along --a */
+.pm-arrow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--pc);
+  filter: drop-shadow(0 0 1px #000);
+  transform-origin: 0 0;
+  transform: rotate(var(--a)) translate(-8px, -5px);
+}
+
+.pmark.active .pm-chip {
+  border-color: var(--pc);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.6);
+}
+
+/* off screen: the arrow tip sits on the screen edge pointing at the tank, the chip just inside */
+.pmark.off .pm-chip {
+  transform: translate(
+    calc(-50% - 50% * cos(var(--a)) - 11px * cos(var(--a))),
+    calc(-50% - 50% * sin(var(--a)) - 11px * sin(var(--a)))
+  );
+}
+
+.pmark.off .pm-arrow {
+  border-left-width: 10px;
+  border-top-width: 6px;
+  border-bottom-width: 6px;
+  transform: rotate(var(--a)) translate(-10px, -6px);
+}
