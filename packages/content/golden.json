@@ -1210,8 +1210,8 @@
       "hash": "5e00062b540441d3"
     },
     "terrainop.tides": {
-      "ticks": 3300,
-      "hash": "a513205eaf071d7f"
+      "ticks": 2400,
+      "hash": "e0a0e3973f730177"
     },
     "terrainop.tornado": {
       "ticks": 46,
@@ -1230,8 +1230,8 @@
       "hash": "034c8455c46f0ca3"
     },
     "terrainop.weather-fronts": {
-      "ticks": 1500,
-      "hash": "205a0b74097ce068"
+      "ticks": 700,
+      "hash": "17642d5cdadf4157"
     },
     "theme.arcade": {
       "ticks": 329,
