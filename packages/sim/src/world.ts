@@ -4957,6 +4957,7 @@ export class World implements SimApi {
           : {}),
         ...(t.scope > 0 ? { scope: t.scope } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
+        ...(t.bot >= 0 ? { bot: this.botIds[t.bot] ?? '' } : {}),
       });
     }
     for (const p of this.projectiles) {

@@ -1173,6 +1173,92 @@ button.link {
   gap: 10px;
 }
 
+/* match over: the card grows with the awards, so it sits centred and scrolls on a short phone */
+.match-over {
+  z-index: 30;
+  top: 50%;
+  background: rgb(20 14 10 / 0.96);
+  max-height: calc(100dvh - 16px);
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+}
+
+.awards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  width: min(520px, calc(100vw - 64px));
+}
+
+.awards li {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 6px 8px;
+  background: #2a1f17;
+  border: 1px solid #5a4630;
+  border-radius: 4px;
+  animation: award-in 0.2s steps(3) both;
+  animation-delay: calc(var(--i) * 0.25s);
+}
+
+.award-title {
+  font-weight: 700;
+  color: #ffd84a;
+}
+
+.award-who {
+  white-space: nowrap;
+}
+
+.award-who .bot-name {
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+.award-detail {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+/* landscape phones: tighter card so the scores and the awards fit without scrolling */
+@media (max-height: 480px) {
+  .match-over {
+    padding: 8px 14px;
+    gap: 6px;
+  }
+
+  .match-over h2 {
+    margin: 0;
+    font-size: 1.1em;
+  }
+
+  .awards {
+    gap: 4px;
+    font-size: 0.85em;
+  }
+
+  .awards li {
+    padding: 3px 6px;
+  }
+}
+
+@keyframes award-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awards li {
+    animation: none;
+  }
+}
+
 /* ── shop + scores ─────────────────────────────────────────────────── */
 
 .shop {

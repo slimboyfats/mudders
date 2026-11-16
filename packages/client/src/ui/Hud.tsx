@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { TEMP_COLD, TEMP_HOT, type Input } from '@mudders/shared';
 import { clampAim } from '../game/aim';
+import type { Award } from '../game/awards';
 import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
 import { teamName } from '../game/setup';
@@ -24,6 +25,8 @@ interface Props {
   onRematch?: () => void;
   /** Leave the match-over card to the caller (solo challenges). */
   ownEnd?: boolean;
+  /** End-of-match awards (Best shot, Most dirt moved...), shown on the match-over card. */
+  awards?: readonly Award[];
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -275,6 +278,7 @@ export function Hud({
   onExit,
   onRematch,
   ownEnd,
+  awards = [],
 }: Props) {
   const t = hud.tanks[hud.activePlayer];
   const [menu, setMenu] = useState(false);
@@ -496,7 +500,7 @@ export function Hud({
       {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
 
       {hud.phase === 'over' && !ownEnd && (
-        <div className="round-over" role="dialog">
+        <div className="round-over match-over" role="dialog">
           <h2>
             {hud.teams && hud.winnerTeam >= 0 ? (
               <>Team {teamName(hud.winnerTeam)} wins the match</>
@@ -510,6 +514,23 @@ export function Hud({
             )}
           </h2>
           <Scoreboard hud={hud} final />
+          {awards.length > 0 && (
+            <ul className="awards" aria-label="Awards">
+              {awards.map((a, i) => (
+                <li key={a.id} style={{ '--i': i } as CSSProperties} data-testid={`award-${a.id}`}>
+                  <span className="award-title">{a.title}</span>
+                  <span className="award-who">
+                    <span className="swatch" style={{ background: pcolor(a.player) }} /> P
+                    {a.player + 1}
+                    {hud.tanks[a.player]?.bot ? (
+                      <span className="bot-name"> {hud.tanks[a.player]?.bot}</span>
+                    ) : null}
+                  </span>
+                  <span className="award-detail">{a.detail}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="row">
             {onRematch && <button onClick={onRematch}>Play again</button>}
             {onExit && <button onClick={onExit}>Menu</button>}

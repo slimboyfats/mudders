@@ -3,6 +3,7 @@ import type { Input } from '@mudders/shared';
 import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
+import { MatchStats, earthCells } from '../game/awards';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import type { Settings } from '../game/settings';
@@ -62,6 +63,11 @@ export function MatchView({
   const hudStore = useMemo(() => new HudStore(match), [match]);
   const hud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
   const refreshHud = hudStore.refresh;
+  // end-of-match awards, counted from the snapshot stream over the whole match
+  const stats = useMemo(() => new MatchStats(earthCells(match.content.list('material'))), [match]);
+  useEffect(() => match.subscribe((s) => stats.ingest(s)), [match, stats]);
+  const over = hud.phase === 'over';
+  const awards = useMemo(() => (over ? stats.awards() : []), [over, stats]);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [anchor, setAnchor] = useState<Vec2 | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -186,6 +192,7 @@ export function MatchView({
           palette: paletteFrom(match.content),
           shake: settings.shake,
           dayNight: settings.dayNight,
+          chatter: settings.chatter,
           onCues: effectSounds,
           onProcesses: processSounds,
           // a late frame never pays GPU smoke/particle passes for more than two ticks
@@ -229,6 +236,7 @@ export function MatchView({
     settings.autoQuality,
     settings.shake,
     settings.dayNight,
+    settings.chatter,
     settings.theme,
     refreshHud,
   ]);
@@ -530,6 +538,7 @@ export function MatchView({
         controls={controls}
         renderer={rendererRef}
         ownEnd={ownEnd ?? false}
+        awards={awards}
         {...(onExit ? { onExit } : {})}
         {...(onRematch ? { onRematch } : {})}
       />

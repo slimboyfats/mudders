@@ -256,6 +256,11 @@ const GLYPHS: Record<string, readonly string[]> = {
   '+': ['...', '.#.', '###', '.#.', '...'],
   '-': ['...', '...', '###', '...', '...'],
   '!': ['#', '#', '#', '.', '#'],
+  '?': ['##.', '..#', '.#.', '...', '.#.'],
+  '.': ['.', '.', '.', '.', '#'],
+  ',': ['..', '..', '..', '.#', '#.'],
+  "'": ['#', '#', '.', '.', '.'],
+  ':': ['.', '#', '.', '#', '.'],
   ' ': ['..', '..', '..', '..', '..'],
   A: ['.#.', '#.#', '###', '#.#', '#.#'],
   B: ['##.', '#.#', '##.', '#.#', '##.'],
@@ -294,7 +299,7 @@ export function textWidth(text: string): number {
 
 /**
  * Draws `text` centred on column `cx` with its bottom row at `bottom`, each glyph pixel `px` cells
- * square, over a 1-cell black outline.
+ * square, over a 1-cell black outline (unless `outline` is false: ink on a speech bubble).
  */
 export function drawText(
   b: QuadBatch,
@@ -304,10 +309,11 @@ export function drawText(
   px: number,
   rgb: number,
   alpha = 1,
+  outline = true,
 ): void {
   const x0 = Math.round(cx - (textWidth(text) * px) / 2);
   const y0 = Math.round(bottom - 5 * px);
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = outline ? 0 : 1; pass < 2; pass++) {
     let x = x0;
     for (const ch of text) {
       const rows = GLYPHS[ch];
@@ -353,7 +359,7 @@ const placed: number[] = [];
  * The bottom row for a `w`×`h` label centred on `cx` that wants to sit at `bottom`: moved up
  * above any label it would overlap, then recorded.
  */
-function place(cx: number, bottom: number, w: number, h: number): number {
+export function place(cx: number, bottom: number, w: number, h: number): number {
   const x0 = cx - w / 2 - 1;
   const x1 = cx + w / 2 + 1;
   let y = bottom;
