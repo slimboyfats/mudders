@@ -2,17 +2,17 @@ import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
 import {
   dropInReach,
-  buyByValue,
   driveEnd,
   me,
-  moneyAfter,
   moveForShot,
   nearest,
+  selfRisk,
+  skillError,
+  skillShop,
+  skillTarget,
   solvePower,
   strongest,
   terrainWeapon,
-  topUpFuel,
-  buyGear,
   gearToUse,
   GearPlanSchema,
 } from '../../../src/ai';
@@ -40,7 +40,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.tosser',
-  version: 3,
+  version: 4,
   params,
   move(api, p) {
     const m = me(api);
@@ -66,7 +66,8 @@ export default defineAi<z.infer<typeof params>>({
   },
   aim(api, p) {
     const m = me(api);
-    const target = nearest(api);
+    // hard and ace lob at another enemy when the nearest can't be reached
+    const target = skillTarget(api, nearest(api), strongest(api).index, p.angles);
     const dirt = terrainWeapon(api);
     const w = dirt && target && target.health > 60 && api.rng.chance(1, 5) ? dirt : strongest(api);
     if (!target) return { weapon: w.index, angle: 90, power: 300 };
@@ -75,22 +76,22 @@ export default defineAi<z.infer<typeof params>>({
     for (const a of p.angles) {
       const angle = dir > 0 ? a : 180 - a;
       const s = solvePower(api, w.index, angle, target.x);
-      const score = s.hit === target.player ? -1 : Math.abs(s.miss);
+      const score =
+        s.hit === target.player ? -1 : Math.abs(s.miss) + selfRisk(api, target.x + s.miss, s.hit);
       if (score < best.score) best = { angle, power: s.power, score };
       if (score < 0) break;
     }
+    const ae = skillError(api, p.angleError, 5);
+    const pe = skillError(api, p.powerError, 45);
     return {
       weapon: w.index,
-      angle: best.angle + api.rng.range(-p.angleError, p.angleError),
-      power: best.power + api.rng.range(-p.powerError, p.powerError),
+      angle: best.angle + api.rng.range(-ae, ae),
+      power: best.power + api.rng.range(-pe, pe),
     };
   },
   shop(api, p) {
     // heavy hitters: damage counts double, and pricier tiers are preferred
-    const fuel = topUpFuel(api, p.fuel, p.reserve);
-    const gear = buyGear(api, p.gear, p.reserve + api.money - moneyAfter(api, fuel));
-    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
     const value = (i: (typeof api.items)[number]) => i.expectedDamage * 2 + i.tier * 10;
-    return [...fuel, ...gear, ...buyByValue(api, value, p.reserve + spent, 3)];
+    return skillShop(api, p, p.reserve, 3, value);
   },
 });

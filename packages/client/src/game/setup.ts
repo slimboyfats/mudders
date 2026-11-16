@@ -1,4 +1,4 @@
-import { MAP_SIZES, MAX_PLAYERS, type WindType } from '@mudders/shared';
+import { BOT_SKILLS, MAP_SIZES, MAX_PLAYERS, type BotSkill, type WindType } from '@mudders/shared';
 import type { MatchRules, RoundPlan, WorldOptions } from '@mudders/sim';
 
 export type MapSize = keyof typeof MAP_SIZES;
@@ -131,6 +131,29 @@ export function roundTwists(rounds: number, seed: number): ((typeof TWISTS)[numb
   return out;
 }
 
+/** Bot difficulty names for the pickers. */
+export const SKILL_NAMES: Record<BotSkill, string> = {
+  easy: 'Easy',
+  normal: 'Normal',
+  hard: 'Hard',
+  ace: 'Ace',
+};
+
+/** One line per difficulty for the "About the AI players" list. */
+export const SKILL_ABOUT: Record<BotSkill, string> = {
+  easy: 'wobbly aim, buys little and carries almost no gear.',
+  normal: 'the personality as it was made.',
+  hard: 'half the aim error, reads the wind, switches to a target it can hit, avoids hitting itself, finishes weak tanks cheaply and saves up for heavy weapons.',
+  ace: 'no deliberate error, re-solves every shot, tries more weapons and targets, and stocks up on heavy weapons and gear.',
+};
+
+/** Kernel skill level (`WorldOptions.botSkills`) for each difficulty. */
+const SKILL_LEVEL: Record<BotSkill, number> = { easy: 0, normal: 1, hard: 2, ace: 3 };
+
+export function isSkill(v: unknown): v is BotSkill {
+  return typeof v === 'string' && (BOT_SKILLS as readonly string[]).includes(v);
+}
+
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
 export interface MatchSetup {
   slots: Slot[];
@@ -175,6 +198,8 @@ export interface MatchSetup {
    * default tank for a human). Indexed like `slots`.
    */
   tanks: string[];
+  /** Bot difficulty per slot (ignored for humans). Indexed like `slots`. */
+  skills: BotSkill[];
 }
 
 /** Team letters for the UI. */
@@ -236,6 +261,7 @@ export function defaultSetup(): MatchSetup {
     bounty: true,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
+    skills: Array.from({ length: MAX_PLAYERS }, () => 'normal'),
   };
 }
 
@@ -253,6 +279,11 @@ export function loadSetup(): MatchSetup {
       s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
         const t = Array.isArray(tanks) ? (tanks as unknown[])[i] : undefined;
         return typeof t === 'string' ? t : 'auto';
+      });
+      const skills: unknown = s.skills;
+      s.skills = Array.from({ length: MAX_PLAYERS }, (_, i) => {
+        const k = Array.isArray(skills) ? (skills as unknown[])[i] : undefined;
+        return isSkill(k) ? k : 'normal';
       });
       return s;
     }
@@ -276,11 +307,30 @@ export function activeSlots<S extends string>(s: { slots: readonly S[] }): S[] {
 }
 
 /** Anything shaped like a setup: the local `MatchSetup` or the networked `NetSetup`. */
-export type SetupLike = Omit<MatchSetup, 'slots' | 'teams' | 'tanks'> & {
+export type SetupLike = Omit<MatchSetup, 'slots' | 'teams' | 'tanks' | 'skills'> & {
   slots: readonly string[];
   teams: readonly number[] | null;
   tanks: readonly string[];
+  /** Bot difficulty per seat; unset = normal. */
+  skills?: readonly string[] | undefined;
 };
+
+/**
+ * Kernel skill level of each active slot, in player order; null when every bot plays at normal
+ * (the option is left out, as before difficulties).
+ */
+export function activeSkills(s: Pick<SetupLike, 'slots' | 'skills'>): number[] | null {
+  const out: number[] = [];
+  let any = false;
+  s.slots.forEach((x, i) => {
+    if (x === 'off') return;
+    const k = s.skills?.[i];
+    const level = x.startsWith('ai.') && isSkill(k) ? SKILL_LEVEL[k] : SKILL_LEVEL.normal;
+    if (level !== SKILL_LEVEL.normal) any = true;
+    out.push(level);
+  });
+  return any ? out : null;
+}
 
 /** Tank pick of each active slot, in player order. */
 export function activeTanks(s: Pick<SetupLike, 'slots' | 'tanks'>): string[] {
@@ -312,6 +362,7 @@ export function canStart(s: Pick<SetupLike, 'slots' | 'teams'>): boolean {
 export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   const slots = activeSlots(s);
   const teams = activeTeams(s);
+  const skills = activeSkills(s);
   const rules: MatchRules = {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
@@ -358,6 +409,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
       generator: maps?.[0] ?? SCENERY_GEN[s.scenery as keyof typeof SCENERY_GEN],
     },
     bots: slots.map((x) => (x.startsWith('ai.') ? x : null)),
+    ...(skills ? { botSkills: skills } : {}),
     tanks: activeTanks(s),
     rules,
     weather: weatherFor(weather, seed),

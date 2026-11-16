@@ -2,17 +2,20 @@ import { z } from '@mudders/shared';
 import { defineAi } from '@mudders/sim';
 import {
   dropInReach,
-  buyByValue,
   cheapest,
+  finisher,
   me,
-  moneyAfter,
   moveForShot,
+  selfRisk,
+  skillError,
+  skillShop,
+  skillTarget,
+  skillOf,
+  AI_HARD,
   solvePower,
   strongest,
   terrainWeapon,
-  topUpFuel,
   weakest,
-  buyGear,
   gearToUse,
   GearPlanSchema,
 } from '../../../src/ai';
@@ -41,7 +44,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.poolshark',
-  version: 3,
+  version: 4,
   params,
   move(api, p) {
     const crate = dropInReach(api, p.keepFuel);
@@ -61,11 +64,14 @@ export default defineAi<z.infer<typeof params>>({
   },
   aim(api, p) {
     const m = me(api);
-    const target = weakest(api);
+    // hard and ace switch to an enemy they can actually hit when the weakest is out of reach
+    const target = skillTarget(api, weakest(api), strongest(api).index, p.angles);
     const dirt = terrainWeapon(api);
     const w =
       target && target.health <= 25
-        ? cheapest(api)
+        ? skillOf(api) >= AI_HARD
+          ? finisher(api, target, cheapest(api))
+          : cheapest(api)
         : dirt && target && target.health > 50 && api.rng.chance(1, 4)
           ? dirt
           : strongest(api);
@@ -75,21 +81,22 @@ export default defineAi<z.infer<typeof params>>({
     for (const a of p.angles) {
       const angle = dir > 0 ? a : 180 - a;
       const s = solvePower(api, w.index, angle, target.x);
-      const score = s.hit === target.player ? -1 : Math.abs(s.miss);
+      const score =
+        s.hit === target.player ? -1 : Math.abs(s.miss) + selfRisk(api, target.x + s.miss, s.hit);
       if (score < best.score) best = { angle, power: s.power, score };
       if (score < 0) break;
     }
+    // deliberate error by skill: easy wide, normal as tuned, hard half, ace none
+    const ae = skillError(api, p.angleError, 5);
+    const pe = skillError(api, p.powerError, 50);
     return {
       weapon: w.index,
-      angle: best.angle + api.rng.range(-p.angleError, p.angleError),
-      power: best.power + api.rng.range(-p.powerError, p.powerError),
+      angle: best.angle + api.rng.range(-ae, ae),
+      power: best.power + api.rng.range(-pe, pe),
     };
   },
   shop(api, p) {
-    const fuel = topUpFuel(api, p.fuel, p.reserve);
-    const gear = buyGear(api, p.gear, p.reserve + api.money - moneyAfter(api, fuel));
-    const spent = api.money - moneyAfter(api, [...fuel, ...gear]);
     const value = (i: (typeof api.items)[number]) => i.expectedDamage + i.terrainValue * 20;
-    return [...fuel, ...gear, ...buyByValue(api, value, p.reserve + spent, 3)];
+    return skillShop(api, p, p.reserve, 3, value);
   },
 });

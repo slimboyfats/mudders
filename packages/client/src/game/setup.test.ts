@@ -50,6 +50,29 @@ describe('match setup', () => {
     expect(toWorldOptions({ ...base, teams: null }, 1).mode).toBe('mode.classic');
   });
 
+  it('passes bot difficulty per seat, and leaves it out when every bot plays normal', () => {
+    const base = {
+      slots: ['human', 'ai.shooter', 'off', 'ai.tosser'],
+      size: 'small' as const,
+      scenery: 'none' as const,
+      rounds: 1,
+      turnTimer: 0,
+      wind: 'none' as const,
+      suddenDeath: false,
+      startingCash: 0,
+      tanks: ['auto', 'auto', 'auto', 'auto'],
+      teams: null,
+    };
+    // a human seat stays normal whatever its slot says; off seats drop out
+    const o = toWorldOptions({ ...base, skills: ['ace', 'easy', 'hard', 'ace'] }, 1);
+    expect(o.botSkills).toEqual([1, 0, 3]);
+    expect(
+      toWorldOptions({ ...base, skills: ['ace', 'normal', 'easy', 'normal'] }, 1).botSkills,
+    ).toBeUndefined();
+    expect(toWorldOptions(base, 1).botSkills).toBeUndefined();
+    expect(defaultSetup().skills.every((k) => k === 'normal')).toBe(true);
+  });
+
   it("passes the player's sudden-death start turn to the match rules", () => {
     const base = {
       slots: ['human', 'ai.shooter'],

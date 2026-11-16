@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadContent } from '@mudders/content';
-import { MAX_PLAYERS, type LobbySeat, type RoomInfo } from '@mudders/shared';
+import { MAX_PLAYERS, type BotSkill, type LobbySeat, type RoomInfo } from '@mudders/shared';
 import { LAN_HOSTS, SIGNAL_URL, shareOrigin } from '../config';
 import type { SimMatch } from '../game/match';
 import type { Settings } from '../game/settings';
@@ -21,6 +21,7 @@ import { BACKGROUND_CATCHUP_MS, startTicker } from '../net/ticker';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { MatchView } from './MatchView';
 import { Rules } from './Rules';
+import { SkillPick } from './SkillPick';
 import { TankPick, useFavourites, useTanks } from './Tanks';
 import { TeamPick, TeamsToggle } from './Teams';
 
@@ -122,6 +123,8 @@ function SeatRow({
   onTeam,
   tank,
   onTank,
+  skill,
+  onSkill,
 }: {
   seat: LobbySeat;
   i: number;
@@ -134,6 +137,9 @@ function SeatRow({
   /** This seat's tank pick (§3.2), and a picker when this viewer may change it. */
   tank?: string | undefined;
   onTank?: ((tank: string) => void) | undefined;
+  /** Bot seats: difficulty, and a picker for the host. */
+  skill?: string | undefined;
+  onSkill?: ((skill: BotSkill) => void) | undefined;
 }) {
   const tanks = useTanks();
   const favourites = useFavourites();
@@ -164,6 +170,7 @@ function SeatRow({
           onChange={onTank}
         />
       )}
+      {seat.kind === 'bot' && <SkillPick value={skill} seat={i} onChange={onSkill} />}
       {team !== undefined && seat.kind !== 'open' && (
         <TeamPick team={team} seat={i} onChange={onTeam} />
       )}
@@ -475,6 +482,8 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
               onTeam={(t) => session.setTeam(i, t)}
               tank={lobby.setup.tanks[i] ?? 'auto'}
               onTank={s.kind === 'guest' ? undefined : (t) => session.setTank(i, t)}
+              skill={lobby.setup.skills?.[i]}
+              onSkill={(k) => session.setSkill(i, k)}
             />
           ))}
         </ul>
@@ -764,6 +773,7 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
                 bots={[]}
                 team={lobby.setup.teams ? (lobby.setup.teams[i] ?? i % 2) : undefined}
                 tank={lobby.setup.tanks[i] ?? 'auto'}
+                skill={lobby.setup.skills?.[i]}
                 onTank={
                   i === lobby.you && session
                     ? (t) => {
