@@ -389,6 +389,65 @@ describe('match loop', () => {
     expect(w.tanks[1]!.money).toBe(130_000);
   });
 
+  it('bounty: comeback cash for the player behind, then the leader is worth more to hurt and kill', () => {
+    const w = mk({ rules: { startingCash: 1000, bounty: true, rounds: 3 } });
+    expect(w.bountyPlayer).toBe(-1); // nobody leads before any points
+    shoot(w, 90, 0);
+    w.tanks[1]!.health = 0;
+    w.tanks[1]!.alive = false;
+    untilQuiet(w);
+    const r1 = w.results[0]!;
+    const gap = w.tanks[0]!.score - w.tanks[1]!.score;
+    expect(gap).toBeGreaterThan(0);
+    // 20 % of the points gap at 2 cash per point, on top of interest
+    expect(r1.comeback).toEqual([0, Math.trunc((gap * 2 * 20) / 100)]);
+    expect(r1.earned[1]).toBe(100 + r1.comeback![1]!);
+    expect(r1.bounty).toEqual([0, 0]);
+    expect(r1.bountyOn).toBe(-1);
+
+    w.run(121); // shop timer runs out: round 2
+    expect(w.phase).toBe('aim');
+    expect(w.bountyPlayer).toBe(0);
+    // kill value: 2 × 50 kill points × 2 cash per point
+    expect(w.bountyValue()).toBe(200);
+    const view = w.snapshot().entities.filter((e) => e.kind === 'tank');
+    expect(view.map((e) => (e.kind === 'tank' ? (e.bounty ?? 0) : 0))).toEqual([200, 0]);
+
+    const hurt = (
+      w as unknown as { damageTank: (t: Tank, d: number, by: number) => void }
+    ).damageTank.bind(w);
+    hurt(w.tanks[0]!, 30, 1); // 30 hp × 2 extra cash per point
+    expect(w.tanks[1]!.bountyCash).toBe(60);
+    hurt(w.tanks[1]!, 10, 0); // hitting the others pays no bounty
+    expect(w.tanks[0]!.bountyCash).toBe(0);
+    hurt(w.tanks[0]!, 500, 1); // the kill: the rest of its health plus the kill bounty
+    expect(w.tanks[1]!.bountyCash).toBe(60 + 70 * 2 + 200);
+    untilQuiet(w);
+    for (let i = 0; i < 2000 && w.phase !== 'shop'; i++) w.step();
+    const r2 = w.results[1]!;
+    expect(r2.bountyOn).toBe(0);
+    expect(r2.bounty).toEqual([0, 400]);
+    expect(r2.earned[1]).toBeGreaterThanOrEqual(400);
+  });
+
+  it('bounty: off unless set, and nobody carries it on a tied score', () => {
+    const w = mk();
+    shoot(w, 90, 0);
+    w.tanks[1]!.health = 0;
+    w.tanks[1]!.alive = false;
+    untilQuiet(w);
+    expect(w.results[0]!.bounty).toBeUndefined();
+    expect(w.results[0]!.comeback).toBeUndefined();
+    w.run(121);
+    expect(w.bountyPlayer).toBe(-1);
+    const tie = mk({ rules: { bounty: true } });
+    tie.tanks[0]!.score = 50;
+    tie.tanks[1]!.score = 50;
+    expect(tie.leader()).toBe(-1);
+    tie.tanks[1]!.score = 51;
+    expect(tie.leader()).toBe(1);
+  });
+
   it('auto-readies when the shop timer runs out and ends the match after the last round', () => {
     const w = mk({ rules: { rounds: 2, turnTimer: 0 } });
     for (let round = 0; round < 2; round++) {

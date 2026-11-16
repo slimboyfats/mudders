@@ -1,5 +1,5 @@
 {
-  "contentHash": "86e948008425b326",
+  "contentHash": "329bef0cbed82409",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -904,6 +904,10 @@
     "showcase.bot-drive": {
       "ticks": 995,
       "hash": "678baf87e4cc2acd"
+    },
+    "showcase.bounty": {
+      "ticks": 441,
+      "hash": "91f90d34f1526b0f"
     },
     "showcase.crows": {
       "ticks": 1300,

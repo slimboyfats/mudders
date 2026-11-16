@@ -113,6 +113,10 @@ const DIGITS: Record<number, readonly number[]> = {
   9: [0b010, 0b101, 0b011, 0b001, 0b110],
 };
 
+/** 3×5 "$" over the tank that carries the leader's bounty, and its gold. */
+const DOLLAR: readonly number[] = [0b011, 0b110, 0b010, 0b011, 0b110];
+const BOUNTY_RGB = 0xffc83a;
+
 const FP = 65536;
 const SCENERY_UNIFORMS = [
   'u_size',
@@ -3117,6 +3121,7 @@ export class PixelRenderer implements Renderer {
         this.jamTank(x, sw, sh, y0, lean, t, e.player, marks);
       }
       if ((e.mark ?? 0) > 0) this.markTank(x, y, sw, sh, t, playerColor(e.markBy ?? 0));
+      if ((e.bounty ?? 0) > 0) this.drawBounty(x + 10, y0 - 7, t);
       // player number beside the health bar, so tanks never differ by colour alone (§8)
       const top = y0;
       this.drawDigit(x - 13, top - 7, e.player + 1);
@@ -3649,6 +3654,20 @@ export class PixelRenderer implements Renderer {
   }
 
   /** A 3×5 pixel digit (1–9) on a dark backing, top-left at (x, y). */
+  /**
+   * The leader's bounty: a gold 3×5 "$" right of the health bar on a dark plate, flashing white
+   * for a few frames every second so the target stands out.
+   */
+  private drawBounty(x: number, y: number, t: number): void {
+    const b = this.normal;
+    b.rect(x - 1, y - 1, 5, 7, 0x000000, 0.6);
+    const c = t % 60 < 6 ? 0xffffff : BOUNTY_RGB;
+    for (let r = 0; r < 5; r++) {
+      const bits = DOLLAR[r]!;
+      for (let k = 0; k < 3; k++) if (bits & (4 >> k)) b.rect(x + k, y + r, 1, 1, c);
+    }
+  }
+
   private drawDigit(x: number, y: number, n: number): void {
     const rows = DIGITS[n];
     if (!rows) return;

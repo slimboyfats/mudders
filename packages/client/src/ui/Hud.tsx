@@ -27,6 +27,7 @@ interface Props {
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+const money = (n: number) => `$${n.toLocaleString('en')}`;
 const pcolor = (p: number) => css(PLAYER_COLORS[p % PLAYER_COLORS.length] ?? 0xffffff);
 
 /** Wind as text plus an arrow, so it never relies on colour alone (§8). */
@@ -322,6 +323,11 @@ export function Hud({
                 {p.alive && p.shield > 0 && (
                   <span className="shield" aria-label="shield">
                     +{p.shield}
+                  </span>
+                )}
+                {p.alive && p.bounty > 0 && (
+                  <span className="pbounty" aria-label={`bounty ${money(p.bounty)}`}>
+                    $
                   </span>
                 )}
                 <span className="pscore" aria-label="score">

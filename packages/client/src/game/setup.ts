@@ -160,6 +160,11 @@ export interface MatchSetup {
   /** Random arsenal: every round each tank gets the same few random weapons for free; unset = off. */
   arsenal?: boolean | undefined;
   /**
+   * Bounty and comeback cash: the match leader is worth extra cash to hit and destroy, and
+   * players behind get a share of the gap as cash each round; unset (older saves, hosts) = off.
+   */
+  bounty?: boolean | undefined;
+  /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
    */
@@ -227,6 +232,7 @@ export function defaultSetup(): MatchSetup {
     twists: false,
     deals: false,
     arsenal: false,
+    bounty: true,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
   };
@@ -324,6 +330,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),
+    ...(s.bounty ? { bounty: true } : {}),
   };
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;

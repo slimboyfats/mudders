@@ -163,6 +163,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
+        Bounty &amp; comeback
+        <select
+          value={value.bounty ? 'on' : 'off'}
+          onChange={(e) => onChange({ bounty: e.target.value === 'on' })}
+        >
+          <option value="off">Off</option>
+          <option value="on">On (leader worth more, cash for those behind)</option>
+        </select>
+      </label>
+      <label>
         Supply drops
         <select
           value={value.drops ?? 'off'}

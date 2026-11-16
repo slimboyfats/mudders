@@ -168,7 +168,21 @@ export interface MatchRules {
    * `ARSENAL_COUNT` weapons for free, one pack each, drawn from what the shop sells. Off unless set.
    */
   randomArsenal?: boolean | undefined;
+  /**
+   * Bounty and comeback cash (kernel 0.56.0). From round 2 the match leader (the one player with
+   * the highest score) carries a bounty: rivals earn `BOUNTY_HP_PCT` more cash per point of damage
+   * to it and `BOUNTY_KILL` kill points' worth of cash for destroying it. At every round end each
+   * player behind the leader gets `COMEBACK_PCT` of the gap in points as cash. Off unless set.
+   */
+  bounty?: boolean | undefined;
 }
+
+/** Bounty: extra cash per point of damage to the leader, in percent of the mode's money per point. */
+export const BOUNTY_HP_PCT = 100;
+/** Bounty: cash for destroying the leader, in kill points (× the mode's money per point). */
+export const BOUNTY_KILL = 2;
+/** Comeback cash: share of the points gap to the leader paid out as cash, percent. */
+export const COMEBACK_PCT = 20;
 
 /** A pickup a tank made, for the HUD (not part of the state). */
 export interface DropPickup {
@@ -195,8 +209,13 @@ export interface RoundResult {
   winnerTeam: number;
   /** Points per player this round. */
   points: number[];
-  /** Money earned per player (points + interest + the rules' round bonus). */
+  /** Money earned per player (points + interest + the rules' round bonus + bounty + comeback). */
   earned: number[];
+  /** With the bounty rule: who carried the bounty this round (-1 = nobody). */
+  bountyOn?: number | undefined;
+  /** With the bounty rule: bounty cash and comeback cash per player, both inside `earned`. */
+  bounty?: number[] | undefined;
+  comeback?: number[] | undefined;
 }
 
 /**
@@ -238,6 +257,8 @@ export interface WorldOptions {
         | {
             health?: number | undefined;
             inventory?: Readonly<Record<string, number>> | undefined;
+            /** Match score to start with (a showcase of the leader's bounty). */
+            score?: number | undefined;
           }
         | undefined
       )[]
@@ -388,6 +409,8 @@ export interface Tank extends TankHandle {
   /** Fuel owed in thousandths of a unit (hot or freezing air burns more than one per cell). */
   fuelBurn: number;
   lastHitBy: number;
+  /** Bounty cash this tank earned this round by hurting or destroying the leader. */
+  bountyCash: number;
   kills: number;
   damageDealt: number;
   selfDamage: number;
@@ -737,6 +760,8 @@ export class World implements SimApi {
   private windPct = 100;
   private damagePct = 100;
   private cashPct = 100;
+  /** Player carrying this round's bounty (rules.bounty), or -1. */
+  bountyPlayer = -1;
   /** Weather drag, fixed-point share of velocity per tick (this round's weather). */
   drag = 0;
   /** This round's weather, or null for clear skies. */
@@ -1252,10 +1277,11 @@ export class World implements SimApi {
         fuel: this.mode.drive.startFuel,
         fuelBurn: 0,
         lastHitBy: -1,
+        bountyCash: 0,
         kills: 0,
         damageDealt: 0,
         selfDamage: 0,
-        score: 0,
+        score: setup?.score ?? 0,
         money: cash,
         bot: botId ? this.bindBot(botId) : -1,
         aiMem: [],
@@ -1333,6 +1359,7 @@ export class World implements SimApi {
     this.windPct = plan?.wind ?? 100;
     this.damagePct = plan?.damage ?? 100;
     this.cashPct = plan?.cash ?? 100;
+    this.bountyPlayer = this.options.rules?.bounty ? this.leader() : -1;
     const genId = plan?.generator ?? this.options.map?.generator ?? this.mode.map.generator;
     this.generator = genId;
     const genItem = this.content.get('gen', genId);
@@ -1410,6 +1437,7 @@ export class World implements SimApi {
       tank.markBonus = 0;
       tank.scope = 0;
       tank.lastHitBy = -1;
+      tank.bountyCash = 0;
       tank.kills = 0;
       tank.damageDealt = 0;
       tank.selfDamage = 0;
@@ -3965,10 +3993,13 @@ export class World implements SimApi {
       else src.damageDealt += applied;
     }
     if (by >= 0) t.lastHitBy = by;
+    const bounty = src !== undefined && !friendly && t.player === this.bountyPlayer;
+    if (bounty) src.bountyCash += this.bountyCash(applied, 0);
     if (t.health <= 0) {
       t.alive = false;
       t.falling = false;
       if (src && !friendly) src.kills++;
+      if (bounty) src.bountyCash += this.bountyCash(0, BOUNTY_KILL * this.mode.scoring.kill);
       this.pendingDeaths.push({ player: t.player, killer: by });
     }
   }
@@ -4645,6 +4676,64 @@ export class World implements SimApi {
     return out;
   }
 
+  /**
+   * The match leader for the bounty: the one player with the highest score, above 0; -1 before
+   * any points or on a tie. In team play only a player of the leading team (by team score) counts.
+   */
+  leader(): number {
+    const teams = this.teamTotals();
+    let bestTeam = -1;
+    let bestTeamScore = -1;
+    let tie = false;
+    for (const e of teams) {
+      if (e.score > bestTeamScore) {
+        bestTeamScore = e.score;
+        bestTeam = e.team;
+        tie = false;
+      } else if (e.score === bestTeamScore) tie = true;
+    }
+    if (tie || bestTeamScore <= 0) return -1;
+    let best = -1;
+    tie = false;
+    for (const t of this.tanks) {
+      if (t.team !== bestTeam) continue;
+      if (best < 0 || t.score > this.tanks[best]!.score) {
+        best = t.player;
+        tie = false;
+      } else if (t.score === this.tanks[best]!.score) tie = true;
+    }
+    return tie ? -1 : best;
+  }
+
+  /** Cash for destroying this round's bounty carrier, or 0 when nobody carries one. */
+  bountyValue(): number {
+    return this.bountyPlayer < 0 ? 0 : this.bountyCash(0, BOUNTY_KILL * this.mode.scoring.kill);
+  }
+
+  /** Bounty cash for `hp` damage and `killPts` kill points on the leader (this round's cash %). */
+  private bountyCash(hp: number, killPts: number): number {
+    const mpp = this.mode.economy.moneyPerPoint;
+    const raw = Math.trunc((hp * mpp * BOUNTY_HP_PCT) / 100) + killPts * mpp;
+    return Math.trunc((raw * this.cashPct) / 100);
+  }
+
+  /**
+   * Comeback cash per player: `COMEBACK_PCT` of the points gap between their team's score per
+   * member and the leading team's, as cash at the mode's money per point.
+   */
+  private comebackCash(): number[] {
+    const teams = this.teamTotals();
+    const size = (team: number) => this.tanks.reduce((n, t) => n + (t.team === team ? 1 : 0), 0);
+    let top = 0;
+    for (const e of teams) top = Math.max(top, Math.trunc(e.score / size(e.team)));
+    const mpp = this.mode.economy.moneyPerPoint;
+    return this.tanks.map((t) => {
+      const e = teams.find((x) => x.team === t.team)!;
+      const gap = top - Math.trunc(e.score / size(t.team));
+      return gap > 0 ? Math.trunc((gap * mpp * COMEBACK_PCT) / 100) : 0;
+    });
+  }
+
   /** Points, money and the round winner (§3.5, §3.6); then the shop or the end of the match. */
   private endRound(): void {
     const sc = this.mode.scoring;
@@ -4661,6 +4750,8 @@ export class World implements SimApi {
     const points: number[] = [];
     const earned: number[] = [];
     const bonus = Math.max(0, Math.trunc(this.options.rules?.roundBonus ?? 0));
+    const catchUp = this.options.rules?.bounty === true;
+    const bounties: number[] = [];
     for (const t of this.tanks) {
       let pts =
         Math.trunc(t.damageDealt * sc.damage) +
@@ -4673,9 +4764,19 @@ export class World implements SimApi {
       const money =
         Math.trunc(t.money * eco.interest) +
         Math.trunc((Math.max(0, pts) * eco.moneyPerPoint * this.cashPct) / 100) +
-        bonus;
+        bonus +
+        (catchUp ? t.bountyCash : 0);
+      bounties.push(catchUp ? t.bountyCash : 0);
       earned.push(money);
       t.money += money;
+    }
+    // comeback cash: everyone behind the leader on the new totals gets a share of the gap
+    const comeback = catchUp ? this.comebackCash() : undefined;
+    if (comeback) {
+      for (const t of this.tanks) {
+        earned[t.player]! += comeback[t.player]!;
+        t.money += comeback[t.player]!;
+      }
     }
     // the round's named winner: the winning team's best scorer (ties: lower player number)
     let winner = -1;
@@ -4683,7 +4784,19 @@ export class World implements SimApi {
       if (t.team !== winnerTeam) continue;
       if (winner < 0 || points[t.player]! > points[winner]!) winner = t.player;
     }
-    this.results.push({ winner, winnerTeam, points, earned });
+    this.results.push(
+      catchUp
+        ? {
+            winner,
+            winnerTeam,
+            points,
+            earned,
+            bountyOn: this.bountyPlayer,
+            bounty: bounties,
+            comeback,
+          }
+        : { winner, winnerTeam, points, earned },
+    );
     this.round++;
     this.projectiles = [];
     this.timer = 0;
@@ -4839,6 +4952,9 @@ export class World implements SimApi {
         ...(t.mind > 0 ? { mind: t.mind, mindBy: t.mindBy } : {}),
         ...(t.jam > 0 ? { jam: t.jam } : {}),
         ...(t.mark > 0 ? { mark: t.mark, markBy: t.markBy } : {}),
+        ...(t.player === this.bountyPlayer && this.phase !== 'shop' && this.phase !== 'over'
+          ? { bounty: this.bountyValue() }
+          : {}),
         ...(t.scope > 0 ? { scope: t.scope } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
       });
