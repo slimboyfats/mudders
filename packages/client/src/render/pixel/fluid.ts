@@ -378,21 +378,34 @@ export class GpuFluid implements FluidSink {
       this.dispose();
       return;
     }
-    const mk = (name: string, fs: string, names: string[]): void => {
+    // What never changes is set once here, not before every pass (a tick is ~20 passes): the
+    // field size, the terrain's unit, and the texture unit each sampler reads (`units`, in order
+    // from unit 0; a `null` skips a unit).
+    const was = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram | null;
+    const mk = (name: string, fs: string, units: (string | null)[], names: string[]): void => {
       const p = compile(gl, FULL_VS, fs);
       this.progs[name] = p;
       const u: Record<string, WebGLUniformLocation | null> = {};
       for (const n of ['u_size', 'u_terrain', 'u_map', 'u_div', ...names])
         u[n] = gl.getUniformLocation(p, n);
       this.uni[name] = u;
+      gl.useProgram(p);
+      gl.uniform2f(u.u_size!, this.w, this.h);
+      gl.uniform1i(u.u_terrain!, 9);
+      gl.uniform2i(u.u_map!, this.mapW, this.mapH);
+      gl.uniform1i(u.u_div!, this.div);
+      units.forEach((n, unit) => {
+        if (n) gl.uniform1i(gl.getUniformLocation(p, n), unit);
+      });
     };
-    mk('splat', SPLAT_FS, ['u_vel', 'u_dye', 'u_n', 'u_sA', 'u_sB', 'u_sC']);
-    mk('advect', ADVECT_FS, ['u_vel', 'u_src', 'u_keep', 'u_burn']);
-    mk('curl', CURL_FS, ['u_vel']);
-    mk('force', FORCE_FS, ['u_vel', 'u_curl', 'u_dye', 'u_eps', 'u_wind', 'u_jit']);
-    mk('div', DIV_FS, ['u_vel', 'u_dye']);
-    mk('pressure', PRESSURE_FS, ['u_pressure', 'u_divergence']);
-    mk('gradient', GRADIENT_FS, ['u_pressure', 'u_vel']);
+    mk('splat', SPLAT_FS, ['u_vel', 'u_dye'], ['u_n', 'u_sA', 'u_sB', 'u_sC']);
+    mk('advect', ADVECT_FS, ['u_vel', 'u_src'], ['u_keep', 'u_burn']);
+    mk('curl', CURL_FS, ['u_vel'], []);
+    mk('force', FORCE_FS, ['u_vel', 'u_curl', 'u_dye'], ['u_eps', 'u_wind', 'u_jit']);
+    mk('div', DIV_FS, ['u_vel', null, 'u_dye'], []);
+    mk('pressure', PRESSURE_FS, ['u_pressure', 'u_divergence'], []);
+    mk('gradient', GRADIENT_FS, ['u_pressure', 'u_vel'], []);
+    gl.useProgram(was);
     this.vao = gl.createVertexArray();
   }
 
@@ -508,21 +521,15 @@ export class GpuFluid implements FluidSink {
   }
 
   private use(name: string): Record<string, WebGLUniformLocation | null> {
-    const gl = this.gl;
-    const u = this.uni[name]!;
-    gl.useProgram(this.progs[name]!);
-    gl.uniform2f(u.u_size!, this.w, this.h);
-    gl.uniform1i(u.u_terrain!, 9);
-    gl.uniform2i(u.u_map!, this.mapW, this.mapH);
-    gl.uniform1i(u.u_div!, this.div);
-    return u;
+    this.gl.useProgram(this.progs[name]!);
+    return this.uni[name]!;
   }
 
-  private bind(unit: number, tex: WebGLTexture, loc: WebGLUniformLocation | null): void {
+  /** Put a texture on the unit the current program's sampler reads (set at construction). */
+  private bind(unit: number, tex: WebGLTexture): void {
     const gl = this.gl;
     gl.activeTexture(gl.TEXTURE0 + unit);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.uniform1i(loc, unit);
   }
 
   private target(fbo: WebGLFramebuffer): void {
@@ -552,16 +559,16 @@ export class GpuFluid implements FluidSink {
       gl.uniform4fv(u.u_sA!, this.sA);
       gl.uniform4fv(u.u_sB!, this.sB);
       gl.uniform2fv(u.u_sC!, this.sC);
-      this.bind(0, vel[cur]!.tex, u.u_vel!);
-      this.bind(1, dye[cur]!.tex, u.u_dye!);
+      this.bind(0, vel[cur]!.tex);
+      this.bind(1, dye[cur]!.tex);
       this.target(this.pair![nxt]!);
       cur = nxt;
       nxt = cur ^ 1;
     }
     // 2. curl, then vorticity confinement with the body forces
     {
-      const u = this.use('curl');
-      this.bind(0, vel[cur]!.tex, u.u_vel!);
+      this.use('curl');
+      this.bind(0, vel[cur]!.tex);
       this.target(this.curl.fbo);
     }
     {
@@ -569,42 +576,42 @@ export class GpuFluid implements FluidSink {
       gl.uniform1f(u.u_eps!, 0.5);
       gl.uniform1f(u.u_wind!, (s.wind * 1.5) / this.div);
       gl.uniform2f(u.u_jit!, (this.tick % 977) * 0.37, (this.tick % 613) * 0.53);
-      this.bind(0, vel[cur]!.tex, u.u_vel!);
-      this.bind(1, this.curl.tex, u.u_curl!);
-      this.bind(2, dye[cur]!.tex, u.u_dye!);
+      this.bind(0, vel[cur]!.tex);
+      this.bind(1, this.curl.tex);
+      this.bind(2, dye[cur]!.tex);
       this.target(vel[nxt]!.fbo);
     }
     // 3. make the velocity divergence-free: divergence, pressure, gradient subtract
     {
-      const u = this.use('div');
-      this.bind(0, vel[nxt]!.tex, u.u_vel!);
-      this.bind(2, dye[cur]!.tex, u.u_dye!);
+      this.use('div');
+      this.bind(0, vel[nxt]!.tex);
+      this.bind(2, dye[cur]!.tex);
       this.target(this.div1.fbo);
     }
     {
-      const u = this.use('pressure');
-      this.bind(1, this.div1.tex, u.u_divergence!);
+      this.use('pressure');
+      this.bind(1, this.div1.tex);
       let p = 0;
       for (let i = 0; i < this.iters; i++) {
-        this.bind(0, pr[p]!.tex, u.u_pressure!);
+        this.bind(0, pr[p]!.tex);
         this.target(pr[p ^ 1]!.fbo);
         p ^= 1;
       }
-      const g = this.use('gradient');
-      this.bind(0, pr[p]!.tex, g.u_pressure!);
-      this.bind(1, vel[nxt]!.tex, g.u_vel!);
+      this.use('gradient');
+      this.bind(0, pr[p]!.tex);
+      this.bind(1, vel[nxt]!.tex);
       // writes the velocity back into the other side
       this.target(vel[cur]!.fbo);
     }
     // 4. carry the velocity and the dye along the flow
     {
       const u = this.use('advect');
-      this.bind(0, vel[cur]!.tex, u.u_vel!);
-      this.bind(1, vel[cur]!.tex, u.u_src!);
+      this.bind(0, vel[cur]!.tex);
+      this.bind(1, vel[cur]!.tex);
       gl.uniform4f(u.u_keep!, 0.992, 0.992, 1, 1);
       gl.uniform1f(u.u_burn!, 0);
       this.target(vel[nxt]!.fbo);
-      this.bind(1, dye[cur]!.tex, u.u_src!);
+      this.bind(1, dye[cur]!.tex);
       gl.uniform4f(u.u_keep!, 0.997, 0.96, 0.998, FIRE_KEEP);
       gl.uniform1f(u.u_burn!, 1);
       this.target(dye[nxt]!.fbo);

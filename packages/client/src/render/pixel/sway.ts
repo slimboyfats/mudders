@@ -56,6 +56,12 @@ export function bend(h: number): number {
  * Build the field into `out` (w × h, row-major, row 0 at the top). Returns whether anything sways.
  * One pass up each column finds the runs of swaying cells and the ground they stand on, a second
  * marks the cells each one could be drawn over. `run` is scratch of at least `h` entries.
+ *
+ * A column's cells depend on that column alone, and the marks on what sways within SWAY_REACH
+ * along the row. So when only columns `x0..x1` of the terrain changed since `out` was last built,
+ * passing them (with `count`, the swaying cells per column, kept between calls) rebuilds just
+ * those columns and the marks around them: the result is the same as a whole rebuild, without
+ * walking the whole map for one crater. Without `count` the whole field is always rebuilt.
  */
 export function swayField(
   t: Uint8Array,
@@ -64,11 +70,34 @@ export function swayField(
   looks: SwayLooks,
   out: Uint8Array,
   run: Int32Array,
+  x0 = 0,
+  x1 = w - 1,
+  count?: Int32Array,
 ): boolean {
-  out.fill(0);
+  if (!count || x0 < 0) x0 = 0;
+  if (!count || x1 > w - 1) x1 = w - 1;
+  if (x1 < x0) {
+    if (!count) return false;
+    for (let x = 0; x < w; x++) if (count[x] !== 0) return true;
+    return false;
+  }
+  const whole = x0 === 0 && x1 === w - 1;
+  if (whole) out.fill(0);
+  else {
+    // the changed columns start empty; the marks beside them are worked out again below
+    const m0 = Math.max(0, x0 - SWAY_REACH);
+    const m1 = Math.min(w - 1, x1 + SWAY_REACH);
+    for (let y = 0; y < h; y++) {
+      const o = y * w;
+      for (let x = m0; x < x0; x++) if (out[o + x] === SWAY_NEAR) out[o + x] = 0;
+      out.fill(0, o + x0, o + x1 + 1);
+      for (let x = x1 + 1; x <= m1; x++) if (out[o + x] === SWAY_NEAR) out[o + x] = 0;
+    }
+  }
   const { flex, limb } = looks;
   let any = false;
-  for (let x = 0; x < w; x++) {
+  for (let x = x0; x <= x1; x++) {
+    let cells = 0;
     // walk up from the bottom; root = the row just above the last solid that doesn't sway
     let root = h;
     let y = h - 1;
@@ -107,23 +136,29 @@ export function swayField(
         const b = bend(root - ry);
         const wt = Math.min(125, Math.round((b * flex[mm]! * SWAY_UNIT) / 100));
         out[ry * w + x] = (2 + wt) | (limb[mm] === 0 ? SWAY_LEAF : 0);
-        any = true;
+        cells++;
       }
       // carry on above the run (a solid that broke it becomes the next root there)
       y = yy;
     }
+    if (cells > 0) any = true;
+    if (count) count[x] = cells;
   }
+  if (!any && count && !whole) for (let x = 0; x < w && !any; x++) any = count[x] !== 0;
   if (!any) return false;
-  // mark the cells a swaying cell could be drawn over: within SWAY_REACH along its row
+  // mark the cells a swaying cell could be drawn over: within SWAY_REACH along its row (a mark
+  // by the changed columns can come from a swaying cell up to twice that far from them)
+  const a = Math.max(0, x0 - 2 * SWAY_REACH);
+  const z = Math.min(w - 1, x1 + 2 * SWAY_REACH);
   for (let y = 0; y < h; y++) {
     const o = y * w;
     let last = -1_000_000;
-    for (let x = 0; x < w; x++) {
+    for (let x = a; x <= z; x++) {
       if (out[o + x]! >= 2) last = x;
       else if (x - last <= SWAY_REACH) out[o + x] = SWAY_NEAR;
     }
     last = 1_000_000;
-    for (let x = w - 1; x >= 0; x--) {
+    for (let x = z; x >= a; x--) {
       if (out[o + x]! >= 2) last = x;
       else if (last - x <= SWAY_REACH && out[o + x] === 0) out[o + x] = SWAY_NEAR;
     }

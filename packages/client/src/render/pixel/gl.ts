@@ -78,22 +78,26 @@ export function uploadChanged(
   shown: Uint8Array,
   w: number,
   h: number,
+  from = 0,
+  to = w - 1,
 ): boolean {
   let y0 = -1;
   let y1 = -1;
   let x0 = w;
   let x1 = -1;
+  const lo = Math.max(0, from);
+  const hi = Math.min(w - 1, to);
   for (let y = 0; y < h; y++) {
     const o = y * w;
     let a = -1;
-    for (let x = 0; x < w; x++) {
+    for (let x = lo; x <= hi; x++) {
       if (next[o + x] !== shown[o + x]) {
         a = x;
         break;
       }
     }
     if (a < 0) continue;
-    let b = w - 1;
+    let b = hi;
     while (next[o + b] === shown[o + b]) b--;
     if (y0 < 0) y0 = y;
     y1 = y;

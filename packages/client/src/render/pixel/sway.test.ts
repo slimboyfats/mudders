@@ -54,6 +54,48 @@ describe('sway field', () => {
     expect(swayField(t, w, h, looks, new Uint8Array(w * h), new Int32Array(h))).toBe(false);
   });
 
+  it('rebuilds only the changed columns to the same field as a whole rebuild', () => {
+    const w = 90;
+    const h = 50;
+    const t = grid(w, h, 40);
+    const tree = (x: number, top: number): void => {
+      for (let y = top + 6; y < 40; y++) t[y * w + x] = WOOD;
+      for (let y = top; y < top + 10; y++)
+        for (let dx = -3; dx <= 3; dx++) if (dx !== 0 || y < top + 6) t[y * w + x + dx] = LEAF;
+    };
+    for (const x of [8, 20, 31, 47, 60, 82]) tree(x, 12 + (x % 7));
+    const out = new Uint8Array(w * h);
+    const count = new Int32Array(w);
+    const run = new Int32Array(h);
+    expect(swayField(t, w, h, looks, out, run, 0, w - 1, count)).toBe(true);
+    expect(out).toEqual(field(t, w, h));
+    // a seeded string of edits: craters, new cells, whole trees gone, at the edges too
+    let seed = 7;
+    const rnd = (n: number): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return (seed >>> 8) % n;
+    };
+    for (let step = 0; step < 200; step++) {
+      const x0 = rnd(w);
+      const x1 = Math.min(w - 1, x0 + rnd(12));
+      const y0 = rnd(h);
+      const y1 = Math.min(h - 1, y0 + rnd(30));
+      const fill = [0, 0, LEAF, WOOD, DIRT][rnd(5)]!;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) t[y * w + x] = fill;
+      const any = swayField(t, w, h, looks, out, run, x0, x1, count);
+      const whole = new Uint8Array(w * h);
+      expect(any).toBe(swayField(t, w, h, looks, whole, new Int32Array(h)));
+      expect(out).toEqual(whole);
+    }
+    // clear the lot, column range by column range: nothing sways, nothing stays marked
+    for (let x = 0; x < w; x += 10) {
+      for (let y = 0; y < h; y++) t.fill(0, y * w + x, y * w + x + 10);
+      swayField(t, w, h, looks, out, run, x, x + 9, count);
+    }
+    expect(swayField(t, w, h, looks, out, run, 0, -1, count)).toBe(false);
+    expect(out.every((v) => v === 0)).toBe(true);
+  });
+
   it('bends as height to the power 1.5', () => {
     expect(bend(0)).toBe(0);
     expect(bend(28)).toBe(1);

@@ -59,6 +59,38 @@ describe('liquid surface', () => {
     expect(l.surfaceAt(40)).toBe(10);
   });
 
+  it('rescans from the top changed row to the same surfaces as a whole scan', () => {
+    const t = new Uint8Array(W * H);
+    const l = new LiquidSurface(W, H, [WATER], [LAVA], [], new Uint32Array(256));
+    l.setTerrain(t);
+    const p = new Particles(100);
+    l.tick(0, 0, p);
+    let seed = 11;
+    const rnd = (n: number): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return (seed >>> 8) % n;
+    };
+    for (let step = 1; step <= 300; step++) {
+      // one or two edited boxes a tick: pools, lava, ground and air, reported as the sim does
+      const rects: { x: number; y: number; w: number; h: number }[] = [];
+      for (let k = rnd(2); k >= 0; k--) {
+        const r = { x: rnd(W), y: rnd(H), w: 1 + rnd(8), h: 1 + rnd(6) };
+        r.w = Math.min(r.w, W - r.x);
+        r.h = Math.min(r.h, H - r.y);
+        const fill = [0, 0, WATER, WATER, LAVA, 3][rnd(6)]!;
+        for (let y = r.y; y < r.y + r.h; y++) t.fill(fill, y * W + r.x, y * W + r.x + r.w);
+        rects.push(r);
+      }
+      l.setTerrain(t, rects);
+      l.tick(step, 0, p);
+      const whole = new LiquidSurface(W, H, [WATER], [LAVA], [], new Uint32Array(256));
+      whole.setTerrain(t);
+      whole.tick(step, 0, new Particles(100));
+      for (let x = 0; x < W; x++)
+        expect(l.surfaceAt(x), `step ${step} x ${x}`).toBe(whole.surfaceAt(x));
+    }
+  });
+
   it('finds the surface row and stays flat when nothing touches it', () => {
     const l = make(WATER);
     const p = new Particles(100);
