@@ -103,6 +103,9 @@ describe('material.tar', () => {
 
   it('catches fire and the whole pool burns, for turns, hurting tanks in it', () => {
     const w = tarWorld(200, 400);
+    // the tank in the pool comes out oiled and burning (stains, core@0.93.0): give it the hull
+    // to live through all four turns
+    w.tanks[0]!.health = 400;
     dropAt(w, 'weapon.napalm', 260);
     const burning = countCells(w, 'material.burning-tar');
     expect(burning).toBeGreaterThan(400);

@@ -22,6 +22,9 @@
   "cohesion": 0,
   "coating": false,
   "tags": ["wet", "dissolves", "conducts"],
+  "stain": {
+    "muddy": 2
+  },
   "sink": {
     "ticks": 18,
     "depth": 4

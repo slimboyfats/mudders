@@ -29,6 +29,12 @@
     "safeCells": 4,
     "perCell": 2
   },
+  "stains": {
+    "wet": { "shock": 50 },
+    "oiled": { "heat": 50, "burn": 1 },
+    "muddy": { "fuel": 50 },
+    "burning": { "damage": 5, "fire": "material.fire" }
+  },
   "map": {
     "generator": "gen.hills",
     "width": 1200,

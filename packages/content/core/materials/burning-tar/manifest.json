@@ -32,6 +32,9 @@
   "contact": {
     "damage": 12
   },
+  "stain": {
+    "oiled": 2
+  },
   "reactions": [
     {
       "with": "material.water",

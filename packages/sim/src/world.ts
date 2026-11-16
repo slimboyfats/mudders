@@ -71,7 +71,16 @@ import { supportPass } from './support';
 import { settleStep } from './settle';
 import { reactStep, roll, turnDecay } from './reactions';
 import { gasStep } from './gas';
-import { KEEP, SETTLE_FLOW, SETTLE_GAS } from './materials';
+import {
+  KEEP,
+  NUM_STAINS,
+  SETTLE_FLOW,
+  SETTLE_GAS,
+  STAIN_BURNING,
+  STAIN_MUDDY,
+  STAIN_OILED,
+  STAIN_WET,
+} from './materials';
 
 /**
  * Standard tank footprint (§2a: ~16×10): `tank.classic`, and every tank when no `tank.*` item is
@@ -99,6 +108,8 @@ const CRUSH_MIN = 2;
 /** While a shot plays out, a tank touching a burning cell takes 1/CONTACT_SHARE of its contact damage every CONTACT_EVERY ticks. */
 const CONTACT_EVERY = 15;
 const CONTACT_SHARE = 4;
+/** Ticks between stain passes (§4b): how often a tank checks what liquid or gas it touches. */
+const STAIN_EVERY = 4;
 /** Ticks after a blast that a tree it undermined still falls away from it. */
 const HIT_LINGER = 40;
 /** Longest a turn waits on flowing or reacting ground once everything else is still (4 s). */
@@ -409,6 +420,16 @@ export interface Tank extends TankHandle {
    */
   mind: number;
   mindBy: number;
+  /**
+   * Own turns left stained (§4b), from touching a material with a `stain`: wet (no burning, more
+   * shock damage), oiled (more heat damage, burns longer), muddy (more fuel per cell), burning
+   * (hurts and sets fire at the end of its own turns). The mode's `stains` rules say how much.
+   * Hashed only while > 0.
+   */
+  wet: number;
+  oiled: number;
+  muddy: number;
+  burning: number;
   /** Cells this tank may still drive this turn, and where it is driving now (-1, 0, 1). */
   driveLeft: number;
   driving: number;
@@ -706,6 +727,8 @@ export class World implements SimApi {
   private readonly dropEvery: number;
   private readonly dropLoot: RtLoot[] = [];
   private readonly dropCell: number;
+  /** Cell a burning tank sets beside its treads (-1 = none), from the mode's `stains.burning.fire`. */
+  private readonly stainFire: number;
   private dropForced = 0;
   /** The last pickup (HUD toast); not hashed. */
   lastPickup: DropPickup | null = null;
@@ -980,6 +1003,8 @@ export class World implements SimApi {
           ? Math.max(1, dr.every >> 1)
           : dr.every;
     this.dropCell = dr ? this.mats.cellOf(dr.debris) : 0;
+    const sf = mode.stains.burning.fire;
+    this.stainFire = sf === undefined || sf === 'air' ? -1 : this.mats.cellOf(sf);
     for (const l of dr?.loot ?? []) {
       let item = -1;
       if (l.kind === 'weapon' || l.kind === 'gear') {
@@ -1280,6 +1305,10 @@ export class World implements SimApi {
         rustBy: -1,
         mind: 0,
         mindBy: -1,
+        wet: 0,
+        oiled: 0,
+        muddy: 0,
+        burning: 0,
         driveLeft: 0,
         driving: 0,
         fuel: this.mode.drive.startFuel,
@@ -1456,6 +1485,10 @@ export class World implements SimApi {
       tank.markBy = -1;
       tank.markBonus = 0;
       tank.scope = 0;
+      tank.wet = 0;
+      tank.oiled = 0;
+      tank.muddy = 0;
+      tank.burning = 0;
       tank.lastHitBy = -1;
       tank.bountyCash = 0;
       tank.kills = 0;
@@ -1767,6 +1800,13 @@ export class World implements SimApi {
       supportPass(this.grid, this.mats, this.scratch, this.debris, this, this.chunks);
     }
     this.stepTanks();
+    if (
+      this.mats.anyStain &&
+      this.tick % STAIN_EVERY === 0 &&
+      (this.phase === 'aim' || this.phase === 'resolve')
+    ) {
+      this.stainTanks();
+    }
     if (this.lures.length > 0) this.stepLures();
     if (this.mines.length > 0) this.stepMines();
     if (this.dropsOn) this.stepDrops();
@@ -1782,6 +1822,7 @@ export class World implements SimApi {
         this.applyContact();
         this.applyZones();
         this.applyRust();
+        this.applyBurning();
         this.armMines();
       }
       if (this.still) {
@@ -1928,14 +1969,18 @@ export class World implements SimApi {
    * Fuel one cell of driving burns, in thousandths (§3.4): 1000 in mild air, up to 1500 at the
    * hottest (it boils off) or coldest (stiff engines).
    */
-  fuelPerCell(): number {
+  fuelPerCell(tank?: Tank): number {
     const t = this.temperature;
-    return 1000 + (tempHeat(t) >> 1) + (tempChill(t) >> 1);
+    const per = 1000 + (tempHeat(t) >> 1) + (tempChill(t) >> 1);
+    // a muddy tank (§4b stains) churns through more
+    if (tank && tank.muddy > 0)
+      return Math.trunc((per * (100 + this.mode.stains.muddy.fuel)) / 100);
+    return per;
   }
 
-  /** Burn one cell's worth of fuel from `fuel`/`burn`; returns the new [fuel, burn]. */
-  private burnFuel(fuel: number, burn: number): [number, number] {
-    let b = burn + this.fuelPerCell();
+  /** Burn one cell's worth of `t`'s fuel from `fuel`/`burn`; returns the new [fuel, burn]. */
+  private burnFuel(t: Tank, fuel: number, burn: number): [number, number] {
+    let b = burn + this.fuelPerCell(t);
     let f = fuel;
     while (b >= 1000 && f > 0) {
       f--;
@@ -2020,7 +2065,7 @@ export class World implements SimApi {
       }
     }
     t.driveLeft = Math.max(0, t.driveLeft - cost - drag);
-    for (let i = 0; i <= drag; i++) [t.fuel, t.fuelBurn] = this.burnFuel(t.fuel, t.fuelBurn);
+    for (let i = 0; i <= drag; i++) [t.fuel, t.fuelBurn] = this.burnFuel(t, t.fuel, t.fuelBurn);
     if (t.driveLeft <= 0 || t.fuel <= 0 || !t.alive) t.driving = 0;
     this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
   }
@@ -2043,7 +2088,7 @@ export class World implements SimApi {
     let y = t.y;
     while (left > 0 && fuel > 0) {
       left -= this.stickyAt(x, y, t.half);
-      [fuel, burn] = this.burnFuel(fuel, burn);
+      [fuel, burn] = this.burnFuel(t, fuel, burn);
       const nx = x + dir;
       if (nx < t.half || nx >= g.width - t.half) break;
       const col = dir > 0 ? nx + t.half - 1 : nx - t.half;
@@ -2483,9 +2528,12 @@ export class World implements SimApi {
     return true;
   }
 
-  hurt(player: number, amount: number, owner: number): void {
+  hurt(player: number, amount: number, owner: number, type?: DamageType): void {
     const t = this.tanks[player];
-    if (t) this.damageTank(t, Math.trunc(amount), owner);
+    if (!t) return;
+    const dmg = Math.trunc(amount);
+    const dt = type === undefined ? -1 : damageTypeIndex(type);
+    this.damageTank(t, dt < 0 ? dmg : this.stainScaled(t, dmg, dt), owner);
   }
 
   heal(player: number, amount: number): number {
@@ -3377,7 +3425,11 @@ export class World implements SimApi {
         for (const t of this.tanks) {
           if (!t.alive) continue;
           if (!this.inZone(z, t)) continue;
-          const dmg = this.ownerScaled(this.tempScaled(z.damage, z.dt), z.owner);
+          const dmg = this.stainScaled(
+            t,
+            this.ownerScaled(this.tempScaled(z.damage, z.dt), z.owner),
+            z.dt,
+          );
           this.emit('zoneHurt', t.x, t.y - (t.h >> 1), t.half, {
             damage: dmg,
             look: z.look,
@@ -3591,7 +3643,8 @@ export class World implements SimApi {
       if (e.damage > 0) {
         const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
         const dmg = this.tempScaled(Math.trunc(base * scale), e.dt);
-        this.damageTank(t, byWeapon ? this.ownerScaled(dmg, owner) : dmg, owner);
+        const hit = byWeapon ? this.ownerScaled(dmg, owner) : dmg;
+        this.damageTank(t, this.stainScaled(t, hit, e.dt), owner);
       }
       if (e.chill > 0) {
         // frosted for its next own turns; a tank that frosts itself keeps it past this turn too;
@@ -4061,12 +4114,145 @@ export class World implements SimApi {
         }
       }
       // contact damage is burning (fire, napalm, lava), so the heat scales it too
-      worst = this.tempScaled(worst, DT_HEAT);
+      worst = this.stainScaled(t, this.tempScaled(worst, DT_HEAT), DT_HEAT);
       if (worst > 0 && share > 1) worst = Math.max(1, Math.trunc(worst / share));
       if (worst > 0) {
         this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: worst });
         this.damageTank(t, worst, t.lastHitBy);
       }
+    }
+  }
+
+  /**
+   * Tank stains (§4b): what each living tank touches (in or directly under its hull, or a gas
+   * cloud over air) stains it for that material's `stain` turns, topped up, never stacked. The
+   * tank whose turn is playing gets one more, since this turn's end counts one off.
+   */
+  private stainTanks(): void {
+    const g = this.grid;
+    const W = g.width;
+    const st = this.mats.stainTurns;
+    for (const t of this.tanks) {
+      if (!t.alive) continue;
+      let wet = 0;
+      let oiled = 0;
+      let muddy = 0;
+      let burning = 0;
+      for (let y = Math.max(0, t.y - t.h); y <= Math.min(g.height - 1, t.y); y++) {
+        const row = y * W;
+        for (let x = Math.max(0, t.x - t.half); x < Math.min(W, t.x + t.half); x++) {
+          const m = g.material[row + x]!;
+          // the cell, or the gas over air, then any coating on it (an oil slick)
+          for (let pass = 0; pass < 2; pass++) {
+            const c = pass === 0 ? (m === 0 ? g.gas[row + x]! : m) : g.coating[row + x]!;
+            if (c === 0) continue;
+            const o = c * NUM_STAINS;
+            if (st[o + STAIN_WET]! > wet) wet = st[o + STAIN_WET]!;
+            if (st[o + STAIN_OILED]! > oiled) oiled = st[o + STAIN_OILED]!;
+            if (st[o + STAIN_MUDDY]! > muddy) muddy = st[o + STAIN_MUDDY]!;
+            if (st[o + STAIN_BURNING]! > burning) burning = st[o + STAIN_BURNING]!;
+          }
+        }
+      }
+      if (wet + oiled + muddy + burning === 0) continue;
+      this.stain(t, wet, oiled, muddy, burning, t.player === this.activePlayer ? 1 : 0);
+    }
+  }
+
+  /**
+   * Stain a tank for these own turns (0 = not that stain). Wet puts out a burning tank and keeps
+   * it from catching; oiled makes a new burn last the mode's `oiled.burn` turns longer. `own` (1
+   * for the tank whose turn is playing) keeps the turn ending now from eating a stain turn; a
+   * burn never gets it, since its first bite is that turn's end.
+   */
+  private stain(
+    t: Tank,
+    wet: number,
+    oiled: number,
+    muddy: number,
+    burning: number,
+    own = 0,
+  ): void {
+    const cy = t.y - (t.h >> 1);
+    if (wet > 0) {
+      if (t.wet === 0) this.emit('stained', t.x, cy, t.half, { player: t.player, kind: STAIN_WET });
+      t.wet = Math.max(t.wet, wet + own);
+      if (t.burning > 0) {
+        t.burning = 0;
+        this.emit('unstained', t.x, cy, t.half, { player: t.player, kind: STAIN_BURNING });
+      }
+    }
+    if (oiled > 0) {
+      if (t.oiled === 0) {
+        this.emit('stained', t.x, cy, t.half, { player: t.player, kind: STAIN_OILED });
+      }
+      t.oiled = Math.max(t.oiled, oiled + own);
+    }
+    if (muddy > 0) {
+      if (t.muddy === 0) {
+        this.emit('stained', t.x, cy, t.half, { player: t.player, kind: STAIN_MUDDY });
+      }
+      t.muddy = Math.max(t.muddy, muddy + own);
+    }
+    if (burning > 0 && t.wet === 0) {
+      const turns = burning + (t.oiled > 0 ? this.mode.stains.oiled.burn : 0);
+      if (t.burning === 0) {
+        this.emit('stained', t.x, cy, t.half, { player: t.player, kind: STAIN_BURNING });
+      }
+      t.burning = Math.max(t.burning, turns);
+    }
+  }
+
+  /** End of a tank's own turn: each stain wears off by a turn. */
+  private wearStains(t: Tank): void {
+    if (t.wet > 0) t.wet--;
+    if (t.oiled > 0) t.oiled--;
+    if (t.muddy > 0) t.muddy--;
+    if (t.burning > 0) t.burning--;
+  }
+
+  /**
+   * Damage after the target's stains (§4b): shock hits a wet tank `wet.shock` percent harder,
+   * heat an oiled one `oiled.heat` percent harder. Exact otherwise.
+   */
+  private stainScaled(t: Tank, dmg: number, dt: number): number {
+    if (dmg <= 0) return dmg;
+    const st = this.mode.stains;
+    if (dt === DT_SHOCK && t.wet > 0) return Math.trunc((dmg * (100 + st.wet.shock)) / 100);
+    if (dt === DT_HEAT && t.oiled > 0) return Math.trunc((dmg * (100 + st.oiled.heat)) / 100);
+    return dmg;
+  }
+
+  /**
+   * End of a burning tank's own turn (§4b): it loses the mode's `burning.damage` (heat, so oil
+   * and hot air make it worse), credited to whoever last hit it, and sets `burning.fire` in the
+   * open cells just beside its treads, where the flames can catch the ground.
+   */
+  private applyBurning(): void {
+    const t = this.tanks[this.activePlayer];
+    if (!t || !t.alive || t.burning <= 0) return;
+    const g = this.grid;
+    const fire = this.stainFire;
+    // the row the hull sits in, just above the ground row `t.y`
+    const y = t.y - 1;
+    if (fire >= 0 && y >= 0 && t.y < g.height) {
+      for (let x = t.x - t.half - 2; x <= t.x + t.half + 1; x++) {
+        if ((x >= t.x - t.half && x < t.x + t.half) || x < 0 || x >= g.width) continue;
+        const i = y * g.width + x;
+        if (g.material[i] !== 0 || g.material[i + g.width] === 0) continue;
+        g.material[i] = fire;
+        g.cellState[i] = 0;
+        g.markDirty(x, y, x, y);
+      }
+    }
+    const dmg = this.stainScaled(
+      t,
+      this.tempScaled(this.mode.stains.burning.damage, DT_HEAT),
+      DT_HEAT,
+    );
+    if (dmg > 0) {
+      this.emit('burn', t.x, t.y - (t.h >> 1), t.half, { damage: dmg });
+      this.damageTank(t, dmg, t.lastHitBy);
     }
   }
 
@@ -4609,6 +4795,7 @@ export class World implements SimApi {
   private endTurn(): void {
     const active = this.tanks[this.activePlayer];
     if (active && active.chill > 0) active.chill--;
+    if (active) this.wearStains(active);
     if (active && active.mind > 0) {
       active.mind--;
       if (active.mind === 0) {
@@ -4986,6 +5173,10 @@ export class World implements SimApi {
           ? { bounty: this.bountyValue() }
           : {}),
         ...(t.scope > 0 ? { scope: t.scope } : {}),
+        ...(t.wet > 0 ? { wet: t.wet } : {}),
+        ...(t.oiled > 0 ? { oiled: t.oiled } : {}),
+        ...(t.muddy > 0 ? { muddy: t.muddy } : {}),
+        ...(t.burning > 0 ? { burning: t.burning } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
         ...(t.bot >= 0 ? { bot: this.botIds[t.bot] ?? '' } : {}),
       });
@@ -5186,6 +5377,10 @@ export class World implements SimApi {
       // mark and scope (Spotter Flare): likewise only while set
       if (t.mark > 0) h.num(t.mark).num(t.markBy).num(t.markBonus);
       if (t.scope > 0) h.num(t.scope);
+      // stains (kernel 0.56.0): likewise only while stained
+      if (t.wet > 0 || t.oiled > 0 || t.muddy > 0 || t.burning > 0) {
+        h.num(t.wet).num(t.oiled).num(t.muddy).num(t.burning);
+      }
     }
     h.num(this.projectiles.length);
     for (const p of this.projectiles) {
@@ -5269,6 +5464,7 @@ export class World implements SimApi {
 const DT_HEAT = damageTypeIndex('heat');
 const DT_BLAST = damageTypeIndex('blast');
 const DT_COLD = damageTypeIndex('cold');
+const DT_SHOCK = damageTypeIndex('shock');
 
 function clampTemp(t: number): number {
   return Math.max(TEMP_MIN, Math.min(TEMP_MAX, t));

@@ -21,6 +21,10 @@
   "cohesion": 0,
   "coating": false,
   "tags": ["wet", "dissolves"],
+  "stain": {
+    "wet": 2,
+    "muddy": 2
+  },
   "compact": {
     "into": "material.packed-mud",
     "ratio": 1,

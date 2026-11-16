@@ -58,7 +58,7 @@ const stepCost = new Uint8Array(256);
 export default defineTerrainOp<Params>({
   kind: 'terrainop',
   id: 'terrainop.conduct',
-  version: 2,
+  version: 3,
   params,
   start(api, p, c) {
     const g = api.grid;
@@ -137,7 +137,7 @@ export default defineTerrainOp<Params>({
         }
       }
       if (hit) {
-        api.hurt(t.player, p.damage, c.owner);
+        api.hurt(t.player, p.damage, c.owner, 'shock');
         api.emit('arcs', t.x, t.y - (t.h >> 1), 6, { strength: 0.6 });
       }
     }

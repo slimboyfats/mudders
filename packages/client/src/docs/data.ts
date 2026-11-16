@@ -337,6 +337,12 @@ function materialTraits(c: ResolvedContent, m: MaterialManifest): string[] {
   if (m.sink) t.push(`Tanks sink into it, up to ${m.sink.depth} cells`);
   if (m.slick) t.push('Slippery: tanks slide downhill on it');
   if (m.sticky) t.push(`Sticky: driving on it is ${m.sticky.drive}× slower`);
+  if (m.stain) {
+    const on = (['wet', 'oiled', 'muddy', 'burning'] as const)
+      .filter((k) => (m.stain?.[k] ?? 0) > 0)
+      .map((k) => `${k} for ${m.stain?.[k]} turn${(m.stain?.[k] ?? 0) > 1 ? 's' : ''}`);
+    t.push(`Stains tanks that touch it: ${on.join(', ')}`);
+  }
   if (m.compact) t.push(`Packs down into ${nameOf(c, m.compact.into)} under blasts`);
   if (m.shatter)
     t.push(

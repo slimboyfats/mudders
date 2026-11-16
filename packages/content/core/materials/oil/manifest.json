@@ -19,6 +19,9 @@
     "speed": 3
   },
   "coating": true,
+  "stain": {
+    "oiled": 2
+  },
   "reactions": [
     {
       "with": "material.fire",
