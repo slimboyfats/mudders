@@ -67,6 +67,23 @@ let pass = 0;
 /** The material layer of the grid last settled, four cells to a word (to skip runs of air fast). */
 let words: Uint32Array = new Uint32Array(0);
 let wordsOf: Uint8Array | null = null;
+/** The same views of the layers a liquid at rest is told by (group, fall and flow speed, flow stamp). */
+let groupWords: Uint32Array = new Uint32Array(0);
+let fallWords: Uint32Array = new Uint32Array(0);
+let flowWords: Uint32Array = new Uint32Array(0);
+let stampWords: Uint32Array = new Uint32Array(0);
+/**
+ * `runnyWord[m]` is the word four cells of `m` make when `m` is a runny liquid (the kind
+ * `liquidCell` moves), and a word no four such cells can make otherwise.
+ */
+const runnyWord = new Uint32Array(256);
+let runnyOf: MaterialTable | null = null;
+
+function wordsView(a: Uint8Array | Int8Array): Uint32Array {
+  return a.byteOffset % 4 === 0
+    ? new Uint32Array(a.buffer, a.byteOffset, a.length >> 2)
+    : new Uint32Array(0);
+}
 
 /**
  * One settle step (§4.3) over the grid's settle region only. Unsupported `fall`/`slide`/`flow`
@@ -102,18 +119,40 @@ export function settleStep(
   const mat = grid.material;
   if (wordsOf !== mat) {
     wordsOf = mat;
-    words =
-      mat.byteOffset % 4 === 0
-        ? new Uint32Array(mat.buffer, mat.byteOffset, mat.length >> 2)
-        : new Uint32Array(0);
+    words = wordsView(mat);
+    groupWords = wordsView(grid.group);
+    fallWords = wordsView(grid.fallVel);
+    flowWords = wordsView(grid.flowVel);
+    stampWords = wordsView(grid.flowTick);
   }
+  if (runnyOf !== mats) {
+    runnyOf = mats;
+    for (let m = 0; m < 256; m++) {
+      const runny = m !== 0 && mats.settle[m] === SETTLE_FLOW && mats.disperse[m]! > 1;
+      runnyWord[m] = Math.imul(runny ? m : m ^ 1, 0x01010101);
+    }
+  }
+  // rows of whole words (so the word under a word is the row below), and every view in place
+  const aligned = words.length !== 0;
+  const wpr = W >> 2;
+  const byWord =
+    (W & 3) === 0 &&
+    words.length === grid.size >> 2 &&
+    groupWords.length === words.length &&
+    fallWords.length === words.length &&
+    flowWords.length === words.length &&
+    stampWords.length === words.length;
   const coat = grid.coating;
   const gas = grid.gas;
   const state = grid.cellState;
   const vel = grid.fallVel;
+  const flowVel = grid.flowVel;
+  const flowTick = grid.flowTick;
+  const surfTop = grid.surfTop;
   // a liquid cell that momentum moved along or up a row is stamped, so the scan doesn't meet
   // and move it again this tick (1..128; a stale stamp costs a cell one tick at worst)
   const ts = (tick & 127) + 1;
+  const ts4 = Math.imul(ts, 0x01010101);
   let wetLive = false;
   let wetMoved = 0;
   let seenMin = W;
@@ -167,6 +206,44 @@ export function settleStep(
     for (; i <= span; i++) {
       const x = ltr ? x0 + i : x1 - i;
       const idx = row + x;
+      // Air between the things in a row does nothing either, four cells at a time. And so do
+      // four cells of one liquid at rest deep in its body (the same liquid under them and at
+      // both ends, no speed, none of them or the cells at the ends moved this tick): each would
+      // take the liquid-at-rest way out below, so all four go at once. Most of a lake or a flood.
+      if (aligned && (idx & 3) === (ltr ? 0 : 3) && i + 3 <= span) {
+        const wi = idx >> 2;
+        const w = words[wi]!;
+        if (w === 0) {
+          // four cells of air
+          i += 3;
+          continue;
+        }
+        const lo = ltr ? idx : idx - 3;
+        const xl = ltr ? x : x - 3;
+        if (
+          byWord &&
+          runnyWord[w & 255] === w &&
+          words[wi + wpr] === w &&
+          groupWords[wi] === 0 &&
+          fallWords[wi] === 0 &&
+          flowWords[wi] === 0 &&
+          xl > 0 &&
+          xl + 4 < W &&
+          mat[lo - 1] !== 0 &&
+          mat[lo + 4] !== 0 &&
+          flowTick[lo - 1] !== ts &&
+          flowTick[lo + 4] !== ts
+        ) {
+          // (no byte of the stamp word is `ts`)
+          const v = stampWords[wi]! ^ ts4;
+          if (((v - 0x01010101) & ~v & 0x80808080) === 0) {
+            if (xl < seenMin) seenMin = xl;
+            if (xl + 3 > seenMax) seenMax = xl + 3;
+            i += 3;
+            continue;
+          }
+        }
+      }
       const m = mat[idx]!;
       if (m === 0) continue;
       const k = kind[m]!;
@@ -177,6 +254,25 @@ export function settleStep(
         if (x < seenMin) seenMin = x;
         if (x > seenMax) seenMax = x;
         const ml = mat[idx + W]!;
+        // Liquid at rest inside its body, the bulk of any lake or flood: standing on something,
+        // no speed, shut in on both sides (or the top of a column of open water, which moves
+        // with its column), and nothing beside it only just moved. `liquidCell` would do nothing.
+        if (
+          ml !== 0 &&
+          vel[idx] === 0 &&
+          flowVel[idx] === 0 &&
+          flowTick[idx] !== ts &&
+          (kind[ml] !== SETTLE_FLOW || density[ml]! >= density[m]!) &&
+          ((surfTop[x] === y && ml === m) ||
+            (x > 0 &&
+              x < W - 1 &&
+              mat[idx - 1] !== 0 &&
+              mat[idx + 1] !== 0 &&
+              flowTick[idx - 1] !== ts &&
+              flowTick[idx + 1] !== ts))
+        ) {
+          continue;
+        }
         if (ml === 0 || kind[ml] !== SETTLE_FLOW || density[ml]! >= density[m]!) {
           const r = liquidCell(grid, mats, idx, x, y, m, ml, tick, ts, ltr);
           if (r !== 0) {

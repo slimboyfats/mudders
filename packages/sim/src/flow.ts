@@ -65,6 +65,11 @@ let bed = new Int16Array(0);
 /** Row of each column's top cell at rest (under `capped`, a fall is coming down on it). */
 let top = new Int16Array(0);
 let capped = new Uint8Array(0);
+/** Row of the first thing under the sky in each run of sixteen columns. */
+let sky = new Int16Array(0);
+/** The material layer last looked at, four cells to a word. */
+let skyWords: Uint32Array = new Uint32Array(0);
+let skyOf: Uint8Array | null = null;
 
 /**
  * Open water as columns (a shallow-water step). Every column whose topmost matter is a runny
@@ -97,6 +102,7 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
     bed = new Int16Array(W);
     top = new Int16Array(W);
     capped = new Uint8Array(W);
+    sky = new Int16Array((W >> 4) + 1);
   }
   const mat = grid.material;
   const group = grid.group;
@@ -111,11 +117,39 @@ export function surfaceFlowStep(grid: Grid, mats: MaterialTable): void {
   const x1 = Math.min(W - 1, Math.min(grid.settleMaxX, grid.surfSeenMaxX) + SUBSTEPS + 1);
   if (x1 <= x0) return;
 
+  // The sky over the columns, found a row at a time and sixteen columns at once: walking down
+  // each column from row 0 on its own was most of this step's cost (a read per cell of sky, a
+  // row apart in memory).
+  const c0 = x0 >> 4;
+  const c1 = x1 >> 4;
+  if (skyOf !== mat) {
+    skyOf = mat;
+    skyWords =
+      mat.byteOffset % 4 === 0
+        ? new Uint32Array(mat.buffer, mat.byteOffset, mat.length >> 2)
+        : new Uint32Array(0);
+  }
+  const sw = skyWords;
+  if ((W & 15) === 0 && sw.length === grid.size >> 2) {
+    const wpr = W >> 2;
+    for (let c = c0; c <= c1; c++) {
+      let k = c << 2;
+      let y = 0;
+      while (y < H && (sw[k]! | sw[k + 1]! | sw[k + 2]! | sw[k + 3]!) === 0) {
+        y++;
+        k += wpr;
+      }
+      sky[c] = y;
+    }
+  } else {
+    for (let c = c0; c <= c1; c++) sky[c] = 0;
+  }
+
   // columns: the first thing under the sky that rests on something
   let any = false;
   for (let x = x0; x <= x1; x++) {
-    let y = 0;
-    let p = x;
+    let y = sky[x >> 4]!;
+    let p = x + y * W;
     let m = 0;
     let found = false;
     let y0 = 0;
