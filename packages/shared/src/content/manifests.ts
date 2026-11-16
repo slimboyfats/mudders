@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DAMAGE_TYPES } from '../constants';
+import { DAMAGE_TYPES, STAIN_KINDS } from '../constants';
 
 /**
  * Zod schemas for content manifests (§2c). These describe *resolved* manifests: the loader in
@@ -61,6 +61,7 @@ export function contentTypeOf(id: string): ContentType | undefined {
 }
 
 export const DamageTypeSchema = z.enum(DAMAGE_TYPES);
+export const StainKindSchema = z.enum(STAIN_KINDS);
 
 const SemverSchema = z.string().regex(/^\d+\.\d+\.\d+$/);
 
@@ -212,6 +213,12 @@ export const MaterialSchema = z.strictObject({
   glide: z.number().min(0).max(1).optional(),
   /** Effect on tanks touching or buried in it (§4b), applied once at the end of each turn. */
   contact: z.strictObject({ damage: z.number().int().min(0).max(100) }).optional(),
+  /**
+   * Tank stains (§4b): a tank touching this material (in or directly under its hull, or in a cloud
+   * of it) is stained for that many of its own turns: `wet`, `oiled`, `muddy` or `burning`. What a
+   * stain does is the mode's `stains` rules. Touching it again tops the count back up.
+   */
+  stain: z.partialRecord(StainKindSchema, z.number().int().min(1).max(3)).optional(),
   /** A tank resting on it sinks one cell every `ticks` ticks, up to `depth` cells (quicksand). */
   sink: z
     .strictObject({
@@ -879,6 +886,33 @@ export const ModeSchema = z.looseObject({
     })
     .nullable()
     .default(null),
+  /**
+   * Tank stains (§4b, a material's `stain`): a wet tank can't be set burning (water puts it out)
+   * and takes `wet.shock` percent more shock damage; an oiled tank takes `oiled.heat` percent more
+   * heat damage (fire, napalm, contact burns) and burns `oiled.burn` turns longer; a muddy tank
+   * burns `muddy.fuel` percent more fuel per cell. A burning tank loses `burning.damage` health
+   * (heat) at the end of each of its own turns and sets `burning.fire` in the open cells beside
+   * its treads.
+   */
+  stains: z
+    .strictObject({
+      wet: z.strictObject({ shock: z.number().int().min(0).max(400) }),
+      oiled: z.strictObject({
+        heat: z.number().int().min(0).max(400),
+        burn: z.number().int().min(0).max(3),
+      }),
+      muddy: z.strictObject({ fuel: z.number().int().min(0).max(400) }),
+      burning: z.strictObject({
+        damage: z.number().int().min(0).max(100),
+        fire: MaterialRefSchema.optional(),
+      }),
+    })
+    .default({
+      wet: { shock: 50 },
+      oiled: { heat: 50, burn: 1 },
+      muddy: { fuel: 50 },
+      burning: { damage: 5 },
+    }),
   /** Points per round (§3.5): per hp dealt, per kill, per hp of self-damage (subtracted), bonuses. */
   scoring: z
     .strictObject({

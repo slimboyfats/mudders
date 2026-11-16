@@ -104,9 +104,10 @@ export interface SimApi extends EffectSink {
   catchShell(id: number): boolean;
   /**
    * Hurt a tank directly (a zap or arc that is not a blast): `amount` HP of damage credited to
-   * `owner`, soaked by its shield like any hit. Ignored for dead tanks.
+   * `owner`, soaked by its shield like any hit. Ignored for dead tanks. With a damage `type` the
+   * tank's stains count (§4b: a wet tank takes more `shock`, an oiled one more `heat`).
    */
-  hurt(player: number, amount: number, owner: number): void;
+  hurt(player: number, amount: number, owner: number, type?: DamageType): void;
   /**
    * Repair a tank (a repair drone): up to `amount` HP back, never above its round-start health.
    * Returns the HP actually restored (0 for a dead or full tank).

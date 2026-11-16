@@ -16,6 +16,10 @@
   "cohesion": 0.2,
   "coating": true,
   "tags": ["hot"],
+  "stain": {
+    "oiled": 2,
+    "burning": 2
+  },
   "decay": {
     "into": "air",
     "ticks": 60

@@ -62,6 +62,11 @@ export interface TankView {
   scope?: number;
   /** Cash for destroying this tank while it carries the leader's bounty (absent = no bounty). */
   bounty?: number;
+  /** Own turns left stained (§4b, absent = not): wet, oiled, muddy, burning. */
+  wet?: number;
+  oiled?: number;
+  muddy?: number;
+  burning?: number;
   /** True while this tank's player is aiming. */
   active: boolean;
   /** `ai.*` id of the bot driving it; absent for a human (cosmetic: bot chatter). */

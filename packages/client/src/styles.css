@@ -352,6 +352,52 @@ button.primary,
   white-space: nowrap;
 }
 
+/* tank stains (§4b): tiny hard-edged badges pinned over the player chip's corner */
+.player .stains {
+  position: absolute;
+  top: -6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  pointer-events: auto;
+}
+
+.player .stain {
+  display: block;
+  width: 11px;
+  height: 11px;
+  font-size: 8px;
+  line-height: 11px;
+  text-align: center;
+  color: #fff;
+  border: 1px solid rgb(0 0 0 / 0.6);
+  border-radius: 0;
+}
+
+.player .stain-wet {
+  background: #2f6fc0;
+}
+
+.player .stain-oiled {
+  background: #3a2c1c;
+  color: #e0b050;
+}
+
+.player .stain-muddy {
+  background: #6a4a2a;
+  color: #d8b888;
+}
+
+.player .stain-burning {
+  background: #e05a10;
+  color: #ffe070;
+}
+
+.player .stain-chill {
+  background: #9fd8f4;
+  color: #1a4a6a;
+}
+
 /* drag-to-change aim values: press anywhere on the pill and slide; slide up for fine aim */
 .scrub {
   position: relative;
