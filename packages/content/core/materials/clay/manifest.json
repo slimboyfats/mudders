@@ -25,6 +25,7 @@
     "reach": 1.2
   },
   "coating": false,
+  "tags": ["dissolves"],
   "reactions": [
     {
       "with": "material.water",

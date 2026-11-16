@@ -20,7 +20,7 @@
   },
   "cohesion": 0,
   "coating": false,
-  "tags": ["burns"],
+  "tags": ["burns", "dissolves"],
   "blowOff": {
     "chance": 0.9
   },

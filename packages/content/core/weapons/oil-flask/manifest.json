@@ -1,0 +1,39 @@
+{
+  "id": "weapon.oil-flask",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Oil Flask",
+    "description": "A glass flask of oil. It smashes into a small slick that coats the ground around the hit. Oil alone does nothing but bind the slope; the next spark, flame or lava that touches it sets the whole slick burning.",
+    "category": "terrain-dynamics",
+    "since": "core@0.93.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.flask-smash"
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.coat",
+        "coating": "material.oil",
+        "depth": 3
+      },
+      "radius": 22,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 1500,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0.2
+  }
+}

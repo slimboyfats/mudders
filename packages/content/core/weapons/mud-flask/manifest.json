@@ -1,0 +1,38 @@
+{
+  "id": "weapon.mud-flask",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Mud Flask",
+    "description": "A glass flask of thick wet mud. It smashes into a heap that slumps down the slope and settles as soft mud, which blasts squash into a tougher packed floor instead of throwing it.",
+    "category": "terrain-dynamics",
+    "since": "core@0.93.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.flask-smash"
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.mud"
+      },
+      "radius": 12,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 1300,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0.3
+  }
+}

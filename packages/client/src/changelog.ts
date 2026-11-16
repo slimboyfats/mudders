@@ -18,6 +18,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Material flasks and acid',
+    pack: 'core@0.93.0',
+    newSince: 'core@0.93.0',
+    items: [
+      'Material flasks: five cheap glass flasks, two to a pack, that smash with a tinkle and let out their payload and nothing else. Water Flask (a pool of water), Oil Flask (a small oil slick), Mud Flask (a heap of soft mud), Sand Flask (a little heap of sand) and Acid Flask. Each does little alone; the fun is the next shot: oil, then fire',
+      'Acid: a new glowing green liquid that runs like water and slowly eats soft ground (dirt, sand, mud, clay, snow, wood and leaves) into a fizz of pale green fumes, using itself up as it goes. Rock, metal and glass shrug it off, heat boils it away, and a tank sitting in it loses a little health at the end of every turn',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',
