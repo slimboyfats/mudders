@@ -35,6 +35,8 @@ export const ScenarioSchema = z.strictObject({
         health: z.number().int().min(1).optional(),
         /** Inventory overrides by weapon id (-1 = unlimited, 0 = none); others keep the loadout. */
         inventory: z.record(ContentIdSchema, z.number().int().min(-1)).optional(),
+        /** Match score to start with (shows who leads, for the bounty rule). */
+        score: z.number().int().min(0).optional(),
       }),
     )
     .optional(),
@@ -88,6 +90,8 @@ export const ScenarioSchema = z.strictObject({
       drops: z.enum(['off', 'rare', 'normal', 'often']).optional(),
       /** The map's own events (volcano on Badlands, avalanches on Glacier; off unless set). */
       mapEvents: z.boolean().optional(),
+      /** Bounty on the match leader and comeback cash for players behind (off unless set). */
+      bounty: z.boolean().optional(),
     })
     .optional(),
   /**

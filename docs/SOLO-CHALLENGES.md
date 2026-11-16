@@ -58,10 +58,12 @@ screen → **Solo challenges** (`#challenges`, one challenge at `#challenge/<id>
 - Survival (`survive: n`, live through n of your turns; killing every foe wins too): Hold out
   (Poolshark and Shooter), Meteor shower (Tosser on a meteor night), High water (Poolshark while
   the water rises), Iron wall (Cyborg and Tosser, with a Heavy Shield).
+- Wild world (the map events from #192 as twists): Shaky ground (Earthquakes), Live wire
+  (Lightning into a lake shocks every tank in it), Mudslide (Cloudburst), Flood wave (survive vs
+  Poolshark), Fault lines (duel vs Poolshark), Thunder lake (survive a Lightning storm on an
+  island).
 - All foes are on one team, so bots gang up on you rather than on each other.
 
 ## Next
 
-- Use the new map events from the map-events thread (earthquake, cloudburst, flood, mud,
-  electricity) as Gauntlet modifiers once they merge.
 - Match awards and talking bots, if Joel wants them.

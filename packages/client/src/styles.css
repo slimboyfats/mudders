@@ -1141,6 +1141,17 @@ button.link {
   font-variant-numeric: tabular-nums;
 }
 
+/* the leader's bounty: a gold $ in their chip */
+.player .pbounty {
+  margin-left: 4px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: #ffc83a;
+  color: #2a1a00;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .turn .timer {
   margin-left: 8px;
   font-variant-numeric: tabular-nums;
@@ -1308,6 +1319,11 @@ button.link {
 
 .scores small {
   color: var(--muted);
+}
+
+.scores small.earn-note {
+  display: block;
+  color: #ffc83a;
 }
 
 .tabs {
