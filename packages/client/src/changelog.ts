@@ -18,6 +18,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Tides and changing weather',
+    pack: 'core@0.93.0',
+    items: [
+      'Lakeland tides (with map events on): the lakes rise and fall over the round. For a few turns they swell until they stand well above their old shores, flooding the low ground and any tank parked on it, then they ebb until their beds lie bare, and back again. A lake a crater has drained fills again at high tide',
+      'New round twist, Changing weather: every few turns a front moves in and the sky changes between clear, rain and snow, with the new weather’s rules (rain drags shells short and puddles the hollows, snow settles on the ground). The HUD calls each front out',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',

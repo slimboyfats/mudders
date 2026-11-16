@@ -1,0 +1,18 @@
+{
+  "id": "terrainop.tides",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Tides",
+    "description": "Lakeland's own event. The lakes in the valleys rise and fall over the round: they swell for a few turns until they stand well above their old shores, flooding the low ground and the tanks parked on it, then ebb away until their beds lie bare, and back again. A lake a crater has drained fills again at high tide.",
+    "since": "core@0.93.0"
+  },
+  "behaviour": "terrainop.tides",
+  "water": "material.water",
+  "first": 1,
+  "swing": 8,
+  "period": 8,
+  "rate": 3,
+  "slice": 150,
+  "minWidth": 12,
+  "lakes": 5
+}
