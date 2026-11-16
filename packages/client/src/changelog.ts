@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-16',
+    title: 'Electricity through steel',
+    pack: 'core@0.93.0',
+    items: [
+      'Steel conducts electricity: office towers now have a steel frame up their corners to the roof beam and the mast, and steel girders lie about in the City, on the Badlands and by the lakes. A Lightning shot, a storm or Superstorm bolt, an Ion Cannon strike or a Shield Breaker pulse that lands on the metal charges all of the steel joined to it, and every tank touching it is shocked. Steel carries the charge three times as far as water (480 cells against 160), and single-cell sparks crawl along the charged metal and water',
+    ],
+  },
+  {
     date: '2026-11-15',
     title: 'A world that wears away, shocking water and more spectacle',
     pack: 'core@0.90.0 – 0.92.0',
