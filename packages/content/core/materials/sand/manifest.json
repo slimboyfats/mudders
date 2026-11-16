@@ -23,5 +23,6 @@
     "share": 0.5,
     "reach": 2.0
   },
-  "coating": false
+  "coating": false,
+  "tags": ["dissolves"]
 }

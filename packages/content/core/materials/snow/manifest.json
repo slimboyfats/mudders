@@ -25,6 +25,7 @@
     "reach": 2.2
   },
   "coating": false,
+  "tags": ["dissolves"],
   "reactions": [
     {
       "with": "material.fire",

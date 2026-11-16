@@ -1,0 +1,30 @@
+{
+  "id": "material.acid-fume",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid fume",
+    "description": "The fizz that rises where acid eats into the ground: a thin, pale green haze that drifts up with the wind and is gone in a few seconds. Harmless.",
+    "since": "core@0.95.0",
+    "color": "#c4ec8a"
+  },
+  "cell": 111,
+  "settle": "gas",
+  "gas": {
+    "lift": 1,
+    "rise": 0.6,
+    "drift": 0.45
+  },
+  "density": 1,
+  "strength": {},
+  "cohesion": 0,
+  "coating": false,
+  "decay": {
+    "into": "air",
+    "ticks": 70
+  },
+  "look": {
+    "cycle": ["#c4ec8a", "#b0e070", "#d6f4a6", "#a6d866"],
+    "cycleTicks": 5,
+    "cover": 0.45
+  }
+}

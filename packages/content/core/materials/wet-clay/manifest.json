@@ -20,7 +20,7 @@
   },
   "cohesion": 0.3,
   "coating": false,
-  "tags": ["wet"],
+  "tags": ["wet", "dissolves"],
   "reactions": [
     {
       "with": "material.fire",

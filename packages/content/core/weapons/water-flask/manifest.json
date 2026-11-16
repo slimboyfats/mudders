@@ -1,0 +1,38 @@
+{
+  "id": "weapon.water-flask",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Water Flask",
+    "description": "A glass flask of water. It smashes into a splash that runs off into the nearest dip and stays there as a pool. Harmless on its own, but water turns dirt to mud, quenches lava and puts out fires, and a wet pool is a trap for the next shot.",
+    "category": "terrain-dynamics",
+    "since": "core@0.95.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.flask-smash"
+      }
+    },
+    {
+      "terrainOp": {
+        "use": "terrainop.add",
+        "material": "material.water"
+      },
+      "radius": 14,
+      "damageType": "kinetic"
+    }
+  ],
+  "shop": {
+    "price": 1200,
+    "pack": 2,
+    "tier": 1
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0.1
+  }
+}

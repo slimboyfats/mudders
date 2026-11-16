@@ -19,8 +19,9 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-16',
-    title: 'Smarter bots, bounty on the leader, talking bots, tides and changing weather',
-    pack: 'core@0.93.0 – 0.94.0',
+    title:
+      'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks and acid',
+    pack: 'core@0.93.0 – 0.95.0',
     items: [
       'Lakeland tides (with map events on): the lakes rise and fall over the round. For a few turns they swell until they stand well above their old shores, flooding the low ground and any tank parked on it, then they ebb until their beds lie bare, and back again. A lake a crater has drained fills again at high tide',
       'New round twist, Changing weather: every few turns a front moves in and the sky changes between clear, rain and snow, with the new weather’s rules (rain drags shells short and puddles the hollows, snow settles on the ground). The HUD calls each front out',
@@ -32,6 +33,8 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Match awards: the match-over card now hands out awards, among them Best shot (most damage in one shot), Most dirt moved, Most kills, Longest kill, Sharp eye (best hit rate), Nine lives (most close calls survived), Punching bag and Own worst enemy',
       'Bounty and comeback (a new rules switch, on by default): from round 2 the player in the lead carries a bounty, shown as a gold $ over their tank and in their score chip. Every hit on them pays double cash and destroying them pays a big bonus, and the round banner says what they are worth. At every round end each player behind the leader also gets a fifth of the points gap as cash, so a bad round is easier to come back from. The scoreboard shows the bounty and comeback cash each player earned',
       'Solo challenges, new chapter Wild world: the map fights back. Shaky ground (a quake every turn moves the targets), Live wire (one Lightning bolt into the lake shocks every tank in it), Mudslide (cloudbursts wash the slopes down), Flood wave (live through four turns while waves roll in), Fault lines (beat the Trickshot while the ground splits) and Thunder lake (survive a lightning storm on a tiny island)',
+      'Material flasks: five cheap glass flasks, two to a pack, that smash with a tinkle and let out their payload and nothing else. Water Flask (a pool of water), Oil Flask (a small oil slick), Mud Flask (a heap of soft mud), Sand Flask (a little heap of sand) and Acid Flask. Each does little alone; the fun is the next shot: oil, then fire',
+      'Acid: a new glowing green liquid that runs like water and slowly eats soft ground (dirt, sand, mud, clay, snow, wood and leaves) into a fizz of pale green fumes, using itself up as it goes. Rock, metal and glass shrug it off, heat boils it away, and a tank sitting in it loses a little health at the end of every turn',
     ],
   },
   {

@@ -1,0 +1,26 @@
+{
+  "id": "explosion.flask-smash",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Flask smash",
+    "description": "A glass flask bursting: a tiny tinkle of glittering shards that barely scratches a tank and digs no crater. The flask's own terrain op lets the payload out.",
+    "since": "core@0.95.0"
+  },
+  "extends": "explosion.standard",
+  "radius": 3,
+  "damage": 2,
+  "damageType": "kinetic",
+  "terrainOp": null,
+  "effects": {
+    "burst": {
+      "count": 10,
+      "style": 4
+    },
+    "flash": {
+      "strength": 0.25
+    },
+    "shake": {
+      "strength": 0
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "id": "showcase.material-flasks",
+  "schemaVersion": 1,
+  "description": "Material flasks: an Oil Flask oils a hilltop and napalm sets the slick burning; the other tank tosses a Sand Flask; then an Acid Flask smashes on the nearer hill and eats into it, fizzing.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 120,
+      "inventory": {
+        "weapon.oil-flask": 2,
+        "weapon.napalm": 2,
+        "weapon.acid-flask": 2
+      }
+    },
+    {
+      "x": 700,
+      "inventory": {
+        "weapon.sand-flask": 2
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "inputs": [
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.oil-flask" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 430 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.sand-flask" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 75, "power": 300 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } },
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.napalm" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 430 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } },
+    { "t": 0, "player": 1, "action": { "type": "selectWeapon", "weapon": "weapon.sand-flask" } },
+    { "t": 0, "player": 1, "action": { "type": "aim", "angle": 75, "power": 300 } },
+    { "t": 0, "player": 1, "action": { "type": "fire" } },
+    { "t": 0, "player": 0, "action": { "type": "selectWeapon", "weapon": "weapon.acid-flask" } },
+    { "t": 0, "player": 0, "action": { "type": "aim", "angle": 50, "power": 345 } },
+    { "t": 0, "player": 0, "action": { "type": "fire" } }
+  ],
+  "capture": {
+    "maxTicks": 4000,
+    "untilSettled": true,
+    "extraTicks": 180
+  }
+}

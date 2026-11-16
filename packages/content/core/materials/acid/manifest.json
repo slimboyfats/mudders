@@ -1,0 +1,35 @@
+{
+  "id": "material.acid",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Acid",
+    "description": "A glowing green liquid that runs like water. It slowly eats soft ground (dirt, sand, mud, clay, snow, wood and leaves) into a fizz of fumes, using itself up as it goes, but rock, metal and glass shrug it off. Heat boils it away. Any tank sitting in it loses a little health at the end of every turn.",
+    "since": "core@0.95.0",
+    "color": "#7cd632"
+  },
+  "extends": "material.water",
+  "cell": 110,
+  "density": 56,
+  "tags": [],
+  "contact": {
+    "damage": 6
+  },
+  "reactions": [
+    {
+      "with": "#dissolves",
+      "into": "air",
+      "other": "material.acid-fume",
+      "chance": 0.025
+    },
+    {
+      "with": "#hot",
+      "into": "material.acid-fume",
+      "chance": 0.2
+    }
+  ],
+  "look": {
+    "cycle": ["#7cd632", "#6cc42a", "#8ee63e", "#a2f04c", "#7cd632"],
+    "cycleTicks": 9,
+    "emit": "#8ee63e"
+  }
+}

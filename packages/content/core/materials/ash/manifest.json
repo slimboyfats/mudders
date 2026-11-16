@@ -24,6 +24,7 @@
     "reach": 2.4
   },
   "coating": false,
+  "tags": ["dissolves"],
   "look": {
     "char": true
   }

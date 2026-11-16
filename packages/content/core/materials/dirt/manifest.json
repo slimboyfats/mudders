@@ -21,6 +21,7 @@
     "reach": 1.6
   },
   "coating": false,
+  "tags": ["dissolves"],
   "look": {
     "topsoil": true
   },
