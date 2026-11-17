@@ -467,6 +467,10 @@ export class GpuFluid implements FluidSink {
     this.pending = [];
     this.live = false;
     this.quiet = 0;
+    this.wipe();
+  }
+
+  private wipe(): void {
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
     for (const f of [...this.vel!, ...this.dye!, ...this.pressure!, this.div1, this.curl]) {
@@ -474,6 +478,31 @@ export class GpuFluid implements FluidSink {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /**
+   * Run one tick's passes on the empty field and wipe it again, while nothing has been poured in
+   * yet. A phone's GPU driver finishes building a shader the first time it draws with it; left
+   * alone, that happens on the frame of the match's first shot (its muzzle smoke wakes the field)
+   * and holds that frame for a tenth of a second. Leaves the GL state as {@link update} does.
+   */
+  warm(terrain: WebGLTexture): void {
+    if (!this.ok || this.live) return;
+    const gl = this.gl;
+    const cur = this.cur;
+    gl.disable(gl.BLEND);
+    gl.viewport(0, 0, this.w, this.h);
+    gl.bindVertexArray(this.vao);
+    gl.activeTexture(gl.TEXTURE9);
+    gl.bindTexture(gl.TEXTURE_2D, terrain);
+    this.runStep({
+      wind: 0,
+      splats: [{ a: [0, 0, 1, 0], b: [0, 0, 0, 0], fire: 0, spin: 0 }],
+    });
+    this.cur = cur;
+    this.wipe();
+    gl.bindVertexArray(null);
+    gl.activeTexture(gl.TEXTURE0);
   }
 
   /**

@@ -137,6 +137,26 @@ What a plain rainy round adds over a clear one, after these fixes: about 3 400 r
     `isolate: false`. Worth trying on its own, since it can expose tests that lean on a fresh module
     state.
 
+## First log from a phone (2026-11-17)
+
+Joel's Android phone (Adreno 740, Chrome, 120 Hz screen), recorded with Settings → Show
+performance → Record: Village in rain, 1600x800, 4 players (3 bots), high quality, 44 s.
+
+- 98.5% of frames on time, 60 fps in every second (the screen itself moves between 60 and 120 Hz).
+  Sim 1.6 ms a tick on average, the renderer's per-tick work 1.2 ms, drawing 1 ms of CPU a frame.
+  Auto quality never stepped down. On this phone the GPU is not the limit in rain.
+- Chrome on Android does not offer `EXT_disjoint_timer_query_webgl2`, so there are no GPU times.
+- One 150 ms frame at the first shot of the match, with 4 ms of it in our code: the GPU driver
+  builds a shader on its first draw, and the first muzzle smoke woke the smoke field (seven
+  shaders) on that frame. Fixed: `PixelRenderer.warmUp` draws once with those shaders and the post
+  pass before the first frame, and wipes the result.
+- One 35 ms tick at the start of the first bot's turn: the cold first plan (item 3 above), in the
+  aim phase where nothing moves. Later plans cost about 7 ms.
+- Rain marks most of the map for settling at each turn start (600 000 cells in the region), which
+  costs 2 to 4 ms a tick for a few seconds. In budget on this phone; item 8 is the lever.
+- A single dropped frame in 6 of the 44 seconds with no cost in sim, step or draw time: not
+  explained by the log (garbage collection or the browser's own work).
+
 ## Checked and not worth it
 
 - **Shading several dirty boxes instead of one** in the terrain pass: measured over whole rounds on
