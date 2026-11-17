@@ -4909,3 +4909,297 @@ button.link:active:not(:disabled) {
   border: 0;
   box-shadow: none;
 }
+
+/* ══ Look v6: liquid glass ═══════════════════════════════════════════════════════════════
+   Joel's reference: near-clear glass slabs on deep blue, a thin glowing blue rim, bright light
+   streaks where the rim catches the light (top edge, lower corners), a faint inner glow.
+   Every glass surface is built from the same three pieces:
+     --g-fill   a barely-there blue tint, lighter at the top
+     --g-streak the light streaks, as background layers (painted once, no animation)
+     --g-glow   rim light + inner glow + soft outer glow, as box-shadows
+   Menus get a real frosted blur behind the glass. Over the map (in game) and in the shop the
+   glass stays clear: a backdrop blur there is redone every frame on the phone GPU. */
+:root {
+  --bg: #050a1c;
+  --g-edge: rgb(110 170 255 / 0.42);
+  --g-fill: linear-gradient(
+    180deg,
+    rgb(90 150 255 / 0.16),
+    rgb(30 70 180 / 0.08) 60%,
+    rgb(40 90 220 / 0.14)
+  );
+  --g-streak:
+    radial-gradient(42% 3px at 50% 0, rgb(170 220 255 / 0.95), rgb(120 190 255 / 0) 100%),
+    radial-gradient(30% 2px at 22% 100%, rgb(120 190 255 / 0.7), rgb(120 190 255 / 0) 100%),
+    radial-gradient(2px 30% at 0 70%, rgb(120 190 255 / 0.55), rgb(120 190 255 / 0) 100%),
+    radial-gradient(2px 30% at 100% 30%, rgb(120 190 255 / 0.45), rgb(120 190 255 / 0) 100%);
+  --g-glow:
+    inset 0 1px 0 rgb(200 230 255 / 0.35), inset 0 0 22px rgb(70 140 255 / 0.18),
+    0 0 0 1px rgb(0 10 40 / 0.4), 0 0 22px rgb(40 120 255 / 0.22), 0 12px 30px rgb(0 0 20 / 0.5);
+  --g-glow-sm:
+    inset 0 1px 0 rgb(200 230 255 / 0.3), inset 0 0 14px rgb(70 140 255 / 0.16),
+    0 0 14px rgb(40 120 255 / 0.18), 0 6px 16px rgb(0 0 20 / 0.45);
+}
+
+html,
+body,
+#root {
+  background:
+    radial-gradient(70% 50% at 80% 100%, rgb(20 70 200 / 0.45), rgb(20 70 200 / 0) 100%),
+    radial-gradient(60% 50% at 10% 0%, rgb(30 60 160 / 0.35), rgb(30 60 160 / 0) 100%),
+    linear-gradient(180deg, #030614, #07112e);
+}
+
+/* glass slabs: panels, cards, sheets */
+.slots,
+.rules,
+.menu-group,
+.sheet,
+.round-over,
+.match-over,
+.shop-scores,
+.arsenal,
+.shop .card,
+.shop .card.owned {
+  border: 1px solid var(--g-edge);
+  background: var(--g-streak), var(--g-fill);
+  box-shadow: var(--g-glow);
+}
+
+.shop .card {
+  box-shadow:
+    inset 3px 0 0 var(--cat),
+    var(--g-glow-sm);
+}
+
+.shop .card.owned {
+  background:
+    var(--g-streak), linear-gradient(180deg, rgb(110 170 255 / 0.24), rgb(40 90 220 / 0.14));
+}
+
+/* glass buttons, pills, chips */
+button,
+.title .menu .tile,
+.title .menu .chip,
+.title .menu .solo-tile,
+.shop-filters button,
+.shop .buy,
+.shop .buy:not(:disabled) {
+  border: 1px solid var(--g-edge);
+  background:
+    radial-gradient(40% 2px at 50% 0, rgb(190 230 255 / 0.9), rgb(190 230 255 / 0) 100%),
+    linear-gradient(
+      180deg,
+      rgb(110 170 255 / 0.22),
+      rgb(40 90 220 / 0.1) 55%,
+      rgb(50 110 255 / 0.18)
+    );
+  box-shadow: var(--g-glow-sm);
+}
+
+button:active:not(:disabled) {
+  box-shadow:
+    inset 0 0 18px rgb(90 170 255 / 0.35),
+    0 0 18px rgb(60 150 255 / 0.4);
+}
+
+.slot,
+.rules label {
+  border: 1px solid rgb(110 170 255 / 0.18);
+  background: linear-gradient(180deg, rgb(120 180 255 / 0.1), rgb(40 90 220 / 0.05));
+  box-shadow:
+    inset 4px 0 0 var(--pc, transparent),
+    inset 0 1px 0 rgb(200 230 255 / 0.14);
+}
+
+.rules label {
+  box-shadow: inset 0 1px 0 rgb(200 230 255 / 0.14);
+}
+
+select {
+  border: 1px solid rgb(110 170 255 / 0.32);
+  background: linear-gradient(180deg, rgb(4 10 32 / 0.55), rgb(20 50 130 / 0.3));
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 20 / 0.5),
+    inset 0 -1px 0 rgb(140 200 255 / 0.2);
+}
+
+select option {
+  background: #0a1430;
+}
+
+/* picked / active: the rim lights up cyan */
+.seg button.on,
+.shop-filters button.on,
+.player.active,
+.weapon-btn.active,
+.weapon-picker.open .weapon-btn,
+.controls .weapon-picker.open .weapon-btn,
+.weapon-tile.selected {
+  border-color: #7fe6ff;
+  background:
+    radial-gradient(50% 3px at 50% 0, rgb(220 250 255 / 1), rgb(220 250 255 / 0) 100%),
+    linear-gradient(180deg, rgb(80 200 255 / 0.32), rgb(40 120 255 / 0.14));
+  box-shadow:
+    inset 0 0 18px rgb(80 220 255 / 0.3),
+    0 0 20px rgb(60 210 255 / 0.45);
+  color: #fff;
+}
+
+.weapon-tile.selected {
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    inset 0 0 18px rgb(80 220 255 / 0.3),
+    0 0 20px rgb(60 210 255 / 0.45);
+}
+
+/* warm glass for the big actions: Start, Ready, Local game, the shop tab you're on */
+button.primary,
+.title .primary,
+.title .menu .play,
+.setup-actions .primary,
+.shop .shop-foot .ready,
+.shop-head .tabs button.on {
+  border: 1px solid rgb(255 210 140 / 0.8);
+  background:
+    radial-gradient(45% 3px at 50% 0, rgb(255 245 210 / 1), rgb(255 245 210 / 0) 100%),
+    linear-gradient(180deg, rgb(255 200 90 / 0.92), rgb(255 120 30 / 0.85));
+  color: #2a1300;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 0 20px rgb(255 240 200 / 0.35),
+    0 0 26px rgb(255 140 40 / 0.45),
+    0 10px 24px rgb(0 0 20 / 0.5);
+}
+
+/* FIRE: red glass */
+.fire,
+.controls .fire {
+  border: 1px solid rgb(255 170 150 / 0.85);
+  background:
+    radial-gradient(45% 3px at 50% 0, rgb(255 230 220 / 1), rgb(255 230 220 / 0) 100%),
+    linear-gradient(180deg, rgb(255 90 60 / 0.9), rgb(210 20 40 / 0.85));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 0 18px rgb(255 200 180 / 0.3),
+    0 0 24px rgb(255 50 40 / 0.5),
+    0 8px 20px rgb(0 0 20 / 0.5);
+}
+
+.fire.command {
+  border-color: rgb(255 210 140 / 0.8);
+  background:
+    radial-gradient(45% 3px at 50% 0, rgb(255 245 210 / 1), rgb(255 245 210 / 0) 100%),
+    linear-gradient(180deg, rgb(255 200 90 / 0.92), rgb(255 120 30 / 0.85));
+}
+
+/* ── in game: clear glass over the map ── */
+.player,
+.hud-center .badge,
+.hud-center .wind,
+.hud-center .timer,
+.cam button,
+.menu-btn,
+.fs-btn,
+.controls .aim .scrub,
+.controls .weapon-btn,
+.controls .drive-btn,
+.controls .gear-chip,
+.controls .weapons button,
+.controls .drive-left {
+  border: 1px solid var(--g-edge);
+  background:
+    radial-gradient(40% 2px at 50% 0, rgb(190 230 255 / 0.85), rgb(190 230 255 / 0) 100%),
+    linear-gradient(180deg, rgb(20 50 130 / 0.42), rgb(6 14 40 / 0.5));
+  box-shadow:
+    inset 0 1px 0 rgb(200 230 255 / 0.25),
+    inset 0 0 14px rgb(70 140 255 / 0.18),
+    0 0 14px rgb(40 120 255 / 0.2);
+}
+
+.controls .weapon-btn {
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    inset 0 1px 0 rgb(200 230 255 / 0.25),
+    inset 0 0 14px rgb(70 140 255 / 0.18),
+    0 0 14px rgb(40 120 255 / 0.2);
+}
+
+.controls::before {
+  background: linear-gradient(rgb(2 6 20 / 0), rgb(2 6 20 / 0.5));
+}
+
+.weapon-pop,
+.controls .weapon-pop {
+  border: 1px solid var(--g-edge);
+  background: var(--g-streak), linear-gradient(180deg, rgb(20 50 130 / 0.6), rgb(4 10 30 / 0.78));
+  box-shadow: var(--g-glow);
+}
+
+.weapon-tile {
+  border: 1px solid rgb(110 170 255 / 0.28);
+  background:
+    radial-gradient(40% 2px at 50% 0, rgb(190 230 255 / 0.7), rgb(190 230 255 / 0) 100%),
+    linear-gradient(180deg, rgb(90 150 255 / 0.18), rgb(30 70 180 / 0.08));
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    inset 0 1px 0 rgb(200 230 255 / 0.2);
+}
+
+/* ── shop: deep blue room, glass cards ── */
+.shop {
+  background:
+    radial-gradient(70% 50% at 85% 100%, rgb(20 70 200 / 0.45), rgb(20 70 200 / 0) 100%),
+    radial-gradient(60% 40% at 10% 0%, rgb(30 60 160 / 0.35), rgb(30 60 160 / 0) 100%),
+    linear-gradient(180deg, #030614, #07112e);
+}
+
+.shop-head {
+  background: linear-gradient(180deg, rgb(6 14 40 / 0.9), rgb(6 14 40 / 0.55));
+  border-bottom: 1px solid var(--g-edge);
+  box-shadow: 0 1px 18px rgb(40 120 255 / 0.25);
+}
+
+.shop-foot {
+  background: linear-gradient(rgb(3 6 20 / 0), rgb(3 6 20 / 0.9) 45%);
+}
+
+.shop .card.poor .buy,
+.shop .buy:disabled {
+  background: rgb(10 20 50 / 0.35);
+  border-color: rgb(110 170 255 / 0.16);
+  box-shadow: none;
+}
+
+.arsenal-chip {
+  border: 1px solid rgb(110 170 255 / 0.22);
+  background: linear-gradient(180deg, rgb(110 170 255 / 0.18), rgb(40 90 220 / 0.08));
+  box-shadow: inset 3px 0 0 var(--cat, #3f7f8c);
+}
+
+/* ── menus: real frosted glass (no live map behind them) ── */
+.title .menu .tile,
+.title .menu .chip,
+.title .menu .solo-tile,
+.menu-group,
+.slots,
+.rules,
+.sheet,
+.setup-actions,
+.title .status li {
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+}
+
+.setup-actions {
+  background: linear-gradient(rgb(3 6 20 / 0.2), rgb(3 6 20 / 0.75));
+  border-top: 1px solid var(--g-edge);
+}
+
+/* text links stay plain */
+button.link,
+button.link:active:not(:disabled) {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
