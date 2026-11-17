@@ -486,3 +486,30 @@ export function perfFileName(date: Date): string {
   const p = (n: number): string => String(n).padStart(2, '0');
   return `mudders-perf-${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}-${p(date.getHours())}${p(date.getMinutes())}.txt`;
 }
+
+/** A frame slower than this counts as slow for {@link SlowWatch} (a 60 Hz frame is 16.7 ms). */
+const SLOW_FRAME_MS = 24;
+/** At least this long between two measurements. */
+const WATCH_GAP_MS = 10000;
+/** Frames this soon after a measurement began are slow because of it and are not counted. */
+const WATCH_BLIND_MS = 2000;
+
+/**
+ * Decides when a recording should measure the GPU by itself. Measuring stutters the game for
+ * under a second (see `GpuSampler`), so it is done only when frames are already slow: a few
+ * slow frames close together, and not again for a while. The player presses nothing.
+ */
+export class SlowWatch {
+  private score = 0;
+  private last = -Infinity;
+
+  /** Feed every frame; true when now is the moment to measure. */
+  frame(now: number, wallMs: number): boolean {
+    if (now - this.last < WATCH_BLIND_MS) return false;
+    this.score = this.score * 0.9 + (wallMs > SLOW_FRAME_MS ? 1 : 0);
+    if (this.score < 2.5 || now - this.last < WATCH_GAP_MS) return false;
+    this.last = now;
+    this.score = 0;
+    return true;
+  }
+}

@@ -7,7 +7,13 @@ import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
 import { HudStore, SIM_BUDGET_MS, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
-import { PerfRecorder, perfFileName, stallDetail, type PerfContext } from '../game/perf-log';
+import {
+  PerfRecorder,
+  SlowWatch,
+  perfFileName,
+  stallDetail,
+  type PerfContext,
+} from '../game/perf-log';
 import type { Settings } from '../game/settings';
 import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
@@ -102,7 +108,7 @@ export function MatchView({
         'gpu timer': !timed
           ? 'not offered by this browser'
           : rp?.gpuSampled()
-            ? 'not offered by this browser; measured for under a second after each Slow now (those frames stutter from the measuring itself)'
+            ? 'not offered by this browser; measured for under a second when frames turn slow and after each Slow now (those frames stutter from the measuring itself)'
             : 'offered by this browser',
         cores: navigator.hardwareConcurrency,
         memory: mem === undefined ? 'unknown' : `${mem} GB`,
@@ -267,7 +273,14 @@ export function MatchView({
         settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
         react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
         gpu: rendererRef.current?.perf?.takeGpu() ?? null,
-        note: [wd.generator, wd.weather?.id ?? 'clear', twist ?? ''].filter(Boolean).join(' '),
+        note: [
+          wd.generator,
+          wd.weather?.id ?? 'clear',
+          twist ?? '',
+          `zoom ${wrap.dataset['zoom'] ?? '?'}`,
+        ]
+          .filter(Boolean)
+          .join(' '),
         weapon: fired,
         holding: wd.holding(),
         net: match.net(),
@@ -278,6 +291,8 @@ export function MatchView({
     };
     let recFrame: (() => void) | null = null;
     let probing = false;
+    // while recording: measures the GPU by itself when frames turn slow
+    let slowWatch: SlowWatch | null = null;
     match.limitFrame(SIM_BUDGET_MS);
     const frame = (now: number) => {
       const r = rendererRef.current;
@@ -323,6 +338,8 @@ export function MatchView({
           setPerf(stats);
           if (rec) setRecording(rec.seconds);
         }
+        if (!rec) slowWatch = null;
+        else if ((slowWatch ??= new SlowWatch()).frame(now, wall)) r.perf?.probeGpu();
         if (rec) {
           // the renderer takes each tick in as it is made, inside `advance`: split that off
           const step = (r.perf?.pushMs() ?? 0) - step0;
