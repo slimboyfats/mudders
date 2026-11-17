@@ -1,5 +1,5 @@
 {
-  "contentHash": "88eaa188dc051336",
+  "contentHash": "12e7b0864f3b6b18",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -259,7 +259,7 @@
     },
     "audio.plasma-sizzle": {
       "ticks": 900,
-      "hash": "78cecc92da5fe5f6"
+      "hash": "b8bb7cae97b747d3"
     },
     "audio.psi-wave": {
       "ticks": 433,
@@ -550,8 +550,8 @@
       "hash": "f688cde70b16d595"
     },
     "gen.lakeland": {
-      "ticks": 1205,
-      "hash": "f4ef856d38834ff9"
+      "ticks": 1155,
+      "hash": "6375a83e00706187"
     },
     "gen.marsh": {
       "ticks": 201,
@@ -591,7 +591,7 @@
     },
     "material.birch-log": {
       "ticks": 510,
-      "hash": "d5ec2c04bce75476"
+      "hash": "076d27acd7cda9fc"
     },
     "material.brick": {
       "ticks": 184,
@@ -707,7 +707,7 @@
     },
     "material.log": {
       "ticks": 511,
-      "hash": "1a1247e3912dbabe"
+      "hash": "30f251bebb3ecc68"
     },
     "material.loose-snow": {
       "ticks": 46,
@@ -715,7 +715,7 @@
     },
     "material.magma": {
       "ticks": 532,
-      "hash": "03597e11f8a8452e"
+      "hash": "abd8c6f24fba345a"
     },
     "material.marsh-gas": {
       "ticks": 973,
@@ -755,7 +755,7 @@
     },
     "material.plasma": {
       "ticks": 900,
-      "hash": "78cecc92da5fe5f6"
+      "hash": "b8bb7cae97b747d3"
     },
     "material.rammed-earth": {
       "ticks": 477,
@@ -838,8 +838,8 @@
       "hash": "13c9a4d7dafb8921"
     },
     "mode.classic": {
-      "ticks": 886,
-      "hash": "00cb5f52a7199390"
+      "ticks": 852,
+      "hash": "dbd9e9f2653372df"
     },
     "mode.teams": {
       "ticks": 2400,
@@ -847,7 +847,7 @@
     },
     "prop.apartments": {
       "ticks": 916,
-      "hash": "fd0970c69459d5d4"
+      "hash": "c5acaac5b664dbe3"
     },
     "prop.birch": {
       "ticks": 283,
@@ -899,7 +899,7 @@
     },
     "prop.tower": {
       "ticks": 1190,
-      "hash": "cdfa94c25e931abb"
+      "hash": "bea23e6e1210d1c3"
     },
     "prop.tree": {
       "ticks": 302,
@@ -910,8 +910,8 @@
       "hash": "fabd1af6a6b7816e"
     },
     "shockwave.fling-nuke": {
-      "ticks": 885,
-      "hash": "c1af5b9f602427a3"
+      "ticks": 540,
+      "hash": "bb13bc9a473fc9e3"
     },
     "shockwave.fling": {
       "ticks": 293,
@@ -950,8 +950,8 @@
       "hash": "a4cff4ef76188930"
     },
     "showcase.gusty-wind": {
-      "ticks": 975,
-      "hash": "07aea77e16bb7c78"
+      "ticks": 891,
+      "hash": "d2db83582302e0a9"
     },
     "showcase.hit-callouts": {
       "ticks": 365,
@@ -959,7 +959,7 @@
     },
     "showcase.landform-mesa": {
       "ticks": 300,
-      "hash": "dd2590fa8d931d8e"
+      "hash": "ea0546c4d80c9d21"
     },
     "showcase.landform-peaks": {
       "ticks": 49,
@@ -1018,8 +1018,8 @@
       "hash": "a9dbed8c5cdbfc95"
     },
     "showcase.tank-stains": {
-      "ticks": 1189,
-      "hash": "8e371bdf9b09a111"
+      "ticks": 1074,
+      "hash": "10fa2ae3d9acc21d"
     },
     "showcase.tree-sway": {
       "ticks": 300,
@@ -1031,7 +1031,7 @@
     },
     "showcase.wildlife": {
       "ticks": 900,
-      "hash": "f88b1f5660354a09"
+      "hash": "f7170723610f7b7b"
     },
     "structure.ice-shelf": {
       "ticks": 459,
@@ -1131,15 +1131,15 @@
     },
     "terrainop.earthquakes": {
       "ticks": 1400,
-      "hash": "5141d0620f795106"
+      "hash": "7ce3de0f18d2df7c"
     },
     "terrainop.fault-lines": {
       "ticks": 682,
       "hash": "136de449668f061f"
     },
     "terrainop.flood-wave": {
-      "ticks": 1159,
-      "hash": "908cc86126f76713"
+      "ticks": 1400,
+      "hash": "03419af6f30463e3"
     },
     "terrainop.frost": {
       "ticks": 312,
@@ -1199,7 +1199,7 @@
     },
     "terrainop.quake-sinkholes": {
       "ticks": 1400,
-      "hash": "cc3d9ec60b0c9973"
+      "hash": "f898057966476957"
     },
     "terrainop.quake": {
       "ticks": 194,
@@ -1286,8 +1286,8 @@
       "hash": "27e12f9bf272fa9c"
     },
     "theme.pitch-black": {
-      "ticks": 922,
-      "hash": "63bb4c4af28c901d"
+      "ticks": 685,
+      "hash": "83e3f7c714924f0d"
     },
     "theme.snow": {
       "ticks": 329,
@@ -1307,7 +1307,7 @@
     },
     "trees.scorch": {
       "ticks": 450,
-      "hash": "fb746cb641a5a080"
+      "hash": "6222fc46fd4347a3"
     },
     "trees.shockwave": {
       "ticks": 330,
@@ -1767,7 +1767,7 @@
     },
     "weapon.plasma-cannon": {
       "ticks": 900,
-      "hash": "78cecc92da5fe5f6"
+      "hash": "b8bb7cae97b747d3"
     },
     "weapon.plasma-orb-core": {
       "ticks": 443,
@@ -1803,11 +1803,11 @@
     },
     "weapon.riot-blast": {
       "ticks": 515,
-      "hash": "89641403a3c26764"
+      "hash": "f70a18398a024436"
     },
     "weapon.riot-bomb": {
-      "ticks": 900,
-      "hash": "da9dc7fb0e27653c"
+      "ticks": 420,
+      "hash": "399c349b9d627564"
     },
     "weapon.riot-charge": {
       "ticks": 290,
@@ -2007,7 +2007,7 @@
     },
     "weather.rain": {
       "ticks": 4000,
-      "hash": "825c8b2ddbcf6ebc"
+      "hash": "93c9117141d8a1de"
     },
     "weather.snow": {
       "ticks": 1258,
