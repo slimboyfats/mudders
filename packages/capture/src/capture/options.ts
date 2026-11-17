@@ -40,7 +40,7 @@ export const USAGE = `usage: pnpm capture <scenario | preset [subject]> [options
   --fps N               20–60 (default 30)
   --scale N             device px per map cell when no --device (default 2)
   --device s23plus|iphone14   render at that phone's landscape viewport and DPR
-  --zoom K --center x,y close-up: K zoom steps from fit, centred on map point x,y
+  --zoom K --center x,y K zoom steps from fit (negative: out, to show the sky and land around the map), centred on map point x,y
   --diff                compare the sheet with captures/reference/ and fail on visible change
   --update-reference    write the sheet to captures/reference/ (commit it)
   --no-cache            render even if an identical capture exists
@@ -128,7 +128,7 @@ export function parseArgs(argv: string[]): CaptureOptions {
         break;
       }
       case '--zoom':
-        o.zoom = int(0, 12);
+        o.zoom = int(-4, 12);
         break;
       case '--center': {
         const m = /^(\d+),(\d+)$/.exec(val());

@@ -25,7 +25,7 @@ export interface WireInit {
   cssWidth: number;
   cssHeight: number;
   dpr: number;
-  /** Optional close-up: integer zoom steps from fit, centred on a map point. */
+  /** Optional zoom steps from fit (negative zooms out), centred on a map point. */
   zoom?: number;
   center?: { x: number; y: number };
   shake: boolean;

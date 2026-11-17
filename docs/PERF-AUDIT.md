@@ -258,3 +258,22 @@ the phone in that view with "Slow now" pressed, which now gives the GPU time by 
 Joel asked for no button to press, so a recording now also starts a burst by itself when frames
 turn slow (`SlowWatch`: a few frames over 24 ms close together, at most once in ten seconds). The
 `note` column carries the zoom, so the log shows the view the slow seconds were played in.
+
+## Uneven frames on a 120 Hz screen (2026-11-17, fourth phone log)
+
+The first log made with the burst measuring, phone upright and zoomed out to 0.25: 47.7 fps, with
+65% of frames at 17 ms or under and 23% at 25 ms. In the slow seconds the sim, the renderer and
+the page together use about 3 ms of CPU a frame and the GPU about 3 to 5 ms. A Chromium trace of
+the same view has 176 paints in 20 s. Nothing is slow, and still frames arrive late.
+
+The screen runs at 120 Hz and the loop drew on every animation frame. A frame that needs 10 ms
+misses every other refresh, and a little more misses two, so frames land 8, 17 or 25 ms apart in
+no order while the sim ticks at a steady 60. Rain, which moves the same distance every tick, shows
+that as stutter. More particles in view (33 000 when zoomed out, against 10 000) push more frames
+over the edge, which is why it was worse upright and zoomed out.
+
+Fix: a frame is never started sooner than `MIN_FRAME_MS` (10 ms) after the one before. At 120 Hz
+that is every second refresh with a full 16.7 ms to finish in, at 60 and 90 Hz every refresh.
+
+Not verified on the phone. Still open in that log: single ticks of 36 to 50 ms (a wide settle
+after the Ion Cannon, the first plan of a bot, the Ion Cannon shell landing).

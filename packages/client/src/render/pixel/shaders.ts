@@ -191,6 +191,16 @@ vec3 cycled(uint m, ivec2 c, vec3 shaded) {
   float k = dot(shaded, vec3(1.0)) / max(dot(base, vec3(1.0)), 0.05);
   return col * clamp(k, 0.5, 1.6);
 }
+// nuke whiteout over one cell; the sky above the map and past its sides blazes with it, so the
+// light has no edge where the map ends. Ground catches only a little.
+vec3 whiteout(vec3 c, ivec2 cell, bool ground) {
+  float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
+  float a = clamp(u_white * (0.7 + 0.6 * k), 0.0, 1.0);
+  float lv = a * 6.0;
+  float w = (floor(lv) + (fract(lv) > bayer(cell) ? 1.0 : 0.0)) / 6.0;
+  vec3 hot = mix(vec3(1.0, 0.74, 0.46), vec3(1.0, 0.98, 0.93), clamp(a * 1.5, 0.0, 1.0));
+  return mix(c, hot, ground ? w * 0.3 : w);
+}
 // the storm's air over a sky cell w (world cells, y down): four bands thickening toward the
 // ground with a narrow dithered seam between them, and gust sheets of denser haze rolling across
 // with the wind in three stepped tones, ordered-dithered per cell. Never a see-through slab.
@@ -254,6 +264,7 @@ void main() {
     }
     if (u_dust.a > 0.0) c = dusty(c, wc);
     c += u_flash;
+    if (u_white > 0.0) c = whiteout(c, wc, false);
   } else if (wc.x < 0 || wc.x >= W || wc.y >= Hm) {
     ivec2 e = ivec2(wc.x + AS, wc.y);
     // past the apron's sides: fold back into it (it is its own rolling land, so this reads as
@@ -275,11 +286,13 @@ void main() {
       c = bt.a > 0.5 ? bt.rgb * (h < 0.3 ? 0.88 : h < 0.82 ? 1.0 : 1.08) : u_letterbox;
       c *= 1.0 - u_dark * 0.86;
       c += u_flash * 0.3;
+      if (u_white > 0.0) c = whiteout(c, wc, true);
     } else {
       vec4 t = texelFetch(u_apronColor, ivec2(e.x, AH - 1 - e.y), 0);
       if (t.a > 0.5) {
         c = t.rgb * (1.0 - u_dark * 0.86);
         c += u_flash * 0.3;
+        if (u_white > 0.0) c = whiteout(c, wc, true);
       } else {
         vec4 sc = texelFetch(u_scenery, ivec2(e.x, e.y + ST) >> 1, 0);
         c = sc.rgb;
@@ -294,6 +307,7 @@ void main() {
         if (u_dust.a > 0.0) c = dusty(c, wc);
         c *= 1.0 - u_dark * 0.82;
         c += u_flash;
+        if (u_white > 0.0) c = whiteout(c, wc, false);
       }
     }
   } else {
@@ -507,14 +521,7 @@ void main() {
     }
     // nuke whiteout: the sky blazes white, then the colour creeps back from the top down in hard
     // steps with an ordered dither between them; the ground catches a little of the light
-    if (u_white > 0.0) {
-      float k = clamp(float(cell.y) / u_map.y, 0.0, 1.0);
-      float a = clamp(u_white * (0.7 + 0.6 * k), 0.0, 1.0);
-      float lv = a * 6.0;
-      float w = (floor(lv) + (fract(lv) > bayer(cell) ? 1.0 : 0.0)) / 6.0;
-      vec3 hot = mix(vec3(1.0, 0.74, 0.46), vec3(1.0, 0.98, 0.93), clamp(a * 1.5, 0.0, 1.0));
-      c = mix(c, hot, t.a > 0.5 ? w * 0.3 : w);
-    }
+    if (u_white > 0.0) c = whiteout(c, cell, t.a > 0.5);
     // the ripple lines: a warm lift in two hard steps, stronger near the source
     if (streak > 0.0) c += streak > 0.5 ? vec3(0.13, 0.075, 0.02) : vec3(0.07, 0.04, 0.01);
   }

@@ -106,7 +106,7 @@ export async function runCapture(o: CaptureOptions): Promise<CaptureResult> {
     cssHeight: device?.cssHeight ?? w.grid.height * o.scale,
     dpr: device?.dpr ?? 1,
     shake: o.shake,
-    ...(o.zoom > 0 ? { zoom: o.zoom } : {}),
+    ...(o.zoom !== 0 ? { zoom: o.zoom } : {}),
     ...(o.center ? { center: o.center } : {}),
     ...(o.audio && o.mp4 ? { audio: true } : {}),
   };
