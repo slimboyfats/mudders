@@ -192,3 +192,9 @@ frames of 65 to 70 ms. Reproduced here with the same setup; sim results are unch
   the GPU side, and Chrome on Android has no GPU timer. The recorder now measures there too:
   `GpuSampler` brackets one part of every sixth frame with `gl.finish()`, so the next log names
   the part.
+- **Rain that stopped halfway down** during the slowdown: a late frame ran at most two particle
+  passes however many ticks it owed, and the ticks it skipped aged the particles without moving
+  them. Rain lives exactly as long as its fall takes, so at three or more ticks a frame it died
+  in mid-air. The frame budget above keeps the tick count per frame down in a heavy moment, and
+  particles now run up to four passes a frame (the smoke fluid stays at two, its steps are the
+  costly ones).
