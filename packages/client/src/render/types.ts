@@ -177,6 +177,25 @@ export interface Renderer {
   /** Map coordinates → screen (CSS px, canvas-relative). */
   project(map: Vec2): Vec2;
   unmount(): void;
+  /** Figures for the performance recorder, where the renderer has them. */
+  readonly perf?: RenderPerf;
+}
+
+/** Names of the parts of a frame the GPU time is split into, in `RenderPerf.takeGpu` order. */
+export const GPU_PARTS = ['step', 'prep', 'bg', 'sprites', 'particles', 'rest'] as const;
+
+/** What a renderer can tell the performance recorder (Settings → Show performance → Record). */
+export interface RenderPerf {
+  /** Turn timing on or off. False when the browser can't time the GPU (the rest still works). */
+  enable(on: boolean): boolean;
+  /** CPU ms spent on snapshots (the renderer's per-tick work) so far, while timing is on. */
+  pushMs(): number;
+  /** GPU ms per frame for each of `GPU_PARTS` since the last call, or null where not timed. */
+  takeGpu(): number[] | null;
+  /** Particle slots the GPU works on right now. */
+  particles(): number;
+  /** The graphics chip, as the browser names it. */
+  device(): string;
 }
 
 /** Per-client camera (§2a): fits the map by default; zoom and pan are purely visual. */

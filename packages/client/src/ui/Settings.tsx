@@ -145,7 +145,7 @@ export function Settings({ settings, setSettings, onBack }: Props) {
             checked={settings.perfHud}
             onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
           />
-          Show performance (frame times)
+          Show performance (frame times, with a Record button that saves a log)
         </label>
       </section>
       <div className="setup-actions">

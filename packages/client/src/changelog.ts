@@ -23,6 +23,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks, acid, lightning through steel and tank stains',
     pack: 'core@0.93.0 – 0.97.0',
     items: [
+      'Performance recorder: with Settings → Show performance on, the overlay has a Record button. Stop saves a small text file (and offers Copy and Share) with frame times, sim and draw times and what was on screen for every second, to send along when the game runs slow on a device',
       'A restless world no longer holds up the turn: once the shot itself is over (shells, blasts, falling tanks), the turn waits at most 4 s for whatever still moves, such as spray off a flood, a hillside that keeps sliding, rock still coming down or a fire. It carries on into the next turn, as running water already did. Before, a quake or a flood could hold a turn for 10 s and more',
       'Faster rain, snow and floods: rounds with water in them (rain puddles, tides, Rising water, Flood wave, Cloudburst) cost about half as much to simulate, and the particle engine no longer works on particles that have already died, which was most of its load in snow. Same picture, same results',
       'Zoom out further: pinch out (or press −) past the whole-map view to see the land around it, down to half the old size. Once tanks are small, each one gets a chip with its player number, bot name and life bar. A tank that is off the screen gets the chip pinned to the screen edge with an arrow pointing at it',

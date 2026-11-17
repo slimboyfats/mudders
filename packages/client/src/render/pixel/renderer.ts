@@ -16,6 +16,8 @@ import type {
   TankLook,
   Vec2,
 } from '../types';
+import { GPU_PARTS, type RenderPerf } from '../types';
+import { GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
@@ -233,6 +235,14 @@ const PLAGUE_TONES = [0x3c6a2a, 0x5f9a3a, 0x7ab84a, 0x9ccc5a] as const;
 const ACID_TONES = [0x6a9a20, 0x8cc425, 0xb8f040, 0xd4ff70] as const;
 const PLAGUE_PUFF = [0, 0];
 
+/** Indices into `GPU_PARTS`: the per-tick work, then the frame from back to front. */
+const GPU_STEP = 0;
+const GPU_PREP = 1;
+const GPU_BG = 2;
+const GPU_SPRITES = 3;
+const GPU_PARTICLES = 4;
+const GPU_REST = 5;
+
 /** A toxic cloud's cells, from its dense heart out to its rim. */
 const CLOUD_TONES = [0x4a7a0c, 0x8cc81a, 0xa6e024, 0xb8ec2c] as const;
 
@@ -244,6 +254,24 @@ export class PixelRenderer implements Renderer {
   private gl!: WebGL2RenderingContext;
   private canvas!: HTMLCanvasElement;
   private unsubscribe: (() => void) | undefined;
+  /** Performance recorder: GPU time by part of the frame, CPU time of the per-tick work. */
+  private gpu: GpuTimer | null = null;
+  private perfOn = false;
+  private pushCpu = 0;
+  readonly perf: RenderPerf = {
+    enable: (on) => {
+      this.perfOn = on;
+      return this.gpu?.enable(on) ?? false;
+    },
+    pushMs: () => this.pushCpu,
+    takeGpu: () => this.gpu?.take() ?? null,
+    particles: () => this.particles.n,
+    device: () => {
+      const gl = this.gl;
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      return String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    },
+  };
   private theme: PixelTheme = DEFAULT_THEME;
   /** The chosen theme before the match weather is laid over it. */
   private baseTheme: PixelTheme = DEFAULT_THEME;
@@ -956,7 +984,15 @@ export class PixelRenderer implements Renderer {
     this.additive = new QuadBatch(gl);
     this.setQuality(options.quality);
 
-    this.unsubscribe = snapshots.subscribe((s) => this.push(s));
+    this.gpu = new GpuTimer(gl, GPU_PARTS.length);
+    this.unsubscribe = snapshots.subscribe((s) => {
+      if (!this.perfOn) return this.push(s);
+      const t0 = performance.now();
+      this.gpu?.begin(GPU_STEP);
+      this.push(s);
+      this.gpu?.end();
+      this.pushCpu += performance.now() - t0;
+    });
     this.resize(canvas.clientWidth || canvas.width, canvas.clientHeight || canvas.height, 1);
   }
 
@@ -2510,9 +2546,12 @@ export class PixelRenderer implements Renderer {
     const scan = th.scanlines;
     const post = nRipples > 0 || shakeX !== 0 || shakeY !== 0 || flash > 0 || split > 0 || scan > 0;
 
+    const gpu = this.gpu;
+    gpu?.begin(GPU_PREP);
     this.shadeTerrain();
     this.paintScenery((W / 2 - ox) / scale, (H / 2 - oy) / scale);
     this.fluid.update(this.terrainTex);
+    gpu?.begin(GPU_BG);
     gl.bindFramebuffer(gl.FRAMEBUFFER, post ? this.sceneFbo : null);
     gl.viewport(0, 0, W, H);
     gl.disable(gl.BLEND);
@@ -2624,6 +2663,7 @@ export class PixelRenderer implements Renderer {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
     // sprites
+    gpu?.begin(GPU_SPRITES);
     const mult = this.fx.mult;
     this.cloudWake.draw(this.fxTick, this.cloudSky, this.normal);
     drawZones(this.normal, this.additive, this.zones, t, this.probe, mult);
@@ -2654,6 +2694,7 @@ export class PixelRenderer implements Renderer {
     this.additive.flush(view, origin, scale);
     gl.disable(gl.BLEND);
     // smoke, fire and gas are particles carried by the fluid's velocity field
+    gpu?.begin(GPU_PARTICLES);
     const air = this.fluid.velocity;
     this.particles.draw(
       this.terrainTex,
@@ -2665,6 +2706,7 @@ export class PixelRenderer implements Renderer {
       air ? { tex: air, w: this.fluid.w, h: this.fluid.h, div: this.fluid.div } : null,
       this.lights,
     );
+    gpu?.begin(GPU_REST);
     this.liquid.draw(this.normal, this.additive, t);
     this.water.draw(this.normal, t);
     this.fx.drawMushrooms(this.normal, this.additive, t);
@@ -2743,6 +2785,7 @@ export class PixelRenderer implements Renderer {
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     gl.bindVertexArray(null);
+    gpu?.frameEnd();
   }
 
   /**
@@ -4079,6 +4122,8 @@ export class PixelRenderer implements Renderer {
     this.unsubscribe?.();
     this.unsubscribe = undefined;
     const gl = this.gl;
+    this.gpu?.dispose();
+    this.gpu = null;
     this.normal.dispose();
     this.additive.dispose();
     this.wall.dispose(gl);
