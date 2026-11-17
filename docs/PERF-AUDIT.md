@@ -69,6 +69,33 @@ Renderer and client (same picture, captures identical byte for byte):
 - Manifests are parsed with zod's interpreter instead of compiling a parser per schema: loading
   the content at startup takes about a third less time.
 
+## Second pass (2026-11-17): rain, snow, floods and the turn end
+
+Measured with 4-bot rounds on 8 maps with 10 weathers and twists (map events on), and the client
+census below.
+
+- **GPU particles** (#208): one ring of slots kept every particle that died since the oldest
+  living one was born inside the update and draw passes. In snow that was 68 000 slots for 8 000
+  living particles, in clear weather and rain about 19 000 for 7 000. Slots are now in four lanes
+  by lifetime (`particle-lanes.ts`). Vertex work per frame for particle drawing: clear 205k to
+  100k, rain 208k to 118k, snow 768k to 125k.
+- **Water in the sim** (#209, same results): a round with water in it cost 4 to 25 times a dry one
+  per tick (dry 0.12 ms, rain 0.47, Cloudburst 1.2, Rising water 2.0, Flood wave 2.5 on average,
+  5.7 on Floating islands). `reactStep` and `settleStep` now skip air, plain ground and the
+  inside of a liquid body four cells at a time, and `surfaceFlowStep` finds the sky over its
+  columns a row at a time. After: rain 0.29, Cloudburst 0.68, Rising water 0.82, Flood wave 1.23
+  (worst map 2.2).
+- **Turn end** (#210, kernel 0.61.0): debris, falling rock and toppling props had no limit and
+  reset the grace, so a turn could wait 13 s. Now at most 4 s after the shot's own action is over.
+
+How the GPU work was counted without a GPU: an init script wraps the draw calls and records, per
+shader program, calls, vertices times instances and viewport or scissor area per frame, with the
+draws themselves stubbed. It says nothing about milliseconds, but it shows work that is plainly
+wasted (dead particles) and what scales with the screen (the full-screen passes).
+
+What a plain rainy round adds over a clear one, after these fixes: about 3 400 rain particles,
+0.2 ms of sim a tick on x86, and nothing else. JavaScript time per frame is the same.
+
 ## Left, by size
 
 1. **GPU cost on the phone is unknown.** Per frame the phone draws the full-screen background
@@ -95,9 +122,20 @@ Renderer and client (same picture, captures identical byte for byte):
 7. **Per-frame HUD state**: `SimMatch.hud()` builds the whole HUD object and a key string every
    frame to see whether anything changed (0.1 ms). A version counter bumped by the sim events that
    matter would do.
-8. **Tests**: 494 test files each start their own worker; vitest estimates 20 s saved with
-   `isolate: false`. Worth trying on its own, since it can expose tests that lean on a fresh module
-   state.
+8. **Flood rounds are still the heaviest sim** (1.2 ms a tick on x86 on average, 2.2 on the
+   worst map, so 4 to 10 ms on a phone). What is left is spread thin: the settle scan reads every
+   row of its region from the sky down (a third of it is finding nothing in sky rows), and the
+   open-water step. A top-of-everything row kept by the grid would cut the sky rows; it needs
+   every write to keep it up to date.
+9. **Particle draw runs twice over every slot** (a normal and an additive pass, each discarding the
+   other's particles in the vertex shader, 6 vertices a particle). Lanes by blend mode as well as
+   lifetime would halve it again.
+10. **Smoke field pressure passes**: about 21 full passes over the half-resolution field every
+    frame, the most pixels of any pass after the background. Whether fewer iterations at low
+    quality still looks right needs a look on a device.
+11. **Tests**: 494 test files each start their own worker; vitest estimates 20 s saved with
+    `isolate: false`. Worth trying on its own, since it can expose tests that lean on a fresh module
+    state.
 
 ## Checked and not worth it
 
