@@ -153,7 +153,8 @@ export interface RendererOptions {
    * Most sim ticks of GPU smoke-fluid and particle updates one frame runs (live play). A frame
    * that comes late queues several ticks; running a GPU pass for each makes that frame slower
    * still, the next one queues more, and a slow phone spirals into a slideshow. Past this many
-   * the extra ticks are skipped (cosmetic only). Unset: every tick runs (captures replay exactly).
+   * the extra ticks are skipped (cosmetic only; particles run twice this many, their passes are
+   * cheap). Unset: every tick runs (captures replay exactly).
    */
   catchUp?: number;
 }
