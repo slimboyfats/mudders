@@ -230,7 +230,7 @@ export function Shop({ hud, controls, send }: ShopProps) {
       </header>
       {me && (
         <>
-          <div className="shop-filters" role="tablist" aria-label="Filter">
+          <div className="shop-filters">
             <label className="shop-sort">
               <span aria-hidden="true">⇅</span>
               <select
@@ -246,36 +246,38 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 ))}
               </select>
             </label>
-            {groups.map((g) => (
-              <button
-                key={g}
-                role="tab"
-                aria-selected={filter === g}
-                className={filter === g ? 'on' : ''}
-                style={
-                  {
-                    '--cat':
-                      g === 'all'
-                        ? 'var(--fg)'
-                        : g === 'new'
-                          ? 'var(--new)'
-                          : g === 'deals'
-                            ? '#ffcf3a'
-                            : categoryColor(g),
-                  } as CSSProperties
-                }
-                onClick={() => setFilter(g)}
-                data-testid={`shop-filter-${g}`}
-              >
-                {g === 'all'
-                  ? 'All'
-                  : g === 'new'
-                    ? '★ New'
-                    : g === 'deals'
-                      ? '½ Deals'
-                      : categoryLabel(g)}
-              </button>
-            ))}
+            <div className="shop-chips" role="tablist" aria-label="Filter">
+              {groups.map((g) => (
+                <button
+                  key={g}
+                  role="tab"
+                  aria-selected={filter === g}
+                  className={filter === g ? 'on' : ''}
+                  style={
+                    {
+                      '--cat':
+                        g === 'all'
+                          ? 'var(--fg)'
+                          : g === 'new'
+                            ? 'var(--new)'
+                            : g === 'deals'
+                              ? '#ffcf3a'
+                              : categoryColor(g),
+                    } as CSSProperties
+                  }
+                  onClick={() => setFilter(g)}
+                  data-testid={`shop-filter-${g}`}
+                >
+                  {g === 'all'
+                    ? 'All'
+                    : g === 'new'
+                      ? '★ New'
+                      : g === 'deals'
+                        ? '½ Deals'
+                        : categoryLabel(g)}
+                </button>
+              ))}
+            </div>
           </div>
           {/* scores scroll together with the items, so a long table never hides them */}
           <div className="shop-main">
