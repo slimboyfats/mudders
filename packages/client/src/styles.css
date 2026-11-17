@@ -1721,7 +1721,11 @@ a.button {
 /* Settings → Show performance */
 .perf {
   position: absolute;
-  left: 8px;
+  /* centred: the player chips run down the left edge and the gear chips sit on the right */
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: calc(100% - 16px);
   /* above the controls where they lie over the playfield (phones); the zoom scales lengths */
   bottom: calc((var(--hud-bottom, 6px) + 2px) / var(--ui-scale, 1));
   z-index: 3;
@@ -3095,20 +3099,11 @@ a.button {
   }
 }
 
+/* The fill used to be stripes that ran with the wind (`background-position`, animated for ever).
+   That repaints the HUD on every frame of the match, and a phone pays for it with dropped frames;
+   the bar's length, the arrow and the gust streaks say how hard it blows. */
 .wind-fill {
-  background: repeating-linear-gradient(90deg, #9fd8ff 0 6px, #4f9fd8 6px 9px);
-  background-size: 9px 100%;
-  animation: wind-run var(--wind-speed, 2s) linear infinite;
-}
-
-.wind-fill.to-left {
-  animation-direction: reverse;
-}
-
-@keyframes wind-run {
-  to {
-    background-position: 18px 0;
-  }
+  background: #9fd8ff;
 }
 
 .wind-was {
@@ -5385,4 +5380,14 @@ html {
   background:
     radial-gradient(45% 3px at 50% 0, rgb(255 230 220 / 1), rgb(255 230 220 / 0) 100%),
     linear-gradient(180deg, rgb(235 60 45 / 0.95), rgb(185 12 32 / 0.92));
+}
+
+/* ── nothing blurs the live map ──
+   A backdrop blur over the game canvas has to be redone on every frame the map changes, which is
+   every frame, and a phone GPU pays for each blurred chip. The panels keep their tinted glass,
+   rims and glow; only the blur of what is behind them goes. Menus outside a match keep theirs. */
+.match,
+.match * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }

@@ -198,3 +198,24 @@ frames of 65 to 70 ms. Reproduced here with the same setup; sim results are unch
   in mid-air. The frame budget above keeps the tick count per frame down in a heavy moment, and
   particles now run up to four passes a frame (the smoke fluid stays at two, its steps are the
   costly ones).
+
+## The HUD repainted on every frame (2026-11-17, second phone log and a screen recording)
+
+After the sim fixes the phone still dropped frames: 25 to 40 fps through a bot's turn with under
+3 ms of sim a tick and about 4 ms of our own GPU work a frame. A Chromium trace of the page (not
+of the game) showed why: the browser painted the whole document and rasterised the HUD on almost
+every frame.
+
+- **The wind bar** animated `background-position` for ever (`wind-run`). That cannot run on the
+  compositor, so every frame repainted the HUD layer, with its gradients, rims and glows. Since
+  the fill became a plain gradient the stripes were not even visible. Removed: over 20 s of bot
+  turns the document paints fell from 1185 to 158 and raster work from 2.6 s to 0.35 s.
+- **Backdrop blur over the live map** (round, wind, temperature and timer badges, camera and menu
+  buttons) has to be redone whenever what is behind it changes, which is every frame. Inside a
+  match nothing blurs any more; the panels keep their tint, rims and glow.
+- The performance box sat on the player chips in landscape; it is centred now.
+- An infinite CSS animation in the HUD is only safe on `transform` or `opacity`. Check new ones
+  with a trace: `Paint` events on `#document` should be rare while nothing in the HUD changes.
+- The one-second freeze in that log (t=38.5 to 39.5) was most likely the phone being turned to
+  landscape mid-recording (the log starts in portrait, a screenshot from 0:20 is landscape): the
+  page lays out again and every canvas-sized buffer is rebuilt. Not confirmed.
