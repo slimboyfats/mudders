@@ -1,7 +1,7 @@
 /* Mudders service worker (§8: PWA install, offline local play). Generated at build time by the
  * `pwa` plugin in vite.config.ts, which fills in VERSION and PRECACHE. Plain JS: it runs as-is. */
-const VERSION = '5ff6c4516daf';
-const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","docs/","assets/ChallengePlay-DE2rV-0O.js","assets/Challenges-DihThLaZ.js","assets/Changelog-91EhDc_f.js","assets/MatchView-4lXaJh-r.js","assets/Online-CNEoQOo4.js","assets/Play-BO6jxT0_.js","assets/Sandbox-Bm5wInRC.js","assets/Setup-BBOs0PHK.js","assets/Teams-BKbQ5kSv.js","assets/battle-C98AQSKG.mod","assets/categories-aQ0FYqsp.js","assets/changelog-B4tlUbDG.js","assets/docs-D3fHi9AW.css","assets/docs-DIXSjJPY.js","assets/engine-mvTq5ZG6.js","assets/main-BbUbEjXn.css","assets/main-DKVTZtHf.js","assets/module-BImwpPm9.js","assets/pixel-nQlZkGM_.js","assets/snapshot-DJ3WWjcv.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
+const VERSION = '5425430442d9';
+const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","docs/","assets/ChallengePlay-C75Z5m17.js","assets/Challenges-BHFRQWKJ.js","assets/Changelog-BKczUxAf.js","assets/MatchView-BgDbJSow.js","assets/Online-wEqb9zQC.js","assets/Play-C2FcNbhp.js","assets/Sandbox-Dq-3aboE.js","assets/Setup-k9fm97Wh.js","assets/Teams-DmNJ1-V9.js","assets/battle-C98AQSKG.mod","assets/categories-aQ0FYqsp.js","assets/changelog-CM8DiJMP.js","assets/docs-ClDwF2q-.js","assets/docs-D3fHi9AW.css","assets/engine-DfCHzIg-.js","assets/main-BLhw8UoR.js","assets/main-knYraYCA.css","assets/module-BImwpPm9.js","assets/pixel-B-CzYCJK.js","assets/snapshot-DJ3WWjcv.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
 const CACHE = `mudders-${VERSION}`;
 
 self.addEventListener('install', (event) => {
