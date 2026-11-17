@@ -228,3 +228,21 @@ as long-lived smoke motes. A big blast filled that lane, and a full lane overwri
 slot, so every drop was replaced a few ticks after it was born. Rain and snow now have a lane of
 their own (`ParticleLanes.put(tick, life, weather)`). The weather also starts above the top of
 the screen when sky shows over the map (portrait, zoomed out) instead of at the map's top row.
+
+## The recorder's own GPU sampling stuttered the rain (2026-11-17, third phone log)
+
+After #223 and #224 the phone held 60 fps on average, yet the rain still stuttered in Joel's
+recording. The skipped frames in the recording came in a steady rhythm, one about every 0.33 s,
+and the log showed long frames with 40 to 46 ms of script while the sim, the renderer step and
+the draw together took under 10 ms. The overlay showed "sim worst 40 ms" every second.
+
+The cause was the recorder. Chrome on Android has no GPU timer query, so #215 bracketed one part
+of every sixth frame with `gl.finish()`. For the two parts that come first after the frame before
+(the per-tick step and the first part of the draw), the first `finish` waits for that whole frame
+to be presented, about 40 ms on the phone. Six parts in turn, two of them slow: one hitch every
+18 frames.
+
+`GpuSampler` is now off unless the address has `?gpusample`. The numbers it gave before stand
+(about 6 ms of GPU per frame, the particle step the largest part), so the GPU is not what limits
+the phone. Rule: a measuring tool that blocks must be opt-in, and a log must be read with the
+tool's own cost in mind.
