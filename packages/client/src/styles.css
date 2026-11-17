@@ -4568,3 +4568,344 @@ button.link:active:not(:disabled) {
 .seg button small {
   font-weight: 500;
 }
+
+/* ══ Look v5: gradient glass, gradient edges, soft shadows, glossy highlights ══════════════
+   Panels are see-through gradients with a thin gradient rim (cyan → violet → amber) and a
+   one-pixel light line along the top; they lift off the page with a soft shadow. Still no
+   backdrop blur anywhere over the map: that one is re-done every frame on the phone GPU, while
+   these shadows are painted once. */
+:root {
+  --glass: linear-gradient(180deg, rgb(52 60 118 / 0.74), rgb(20 23 48 / 0.74));
+  --glass-strong: linear-gradient(180deg, rgb(46 54 108 / 0.94), rgb(17 20 42 / 0.94));
+  --glass-sunk: linear-gradient(180deg, rgb(12 14 30 / 0.55), rgb(30 35 70 / 0.55));
+  --rim: linear-gradient(
+    135deg,
+    rgb(110 220 255 / 0.6),
+    rgb(150 120 255 / 0.22) 45%,
+    rgb(255 170 70 / 0.45)
+  );
+  --rim-hot: linear-gradient(135deg, #fff2b0, #ffb020 50%, #ff5a1a);
+  --hi: inset 0 1px 0 rgb(255 255 255 / 0.16);
+  --lift: 0 10px 28px rgb(0 0 0 / 0.42), 0 2px 6px rgb(0 0 0 / 0.3);
+  --lift-sm: 0 6px 16px rgb(0 0 0 / 0.38), 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+/* every plain button: a glassy gradient pill with a rim and a top highlight */
+button {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #3c4686, #1d2146) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--hi), var(--lift-sm);
+}
+
+button:active:not(:disabled) {
+  box-shadow:
+    var(--hi),
+    0 2px 6px rgb(0 0 0 / 0.4);
+}
+
+select {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #0e1024, #20264e) padding-box,
+    linear-gradient(135deg, rgb(110 220 255 / 0.4), rgb(150 120 255 / 0.18)) border-box;
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.35);
+}
+
+/* the big call-to-action buttons: glossy hot gradient, gold rim, warm glow */
+button.primary,
+.title .primary,
+.title .menu .play,
+.setup-actions .primary,
+.shop .shop-foot .ready,
+.shop-head .tabs button.on {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.35), rgb(255 255 255 / 0) 48%) padding-box,
+    linear-gradient(180deg, #ffd04a, #ff7a1a) padding-box,
+    var(--rim-hot) border-box;
+  color: #2a1300;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    0 4px 0 #a33a00,
+    0 10px 28px rgb(255 120 30 / 0.35);
+}
+
+/* cards and panels */
+.slots,
+.rules,
+.menu-group,
+.sheet,
+.round-over,
+.match-over,
+.shop-scores,
+.arsenal {
+  border: 1px solid rgb(160 190 255 / 0.26);
+  background: var(--glass);
+  box-shadow: var(--hi), var(--lift);
+}
+
+.slot,
+.rules label {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.02));
+  box-shadow:
+    inset 4px 0 0 var(--pc, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+.rules label {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 2px 8px rgb(0 0 0 / 0.25);
+}
+
+.seg button.on {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #5a3a2a, #33233a) padding-box,
+    var(--rim-hot) border-box;
+  color: #ffe08a;
+  box-shadow:
+    var(--hi),
+    0 6px 18px rgb(255 140 30 / 0.25);
+}
+
+.title .menu .tile,
+.title .menu .chip,
+.title .menu .solo-tile {
+  border: 1px solid transparent;
+  background:
+    var(--glass-strong) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--hi), var(--lift-sm);
+}
+
+.title .status li {
+  background: rgb(10 12 28 / 0.55);
+  box-shadow: var(--hi);
+}
+
+.title h1 {
+  background: linear-gradient(180deg, #fff3b0 0%, #ffc226 45%, #ff7a1a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 4px 0 #8a2a06) drop-shadow(0 12px 24px rgb(255 100 30 / 0.35));
+}
+
+.setup h2 {
+  background: linear-gradient(180deg, #fff3b0, #ffb020 60%, #ff7a1a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 0 #8a2a06);
+}
+
+/* ── in game: top bar chips ── */
+.player,
+.hud-center .badge,
+.hud-center .wind,
+.hud-center .timer,
+.cam button,
+.menu-btn,
+.fs-btn {
+  border: 1px solid rgb(160 190 255 / 0.28);
+  background: linear-gradient(180deg, rgb(40 46 92 / 0.72), rgb(14 16 34 / 0.72));
+  box-shadow:
+    var(--hi),
+    0 4px 12px rgb(0 0 0 / 0.35);
+}
+
+.player.active {
+  border-color: #3ce0ff;
+  background: linear-gradient(180deg, rgb(40 70 110 / 0.8), rgb(14 22 40 / 0.8));
+  box-shadow:
+    var(--hi),
+    0 0 18px rgb(60 224 255 / 0.35);
+}
+
+.wind-fill,
+.scrub-meter-fill {
+  background: linear-gradient(90deg, #2a7cff, #3ce0ff);
+  box-shadow: 0 0 8px rgb(60 224 255 / 0.5);
+}
+
+.scrub-meter-fill {
+  background: linear-gradient(90deg, #ff5a1a, #ffc226);
+  box-shadow: 0 0 8px rgb(255 160 40 / 0.5);
+}
+
+/* ── in game: the control row ── */
+.controls::before {
+  background: linear-gradient(rgb(6 8 20 / 0), rgb(6 8 20 / 0.55));
+}
+
+.controls .aim .scrub,
+.controls .weapon-btn,
+.controls .drive-btn,
+.controls .gear-chip,
+.controls .weapons button,
+.controls .drive-left {
+  border: 1px solid rgb(160 190 255 / 0.28);
+  background: linear-gradient(180deg, rgb(48 56 112 / 0.7), rgb(14 16 36 / 0.7));
+  box-shadow:
+    var(--hi),
+    0 8px 20px rgb(0 0 0 / 0.4);
+}
+
+.controls .weapon-btn {
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    var(--hi),
+    0 8px 20px rgb(0 0 0 / 0.4);
+}
+
+.weapon-btn.active,
+.weapon-picker.open .weapon-btn,
+.controls .weapon-picker.open .weapon-btn {
+  border-color: #3ce0ff;
+  background: linear-gradient(180deg, rgb(40 70 110 / 0.85), rgb(14 22 40 / 0.85));
+}
+
+.fire,
+.controls .fire {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.32), rgb(255 255 255 / 0) 50%) padding-box,
+    linear-gradient(180deg, #ff6a3c, #d81f2a) padding-box,
+    linear-gradient(135deg, #ffd0c0, #ff5a3c 50%, #8a0c14) border-box;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    0 4px 0 #7a0c10,
+    0 10px 26px rgb(255 50 40 / 0.4);
+}
+
+.fire.command {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.35), rgb(255 255 255 / 0) 48%) padding-box,
+    linear-gradient(180deg, #ffd04a, #ff7a1a) padding-box,
+    var(--rim-hot) border-box;
+}
+
+.fire:disabled {
+  filter: saturate(0.4);
+}
+
+/* weapon grid */
+.weapon-pop,
+.controls .weapon-pop {
+  border: 1px solid rgb(160 190 255 / 0.3);
+  background: linear-gradient(180deg, rgb(32 38 80 / 0.86), rgb(10 12 28 / 0.9));
+  box-shadow:
+    var(--hi),
+    0 18px 48px rgb(0 0 0 / 0.55);
+}
+
+.weapon-tile {
+  border: 1px solid rgb(150 170 255 / 0.18);
+  background: linear-gradient(180deg, rgb(60 70 130 / 0.6), rgb(24 28 58 / 0.6));
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    var(--hi),
+    0 4px 12px rgb(0 0 0 / 0.3);
+}
+
+.weapon-tile.selected {
+  border-color: #3ce0ff;
+  background: linear-gradient(180deg, rgb(50 90 140 / 0.8), rgb(18 30 56 / 0.8));
+  box-shadow:
+    inset 4px 0 0 var(--cat),
+    var(--hi),
+    0 0 18px rgb(60 224 255 / 0.3);
+}
+
+/* ── shop ── */
+.shop-head {
+  background: linear-gradient(180deg, rgb(20 24 52 / 0.92), rgb(11 13 26 / 0.8));
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+
+.shop-head .cash {
+  background: linear-gradient(180deg, #fff3b0, #ffd84a 50%, #ffa020);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 0 #6b3a00);
+}
+
+.shop-filters button {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #2e3570, #161a38) padding-box,
+    linear-gradient(135deg, var(--cat), rgb(150 120 255 / 0.15)) border-box;
+  box-shadow: var(--hi);
+}
+
+.shop-filters button.on {
+  background:
+    linear-gradient(180deg, #4a5296, #262c5c) padding-box,
+    linear-gradient(135deg, #fff, var(--cat)) border-box;
+  box-shadow:
+    var(--hi),
+    0 4px 14px rgb(0 0 0 / 0.35);
+}
+
+.shop .card {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #2f366e, #171a38) padding-box,
+    linear-gradient(160deg, var(--cat), rgb(150 120 255 / 0.12) 45%, rgb(150 170 255 / 0.18))
+      border-box;
+  box-shadow: var(--hi), var(--lift-sm);
+}
+
+.shop .card.owned {
+  background:
+    linear-gradient(180deg, #38428a, #1b1f44) padding-box,
+    linear-gradient(160deg, var(--cat), rgb(150 120 255 / 0.2) 45%, rgb(150 170 255 / 0.3))
+      border-box;
+}
+
+.shop .buy,
+.shop .buy:not(:disabled) {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0) 50%) padding-box,
+    linear-gradient(180deg, #3a4690, #232a5c) padding-box,
+    linear-gradient(135deg, rgb(255 216 74 / 0.7), rgb(150 120 255 / 0.25)) border-box;
+  box-shadow:
+    var(--hi),
+    0 4px 12px rgb(0 0 0 / 0.35);
+}
+
+.shop .card.poor .buy,
+.shop .buy:disabled {
+  background: rgb(20 24 50 / 0.5);
+  border-color: rgb(150 170 255 / 0.12);
+  box-shadow: none;
+}
+
+.shop-foot {
+  background: linear-gradient(rgb(11 13 26 / 0), rgb(11 13 26 / 0.92) 40%);
+  border-top: 0;
+}
+
+.arsenal-chip {
+  background: linear-gradient(180deg, rgb(70 80 150 / 0.6), rgb(30 35 72 / 0.6));
+  box-shadow:
+    inset 3px 0 0 var(--cat, #3f7f8c),
+    var(--hi);
+}
+
+/* text links stay plain */
+button.link,
+button.link:active:not(:disabled) {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
