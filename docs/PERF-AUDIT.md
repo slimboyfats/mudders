@@ -254,3 +254,7 @@ zoomed far out at about 40 fps (25 ms frames on the 120 Hz screen), and 13 to 20
 Drill Torpedo flew and dug. The page itself is not it (a Chromium trace in that shape has 194
 paints in 25 s), and SwiftShader shows no part that grows with that view. Open: needs a log from
 the phone in that view with "Slow now" pressed, which now gives the GPU time by part.
+
+Joel asked for no button to press, so a recording now also starts a burst by itself when frames
+turn slow (`SlowWatch`: a few frames over 24 ms close together, at most once in ten seconds). The
+`note` column carries the zoom, so the log shows the view the slow seconds were played in.

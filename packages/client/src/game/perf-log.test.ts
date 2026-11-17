@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GPU_PARTS } from '../render/types';
-import { PerfRecorder, perfFileName, stallDetail, type PerfContext } from './perf-log';
+import { PerfRecorder, SlowWatch, perfFileName, stallDetail, type PerfContext } from './perf-log';
 
 const ctx = (over: Partial<PerfContext> = {}): (() => PerfContext) => {
   return () => ({
@@ -209,5 +209,26 @@ describe('PerfRecorder diagnostics', () => {
 describe('perfFileName', () => {
   it('is sortable by date', () => {
     expect(perfFileName(new Date(2026, 10, 17, 6, 5))).toBe('mudders-perf-20261117-0605.txt');
+  });
+});
+
+describe('SlowWatch', () => {
+  it('asks for a measurement when frames turn slow, and not again for a while', () => {
+    const w = new SlowWatch();
+    let now = 0;
+    const run = (frames: number, ms: number) => {
+      let asked = 0;
+      for (let i = 0; i < frames; i++) {
+        now += ms;
+        if (w.frame(now, ms)) asked++;
+      }
+      return asked;
+    };
+    expect(run(600, 16.7)).toBe(0); // ten smooth seconds
+    expect(run(1, 80)).toBe(0); // one hitch alone is not a slow stretch
+    expect(run(120, 16.7)).toBe(0);
+    expect(run(40, 25)).toBe(1); // a second at 40 fps
+    expect(run(200, 25)).toBe(0); // still slow, but it has just measured
+    expect(run(400, 25)).toBe(1); // ten seconds on
   });
 });
