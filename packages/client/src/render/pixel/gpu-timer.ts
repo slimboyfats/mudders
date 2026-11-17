@@ -109,6 +109,9 @@ export class GpuTimer implements GpuClock {
     return out;
   }
 
+  /** A timer query runs all the time and costs nothing to notice. */
+  burst(): void {}
+
   dispose(): void {
     this.end();
     for (const q of this.pool) this.gl.deleteQuery(q);
@@ -124,26 +127,33 @@ export interface GpuClock {
   end(): void;
   frameEnd(): void;
   take(): number[] | null;
+  /** Measure the next frames now, where measuring is not continuous (see {@link GpuSampler}). */
+  burst(): void;
   dispose(): void;
 }
 
-/** One frame in this many is measured by {@link GpuSampler}. */
-export const SAMPLE_EVERY = 6;
+/** Times each part is measured in one {@link GpuSampler.burst}. */
+export const BURST_ROUNDS = 6;
 
 /**
- * GPU time per part where the browser has no timer query (Chrome on Android): now and then one
- * part of one frame is bracketed with `gl.finish()`, which waits until the GPU has really done
- * the work, and the wall time between the two is that part's cost. Each measured frame takes
- * one part, in turn, so the two waits cost that frame a little and the others nothing. Rougher
- * than a timer query (it also counts the wait for the GPU process), but it tells a 2 ms part
- * from a 12 ms one, which is what the log is for.
+ * GPU time per part where the browser has no timer query (Chrome on Android): one part of a
+ * frame is bracketed with `gl.finish()`, which waits until the GPU has really done the work, and
+ * the wall time between the two is that part's cost.
+ *
+ * The waits are not free. On a phone the first one also waits for the frame before, about 40 ms,
+ * and measuring one frame in six all the time gave the game a hitch every 0.3 s: the recorder
+ * made the stutter it was there to find. So nothing is measured until `burst()` asks: then every
+ * frame measures one part, each part in turn, for `BURST_ROUNDS` rounds (under a second), and
+ * the game is left alone again. The recorder asks when the player presses "Slow now", which is
+ * when the answer matters and a second of stutter costs least.
  */
 export class GpuSampler implements GpuClock {
   private readonly sums: number[];
   private readonly counts: number[];
   private readonly last: number[];
   private on = false;
-  private frame = 0;
+  /** Frames still to measure in the running burst. */
+  private left = 0;
   /** The part this frame measures, or -1. */
   private target = -1;
   private next = 0;
@@ -169,7 +179,7 @@ export class GpuSampler implements GpuClock {
     this.sums.fill(0);
     this.counts.fill(0);
     this.last.fill(0);
-    this.frame = this.next = this.acc = 0;
+    this.left = this.next = this.acc = 0;
     this.target = -1;
     this.hit = this.seen = false;
     return true;
@@ -203,16 +213,24 @@ export class GpuSampler implements GpuClock {
     }
     this.acc = 0;
     this.hit = false;
-    this.frame++;
-    if (this.frame % SAMPLE_EVERY === 0) {
+    if (this.left > 0) {
+      this.left--;
       this.target = this.next;
       this.next = (this.next + 1) % this.parts;
     } else this.target = -1;
   }
 
-  /** Each part's latest measured cost, ms a frame (a part not measured since keeps its last). */
+  burst(): void {
+    if (this.on) this.left = this.parts * BURST_ROUNDS;
+  }
+
+  /**
+   * Each part's cost, ms a frame, when any was measured since the last call (a part not measured
+   * since keeps its last); null otherwise, so the log shows which seconds were measured.
+   */
   take(): number[] | null {
     if (!this.on || !this.seen) return null;
+    this.seen = false;
     for (let i = 0; i < this.parts; i++) {
       if (this.counts[i]! > 0) this.last[i] = this.sums[i]! / this.counts[i]!;
     }

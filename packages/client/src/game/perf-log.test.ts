@@ -77,7 +77,9 @@ describe('PerfRecorder', () => {
     expect(Number(slow[1]!.split(',')[1])).toBeLessThan(20);
     expect(text).toMatch(/fps: avg [\d.]+, median 6\d(\.\d)?, worst second 1\d(\.\d)?\n/);
     expect(text).toMatch(/frame ms: ≤17: 9\d(\.\d)?%/);
-    expect(text).toContain('gpu ms/frame: not available in this browser');
+    expect(text).toContain(
+      'gpu ms/frame: not measured (no timer in this browser and no Slow now pressed)',
+    );
   });
 
   it('lists long frames with what they cost, and never an untimed first frame', () => {

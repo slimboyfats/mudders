@@ -299,7 +299,7 @@ export class PerfRecorder {
           timed.reduce((a, r) => a + (r.gpu ?? []).reduce((x, y) => x + y, 0), 0) / timed.length;
         out.push(`gpu ms/frame: total ${f1(total)} (${parts.join(', ')})`);
       } else {
-        out.push('gpu ms/frame: not available in this browser');
+        out.push('gpu ms/frame: not measured (no timer in this browser and no Slow now pressed)');
         out.push('(a low fps with low sim, step and render times means the GPU is the limit)');
       }
       const edges = BARS.map((b, i) => `${i === 0 ? '≤' : `${BARS[i - 1] ?? 0}-`}${b}`);

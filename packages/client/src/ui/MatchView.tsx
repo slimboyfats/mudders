@@ -102,7 +102,7 @@ export function MatchView({
         'gpu timer': !timed
           ? 'not offered by this browser'
           : rp?.gpuSampled()
-            ? 'not offered by this browser; sampled instead (one part of every sixth frame, rough)'
+            ? 'not offered by this browser; measured for under a second after each Slow now (those frames stutter from the measuring itself)'
             : 'offered by this browser',
         cores: navigator.hardwareConcurrency,
         memory: mem === undefined ? 'unknown' : `${mem} GB`,
@@ -660,7 +660,10 @@ export function MatchView({
               log={perfLog}
               onRecord={startRec}
               onStop={stopRec}
-              onMark={() => recRef.current?.mark(performance.now())}
+              onMark={() => {
+                recRef.current?.mark(performance.now());
+                rendererRef.current?.perf?.probeGpu();
+              }}
               onDismiss={() => setPerfLog(null)}
             />
           )}

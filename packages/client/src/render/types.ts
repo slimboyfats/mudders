@@ -193,8 +193,10 @@ export interface RenderPerf {
   pushMs(): number;
   /** GPU ms per frame for each of `GPU_PARTS` since the last call, or null where not timed. */
   takeGpu(): number[] | null;
-  /** True when those times are rough samples (`gl.finish` around one part now and then). */
+  /** True when those times are rough samples (`gl.finish` around one part, only when asked). */
   gpuSampled(): boolean;
+  /** Measure the GPU for the next frames now, where it is only sampled (costs a short stutter). */
+  probeGpu(): void;
   /** Particle slots the GPU works on right now. */
   particles(): number;
   /** The graphics chip, as the browser names it. */

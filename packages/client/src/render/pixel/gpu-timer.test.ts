@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GpuSampler, GpuTimer, SAMPLE_EVERY } from './gpu-timer';
+import { BURST_ROUNDS, GpuSampler, GpuTimer } from './gpu-timer';
 
 const TIME = 0x88bf;
 const DISJOINT = 0x8fbb;
@@ -127,29 +127,33 @@ describe('GpuSampler', () => {
     return { s, frame, finishes: () => finishes };
   }
 
-  it('measures one part of one frame in turn and leaves the other frames alone', () => {
+  it('measures nothing until asked, then each part in turn for a short burst', () => {
     const { s, frame, finishes } = rig([2, 12, 5]);
     expect(s.enable(true)).toBe(true);
-    for (let i = 0; i < SAMPLE_EVERY; i++) frame();
+    for (let i = 0; i < 100; i++) frame();
     expect(finishes()).toBe(0);
     expect(s.take()).toBeNull();
-    frame(); // measures part 0
-    expect(finishes()).toBe(2);
-    for (let i = 0; i < SAMPLE_EVERY * 2; i++) frame();
-    expect(finishes()).toBe(6);
+    s.burst();
+    frame(); // the burst starts with the next frame
+    for (let i = 0; i < 3 * BURST_ROUNDS; i++) frame();
+    expect(finishes()).toBe(2 * 3 * BURST_ROUNDS);
     expect(s.take()).toEqual([2, 12, 5]);
+    // and then the game is left alone again
+    for (let i = 0; i < 100; i++) frame();
+    expect(finishes()).toBe(2 * 3 * BURST_ROUNDS);
+    expect(s.take()).toBeNull();
   });
 
-  it('keeps the last value of a part not measured since, and is silent when off', () => {
+  it('is silent when off, also when asked', () => {
     const { s, frame, finishes } = rig([3, 4]);
-    frame();
+    s.burst();
+    for (let i = 0; i < 10; i++) frame();
     expect(finishes()).toBe(0);
     s.enable(true);
-    for (let i = 0; i < SAMPLE_EVERY * 2 + 1; i++) frame();
-    expect(s.take()).toEqual([3, 4]);
-    for (let i = 0; i < SAMPLE_EVERY; i++) frame();
-    expect(s.take()).toEqual([3, 4]);
+    s.burst();
     s.enable(false);
+    for (let i = 0; i < 10; i++) frame();
+    expect(finishes()).toBe(0);
     expect(s.take()).toBeNull();
   });
 });
