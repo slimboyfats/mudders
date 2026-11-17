@@ -268,6 +268,7 @@ export class PixelRenderer implements Renderer {
     },
     pushMs: () => this.pushCpu,
     takeGpu: () => this.gpu?.take() ?? null,
+    probeGpu: () => this.gpu?.burst(),
     gpuSampled: () => this.gpuSampled,
     particles: () => this.particles.n,
     device: () => {
@@ -989,15 +990,8 @@ export class PixelRenderer implements Renderer {
     this.setQuality(options.quality);
 
     const timer = new GpuTimer(gl, GPU_PARTS.length);
-    // Without a timer query the only way to time the GPU is `gl.finish()`, and on a phone that
-    // waits for the whole frame before it: a 40 ms hitch three times a second, which is the very
-    // stutter the log is there to find. So it is off unless the address asks for it (?gpusample).
-    const sample =
-      !timer.available &&
-      typeof location !== 'undefined' &&
-      new URLSearchParams(location.search).has('gpusample');
-    this.gpuSampled = sample;
-    this.gpu = timer.available ? timer : sample ? new GpuSampler(gl, GPU_PARTS.length) : null;
+    this.gpuSampled = !timer.available;
+    this.gpu = timer.available ? timer : new GpuSampler(gl, GPU_PARTS.length);
     this.unsubscribe = snapshots.subscribe((s) => {
       if (!this.perfOn) return this.push(s);
       const t0 = performance.now();

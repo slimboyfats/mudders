@@ -242,7 +242,15 @@ of every sixth frame with `gl.finish()`. For the two parts that come first after
 to be presented, about 40 ms on the phone. Six parts in turn, two of them slow: one hitch every
 18 frames.
 
-`GpuSampler` is now off unless the address has `?gpusample`. The numbers it gave before stand
+`GpuSampler` now measures nothing by itself. Pressing "Slow now" starts a burst: every frame
+measures one part, each part six times, under a second in all, and then the game is left alone
+again. Those frames stutter from the measuring and the log says so. The numbers it gave before stand
 (about 6 ms of GPU per frame, the particle step the largest part), so the GPU is not what limits
 the phone. Rule: a measuring tool that blocks must be opt-in, and a log must be read with the
 tool's own cost in mind.
+
+A recording made right after, with the recorder off, still shows the phone held upright and
+zoomed far out at about 40 fps (25 ms frames on the 120 Hz screen), and 13 to 20 fps while a
+Drill Torpedo flew and dug. The page itself is not it (a Chromium trace in that shape has 194
+paints in 25 s), and SwiftShader shows no part that grows with that view. Open: needs a log from
+the phone in that view with "Slow now" pressed, which now gives the GPU time by part.
