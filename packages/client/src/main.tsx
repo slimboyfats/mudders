@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { installAudio, setMusic } from './audio/bridge';
 import { initPwa } from './pwa';
+import '@fontsource-variable/rubik/wght.css';
+import '@fontsource/russo-one/latin-400.css';
 import './styles.css';
 
 initPwa();
