@@ -164,3 +164,31 @@ performance → Record: Village in rain, 1600x800, 4 players (3 bots), high qual
   (16 cells sideways, 64 down) is what makes the shaded area 3 to 4 times the changed area.
 - **Tank stain scan, pressure fronts, crush pass**: each shows up in a profile but costs under
   2 µs a tick.
+
+## Ion Cannon in rain, from a phone log (2026-11-17)
+
+A recorder v2 log from the Adreno 740 phone (Village, rain, Low gravity, high quality): the Ion
+Cannon's blast gave frames of 75 to 125 ms for half a second, and the next turn started with two
+frames of 65 to 70 ms. Reproduced here with the same setup; sim results are unchanged by the fixes
+(golden hashes equal).
+
+- **The freeze was a catch-up spiral.** For about ten ticks the blast costs 17 to 40 ms a tick
+  (up to 60 000 cells settling and 18 000 debris pieces at once). A frame that ran late owed more
+  ticks, ran them all, and was later still: 4 to 7 ticks in one frame. A frame now has a time
+  budget for the sim (`SIM_BUDGET_MS`, 10 ms): once it is spent and ticks are still owed, a local
+  match or host drops them and draws, a guest leaves them for the next frame. A heavy moment
+  plays a little slow at 30 to 45 fps instead of stopping at 8 to 13 fps. Off in tests and
+  headless runs (`SimMatch.limitFrame`).
+- **Rain's turn start** cost 20 to 30 ms in one tick: it counted the water over the whole map in
+  a plain loop that runs once a turn, so never optimised, and looked 60 columns each way from
+  every column for the rims. The count now uses `indexOf` and stops at the cap, the rims come from
+  one pass each way. Under 5 ms.
+- **The shockwave ring** scanned the whole bounding box of the wave for a band a few cells wide;
+  it now walks only the part of each row the band can cross (41 ms to 15 ms over a strike).
+- **Still there:** one tick of 40 to 50 ms when the beam lands (a radius 200 crater in one go) and
+  one of 30 to 45 ms for the collapse check after a blast that wide (`supportPass` over most of
+  the map). Each is now a single long frame, not a run of them.
+- **The uneven seconds after the blast** (frames of 33 to 50 ms with almost no CPU work) are on
+  the GPU side, and Chrome on Android has no GPU timer. The recorder now measures there too:
+  `GpuSampler` brackets one part of every sixth frame with `gl.finish()`, so the next log names
+  the part.

@@ -89,9 +89,13 @@ function ring(api: SimApi, p: Params, c: OpCall, r0: number, r1: number): void {
 
   for (let y = Math.max(0, cy - r1); y <= Math.min(H - 1, cy + r1); y++) {
     const dy = y - cy;
+    // only the part of the row the band can cross (a cell of slack; the test below is exact)
+    const out = Math.min(r1, Math.floor(Math.sqrt(Math.max(0, r1s - dy * dy))) + 1);
+    const inn = Math.max(0, Math.floor(Math.sqrt(Math.max(0, r0s - dy * dy))) - 1);
     for (let hh = 0; hh < 2; hh++) {
       const xs = hh === 0 ? 1 : -1;
-      for (let x = hh === 0 ? cx - r1 : cx + r1; hh === 0 ? x < cx : x >= cx; x += xs) {
+      const last = hh === 0 ? Math.min(cx - 1, cx - inn) : Math.max(cx, cx + inn);
+      for (let x = hh === 0 ? cx - out : cx + out; hh === 0 ? x <= last : x >= last; x += xs) {
         if (x < 0 || x >= W) continue;
         const dx = x - cx;
         const d2 = dx * dx + dy * dy;

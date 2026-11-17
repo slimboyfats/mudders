@@ -5,7 +5,7 @@ import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
-import { HudStore, type SimMatch } from '../game/match';
+import { HudStore, SIM_BUDGET_MS, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import { PerfRecorder, perfFileName, stallDetail, type PerfContext } from '../game/perf-log';
 import type { Settings } from '../game/settings';
@@ -99,7 +99,11 @@ export function MatchView({
         kernel: KERNEL_VERSION,
         browser: navigator.userAgent,
         gpu: rp?.device() ?? 'unknown',
-        'gpu timer': timed ? 'offered by this browser' : 'not offered by this browser',
+        'gpu timer': !timed
+          ? 'not offered by this browser'
+          : rp?.gpuSampled()
+            ? 'not offered by this browser; sampled instead (one part of every sixth frame, rough)'
+            : 'offered by this browser',
         cores: navigator.hardwareConcurrency,
         memory: mem === undefined ? 'unknown' : `${mem} GB`,
         screen: `${screen.width}x${screen.height} at ${window.devicePixelRatio}x`,
@@ -274,6 +278,7 @@ export function MatchView({
     };
     let recFrame: (() => void) | null = null;
     let probing = false;
+    match.limitFrame(SIM_BUDGET_MS);
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;

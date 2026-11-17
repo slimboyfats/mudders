@@ -77,11 +77,17 @@ export class HostMatch extends SimMatch {
 
   advance(dtMs: number): number {
     this.acc += Math.min(dtMs, STEP_MS * MAX_STEPS);
+    const t0 = this.frameBudgetMs < Infinity ? performance.now() : 0;
     let n = 0;
     while (this.acc >= STEP_MS && n < MAX_STEPS) {
       this.stepOnce();
       this.acc -= STEP_MS;
       n++;
+      if (this.acc >= STEP_MS && performance.now() - t0 > this.frameBudgetMs) {
+        this.acc %= STEP_MS; // out of time: the game runs a little slow instead of the picture freezing
+        this.shed++;
+        break;
+      }
     }
     return this.world.tick + this.acc / STEP_MS;
   }
@@ -281,8 +287,18 @@ export class GuestMatch extends SimMatch {
     if (this.lag > CATCHUP_LAG) budget = Math.min(this.lag, CATCHUP_MAX);
     const steps = Math.min(budget, this.lag);
     this.starved += budget - steps;
-    for (let i = 0; i < steps; i++) this.stepOnce();
-    this.acc -= steps * STEP_MS;
+    // out of time for this frame: the rest waits (a guest may not skip ticks, it catches up later)
+    const t0 = this.frameBudgetMs < Infinity ? performance.now() : 0;
+    let done = 0;
+    while (done < steps) {
+      this.stepOnce();
+      done++;
+      if (done < steps && performance.now() - t0 > this.frameBudgetMs) {
+        this.shed++;
+        break;
+      }
+    }
+    this.acc -= done * STEP_MS;
     // starved (waiting for the host): don't bank time to burst through later
     if (this.acc > STEP_MS) this.acc = STEP_MS;
     if (this.acc < 0) this.acc = 0;
