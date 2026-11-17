@@ -4,7 +4,7 @@ import { resolveContent } from './content/resolve';
 import { FP } from './fixed';
 import { makeReplay, playReplay, runInputs } from './replay';
 import { ScenarioDriver } from './scenario';
-import { START_POWER, TANK_H, World, type Tank, type WorldOptions } from './world';
+import { START_POWER, STEP_PARTS, TANK_H, World, type Tank, type WorldOptions } from './world';
 
 const content = fixtureContent();
 const make = (o: Partial<WorldOptions> = {}) =>
@@ -206,6 +206,30 @@ describe('inputs and turns', () => {
     }
     expect(w.phase).toBe('over');
     expect(w.turn).toBe(6);
+  });
+});
+
+describe('diagnostics', () => {
+  it('says what the turn waits on and reports each part of a tick, without changing the result', () => {
+    const plain = make();
+    const w = make();
+    const seen: number[] = [];
+    w.probe = (part) => seen.push(part);
+    expect(w.holding()).toBe('player aiming');
+    for (const x of [plain, w]) {
+      x.applyInput(0, { type: 'aim', angle: 60, power: 500 });
+      x.applyInput(0, { type: 'fire' });
+      x.step();
+    }
+    expect(w.phase).toBe('resolve');
+    expect(w.holding()).toContain('shells');
+    // every tick opens with -1 and closes with the last part, in order
+    expect(seen[0]).toBe(-1);
+    expect(seen[seen.length - 1]).toBe(STEP_PARTS.length - 1);
+    expect(seen.slice(1)).toEqual([...seen.slice(1)].sort((a, b) => a - b));
+    plain.run(400);
+    w.run(400);
+    expect(w.hash()).toBe(plain.hash());
   });
 });
 

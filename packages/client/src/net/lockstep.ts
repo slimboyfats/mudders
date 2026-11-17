@@ -105,6 +105,10 @@ export class HostMatch extends SimMatch {
     if (this.outgoing.length > 0 || now % FLUSH_EVERY === 0) this.flush();
   }
 
+  override net(): string {
+    return `host guests=${this.guests.size} resyncs=${this.desyncs}`;
+  }
+
   /** Send stamped inputs and the new permit to every connected guest. */
   flush(): void {
     const msg: PeerMessage = { type: 'tick', upTo: this.world.tick, inputs: this.outgoing };
@@ -192,6 +196,17 @@ export class GuestMatch extends SimMatch {
     this.load(start, false);
   }
 
+  /** Since `net` was last read: ticks this guest was due to simulate but had no permit for yet
+   * (waiting for the host), and the most ticks it has been behind its permit. */
+  private starved = 0;
+  private behind = 0;
+
+  override net(): string {
+    const out = `guest starved=${this.starved} behind=${this.behind} rebuilds=${this.rebuilds}`;
+    this.behind = this.starved = 0;
+    return out;
+  }
+
   /** Ticks the host has permitted that this guest has not simulated yet. */
   get lag(): number {
     return this.upTo - this.world.tick;
@@ -201,6 +216,7 @@ export class GuestMatch extends SimMatch {
   load(start: PeerStart, rebuild = true): void {
     if (rebuild) {
       this.world = new World(this.content, netWorldOptions(start));
+      this.world.probe = this.partProbe;
       this.start = { seed: start.seed, setup: start.setup, mode: start.mode };
       this.rebuilds++;
     }
@@ -261,8 +277,10 @@ export class GuestMatch extends SimMatch {
     this.acc += Math.min(dtMs, STEP_MS * MAX_STEPS);
     let budget = Math.floor(this.acc / STEP_MS);
     if (budget > MAX_STEPS) budget = MAX_STEPS;
+    if (this.lag > this.behind) this.behind = this.lag;
     if (this.lag > CATCHUP_LAG) budget = Math.min(this.lag, CATCHUP_MAX);
     const steps = Math.min(budget, this.lag);
+    this.starved += budget - steps;
     for (let i = 0; i < steps; i++) this.stepOnce();
     this.acc -= steps * STEP_MS;
     // starved (waiting for the host): don't bank time to burst through later

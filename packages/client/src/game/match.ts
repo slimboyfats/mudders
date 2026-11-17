@@ -263,6 +263,19 @@ export abstract class SimMatch implements SnapshotStream {
   /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
   abstract advance(dtMs: number): number;
 
+  protected partProbe: ((part: number) => void) | null = null;
+
+  /** Time the sim by part of the tick (the kernel's `World.probe`), or stop with null. */
+  timeParts(probe: ((part: number) => void) | null): void {
+    this.partProbe = probe;
+    this.world.probe = probe;
+  }
+
+  /** Online: this side's standing with the other, for the performance log ('' = local). */
+  net(): string {
+    return '';
+  }
+
   hud(): HudState {
     const w = this.world;
     const last = w.results[w.results.length - 1];

@@ -98,6 +98,8 @@ interface OverlayProps {
   log: PerfLog | null;
   onRecord: () => void;
   onStop: () => void;
+  /** The player says it feels slow right now. */
+  onMark: () => void;
   onDismiss: () => void;
 }
 
@@ -107,9 +109,11 @@ export function PerfOverlay({
   log,
   onRecord,
   onStop,
+  onMark,
   onDismiss,
 }: OverlayProps) {
   const [copied, setCopied] = useState(false);
+  const [marks, setMarks] = useState(0);
   const canShare = log !== null && (navigator.canShare?.({ files: [logFile(log)] }) ?? false);
   return (
     // the buttons must not aim the tank or pan the map underneath
@@ -133,13 +137,25 @@ export function PerfOverlay({
       <Row label="longest frame ms" value={f(s.worstFrame)} budget={s.worstFrame <= 34} />
       <div className="perf-rec">
         {recording !== null ? (
-          <button onClick={onStop} data-testid="perf-stop">
-            Stop and save · {clock(recording)}
-          </button>
+          <>
+            <button onClick={onStop} data-testid="perf-stop">
+              Stop and save · {clock(recording)}
+            </button>
+            <button
+              onClick={() => {
+                setMarks((n) => n + 1);
+                onMark();
+              }}
+              data-testid="perf-mark"
+            >
+              Slow now{marks > 0 ? ` · ${marks}` : ''}
+            </button>
+          </>
         ) : (
           <button
             onClick={() => {
               setCopied(false);
+              setMarks(0);
               onRecord();
             }}
             data-testid="perf-record"
