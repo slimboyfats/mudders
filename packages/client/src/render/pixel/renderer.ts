@@ -254,6 +254,8 @@ export class PixelRenderer implements Renderer {
   private gl!: WebGL2RenderingContext;
   private canvas!: HTMLCanvasElement;
   private unsubscribe: (() => void) | undefined;
+  /** Whether the shaders a first shot needs have been drawn with once (see `warmUp`). */
+  private warmed = false;
   /** Performance recorder: GPU time by part of the frame, CPU time of the per-tick work. */
   private gpu: GpuTimer | null = null;
   private perfOn = false;
@@ -2548,6 +2550,7 @@ export class PixelRenderer implements Renderer {
 
     const gpu = this.gpu;
     gpu?.begin(GPU_PREP);
+    if (!this.warmed) this.warmUp(W, H);
     this.shadeTerrain();
     this.paintScenery((W / 2 - ox) / scale, (H / 2 - oy) / scale);
     this.fluid.update(this.terrainTex);
@@ -2786,6 +2789,33 @@ export class PixelRenderer implements Renderer {
     }
     gl.bindVertexArray(null);
     gpu?.frameEnd();
+  }
+
+  /**
+   * Before the first frame: draw once with the shaders that otherwise see their first use on the
+   * match's first shot (the smoke field's passes, the post pass). A phone's GPU driver finishes
+   * building a shader on its first draw, which held that frame for 150 ms on an Adreno 740. Here
+   * it happens while the match is still loading. Nothing drawn here stays: the smoke field is
+   * wiped again, and the post pass draws one pixel the frame then paints over.
+   */
+  private warmUp(W: number, H: number): void {
+    this.warmed = true;
+    const gl = this.gl;
+    this.fluid.warm(this.terrainTex);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, W, H);
+    gl.enable(gl.SCISSOR_TEST);
+    gl.scissor(0, 0, 1, 1);
+    gl.bindVertexArray(this.emptyVao);
+    gl.useProgram(this.postProg);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sceneTex);
+    gl.uniform1i(this.uPost.u_scene, 0);
+    gl.uniform2f(this.uPost.u_view, W, H);
+    gl.uniform1i(this.uPost.u_rippleCount, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindVertexArray(null);
   }
 
   /**
