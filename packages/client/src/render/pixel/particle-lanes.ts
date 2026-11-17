@@ -13,9 +13,16 @@
 
 /** A particle goes in the first lane whose bound its lifetime (ticks) is under; the last lane takes the rest. */
 export const LANE_BOUNDS = [64, 256, 1024] as const;
-const LANES = LANE_BOUNDS.length + 1;
+/**
+ * After the lifetime lanes comes one more, for the weather alone. Rain and snow fall all match
+ * long, and in a shared lane a big blast's smoke filled it and pushed the drops out a moment
+ * after they were born: the rain stopped in mid-air and stood as a fringe along the top of the
+ * map until the smoke had gone.
+ */
+const WEATHER = LANE_BOUNDS.length + 1;
+const LANES = WEATHER + 1;
 /** Each lane's share of the engine's capacity, in eighths (they add up to more than one whole). */
-const LANE_EIGHTHS = [4, 4, 2, 1] as const;
+const LANE_EIGHTHS = [4, 4, 2, 1, 1] as const;
 
 export class ParticleLanes {
   /** Slots in all lanes together (the size of the GPU buffers). */
@@ -55,10 +62,14 @@ export class ParticleLanes {
     return this.total;
   }
 
-  /** Take the slot for a particle born at `tick` that lives `life` ticks; a full lane overwrites its oldest. */
-  put(tick: number, life: number): number {
+  /**
+   * Take the slot for a particle born at `tick` that lives `life` ticks; a full lane overwrites
+   * its oldest. `weather` (rain, snow) goes in the lane kept for it.
+   */
+  put(tick: number, life: number, weather = false): number {
     let l = 0;
-    while (l < LANE_BOUNDS.length && life >= LANE_BOUNDS[l]!) l++;
+    if (weather) l = WEATHER;
+    else while (l < LANE_BOUNDS.length && life >= LANE_BOUNDS[l]!) l++;
     const size = this.size[l]!;
     const h = this.head[l]!;
     const next = h + 1 === size ? 0 : h + 1;
@@ -100,8 +111,9 @@ export class ParticleLanes {
   }
 
   /**
-   * The live windows as [first slot, length] pairs, the longest-lived lane first: drawn in this
-   * order, weather and smoke lie behind sparks and flame. Valid until the next call.
+   * The live windows as [first slot, length] pairs, the weather first and then the longest-lived
+   * lane first: drawn in this order, weather and smoke lie behind sparks and flame. Valid until
+   * the next call.
    */
   segments(): readonly number[] {
     const out = this.segs;

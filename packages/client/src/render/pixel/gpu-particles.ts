@@ -1068,7 +1068,7 @@ export class GpuParticles implements ParticleSink {
     kind: number,
     color: number,
   ): void {
-    const i = this.lanes.put(this.tick, life);
+    const i = this.lanes.put(this.tick, life, kind === PKind.Rain || kind === PKind.Flake);
     const o = i * 4;
     this.dyn[o] = x;
     this.dyn[o + 1] = y;

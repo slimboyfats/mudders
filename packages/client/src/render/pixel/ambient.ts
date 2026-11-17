@@ -86,9 +86,14 @@ export function emitWeather(
   wind: number,
   probe: AmbientProbe,
   mult: number,
+  above = 0,
 ): void {
   const a = theme.ambient;
   if ((a.kind !== 'rain' && a.kind !== 'snow') || a.density <= 0) return;
+  // `above`: cells of sky on screen over the top of the map (a phone held upright, or zoomed
+  // out). The weather starts that much higher and lives that much longer, so it comes down from
+  // the top of the screen instead of beginning at a line where the map starts.
+  const up = Math.max(0, Math.min(above, probe.height * 3));
   const W = probe.width;
   const H = probe.height;
   const rain = a.kind === 'rain';
@@ -99,7 +104,7 @@ export function emitWeather(
   let n = Math.floor(perTick);
   if (h01(t, 977) < perTick - n) n++;
   const lean = Math.max(-1.5, Math.min(1.5, wind * 120));
-  const margin = Math.abs(lean) * H * 0.4 + 10;
+  const margin = Math.abs(lean) * (H + up) * 0.4 + 10;
   for (let i = 0; i < n; i++) {
     const r0 = h01(t * 131 + i, 1);
     const r1 = h01(t * 131 + i, 2);
@@ -108,10 +113,10 @@ export function emitWeather(
     if (rain) {
       sink.add({
         x,
-        y: -2 - r1 * 6,
+        y: -2 - r1 * 6 - up,
         vx: lean * 0.9,
         vy: 4 + r2 * 2,
-        life: H / 4 + 60,
+        life: (H + up) / 4 + 60,
         size: 1,
         color: a.color,
         kind: PKind.Rain,
@@ -119,10 +124,10 @@ export function emitWeather(
     } else {
       sink.add({
         x,
-        y: -2 - r1 * 6,
+        y: -2 - r1 * 6 - up,
         vx: lean * 0.3 + (r2 - 0.5) * 0.3,
         vy: 0.45 + r2 * 0.4,
-        life: H / 0.55 + 120 + r1 * 200,
+        life: (H + up) / 0.55 + 120 + r1 * 200,
         size: r2 > 0.7 ? 2 : 1,
         color: a.color,
         kind: PKind.Flake,

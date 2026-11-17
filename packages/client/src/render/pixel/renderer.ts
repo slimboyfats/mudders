@@ -2125,7 +2125,17 @@ export class PixelRenderer implements Renderer {
     this.skirts.prune(this.fxTick);
     this.steam.tick(this.fxTick, this.steamWater, this.particles, this.fx.mult);
     this.steam.prune(this.fxTick);
-    emitWeather(this.particles, this.theme, this.fxTick, this.wind, this.probe, this.fx.mult);
+    // sky on screen above the map, in cells: the weather starts up there
+    const skyAbove = Math.max(0, Math.ceil(-this.camera.unproject({ x: 0, y: 0 }).y));
+    emitWeather(
+      this.particles,
+      this.theme,
+      this.fxTick,
+      this.wind,
+      this.probe,
+      this.fx.mult,
+      skyAbove,
+    );
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
     this.wall.tick(this.fxTick);
