@@ -17,7 +17,7 @@ import type {
   Vec2,
 } from '../types';
 import { GPU_PARTS, type RenderPerf } from '../types';
-import { GpuTimer } from './gpu-timer';
+import { type GpuClock, GpuSampler, GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
@@ -257,7 +257,8 @@ export class PixelRenderer implements Renderer {
   /** Whether the shaders a first shot needs have been drawn with once (see `warmUp`). */
   private warmed = false;
   /** Performance recorder: GPU time by part of the frame, CPU time of the per-tick work. */
-  private gpu: GpuTimer | null = null;
+  private gpu: GpuClock | null = null;
+  private gpuSampled = false;
   private perfOn = false;
   private pushCpu = 0;
   readonly perf: RenderPerf = {
@@ -267,6 +268,7 @@ export class PixelRenderer implements Renderer {
     },
     pushMs: () => this.pushCpu,
     takeGpu: () => this.gpu?.take() ?? null,
+    gpuSampled: () => this.gpuSampled,
     particles: () => this.particles.n,
     device: () => {
       const gl = this.gl;
@@ -986,7 +988,9 @@ export class PixelRenderer implements Renderer {
     this.additive = new QuadBatch(gl);
     this.setQuality(options.quality);
 
-    this.gpu = new GpuTimer(gl, GPU_PARTS.length);
+    const timer = new GpuTimer(gl, GPU_PARTS.length);
+    this.gpuSampled = !timer.available;
+    this.gpu = timer.available ? timer : new GpuSampler(gl, GPU_PARTS.length);
     this.unsubscribe = snapshots.subscribe((s) => {
       if (!this.perfOn) return this.push(s);
       const t0 = performance.now();

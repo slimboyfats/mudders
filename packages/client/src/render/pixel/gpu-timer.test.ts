@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GpuTimer } from './gpu-timer';
+import { GpuSampler, GpuTimer, SAMPLE_EVERY } from './gpu-timer';
 
 const TIME = 0x88bf;
 const DISJOINT = 0x8fbb;
@@ -100,5 +100,56 @@ describe('GpuTimer', () => {
     }
     t.dispose();
     expect(state.deleted).toBeLessThanOrEqual(66);
+  });
+});
+
+describe('GpuSampler', () => {
+  /** A GPU whose queued work takes `cost[part]` ms to finish; time only passes inside finish. */
+  function rig(cost: number[]) {
+    let clock = 0;
+    let owed = 0;
+    let finishes = 0;
+    const gl = {
+      finish: () => {
+        clock += owed;
+        owed = 0;
+        finishes++;
+      },
+    } as unknown as WebGL2RenderingContext;
+    const s = new GpuSampler(gl, cost.length, () => clock);
+    const frame = () => {
+      for (let p = 0; p < cost.length; p++) {
+        s.begin(p);
+        owed += cost[p] ?? 0;
+      }
+      s.frameEnd();
+    };
+    return { s, frame, finishes: () => finishes };
+  }
+
+  it('measures one part of one frame in turn and leaves the other frames alone', () => {
+    const { s, frame, finishes } = rig([2, 12, 5]);
+    expect(s.enable(true)).toBe(true);
+    for (let i = 0; i < SAMPLE_EVERY; i++) frame();
+    expect(finishes()).toBe(0);
+    expect(s.take()).toBeNull();
+    frame(); // measures part 0
+    expect(finishes()).toBe(2);
+    for (let i = 0; i < SAMPLE_EVERY * 2; i++) frame();
+    expect(finishes()).toBe(6);
+    expect(s.take()).toEqual([2, 12, 5]);
+  });
+
+  it('keeps the last value of a part not measured since, and is silent when off', () => {
+    const { s, frame, finishes } = rig([3, 4]);
+    frame();
+    expect(finishes()).toBe(0);
+    s.enable(true);
+    for (let i = 0; i < SAMPLE_EVERY * 2 + 1; i++) frame();
+    expect(s.take()).toEqual([3, 4]);
+    for (let i = 0; i < SAMPLE_EVERY; i++) frame();
+    expect(s.take()).toEqual([3, 4]);
+    s.enable(false);
+    expect(s.take()).toBeNull();
   });
 });

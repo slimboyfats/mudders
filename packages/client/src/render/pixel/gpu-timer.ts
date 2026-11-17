@@ -15,7 +15,7 @@ interface TimerExt {
 /** Queries waiting for a result past this many are dropped (a GPU that never answers). */
 const MAX_PENDING = 64;
 
-export class GpuTimer {
+export class GpuTimer implements GpuClock {
   private readonly ext: TimerExt | null;
   private readonly pool: WebGLQuery[] = [];
   private readonly pendQ: WebGLQuery[] = [];
@@ -114,5 +114,114 @@ export class GpuTimer {
     for (const q of this.pool) this.gl.deleteQuery(q);
     for (const q of this.pendQ) this.gl.deleteQuery(q);
     this.pool.length = this.pendQ.length = this.pendPart.length = 0;
+  }
+}
+
+/** What the renderer needs from either way of timing the GPU. */
+export interface GpuClock {
+  enable(on: boolean): boolean;
+  begin(part: number): void;
+  end(): void;
+  frameEnd(): void;
+  take(): number[] | null;
+  dispose(): void;
+}
+
+/** One frame in this many is measured by {@link GpuSampler}. */
+export const SAMPLE_EVERY = 6;
+
+/**
+ * GPU time per part where the browser has no timer query (Chrome on Android): now and then one
+ * part of one frame is bracketed with `gl.finish()`, which waits until the GPU has really done
+ * the work, and the wall time between the two is that part's cost. Each measured frame takes
+ * one part, in turn, so the two waits cost that frame a little and the others nothing. Rougher
+ * than a timer query (it also counts the wait for the GPU process), but it tells a 2 ms part
+ * from a 12 ms one, which is what the log is for.
+ */
+export class GpuSampler implements GpuClock {
+  private readonly sums: number[];
+  private readonly counts: number[];
+  private readonly last: number[];
+  private on = false;
+  private frame = 0;
+  /** The part this frame measures, or -1. */
+  private target = -1;
+  private next = 0;
+  private open = false;
+  private hit = false;
+  private t0 = 0;
+  private acc = 0;
+  private seen = false;
+
+  constructor(
+    private readonly gl: WebGL2RenderingContext,
+    private readonly parts: number,
+    private readonly now: () => number = () => performance.now(),
+  ) {
+    this.sums = new Array<number>(parts).fill(0);
+    this.counts = new Array<number>(parts).fill(0);
+    this.last = new Array<number>(parts).fill(0);
+  }
+
+  enable(on: boolean): boolean {
+    this.end();
+    this.on = on;
+    this.sums.fill(0);
+    this.counts.fill(0);
+    this.last.fill(0);
+    this.frame = this.next = this.acc = 0;
+    this.target = -1;
+    this.hit = this.seen = false;
+    return true;
+  }
+
+  begin(part: number): void {
+    if (!this.on) return;
+    this.end();
+    if (part !== this.target) return;
+    this.gl.finish(); // what came before is not this part's
+    this.t0 = this.now();
+    this.open = true;
+  }
+
+  end(): void {
+    if (!this.open) return;
+    this.gl.finish();
+    this.acc += this.now() - this.t0;
+    this.open = false;
+    this.hit = true;
+  }
+
+  frameEnd(): void {
+    if (!this.on) return;
+    this.end();
+    if (this.hit) {
+      const p = this.target;
+      this.sums[p] = this.sums[p]! + this.acc;
+      this.counts[p] = this.counts[p]! + 1;
+      this.seen = true;
+    }
+    this.acc = 0;
+    this.hit = false;
+    this.frame++;
+    if (this.frame % SAMPLE_EVERY === 0) {
+      this.target = this.next;
+      this.next = (this.next + 1) % this.parts;
+    } else this.target = -1;
+  }
+
+  /** Each part's latest measured cost, ms a frame (a part not measured since keeps its last). */
+  take(): number[] | null {
+    if (!this.on || !this.seen) return null;
+    for (let i = 0; i < this.parts; i++) {
+      if (this.counts[i]! > 0) this.last[i] = this.sums[i]! / this.counts[i]!;
+    }
+    this.sums.fill(0);
+    this.counts.fill(0);
+    return this.last.slice();
+  }
+
+  dispose(): void {
+    this.open = false;
   }
 }

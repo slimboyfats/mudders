@@ -45,20 +45,34 @@ export default defineWeather<z.infer<typeof params>>({
     const surf = new Int32Array(W);
     for (let x = 0; x < W; x++) surf[x] = g.surfaceY(x);
 
-    let wet = 0;
-    for (let i = 0; i < m.length; i++) if (m[i] === water) wet++;
+    // the count only matters up to the cap; `indexOf` scans at native speed (this runs once a
+    // turn, so a plain loop over the whole map would run unoptimised and cost a frame or two)
     const cap = Math.trunc((p.maxWater * W) / 100);
+    let wet = 0;
+    for (let i = m.indexOf(water); i !== -1 && wet < cap; i = m.indexOf(water, i + 1)) wet++;
+
+    // The lowest row in every window of `reach` columns, in one pass each way: `fore[j]` is the
+    // minimum from the start of j's block up to j, `back[j]` from j to the end of its block, so a
+    // window starting at s is min(back[s], fore[s + reach - 1]). Columns off the map count as H.
+    const k = p.reach;
+    const n = W + 2 * k;
+    const fore = new Int32Array(n);
+    const back = new Int32Array(n);
+    for (let j = 0; j < n; j++) {
+      const v = j >= k && j < k + W ? surf[j - k]! : H;
+      fore[j] = j % k === 0 ? v : Math.min(fore[j - 1]!, v);
+    }
+    for (let j = n - 1; j >= 0; j--) {
+      const v = j >= k && j < k + W ? surf[j - k]! : H;
+      back[j] = j % k === k - 1 || j === n - 1 ? v : Math.min(back[j + 1]!, v);
+    }
 
     for (let x = 0; x < W; x++) {
       const top = surf[x]!;
       if (top >= H || top <= 0) continue;
       // highest ground (smallest row) within reach on each side: the puddle's rims
-      let left = H;
-      let right = H;
-      for (let d = 1; d <= p.reach; d++) {
-        if (x - d >= 0) left = Math.min(left, surf[x - d]!);
-        if (x + d < W) right = Math.min(right, surf[x + d]!);
-      }
+      const left = Math.min(back[x]!, fore[x + k - 1]!);
+      const right = Math.min(back[x + k + 1]!, fore[x + 2 * k]!);
       const level = Math.max(left, right);
       if (top <= level) continue; // not below both rims: the rain runs off
       // soak: walk down through the mud already there, the first dirt below may turn

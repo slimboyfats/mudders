@@ -15,6 +15,8 @@ import { weaponPeak } from '../docs/data';
 export const STEP_MS = 1000 / TICK_RATE;
 /** Never simulate more than this many ticks per frame (tab switch, slow device): drop time instead. */
 export const MAX_STEPS = 8;
+/** What a frame may spend on the sim before it must draw (see `SimMatch.limitFrame`). */
+export const SIM_BUDGET_MS = 10;
 
 export interface HudTank {
   player: number;
@@ -263,6 +265,19 @@ export abstract class SimMatch implements SnapshotStream {
   /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
   abstract advance(dtMs: number): number;
 
+  /**
+   * The longest one frame may spend simulating before it draws, in ms (Infinity = no limit, for
+   * tests and headless runs). Past it a local match or host drops the ticks it still owes, so a
+   * heavy moment plays a little slow at a steady frame rate instead of freezing while it catches up.
+   */
+  protected frameBudgetMs = Infinity;
+  /** Frames that ran out of budget. */
+  shed = 0;
+
+  limitFrame(ms: number): void {
+    this.frameBudgetMs = ms;
+  }
+
   protected partProbe: ((part: number) => void) | null = null;
 
   /** Time the sim by part of the tick (the kernel's `World.probe`), or stop with null. */
@@ -390,11 +405,17 @@ export class LocalMatch extends SimMatch {
 
   advance(dtMs: number): number {
     this.acc += Math.min(dtMs, STEP_MS * MAX_STEPS);
+    const t0 = this.frameBudgetMs < Infinity ? performance.now() : 0;
     let n = 0;
     while (this.acc >= STEP_MS && n < MAX_STEPS) {
       this.stepOnce();
       this.acc -= STEP_MS;
       n++;
+      if (this.acc >= STEP_MS && performance.now() - t0 > this.frameBudgetMs) {
+        this.acc %= STEP_MS; // out of time: the game runs a little slow instead of the picture freezing
+        this.shed++;
+        break;
+      }
     }
     return this.world.tick + this.acc / STEP_MS;
   }
