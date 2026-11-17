@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
+import { KERNEL_VERSION } from '@mudders/sim';
 import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
+import { PerfRecorder, perfFileName, type PerfContext } from '../game/perf-log';
 import type { Settings } from '../game/settings';
 import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { HitStop } from '../render/impact';
 import { PLAYER_COLORS } from '../render/pixel/theme';
-import { PerfMeter, PerfOverlay, type PerfStats } from './Perf';
+import { PerfMeter, PerfOverlay, saveText, type PerfLog, type PerfStats } from './Perf';
 import { Hud } from './Hud';
 import { PlayerMarkers, measureInsets, type MarkerTank } from './markers';
 
@@ -80,6 +82,45 @@ export function MatchView({
   useEffect(() => {
     perfOn.current = settings.perfHud;
   }, [settings.perfHud]);
+  // performance recorder: Record in the overlay starts it, Stop saves the log as a text file
+  const recRef = useRef<PerfRecorder | null>(null);
+  // seconds recorded so far, or null when not recording
+  const [recording, setRecording] = useState<number | null>(null);
+  const [perfLog, setPerfLog] = useState<PerfLog | null>(null);
+  const startRec = useCallback(() => {
+    const w = match.world;
+    const c = canvasRef.current;
+    const rp = rendererRef.current?.perf;
+    const timed = rp?.enable(true) ?? false;
+    const mem = (navigator as { deviceMemory?: number }).deviceMemory;
+    recRef.current = new PerfRecorder({
+      when: new Date().toISOString(),
+      kernel: KERNEL_VERSION,
+      browser: navigator.userAgent,
+      gpu: rp?.device() ?? 'unknown',
+      'gpu timer': timed ? 'offered by this browser' : 'not offered by this browser',
+      cores: navigator.hardwareConcurrency,
+      memory: mem === undefined ? 'unknown' : `${mem} GB`,
+      screen: `${screen.width}x${screen.height} at ${window.devicePixelRatio}x`,
+      canvas: c ? `${c.width}x${c.height}` : 'unknown',
+      quality: `${settings.quality}${settings.autoQuality ? ' (steps down by itself)' : ''}`,
+      map: `${w.grid.width}x${w.grid.height}`,
+      players: w.tanks.length,
+      bots: hudStore.get().tanks.filter((t) => t.bot).length,
+    });
+    setPerfLog(null);
+    setRecording(0);
+  }, [match, hudStore, settings.quality, settings.autoQuality]);
+  const stopRec = useCallback(() => {
+    const rec = recRef.current;
+    recRef.current = null;
+    rendererRef.current?.perf?.enable(false);
+    setRecording(null);
+    if (!rec) return;
+    const log = { name: perfFileName(new Date()), text: rec.report() };
+    saveText(log.name, log.text);
+    setPerfLog(log);
+  }, []);
   // slow-mo finisher (presentation only: it scales the time fed to the match, never the sim)
   const slowmoRef = useRef<SlowMo | null>(null);
   useEffect(() => {
@@ -136,7 +177,15 @@ export function MatchView({
     const slowmo = (slowmoRef.current ??= new SlowMo());
     // hit-stop (§2a): big hits hold the picture for a beat; off with screen shake
     const stop = new HitStop(settings.shake);
-    const unfeed = match.subscribe((s) => stop.feed(s));
+    // the weapon fired last, for the performance recorder's notes
+    const weapons = match.content.list('weapon');
+    let fired = '';
+    const unfeed = match.subscribe((s) => {
+      stop.feed(s);
+      for (const e of s.effectEvents) {
+        if (e.type === 'muzzle') fired = weapons[e.params.weapon ?? -1]?.id ?? '';
+      }
+    });
     // frames running long (a phone under a big blast): the quality steps down by itself
     const auto = settings.autoQuality ? new AutoQuality(settings.quality) : null;
     let quality = settings.quality;
@@ -145,6 +194,26 @@ export function MatchView({
     const markers = markersRef.current ? new PlayerMarkers(markersRef.current) : null;
     const marks: MarkerTank[] = [];
     let frames = 0;
+    const perfContext = (): PerfContext => {
+      const wd = match.world;
+      const g = wd.grid;
+      const twist = wd.options.perRound?.[wd.round % wd.options.perRound.length]?.twist;
+      return {
+        phase: wd.phase,
+        round: wd.round,
+        turn: wd.turn,
+        quality,
+        particles: rendererRef.current?.perf?.particles() ?? 0,
+        projectiles: wd.projectiles.length,
+        debris: wd.debris.count,
+        settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
+        react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
+        gpu: rendererRef.current?.perf?.takeGpu() ?? null,
+        note: [wd.generator, wd.weather?.id ?? 'clear', twist ?? '', fired]
+          .filter(Boolean)
+          .join(' '),
+      };
+    };
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
@@ -171,13 +240,24 @@ export function MatchView({
       const simDt = stop.take(wall) * scale;
       if (perfOn.current) {
         const tick0 = match.world.tick;
+        const step0 = r.perf?.pushMs() ?? 0;
         const t0 = performance.now();
         const at = match.advance(simDt);
         const t1 = performance.now();
         r.render(at, stop.held);
         const t2 = performance.now();
-        const stats = meter.frame(now, wall, match.world.tick - tick0, t1 - t0, t2 - t1);
-        if (stats) setPerf(stats);
+        const ticks = match.world.tick - tick0;
+        const stats = meter.frame(now, wall, ticks, t1 - t0, t2 - t1);
+        const rec = recRef.current;
+        if (stats) {
+          setPerf(stats);
+          if (rec) setRecording(rec.seconds);
+        }
+        if (rec) {
+          // the renderer takes each tick in as it is made, inside `advance`: split that off
+          const step = (r.perf?.pushMs() ?? 0) - step0;
+          rec.frame(now, wall, ticks, t1 - t0 - step, step, t2 - t1, perfContext);
+        }
       } else {
         r.render(match.advance(simDt), stop.held);
       }
@@ -205,7 +285,12 @@ export function MatchView({
           };
         }
         // the HUD can reflow (a player row wraps, the shop closes): re-measure now and then
-        if (frames++ % 30 === 0) markers.setInsets(measureInsets(wrap));
+        if (frames++ % 30 === 0) {
+          const insets = measureInsets(wrap);
+          markers.setInsets(insets);
+          // the performance overlay sits just above the controls
+          wrap.style.setProperty('--hud-bottom', `${Math.round(insets.bottom)}px`);
+        }
         const cell = r.camera.scale / renderDpr(quality, window.devicePixelRatio);
         markers.update(marks, (q) => r.project(q), cell, wrap.clientWidth, wrap.clientHeight);
       }
@@ -255,6 +340,8 @@ export function MatchView({
       ro?.disconnect();
       rendererRef.current?.unmount();
       rendererRef.current = null;
+      recRef.current = null;
+      setRecording(null);
       processSounds(null);
     };
   }, [
@@ -487,7 +574,16 @@ export function MatchView({
         >
           <canvas ref={canvasRef} className="game-canvas" />
           <div className="markers" ref={markersRef} aria-hidden="true" />
-          {settings.perfHud && perf && <PerfOverlay stats={perf} />}
+          {settings.perfHud && perf && (
+            <PerfOverlay
+              stats={perf}
+              recording={recording}
+              log={perfLog}
+              onRecord={startRec}
+              onStop={stopRec}
+              onDismiss={() => setPerfLog(null)}
+            />
+          )}
           <svg className="overlay" aria-hidden="true">
             {aimLine && anchor && (
               <>
