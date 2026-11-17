@@ -112,7 +112,7 @@ const CONTACT_SHARE = 4;
 const STAIN_EVERY = 4;
 /** Ticks after a blast that a tree it undermined still falls away from it. */
 const HIT_LINGER = 40;
-/** Longest a turn waits on flowing or reacting ground once everything else is still (4 s). */
+/** Longest a turn waits on a world that keeps moving once the shot's own action is over (4 s). */
 const FLOW_GRACE = 240;
 /** Ticks of nothing but ripples and a trickle after which the turn goes on. */
 const RIPPLE_TICKS = 30;
@@ -1646,45 +1646,64 @@ export class World implements SimApi {
   }
 
   /**
-   * Nothing but the ground itself is still moving: no projectiles, ops, pressure fronts, debris,
-   * toppling props, pending deaths or falling/slipping tanks. Terrain may still be settling or
-   * reacting (a lake draining through a crater, a fire burning down).
+   * The shot's own action is over: no projectiles, ops, pressure fronts, pending deaths, supply
+   * drops on their way down or falling tanks. These always hold the turn; each ends by itself.
    */
-  private get still(): boolean {
+  private get done(): boolean {
     return (
       this.projectiles.length === 0 &&
       this.ops.length === this.idleOps &&
       this.fronts.length === 0 &&
-      this.debris.count === 0 &&
-      !this.chunks.any &&
-      !this.groups.toppling &&
       this.pendingDeaths.length === 0 &&
       !(this.dropsOn && this.drops.moving) &&
-      !this.tanks.some((t) => t.falling || (t.alive && t.glue === 0 && this.slipDir(t) !== 0))
+      !this.tanks.some((t) => t.falling)
     );
   }
 
   /**
-   * Whether the shot is over. Normally that is `quiet`, but once everything else is still the
-   * turn waits at most FLOW_GRACE ticks for the ground: a breached lake can drain one cell at a
-   * time for minutes, and that water keeps running into the next turn, like gas does.
+   * Nothing but the ground itself is still moving: the shot is `done`, and no debris, falling
+   * rock, toppling props or slipping tanks are left. Terrain may still be settling or reacting
+   * (a lake draining through a crater, a fire burning down).
+   */
+  private get still(): boolean {
+    return (
+      this.done &&
+      this.debris.count === 0 &&
+      !this.chunks.any &&
+      !this.groups.toppling &&
+      !this.tanks.some((t) => t.alive && t.glue === 0 && this.slipDir(t) !== 0)
+    );
+  }
+
+  /**
+   * Whether the shot is over. Normally that is `quiet`. But a world that never comes to rest
+   * (a flood throwing spray, a hillside that keeps sliding, rock coming down piece by piece, a
+   * fire) must not hold the turn for ever: once the shot's own action is `done`, the turn waits
+   * at most FLOW_GRACE ticks for everything else, and what still moves then carries into the
+   * next turn, like gas does. Water gets less: nothing but liquid running holds a turn for
+   * WET_TICKS, and nothing but ripples for RIPPLE_TICKS.
    */
   private shotSettled(): boolean {
-    if (!this.still) {
+    if (!this.done) {
       this.rippleFor = 0;
       this.wetFor = 0;
       this.flowWait = 0;
       return false;
     }
-    if (!this.grid.settling && !this.grid.reacting) return true;
-    // open water that only ripples out, or the last trickle, doesn't hold the turn either
-    // once it has been no more than that for a while
-    this.rippleFor = this.grid.ripple && !this.grid.reacting ? this.rippleFor + 1 : 0;
-    if (this.rippleFor >= RIPPLE_TICKS) return true;
-    // water that only runs on (rain, a pool filling, a lake draining) carries into the next turn
     const g = this.grid;
-    this.wetFor = (!g.settling || g.wetOnly) && !(g.reacting && g.hot) ? this.wetFor + 1 : 0;
-    if (this.wetFor >= WET_TICKS) return true;
+    if (this.still) {
+      if (!g.settling && !g.reacting) return true;
+      // open water that only ripples out, or the last trickle, doesn't hold the turn either
+      // once it has been no more than that for a while
+      this.rippleFor = g.ripple && !g.reacting ? this.rippleFor + 1 : 0;
+      if (this.rippleFor >= RIPPLE_TICKS) return true;
+      // water that only runs on (rain, a pool filling, a lake draining) carries into the next turn
+      this.wetFor = (!g.settling || g.wetOnly) && !(g.reacting && g.hot) ? this.wetFor + 1 : 0;
+      if (this.wetFor >= WET_TICKS) return true;
+    } else {
+      this.rippleFor = 0;
+      this.wetFor = 0;
+    }
     return ++this.flowWait >= FLOW_GRACE;
   }
 
@@ -1825,7 +1844,7 @@ export class World implements SimApi {
         this.applyBurning();
         this.armMines();
       }
-      if (this.still) {
+      if (this.done) {
         this.rippleFor = 0;
         this.wetFor = 0;
         this.flowWait = 0;

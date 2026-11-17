@@ -71,7 +71,12 @@ Fixed 60 Hz. The client runs an accumulator so a 120 Hz display never speeds up 
 5. Step debris particles; landed debris becomes terrain.
 6. Settle + cohesion + reactions + decay, **only over the settle region**, bounded cells per tick.
 7. Tanks: support, falling, burial, contact effects, damage, death explosions (with kill attribution).
-8. When the shot has resolved (`quiet`), the next turn starts. `world.snapshot()` returns the render
+8. When the shot has resolved (`quiet`), the next turn starts. A world that never comes to rest
+   does not hold it for ever (kernel 0.61.0): the shot's own action always finishes (shells, ops,
+   pressure fronts, deaths, falling tanks), and after that the turn waits at most 4 s for whatever
+   else still moves (thrown earth, spray, falling rock, toppling trees, sliding ground, fire), 1 s
+   for nothing but running liquid and half a second for ripples. What still moves then carries
+   into the next turn, like gas does. `world.snapshot()` returns the render
    snapshot (terrain, coating, dirty rects, entities, debris, effect events) since the last call.
 
 Code map (`packages/sim/src`): `world.ts` (state + tick), `grid.ts` (layers, settle region, render
