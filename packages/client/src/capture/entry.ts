@@ -77,9 +77,9 @@ const api: CaptureApi = {
       preserveDrawingBuffer: true,
     });
     renderer.resize(init.cssWidth, init.cssHeight, init.dpr);
-    if (init.zoom && init.zoom > 0) {
+    if (init.zoom) {
       const c = init.center ?? { x: mapW / 2, y: mapH / 2 };
-      for (let i = 0; i < init.zoom; i++) renderer.camera.zoomBy(1);
+      for (let i = 0; i < Math.abs(init.zoom); i++) renderer.camera.zoomBy(Math.sign(init.zoom));
       const p = renderer.project(c);
       renderer.camera.pan(init.cssWidth / 2 - p.x, init.cssHeight / 2 - p.y);
     }

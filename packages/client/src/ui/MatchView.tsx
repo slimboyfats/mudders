@@ -56,6 +56,9 @@ interface PanDrag {
   vy: number;
 }
 
+/** A frame is not started sooner than this after the one before (see the frame loop). */
+const MIN_FRAME_MS = 10;
+
 export function MatchView({
   match,
   settings,
@@ -298,6 +301,12 @@ export function MatchView({
       const r = rendererRef.current;
       if (!r) return;
       raf = requestAnimationFrame(frame);
+      // Even pacing on a fast screen. At 120 Hz a frame that takes 10 ms misses every other
+      // refresh, and one that takes a little longer misses two: frames then land 8, 17 or 25 ms
+      // apart in no order, and steady motion (rain) stutters although nothing is slow. The sim
+      // ticks at 60 anyway, so a frame is never started sooner than MIN_FRAME_MS after the one
+      // before: every second refresh at 120 Hz, every refresh at 60 and 90.
+      if (last >= 0 && now - last < MIN_FRAME_MS) return;
       const wall = last < 0 ? 0 : now - last;
       last = now;
       const stepped = auto?.frame(wall);
