@@ -3884,3 +3884,37 @@ a.button {
   border-bottom-width: 6px;
   transform: rotate(var(--a)) translate(-10px, -6px);
 }
+
+/* Portrait phones: a seat with a bot holds four pickers, so it wraps onto a second line instead of
+   pushing the page wider than the screen (which made the whole setup zoom out). */
+@media (max-width: 639px), (max-aspect-ratio: 1/1) {
+  .setup.local .slot {
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .setup.local .slot-name {
+    flex: 1 0 auto;
+    white-space: nowrap;
+  }
+  .setup.local .slot select,
+  .setup.local .rules select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .setup.local .slot > select:first-of-type {
+    flex: 0 1 11em;
+  }
+  .setup.local .slot select.tank-pick,
+  .setup.local .slot select.skill-pick,
+  .setup.local .slot select.team-pick {
+    flex: 1 1 6em;
+  }
+  .setup.local .rules label {
+    gap: 8px;
+  }
+  .setup.local .rules label > select {
+    flex: 0 1 auto;
+  }
+}
