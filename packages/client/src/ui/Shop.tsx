@@ -279,6 +279,30 @@ export function Shop({ hud, controls, send }: ShopProps) {
           </div>
           {/* scores scroll together with the items, so a long table never hides them */}
           <div className="shop-main">
+            <div className="arsenal" aria-label="Your arsenal" data-testid="shop-arsenal">
+              <span className="scrub-label">You have</span>
+              {me.inventory
+                .filter((w) => w.count !== 0)
+                .map((w) => (
+                  <span
+                    key={w.id}
+                    className="arsenal-chip"
+                    style={{ '--cat': categoryColor(w.category) } as CSSProperties}
+                  >
+                    {w.name} <b>{w.count < 0 ? '∞' : w.count}</b>
+                  </span>
+                ))}
+              {me.gear
+                .filter((g) => g.count > 0)
+                .map((g) => (
+                  <span key={g.id} className="arsenal-chip gear">
+                    {g.name} <b>{g.count}</b>
+                  </span>
+                ))}
+              <span className="arsenal-chip fuel">
+                Fuel <b>{me.fuel}</b>
+              </span>
+            </div>
             {!opening && (
               <details className="shop-scores" open={hud.tanks.length <= 4}>
                 <summary>Scores</summary>
@@ -297,7 +321,7 @@ export function Shop({ hud, controls, send }: ShopProps) {
                   >
                     <b>Fuel Tank</b>
                     <span className="own">
-                      {me.fuel}/{hud.fuel.max}
+                      have {me.fuel} of {hud.fuel.max}
                     </span>
                   </button>
                   <p className={info === 'fuel' ? 'full' : ''}>
@@ -314,7 +338,13 @@ export function Shop({ hud, controls, send }: ShopProps) {
                     aria-label={`Buy ${hud.fuel.pack} fuel for ${hud.fuel.price}`}
                     data-testid="buy-fuel"
                   >
-                    <span>+{hud.fuel.pack}</span>
+                    <span>
+                      {me.fuel >= hud.fuel.max
+                        ? 'Full'
+                        : me.money < hud.fuel.price
+                          ? `Need ${money(hud.fuel.price - me.money)} more`
+                          : `Buy +${hud.fuel.pack}`}
+                    </span>
                     <span className="price">{money(hud.fuel.price)}</span>
                   </button>
                 </div>
@@ -324,13 +354,14 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 const have = owned(it.id);
                 const full = it.gear !== undefined && have >= it.gear.max;
                 const out = it.deal === 'out';
-                const can = !me.ready && have >= 0 && !full && !out && me.money >= it.price;
+                const poor = me.money < it.price;
+                const can = !me.ready && have >= 0 && !full && !out && !poor;
                 return (
                   <div
                     key={it.id}
                     className={`card${it.gear ? ' gear-card' : ''}${have !== 0 ? ' owned' : ''}${
                       out ? ' sold-out' : ''
-                    }`}
+                    }${poor && !full && !out ? ' poor' : ''}`}
                     style={{ '--cat': categoryColor(it.category) } as CSSProperties}
                   >
                     <button
@@ -345,17 +376,19 @@ export function Shop({ hud, controls, send }: ShopProps) {
                         {out && <span className="deal-badge out">Sold out</span>}
                       </b>
                       <span className="own">
-                        {have < 0 ? '∞' : it.gear ? `${have}/${it.gear.max}` : `×${have}`}
+                        {have < 0
+                          ? 'have ∞'
+                          : it.gear
+                            ? `have ${have} of ${it.gear.max}`
+                            : have > 0
+                              ? `have ${have}`
+                              : ''}
                       </span>
                     </button>
                     <p className={info === it.id ? 'full' : ''}>
                       <small className="cat">{categoryLabel(it.category)}</small>
-                      {sort === 'blast' && it.blast ? (
-                        <small className="stat"> · radius {it.blast}</small>
-                      ) : null}
-                      {sort === 'damage' && it.damage ? (
-                        <small className="stat"> · {it.damage} dmg</small>
-                      ) : null}{' '}
+                      {it.damage ? <small className="stat"> · {it.damage} dmg</small> : null}
+                      {it.blast ? <small className="stat"> · blast {it.blast}</small> : null}{' '}
                       {it.description}
                     </p>
                     <button
@@ -367,7 +400,15 @@ export function Shop({ hud, controls, send }: ShopProps) {
                       }}
                       aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
                     >
-                      <span>{out ? 'Sold out' : full ? 'Full' : `+${it.pack}`}</span>
+                      <span>
+                        {out
+                          ? 'Sold out'
+                          : full
+                            ? 'Full'
+                            : poor
+                              ? `Need ${money(it.price - me.money)} more`
+                              : `Buy +${it.pack}`}
+                      </span>
                       <span className="price">{money(it.price)}</span>
                     </button>
                   </div>
@@ -381,7 +422,8 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 ? 'Waiting for the others…'
                 : humans.length > 1
                   ? `P${me.player + 1} is shopping. Pass the device after Ready.`
-                  : 'Buy what you need, then Ready.'}
+                  : 'Buy what you need, then Ready.'}{' '}
+              Tap a name to read all about it.
             </span>
             <button
               className="primary ready"

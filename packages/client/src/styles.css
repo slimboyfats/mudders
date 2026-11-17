@@ -3918,3 +3918,224 @@ a.button {
     flex: 0 1 auto;
   }
 }
+
+/* ── HUD v3: the controls float over the map as see-through glass on every screen ──
+   Before, desktop and portrait phones had a solid dock under the map: the battlefield lost that
+   strip, and on a wide screen the aim pills sat at the far left and the weapon + FIRE at the far
+   right. Now the map runs to the bottom edge and the controls sit on it, grouped together.
+   No backdrop blur: blurring a WebGL canvas that redraws every frame costs the phone GPU a lot. */
+.controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  background: none;
+  border-top: 0;
+  pointer-events: none;
+}
+
+.controls::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 100%;
+  background: linear-gradient(rgb(0 0 0 / 0), rgb(0 0 0 / 0.3));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.controls > *,
+.controls .weapons > * {
+  pointer-events: auto;
+}
+
+.controls .weapons {
+  pointer-events: none;
+}
+
+.controls .aim .scrub,
+.controls .weapon-btn,
+.controls .drive-btn,
+.controls .gear-chip,
+.controls .weapons button {
+  background: rgb(20 14 10 / 0.62);
+  border-color: rgb(255 236 214 / 0.16);
+  backdrop-filter: none;
+}
+
+.controls .drive-left {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: rgb(14 10 8 / 0.55);
+  color: var(--fg);
+}
+
+.controls .fire:not(:disabled) {
+  opacity: 0.94;
+}
+
+.controls .frost-note,
+.controls .glue-note {
+  text-shadow: 0 1px 2px #000;
+}
+
+/* the weapon grid: also see-through, so you keep an eye on the map while picking */
+.weapon-pop {
+  background: rgb(18 13 10 / 0.86);
+  animation-duration: 0.08s;
+}
+
+.weapon-tile {
+  background: rgb(38 28 21 / 0.82);
+}
+
+/* Landscape screens taller than a phone (laptops, desktops, tablets): one compact row in the
+   middle, angle · power · drive · weapon · FIRE, with gear floating above the weapon button. */
+@media (min-aspect-ratio: 1/1) and (min-height: 461px) {
+  .controls {
+    justify-content: center;
+    align-items: flex-end;
+    gap: 8px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  .controls::before {
+    height: 96px;
+  }
+  .controls .aim {
+    position: relative;
+    flex-direction: row;
+    gap: 8px;
+  }
+  .controls .aim .frost-note,
+  .controls .aim .glue-note {
+    position: absolute;
+    left: 4px;
+    bottom: calc(100% + 6px);
+  }
+  .controls .aim .glue-note {
+    bottom: calc(100% + 24px);
+  }
+  .controls .weapons {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% - 4px);
+    transform: translateX(-50%);
+    flex: none;
+    overflow: visible;
+    justify-content: center;
+  }
+  .controls .weapons button,
+  .controls .weapons .gear-chip {
+    min-height: 40px;
+    min-width: 72px;
+    font-size: 0.8rem;
+  }
+  .controls .drive {
+    align-self: stretch;
+    align-items: center;
+  }
+  .controls .weapon-btn {
+    min-height: 52px;
+  }
+  .controls .fire {
+    min-height: 52px;
+    min-width: 112px;
+  }
+  /* the weapon grid opens centred above the row instead of off the right edge */
+  .controls .weapon-picker {
+    position: static;
+  }
+  .controls {
+    --pop-w: min(640px, calc(100vw - 24px));
+  }
+  .controls .weapon-pop {
+    left: calc(50% - var(--pop-w) / 2);
+    right: auto;
+    width: var(--pop-w);
+    bottom: calc(100% + 8px);
+  }
+}
+
+/* Portrait phones: the two-row dock now floats over the bottom of the map too */
+@media (max-aspect-ratio: 1/1) {
+  .controls::before {
+    height: calc(100% + 24px);
+  }
+}
+
+/* ── Shop v3: say what each button does, show what you already have ── */
+.arsenal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 6px max(12px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: #1a130f;
+  border: 1px solid #2e241c;
+  font-size: 0.78rem;
+}
+
+.arsenal .scrub-label {
+  margin-right: 2px;
+}
+
+.arsenal-chip {
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: #261c15;
+  box-shadow: inset 3px 0 0 var(--cat, #3f7f8c);
+  white-space: nowrap;
+}
+
+.arsenal-chip b {
+  color: #ffd27a;
+  font-variant-numeric: tabular-nums;
+}
+
+.arsenal-chip.fuel {
+  --cat: #c8a24a;
+}
+
+.shop .card.poor {
+  opacity: 0.6;
+}
+
+.shop .card.poor .buy {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.shop .card p .stat {
+  color: #ffd27a;
+  font-weight: 700;
+}
+
+.shop .buy:not(:disabled) {
+  background: linear-gradient(#5a3a20, #43301f);
+  border-color: #8a6440;
+}
+
+.shop .buy > span {
+  white-space: nowrap;
+}
+
+.shop .card.poor .buy > span:first-child {
+  font-size: 0.8rem;
+}
+
+/* too poor: the button says how much is missing instead of the price */
+.shop .card.poor .buy .price {
+  display: none;
+}
+
+/* landscape phones: the weapon sheet only grows as tall as its weapons, and stays see-through */
+@media (max-height: 460px) and (min-aspect-ratio: 1/1) {
+  .controls .weapon-pop {
+    top: auto;
+    max-height: calc(100% - 68px - env(safe-area-inset-top));
+    background: rgb(18 13 10 / 0.86);
+  }
+}

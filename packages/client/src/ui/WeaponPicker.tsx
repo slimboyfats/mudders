@@ -63,6 +63,8 @@ export function WeaponPicker({ inventory, selected, disabled, onSelect }: Props)
       wasOpen: open,
     };
     setMode(null);
+    // open on touch-down, not on release: the grid answers at once, and a slide up still picks
+    if (!open) setOpen(true);
   };
   const onMove = (e: PointerEvent<HTMLButtonElement>) => {
     const g = gesture.current;
@@ -73,7 +75,6 @@ export function WeaponPicker({ inventory, selected, disabled, onSelect }: Props)
     if (m === null) {
       if (dy < -SLOP_PX * 2 && -dy > Math.abs(dx)) {
         m = 'pick';
-        setOpen(true);
       } else if (Math.abs(dx) > SLOP_PX && Math.abs(dx) > Math.abs(dy)) {
         m = 'cycle';
         setOpen(false);
@@ -102,8 +103,8 @@ export function WeaponPicker({ inventory, selected, disabled, onSelect }: Props)
         onSelect(id);
         setOpen(false);
       }
-    } else if (!g.moved) {
-      setOpen(!g.wasOpen);
+    } else if (!g.moved && g.wasOpen) {
+      setOpen(false);
     }
     setMode(null);
     setHover(null);
