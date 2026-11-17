@@ -623,7 +623,7 @@ export function Hud({
           )}
         </div>
         <Drive tank={t} disabled={!canAim} send={send} />
-        <div className="weapons" aria-label="Gear">
+        <div className="weapons" role="group" aria-label="Gear">
           {t?.gear
             .filter((g) => g.count > 0)
             .map((g) =>
