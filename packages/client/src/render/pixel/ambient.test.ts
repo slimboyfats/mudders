@@ -106,4 +106,19 @@ describe('ambient layers', () => {
     expect(lit).toBeGreaterThan(0);
     expect(lit).toBeLessThan(2000);
   });
+
+  it('starts the weather above the screen when sky shows over the map, and lets it reach the ground', () => {
+    const th = pixelTheme('theme.storm', themes);
+    const flat: Emit[] = [];
+    const tall: Emit[] = [];
+    for (let t = 0; t < 200; t++) {
+      emitWeather({ add: (e) => flat.push(e) }, th, t, 0, probe(150), 1);
+      emitWeather({ add: (e) => tall.push(e) }, th, t, 0, probe(150), 1, 400);
+    }
+    expect(tall.length).toBe(flat.length);
+    expect(Math.max(...flat.map((e) => e.y))).toBeLessThan(0);
+    expect(Math.max(...tall.map((e) => e.y))).toBeLessThan(-400);
+    // the slowest drop (4 cells a tick) still has the life to cross the sky and the whole map
+    for (const e of tall) expect(e.life * 4).toBeGreaterThan(400 + 200);
+  });
 });

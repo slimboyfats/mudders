@@ -219,3 +219,12 @@ every frame.
 - The one-second freeze in that log (t=38.5 to 39.5) was most likely the phone being turned to
   landscape mid-recording (the log starts in portrait, a screenshot from 0:20 is landscape): the
   page lays out again and every canvas-sized buffer is rebuilt. Not confirmed.
+
+## Rain pushed out of its lane by blast smoke (2026-11-17)
+
+Seen on the phone: after a big blast the rain stopped falling and stood as a fringe along the top
+of the map. The particle lanes (by lifetime) put rain on an 800-row map (life 260) in the same lane
+as long-lived smoke motes. A big blast filled that lane, and a full lane overwrites its oldest
+slot, so every drop was replaced a few ticks after it was born. Rain and snow now have a lane of
+their own (`ParticleLanes.put(tick, life, weather)`). The weather also starts above the top of
+the screen when sky shows over the map (portrait, zoomed out) instead of at the map's top row.

@@ -80,4 +80,24 @@ describe('particle lanes', () => {
     expect(lanes.n).toBe(0);
     expect(lanes.segments().length).toBe(0);
   });
+
+  it('keeps the weather alive when a blast floods every other lane', () => {
+    const lanes = new ParticleLanes(8000);
+    const rain = new Map<number, number>();
+    for (let tick = 1; tick <= 600; tick++) {
+      for (const [slot, at] of rain) if (at <= tick) rain.delete(slot);
+      // three drops a tick that live 260: 780 in the air
+      for (let i = 0; i < 3; i++) rain.set(lanes.put(tick, 260, true), tick + 260);
+      // a blast: far more smoke than its lane holds, with the same lifetime as the rain
+      if (tick >= 300 && tick < 320)
+        for (let i = 0; i < 2000; i++) lanes.put(tick, 300 + (i % 400));
+      lanes.takePending();
+      lanes.step(tick);
+      const win = slotsOf(lanes.segments());
+      let lost = 0;
+      for (const slot of rain.keys()) if (!win.has(slot)) lost++;
+      expect(lost).toBe(0);
+    }
+    expect(rain.size).toBe(780);
+  });
 });
