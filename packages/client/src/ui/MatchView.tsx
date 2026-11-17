@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
-import { KERNEL_VERSION } from '@mudders/sim';
+import { KERNEL_VERSION, STEP_PARTS } from '@mudders/sim';
 import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
 import { HudStore, type SimMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
-import { PerfRecorder, perfFileName, type PerfContext } from '../game/perf-log';
+import { PerfRecorder, perfFileName, stallDetail, type PerfContext } from '../game/perf-log';
 import type { Settings } from '../game/settings';
 import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
@@ -93,21 +93,25 @@ export function MatchView({
     const rp = rendererRef.current?.perf;
     const timed = rp?.enable(true) ?? false;
     const mem = (navigator as { deviceMemory?: number }).deviceMemory;
-    recRef.current = new PerfRecorder({
-      when: new Date().toISOString(),
-      kernel: KERNEL_VERSION,
-      browser: navigator.userAgent,
-      gpu: rp?.device() ?? 'unknown',
-      'gpu timer': timed ? 'offered by this browser' : 'not offered by this browser',
-      cores: navigator.hardwareConcurrency,
-      memory: mem === undefined ? 'unknown' : `${mem} GB`,
-      screen: `${screen.width}x${screen.height} at ${window.devicePixelRatio}x`,
-      canvas: c ? `${c.width}x${c.height}` : 'unknown',
-      quality: `${settings.quality}${settings.autoQuality ? ' (steps down by itself)' : ''}`,
-      map: `${w.grid.width}x${w.grid.height}`,
-      players: w.tanks.length,
-      bots: hudStore.get().tanks.filter((t) => t.bot).length,
-    });
+    recRef.current = new PerfRecorder(
+      {
+        when: new Date().toISOString(),
+        kernel: KERNEL_VERSION,
+        browser: navigator.userAgent,
+        gpu: rp?.device() ?? 'unknown',
+        'gpu timer': timed ? 'offered by this browser' : 'not offered by this browser',
+        cores: navigator.hardwareConcurrency,
+        memory: mem === undefined ? 'unknown' : `${mem} GB`,
+        screen: `${screen.width}x${screen.height} at ${window.devicePixelRatio}x`,
+        canvas: c ? `${c.width}x${c.height}` : 'unknown',
+        quality: `${settings.quality}${settings.autoQuality ? ' (steps down by itself)' : ''}`,
+        map: `${w.grid.width}x${w.grid.height}`,
+        players: w.tanks.length,
+        bots: hudStore.get().tanks.filter((t) => t.bot).length,
+        online: match.net().split(' ')[0] || 'no',
+      },
+      STEP_PARTS,
+    );
     setPerfLog(null);
     setRecording(0);
   }, [match, hudStore, settings.quality, settings.autoQuality]);
@@ -121,6 +125,22 @@ export function MatchView({
     saveText(log.name, log.text);
     setPerfLog(log);
   }, []);
+  // while recording, the browser's own reports of a blocked page go in the log too
+  const isRec = recording !== null;
+  useEffect(() => {
+    if (!isRec || typeof PerformanceObserver === 'undefined') return;
+    const types = PerformanceObserver.supportedEntryTypes;
+    // long animation frames say what blocked (Chromium); long tasks only that something did
+    const type = ['long-animation-frame', 'longtask'].find((t) => types.includes(t));
+    if (!type) return;
+    const obs = new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) {
+        recRef.current?.stall(e.startTime, type, e.duration, stallDetail(e));
+      }
+    });
+    obs.observe({ type });
+    return () => obs.disconnect();
+  }, [isRec]);
   // slow-mo finisher (presentation only: it scales the time fed to the match, never the sim)
   const slowmoRef = useRef<SlowMo | null>(null);
   useEffect(() => {
@@ -194,8 +214,42 @@ export function MatchView({
     const markers = markersRef.current ? new PlayerMarkers(markersRef.current) : null;
     const marks: MarkerTank[] = [];
     let frames = 0;
+    // sim time by part of the tick, through the kernel's probe hook (only while recording)
+    const partMs = new Array<number>(STEP_PARTS.length).fill(0);
+    let probeAt = 0;
+    let tickAt = 0;
+    let tickTop = 0;
+    let tickTopMs = 0;
+    let worstMs = 0;
+    let worst = '';
+    const probe = (part: number) => {
+      const n = performance.now();
+      if (part < 0) {
+        tickAt = n;
+        tickTopMs = -1;
+      } else {
+        const d = n - probeAt;
+        partMs[part] = (partMs[part] ?? 0) + d;
+        if (d > tickTopMs) {
+          tickTopMs = d;
+          tickTop = part;
+        }
+        // the shop's only part, or the last one: the tick is over
+        if ((part === 0 || part === STEP_PARTS.length - 1) && n - tickAt > worstMs) {
+          worstMs = n - tickAt;
+          worst = `${worstMs.toFixed(1)} ms of which ${STEP_PARTS[tickTop] ?? ''} ${tickTopMs.toFixed(1)}`;
+        }
+      }
+      probeAt = n;
+    };
     const perfContext = (): PerfContext => {
       const wd = match.world;
+      const parts = partMs.slice();
+      const worstTick = worst;
+      partMs.fill(0);
+      worstMs = 0;
+      worst = '';
+      const heap = (performance as { memory?: { usedJSHeapSize: number } }).memory;
       const g = wd.grid;
       const twist = wd.options.perRound?.[wd.round % wd.options.perRound.length]?.twist;
       return {
@@ -209,11 +263,17 @@ export function MatchView({
         settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
         react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
         gpu: rendererRef.current?.perf?.takeGpu() ?? null,
-        note: [wd.generator, wd.weather?.id ?? 'clear', twist ?? '', fired]
-          .filter(Boolean)
-          .join(' '),
+        note: [wd.generator, wd.weather?.id ?? 'clear', twist ?? ''].filter(Boolean).join(' '),
+        weapon: fired,
+        holding: wd.holding(),
+        net: match.net(),
+        heap: heap ? heap.usedJSHeapSize / 1048576 : 0,
+        parts,
+        worstTick,
       };
     };
+    let recFrame: (() => void) | null = null;
+    let probing = false;
     const frame = (now: number) => {
       const r = rendererRef.current;
       if (!r) return;
@@ -239,6 +299,12 @@ export function MatchView({
       const scale = slowmo.next(wall);
       const simDt = stop.take(wall) * scale;
       if (perfOn.current) {
+        const rec = recRef.current;
+        if (probing !== (rec !== null)) {
+          probing = rec !== null;
+          match.timeParts(probing ? probe : null);
+        }
+        const top = performance.now();
         const tick0 = match.world.tick;
         const step0 = r.perf?.pushMs() ?? 0;
         const t0 = performance.now();
@@ -248,7 +314,6 @@ export function MatchView({
         const t2 = performance.now();
         const ticks = match.world.tick - tick0;
         const stats = meter.frame(now, wall, ticks, t1 - t0, t2 - t1);
-        const rec = recRef.current;
         if (stats) {
           setPerf(stats);
           if (rec) setRecording(rec.seconds);
@@ -256,7 +321,10 @@ export function MatchView({
         if (rec) {
           // the renderer takes each tick in as it is made, inside `advance`: split that off
           const step = (r.perf?.pushMs() ?? 0) - step0;
-          rec.frame(now, wall, ticks, t1 - t0 - step, step, t2 - t1, perfContext);
+          recFrame = () => {
+            const other = performance.now() - top - (t2 - t0);
+            rec.frame(now, wall, ticks, t1 - t0 - step, step, t2 - t1, other, simDt, perfContext);
+          };
         }
       } else {
         r.render(match.advance(simDt), stop.held);
@@ -293,6 +361,11 @@ export function MatchView({
         }
         const cell = r.camera.scale / renderDpr(quality, window.devicePixelRatio);
         markers.update(marks, (q) => r.project(q), cell, wrap.clientWidth, wrap.clientHeight);
+      }
+      // the recorder closes the frame last, so the HUD and marker work above counts as "other"
+      if (recFrame) {
+        recFrame();
+        recFrame = null;
       }
     };
     void loadRenderer('pixel', w.grid.width, w.grid.height)
@@ -341,6 +414,7 @@ export function MatchView({
       rendererRef.current?.unmount();
       rendererRef.current = null;
       recRef.current = null;
+      match.timeParts(null);
       setRecording(null);
       processSounds(null);
     };
@@ -581,6 +655,7 @@ export function MatchView({
               log={perfLog}
               onRecord={startRec}
               onStop={stopRec}
+              onMark={() => recRef.current?.mark(performance.now())}
               onDismiss={() => setPerfLog(null)}
             />
           )}

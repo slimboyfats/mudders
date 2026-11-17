@@ -707,6 +707,22 @@ interface PendingDeath {
  * A World is a whole match (§3.1): `rounds` rounds, each on a freshly generated map, with the shop
  * phase between them. Money, score and inventory persist across rounds; health and position don't.
  */
+/** The parts of a tick `World.probe` reports, in order. */
+export const STEP_PARTS = [
+  'shop',
+  'aim and bots',
+  'mode and weather',
+  'shells',
+  'effects',
+  'debris',
+  'settling',
+  'reactions',
+  'gas',
+  'structures',
+  'tanks',
+  'turn end',
+] as const;
+
 export class World implements SimApi {
   readonly groups: Groups;
   readonly grid: Grid;
@@ -1707,6 +1723,13 @@ export class World implements SimApi {
     return ++this.flowWait >= FLOW_GRACE;
   }
 
+  /**
+   * Diagnostics hook: called at the start of every tick with -1, then with the index of each part
+   * of the step (`STEP_PARTS`) as it finishes. The caller keeps the clock; the kernel has none.
+   * Never changes what the step does.
+   */
+  probe: ((part: number) => void) | null = null;
+
   /** Queue an input; it is applied at the start of the next tick, in arrival order. */
   applyInput(player: number, input: Input): void {
     this.pendingInputs.push({ player, input });
@@ -1775,6 +1798,8 @@ export class World implements SimApi {
   }
 
   step(): void {
+    const probe = this.probe;
+    probe?.(-1);
     const inputs = this.pendingInputs;
     this.pendingInputs = [];
     for (const { player, input } of inputs) this.handleInput(player, input);
@@ -1782,13 +1807,17 @@ export class World implements SimApi {
     if (this.phase === 'shop') {
       this.stepShop();
       this.tick++;
+      probe?.(0);
       return;
     }
     if (this.phase === 'aim') this.stepAim();
+    probe?.(1);
     this.modeB.onTick?.(this.modeApi, this.modeParams);
     this.weatherB?.onTick?.(this, this.weatherParams);
+    probe?.(2);
 
     this.stepProjectiles();
+    probe?.(3);
     this.command = -1;
     if (this.birdsOn) {
       // the wind carries the birds a little (a quarter cell a tick in a strong wind)
@@ -1798,15 +1827,20 @@ export class World implements SimApi {
     this.stepOps();
     if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
+    probe?.(4);
     this.debris.step(this.grid, this.gravity, this.mats);
     if (this.chunks.any) this.chunks.step(this.grid, this.mats, this.gravity, this.debris, this);
+    probe?.(5);
     const settling = this.grid.settling;
     settleStep(this.grid, this.mats, this.tick, this.settleCap, this.debris);
+    probe?.(6);
     this.stepCrush();
     reactStep(this.grid, this.mats, this.tick);
+    probe?.(7);
     gasStep(this.grid, this.mats, this.tick, this.wind);
     if (this.grid.burstCount > 0) this.bursts();
     if (this.grid.pocketCount > 0) this.burstPockets();
+    probe?.(8);
     if (this.groups.any) {
       this.groups.absorbLosses(this.grid, this);
       if (settling) this.groups.checkBases(this.grid, this);
@@ -1818,6 +1852,7 @@ export class World implements SimApi {
     if (this.grid.structMaxX >= 0 && this.quiet) {
       supportPass(this.grid, this.mats, this.scratch, this.debris, this, this.chunks);
     }
+    probe?.(9);
     this.stepTanks();
     if (
       this.mats.anyStain &&
@@ -1829,6 +1864,7 @@ export class World implements SimApi {
     if (this.lures.length > 0) this.stepLures();
     if (this.mines.length > 0) this.stepMines();
     if (this.dropsOn) this.stepDrops();
+    probe?.(10);
 
     // A tank sitting in fire or napalm keeps burning while the shot plays out (§4b).
     if (this.phase === 'resolve' && !this.contactDone && this.tick % CONTACT_EVERY === 0) {
@@ -1854,6 +1890,35 @@ export class World implements SimApi {
     // a tree the last blast undermined still falls away from it for a moment after
     if (this.groups.hitX >= 0 && this.tick - this.hitTick > HIT_LINGER) this.groups.hitX = -1;
     this.tick++;
+    probe?.(11);
+  }
+
+  /**
+   * What the turn is waiting on right now, as words for a diagnostics log ('' = nothing). Reads
+   * only; the order is the order the turn end looks at them.
+   */
+  holding(): string {
+    const out: string[] = [];
+    if (this.phase === 'aim') {
+      const t = this.tanks[this.activePlayer];
+      return t && t.bot >= 0 ? 'bot thinking' : 'player aiming';
+    }
+    if (this.phase !== 'resolve') return '';
+    if (this.projectiles.length > 0) out.push('shells');
+    if (this.ops.length > this.idleOps) out.push('effects');
+    if (this.fronts.length > 0) out.push('shockwave');
+    if (this.pendingDeaths.length > 0) out.push('deaths');
+    if (this.dropsOn && this.drops.moving) out.push('crate');
+    if (this.tanks.some((t) => t.falling)) out.push('tank falling');
+    if (this.debris.count > 0) out.push('debris');
+    if (this.chunks.any) out.push('rock falling');
+    if (this.groups.toppling) out.push('toppling');
+    if (this.tanks.some((t) => t.alive && t.glue === 0 && this.slipDir(t) !== 0))
+      out.push('tank slipping');
+    const g = this.grid;
+    if (g.settling) out.push(g.wetOnly ? 'water running' : 'ground settling');
+    if (g.reacting) out.push(g.hot ? 'fire' : 'reactions');
+    return out.join(' + ');
   }
 
   run(ticks: number): void {
