@@ -75,14 +75,7 @@ function Wind({
       <span className="wind-bar">
         <span
           className={`wind-fill ${k < 0 ? 'to-left' : 'to-right'}`}
-          style={
-            {
-              left: k < 0 ? `${50 + k * 50}%` : '50%',
-              width: `${Math.abs(k) * 50}%`,
-              // streaks race along the bar faster in a stronger wind
-              '--wind-speed': `${(1.6 / Math.max(0.15, Math.abs(k))).toFixed(2)}s`,
-            } as CSSProperties
-          }
+          style={{ left: k < 0 ? `${50 + k * 50}%` : '50%', width: `${Math.abs(k) * 50}%` }}
         />
         {w !== null && (
           <span className="wind-was" style={{ left: `${50 + w * 50}%` }} title="Your last turn" />
