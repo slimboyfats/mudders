@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-18',
+    title: 'Weapon previews and search in the shop',
+    items: [
+      'Shop search: type in the box above the filters to find weapons and gear by name, kind or what they do ("roll", "fire", "nuke"). Every word has to match, and names come first',
+      'Weapon previews: the ▶ next to Buy plays a real shot of that weapon at a tank on a small map, over and over, with its description, damage, blast size and Buy button beside it. ◀ ▶ step through the weapons the shop is showing, and ❚❚ pauses it',
+    ],
+  },
+  {
     date: '2026-11-16',
     title:
       'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks, acid, lightning through steel and tank stains',

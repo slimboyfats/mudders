@@ -5508,3 +5508,250 @@ button.hold {
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* ── shop search + weapon preview ──────────────────────────────────────
+   The search box leads the filter row (on a phone held sideways, the filter rail). Each weapon
+   card gets a ▶ beside Buy that opens the preview: a real shot of it on a loop in a small
+   window. The window is opaque glass (no blur): the match behind is not drawn while it is open. */
+.shop-search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.shop-search input {
+  width: 150px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 17px;
+  font: inherit;
+  /* 16px: phones zoom the page into a smaller box on focus */
+  font-size: 1rem;
+  color: var(--fg);
+  border: 1px solid rgb(110 170 255 / 0.32);
+  background: linear-gradient(180deg, rgb(4 10 32 / 0.55), rgb(20 50 130 / 0.3));
+  box-shadow:
+    inset 0 2px 6px rgb(0 0 20 / 0.5),
+    inset 0 -1px 0 rgb(140 200 255 / 0.2);
+}
+
+.shop-search input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+.shop-search input:focus-visible {
+  border-color: #7fe6ff;
+}
+
+.shop-empty {
+  grid-column: 1 / -1;
+  margin: 12px 4px;
+  color: var(--fg);
+}
+
+.shop .card-acts {
+  display: flex;
+  gap: 6px;
+  margin: 0 8px 0 12px;
+}
+
+.shop .card-acts .buy {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.shop .peek {
+  flex: none;
+  width: 44px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 1rem;
+  color: #7fe6ff;
+}
+
+@media (orientation: landscape) and (max-height: 460px) {
+  .shop-search input {
+    width: 100%;
+    min-height: 36px;
+    border-radius: 10px;
+  }
+  .shop-search {
+    flex-direction: row;
+  }
+  .shop .peek {
+    width: 36px;
+    min-height: 38px;
+  }
+  .shop .card-acts {
+    gap: 5px;
+    margin: 0 6px 0 10px;
+  }
+  .shop .card-acts .buy {
+    padding: 0 8px;
+  }
+}
+
+.preview-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  background: rgb(2 6 20 / 0.82);
+  zoom: var(--ui-scale, 1);
+}
+
+.preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  width: min(760px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--g-edge);
+  background: var(--g-streak), linear-gradient(180deg, #0f1d46, #0a1434 60%, #0d1a40);
+  box-shadow:
+    inset 3px 0 0 var(--cat),
+    var(--g-glow);
+}
+
+.preview-view {
+  position: relative;
+  aspect-ratio: 2 / 1;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgb(110 170 255 / 0.3);
+  background: #02040c;
+}
+
+.preview-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.preview-error {
+  position: absolute;
+  inset: auto 8px 8px;
+  margin: 0;
+  color: var(--fg);
+}
+
+.preview-pause {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 40px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: #fff;
+  background: rgb(6 12 36 / 0.78);
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.preview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.preview-head h2 {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 1.2rem;
+}
+
+.preview-close {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 1.1rem;
+}
+
+.preview-stats {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.preview-stats .cat {
+  color: color-mix(in oklab, var(--cat) 62%, white);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.preview-stats .stat {
+  color: #ffd27a;
+  font-weight: 700;
+}
+
+.preview-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #d3d9f5;
+}
+
+.preview-foot {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.preview-foot .buy {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.preview-step {
+  flex: none;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+/* a phone held sideways (or any short screen): picture left, words right */
+@media (orientation: landscape) and (max-height: 560px) {
+  .preview {
+    grid-template-columns: minmax(0, 1.45fr) minmax(210px, 1fr);
+    height: 100%;
+    max-height: 420px;
+    align-items: center;
+  }
+  .preview-view {
+    width: 100%;
+    max-height: 100%;
+  }
+  .preview-info {
+    align-self: stretch;
+  }
+}
