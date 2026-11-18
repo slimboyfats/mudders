@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadContent } from '@mudders/content';
 import { World } from '@mudders/sim';
-import { coach, reportShot, suggestAim, type ShotReport } from './coach';
+import { coach, reportShot, suggestAim, tanks, type ShotReport } from './coach';
 import { TrainingRun, rangeFor, trainingRange } from './training';
 import { challengeOptions } from './challenges';
 
@@ -26,6 +26,15 @@ function fire(w: World, run: TrainingRun, angle: number, power: number) {
   }
   throw new Error('turn never came back');
 }
+
+describe('tank lengths', () => {
+  it('words a distance the way a player sees it', () => {
+    expect(tanks(5, 16)).toBe('less than a tank');
+    expect(tanks(16, 16)).toBe('1 tank');
+    expect(tanks(-40, 16)).toBe('2½ tanks');
+    expect(tanks(200, 16)).toBe('13 tanks');
+  });
+});
 
 describe('training ranges', () => {
   it('are drawn the same from the same seed, on either side', () => {
@@ -65,7 +74,7 @@ describe('shot coach', () => {
     expect(at(180 - hit.angle, hit.power).result).toBe('away');
     // the coach turns a short shot into "add power"
     const c = coach(short, suggestAim(w, me, me.weapon, 1, short));
-    expect(c.headline).toMatch(/short/);
+    expect(c.headline).toMatch(/tanks? short|less than a tank short/);
     expect(c.next).toMatch(/add about \d+ power/);
     expect(c.suggest).not.toBeNull();
   });
@@ -111,6 +120,7 @@ describe('shot coach', () => {
       per50: 30,
       wind: 0,
       lost: false,
+      tank: 16,
     };
     const c = coach({ ...base, power: 620, result: 'long', missBy: 30 }, null, [base]);
     expect(c.next).toMatch(/bracketed.*560 power/);
@@ -128,6 +138,9 @@ describe('shot coach', () => {
     fire(w, run, card.suggest!.angle, card.suggest!.power);
     expect(run.state).toBe('cleared');
     expect(run.shots).toBe(2);
+    // both flights are kept, each a path of map cells from the barrel to the landing
+    expect(run.paths.length).toBe(2);
+    for (const p of run.paths) expect(p.length).toBeGreaterThan(20);
     expect(run.card?.tone).toBe('good');
   });
 });

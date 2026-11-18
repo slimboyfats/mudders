@@ -1,7 +1,7 @@
 import type { ResolvedContent, WorldOptions } from '@mudders/sim';
-import { World, type Tank } from '@mudders/sim';
+import { FP, World, type Tank } from '@mudders/sim';
 import { challengeOptions, type Challenge } from './challenges';
-import { coach, reportShot, suggestAim, type Coaching, type ShotReport } from './coach';
+import { coach, reportShot, tanks, suggestAim, type Coaching, type ShotReport } from './coach';
 
 /**
  * Training mode: endless target practice with a coach. Each range is a fresh small map with you
@@ -114,11 +114,22 @@ export class TrainingRun {
   /** The last shot hit (direct, or its splash finished the target). */
   lastHit = false;
   readonly history: ShotReport[] = [];
+  /**
+   * Flight paths of your recent shots, oldest first, as flat map-cell x, y pairs: the shell's
+   * real path (the first shell of the shot), kept on screen between shots.
+   */
+  readonly paths: number[][] = [];
+  /** Bumped whenever `paths` changes (the overlay redraws on it). */
+  pathVersion = 0;
   private pending: ShotReport | null = null;
   private countedTurn = -1;
+  /** Shell id being traced, or -1. */
+  private tracing = -1;
+  private tracedTurn = -1;
 
   /** Returns true when something the card shows changed. */
   observe(w: World): boolean {
+    this.trace(w);
     if (this.state !== 'playing') return false;
     const me = w.tanks[0];
     if (!me) return false;
@@ -147,7 +158,7 @@ export class TrainingRun {
       if (this.card && r && r.result !== 'hit') {
         this.card.headline = 'Got it!';
         this.card.why = [
-          `The splash finished it, ${r.missBy === 0 ? 'right on it' : `${Math.abs(r.missBy)} cells ${r.missBy < 0 ? 'short' : 'long'}`}.`,
+          `The splash finished it, ${r.missBy === 0 ? 'right on it' : `${tanks(r.missBy, r.tank)} ${r.missBy < 0 ? 'short' : 'long'}`}.`,
         ];
       }
       if (r) this.history.push(r);
@@ -168,7 +179,35 @@ export class TrainingRun {
     }
     return false;
   }
+
+  /** Follows the first shell of your shot and records where it flies, tick by tick. */
+  private trace(w: World): void {
+    if (w.phase !== 'resolve' || w.activePlayer !== 0) {
+      this.tracing = -1;
+      return;
+    }
+    if (this.tracing < 0) {
+      if (w.turn === this.tracedTurn) return;
+      const p = w.projectiles.find((q) => q.alive && q.owner === 0);
+      if (!p) return;
+      this.tracedTurn = w.turn;
+      this.tracing = p.id;
+      this.paths.push([]);
+      if (this.paths.length > KEEP_PATHS) this.paths.shift();
+    }
+    const p = w.projectiles.find((q) => q.id === this.tracing);
+    const path = this.paths[this.paths.length - 1];
+    if (!p || !p.alive || !path) {
+      this.tracing = -1;
+      return;
+    }
+    path.push(Math.floor(p.x / FP), Math.floor(p.y / FP));
+    this.pathVersion++;
+  }
 }
+
+/** Most shot paths kept on screen. */
+const KEEP_PATHS = 3;
 
 /** The wind now along the line from `me` to `target`, -1 headwind to 1 tailwind. */
 export function windAlong(w: World, me: Tank, target: number): number {
@@ -184,6 +223,8 @@ export interface TrainingPrefs {
   wind: TrainingWind;
   /** Coach card on (it can be folded away to a chip). */
   coach: boolean;
+  /** Grid one tank apart over the map. */
+  grid: boolean;
 }
 
 export function loadTrainingPrefs(): TrainingPrefs {
@@ -192,12 +233,12 @@ export function loadTrainingPrefs(): TrainingPrefs {
     if (p && typeof p === 'object') {
       const o = p as Record<string, unknown>;
       const wind = TRAINING_WINDS.find((x) => x.id === o.wind)?.id ?? 'steady';
-      return { wind, coach: o.coach !== false };
+      return { wind, coach: o.coach !== false, grid: o.grid === true };
     }
   } catch {
     // private mode or bad data
   }
-  return { wind: 'steady', coach: true };
+  return { wind: 'steady', coach: true, grid: false };
 }
 
 export function saveTrainingPrefs(p: TrainingPrefs): void {

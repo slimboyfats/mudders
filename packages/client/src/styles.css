@@ -5952,3 +5952,24 @@ button.hold {
   color: #fff6e6;
   background: rgb(6 10 30 / 0.72);
 }
+
+/* training overlay: grid one tank apart and kept shot paths, under the HUD and the markers */
+.frame-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.training-overlay {
+  position: absolute;
+  inset: 0 auto auto 0;
+  image-rendering: pixelated;
+}
+
+.training-bar > button.on {
+  border-color: #3ce0ff;
+  box-shadow:
+    0 0 0 1px #3ce0ff,
+    0 0 12px rgb(60 224 255 / 0.45);
+}

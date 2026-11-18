@@ -24,6 +24,7 @@ import { previewing } from './WeaponPreview';
 import { PerfMeter, PerfOverlay, saveText, type PerfLog, type PerfStats } from './Perf';
 import { Hud } from './Hud';
 import { PlayerMarkers, measureInsets, type MarkerTank } from './markers';
+import type { FrameOverlay } from './training-overlay';
 
 interface Props {
   match: SimMatch;
@@ -38,6 +39,8 @@ interface Props {
   banner?: React.ReactNode;
   /** The caller shows its own match-over card (solo challenges), so the HUD doesn't. */
   ownEnd?: boolean;
+  /** Drawn over the map every frame (training: tank grid, shot paths). */
+  overlay?: FrameOverlay;
 }
 
 interface Drag {
@@ -70,10 +73,16 @@ export function MatchView({
   side,
   banner,
   ownEnd,
+  overlay,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markersRef = useRef<HTMLDivElement>(null);
+  const overlayHostRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef(overlay);
+  useEffect(() => {
+    overlayRef.current = overlay;
+  }, [overlay]);
   const rendererRef = useRef<Renderer | null>(null);
   const hudStore = useMemo(() => new HudStore(match), [match]);
   const hud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
@@ -407,6 +416,9 @@ export function MatchView({
         const cell = r.camera.scale / renderDpr(quality, window.devicePixelRatio);
         markers.update(marks, (q) => r.project(q), cell, wrap.clientWidth, wrap.clientHeight);
       }
+      const ov = overlayRef.current;
+      const host = overlayHostRef.current;
+      if (ov && host) ov.frame(host, (q) => r.project(q), match.world);
       // the recorder closes the frame last, so the HUD and marker work above counts as "other"
       if (recFrame) {
         recFrame();
@@ -690,6 +702,7 @@ export function MatchView({
           data-testid="playfield"
         >
           <canvas ref={canvasRef} className="game-canvas" />
+          <div className="frame-overlay" ref={overlayHostRef} aria-hidden="true" />
           <div className="markers" ref={markersRef} aria-hidden="true" />
           {settings.perfHud && perf && (
             <PerfOverlay
