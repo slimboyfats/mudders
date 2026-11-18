@@ -62,6 +62,8 @@ interface Row extends PerfContext {
   simAvg: number;
   simMax: number;
   stepAvg: number;
+  /** The renderer's slowest tick intake of the second (a look scan, a big upload). */
+  stepMax: number;
   renderAvg: number;
   renderMax: number;
   /** JS ms a frame outside sim, step and render (HUD, markers, input). */
@@ -105,6 +107,8 @@ interface LongFrame {
   other: number;
   ticks: number;
   phase: string;
+  /** The frame before: a frame is late because the one before it ran long. */
+  before: readonly [sim: number, step: number, render: number, other: number, ticks: number];
 }
 
 const f1 = (v: number): string => (Math.round(v * 10) / 10).toString();
@@ -121,6 +125,8 @@ export class PerfRecorder {
   private sim = 0;
   private simMax = 0;
   private step = 0;
+  private stepMax = 0;
+  private before: LongFrame['before'] = [0, 0, 0, 0, 0];
   private render = 0;
   private renderMax = 0;
   private phase = '';
@@ -192,9 +198,12 @@ export class PerfRecorder {
           other: otherMs,
           ticks,
           phase: this.phase,
+          before: this.before,
         });
       }
     }
+    this.before = [simMs, stepMs, renderMs, otherMs, ticks];
+    if (ticks > 0 && stepMs / ticks > this.stepMax) this.stepMax = stepMs / ticks;
     this.ticks += ticks;
     this.sim += simMs;
     if (ticks > 0 && simMs / ticks > this.simMax) this.simMax = simMs / ticks;
@@ -224,6 +233,7 @@ export class PerfRecorder {
       simAvg: this.ticks > 0 ? this.sim / this.ticks : 0,
       simMax: this.simMax,
       stepAvg: this.ticks > 0 ? this.step / this.ticks : 0,
+      stepMax: this.stepMax,
       renderAvg: this.render / frames,
       renderMax: this.renderMax,
       otherAvg: this.other / frames,
@@ -240,7 +250,7 @@ export class PerfRecorder {
     ts.length = 0;
     this.secStart = now;
     this.ticks = 0;
-    this.sim = this.simMax = this.step = this.render = this.renderMax = 0;
+    this.sim = this.simMax = this.step = this.stepMax = this.render = this.renderMax = 0;
     this.asked = this.marks = this.other = this.otherMax = this.draws = 0;
   }
 
@@ -304,7 +314,9 @@ export class PerfRecorder {
       out.push(
         `sim ms/tick: avg ${f1(avg((r) => r.simAvg))}, worst tick ${f1(max((r) => r.simMax))}`,
       );
-      out.push(`renderer step ms/tick: avg ${f1(avg((r) => r.stepAvg))}`);
+      out.push(
+        `renderer step ms/tick: avg ${f1(avg((r) => r.stepAvg))}, worst tick ${f1(max((r) => r.stepMax))}`,
+      );
       out.push(
         `render cpu ms/frame: avg ${f1(avg((r) => r.renderAvg))}, worst ${f1(max((r) => r.renderMax))}`,
       );
@@ -413,11 +425,11 @@ export class PerfRecorder {
     if (this.long.length > 0) {
       out.push(
         '',
-        `## frames over ${LONG_FRAME} ms (t, ms, sim ms, step ms, render ms, other js ms, ticks, phase)`,
+        `## frames over ${LONG_FRAME} ms (t, ms, sim ms, step ms, render ms, other js ms, ticks, phase; then sim, step, render, other js and ticks of the frame before, whose work made this one late)`,
       );
       for (const l of this.long) {
         out.push(
-          `${f1(l.t)},${f1(l.ms)},${f1(l.sim)},${f1(l.step)},${f1(l.render)},${f1(l.other)},${l.ticks},${l.phase || '-'}`,
+          `${f1(l.t)},${f1(l.ms)},${f1(l.sim)},${f1(l.step)},${f1(l.render)},${f1(l.other)},${l.ticks},${l.phase || '-'},${l.before.map(f1).join(',')}`,
         );
       }
       if (this.long.length === MAX_LONG) out.push('(more not listed)');
@@ -453,7 +465,7 @@ export class PerfRecorder {
 }
 
 const HEAD =
-  't,fps,frame avg,frame p95,frame max,ticks,sim avg,sim max,step avg,render avg,render max,other avg,other max,speed %,asked %,' +
+  't,fps,frame avg,frame p95,frame max,ticks,sim avg,sim max,step avg,step max,render avg,render max,other avg,other max,speed %,asked %,' +
   `${GPU_PARTS.map((p) => `gpu ${p}`).join(',')},quality,phase,round,turn,` +
   'particles,projectiles,debris,settle cells,react cells,heap MB,draws,waiting on,net,note';
 
@@ -470,6 +482,7 @@ function line(r: Row): string {
     f1(r.simAvg),
     f1(r.simMax),
     f1(r.stepAvg),
+    f1(r.stepMax),
     f1(r.renderAvg),
     f1(r.renderMax),
     f1(r.otherAvg),

@@ -98,7 +98,7 @@ describe('PerfRecorder', () => {
     rec.frame(61216, 60000, 0, 0, 0, 0, 0, 0, ctx());
     const text = rec.report();
     const long = text.split('## frames over 50 ms')[1]!.split('\n');
-    expect(long[1]).toBe('0.2,200,120,30,40,5,8,-');
+    expect(long[1]).toBe('0.2,200,120,30,40,5,8,-,1,0,1,0,1');
     expect(long[2]).toBe('');
   });
 

@@ -90,7 +90,16 @@ import { type KickTank, MuzzleKick } from './muzzle';
 import { BlastSkirts, type SkirtGround } from './skirt';
 import { SteamFx } from './steam';
 import { type FlinchTank, TankFlinch } from './flinch';
-import { SWAY_REACH, SwayBlasts, swayField, swayLooks, swayWind, type SwayLooks } from './sway';
+import {
+  SWAY_REACH,
+  SwayBlasts,
+  scanCells,
+  swayField,
+  swayLooks,
+  swayWind,
+  type SwayLooks,
+  type SwayRows,
+} from './sway';
 
 /** Rim cells of a Buzzsaw blade, round a 5×5 disc in turning order. */
 const SAW_RIM: readonly (readonly [number, number])[] = [
@@ -431,6 +440,12 @@ export class PixelRenderer implements Renderer {
   private swayRun = new Int32Array(0);
   /** Swaying cells per column, and the columns whose terrain changed since the field was built. */
   private swayCount = new Int32Array(0);
+  /** One more than the lowest row with a swaying cell per column (0 = none), from the look scan. */
+  private swayLow = new Int32Array(0);
+  /** The rows the swaying cells span, from the look scan, and those of the field as built. */
+  private readonly swayRows: SwayRows = { top: -1, bottom: -1 };
+  private swayTop = 0;
+  private swayBottom = -1;
   private swayX0 = 0;
   private swayX1 = -1;
   private swayTex!: WebGLTexture;
@@ -883,6 +898,9 @@ export class PixelRenderer implements Renderer {
     this.swayShown = new Uint8Array(this.mapWidth * this.mapHeight);
     this.swayRun = new Int32Array(this.mapHeight);
     this.swayCount = new Int32Array(this.mapWidth);
+    this.swayLow = new Int32Array(this.mapWidth);
+    this.swayTop = this.mapHeight;
+    this.swayBottom = -1;
     this.swayX0 = 0;
     this.swayX1 = this.mapWidth - 1;
     this.swayTex = texture(gl);
@@ -1776,11 +1794,11 @@ export class PixelRenderer implements Renderer {
 
   private scanLooks(): void {
     const f = this.lookFlags;
-    let any = 0;
     const t = this.terrain;
-    for (let i = 0; i < t.length; i++) any |= f[t[i]!]!;
-    const c = this.coating;
-    for (let i = 0; i < c.length; i++) any |= f[c[i]!]!;
+    this.swayLow.fill(0);
+    const any =
+      scanCells(t, f, this.mapWidth, this.swayLooks.flex, this.swayLow, this.swayRows) |
+      scanCells(this.coating, f);
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
     this.scanHeat((any & (FLAG_HOT | FLAG_FLAMES | FLAG_EMIT)) !== 0);
@@ -1794,32 +1812,72 @@ export class PixelRenderer implements Renderer {
     }
   }
 
-  /** Rebuild and upload the field of cells that sway in the wind (trees). */
+  /**
+   * Rebuild and upload the field of cells that sway in the wind (trees). Only the columns the
+   * terrain changed in since the last build, and of those only the ones that held a swaying
+   * cell then or hold one now: rain changes cells in every column all the time, and walking a
+   * whole wooded map for it every 20 ticks was a 35 ms frame on a phone. A column with no
+   * swaying cell before or after has nothing in the field to change.
+   */
   private scanSway(): void {
     if (!this.swayTex) return;
-    const was = this.swayOn;
     const w = this.mapWidth;
     const h = this.mapHeight;
-    // only the columns the terrain changed in since the last build (and the marks beside them)
-    const x0 = this.swayX0;
-    const x1 = this.swayX1;
+    const x0 = Math.max(0, this.swayX0);
+    const x1 = Math.min(w - 1, this.swayX1);
     this.swayX0 = w;
     this.swayX1 = -1;
-    if (x1 < x0) return;
-    this.swayOn = swayField(
-      this.terrain,
-      w,
-      h,
-      this.swayLooks,
-      this.sway,
-      this.swayRun,
-      x0,
-      x1,
-      this.swayCount,
-    );
-    if (!this.swayOn && !was) return;
+    const count = this.swayCount;
+    const cols = this.swayLow;
     const pad = 2 * SWAY_REACH;
-    uploadChanged(this.gl, this.swayTex, this.sway, this.swayShown, w, h, x0 - pad, x1 + pad);
+    // the rows with swaying cells now, and those of the build before (their cells are cleared)
+    const now = this.swayRows;
+    const y0 = now.top < 0 ? this.swayTop : Math.min(now.top, this.swayTop);
+    const y1 = Math.max(now.bottom, this.swayBottom);
+    this.swayTop = now.top < 0 ? h : now.top;
+    this.swayBottom = now.bottom;
+    let x = x0;
+    while (x <= x1) {
+      if (count[x] === 0 && cols[x] === 0) {
+        x++;
+        continue;
+      }
+      // a run of such columns; gaps shorter than the marks reach are taken along
+      let b = x;
+      for (let k = x + 1; k <= x1 && k - b <= 2 * pad; k++) {
+        if (count[k] !== 0 || cols[k] !== 0) b = k;
+      }
+      const was = this.swayOn;
+      this.swayOn = swayField(
+        this.terrain,
+        w,
+        h,
+        this.swayLooks,
+        this.sway,
+        this.swayRun,
+        x,
+        b,
+        count,
+        cols,
+        y0,
+        y1,
+      );
+      if (this.swayOn || was) {
+        uploadChanged(
+          this.gl,
+          this.swayTex,
+          this.sway,
+          this.swayShown,
+          w,
+          h,
+          x - pad,
+          b + pad,
+          y0,
+          y1,
+        );
+      }
+      x = b + 1;
+    }
   }
 
   /** Rebuild and upload the heat field lava and flames light the ground from. */

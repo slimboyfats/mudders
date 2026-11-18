@@ -62,6 +62,11 @@ export function bend(h: number): number {
  * passing them (with `count`, the swaying cells per column, kept between calls) rebuilds just
  * those columns and the marks around them: the result is the same as a whole rebuild, without
  * walking the whole map for one crater. Without `count` the whole field is always rebuilt.
+ *
+ * Two things from {@link scanCells} make it cheaper still, with the same result: `low` (one more
+ * than the lowest swaying row per column, 0 = none) lets a column start at its lowest swaying
+ * cell instead of the bottom of the map, and `y0..y1` are the only rows touched. Those must
+ * span every row that holds a swaying cell now or held one when `out` was last built.
  */
 export function swayField(
   t: Uint8Array,
@@ -73,6 +78,9 @@ export function swayField(
   x0 = 0,
   x1 = w - 1,
   count?: Int32Array,
+  low?: Int32Array,
+  y0 = 0,
+  y1 = h - 1,
 ): boolean {
   if (!count || x0 < 0) x0 = 0;
   if (!count || x1 > w - 1) x1 = w - 1;
@@ -82,12 +90,14 @@ export function swayField(
     return false;
   }
   const whole = x0 === 0 && x1 === w - 1;
-  if (whole) out.fill(0);
+  if (y0 < 0) y0 = 0;
+  if (y1 > h - 1) y1 = h - 1;
+  if (whole) out.fill(0, y0 * w, (y1 + 1) * w);
   else {
     // the changed columns start empty; the marks beside them are worked out again below
     const m0 = Math.max(0, x0 - SWAY_REACH);
     const m1 = Math.min(w - 1, x1 + SWAY_REACH);
-    for (let y = 0; y < h; y++) {
+    for (let y = y0; y <= y1; y++) {
       const o = y * w;
       for (let x = m0; x < x0; x++) if (out[o + x] === SWAY_NEAR) out[o + x] = 0;
       out.fill(0, o + x0, o + x1 + 1);
@@ -101,6 +111,16 @@ export function swayField(
     // walk up from the bottom; root = the row just above the last solid that doesn't sway
     let root = h;
     let y = h - 1;
+    if (low) {
+      // nothing sways below `low`: start there, standing on the first solid cell under it
+      y = low[x]! - 1;
+      for (let r = y + 1; y >= 0 && r < h; r++) {
+        if (t[r * w + x] !== 0) {
+          root = r;
+          break;
+        }
+      }
+    }
     while (y >= 0) {
       const m = t[y * w + x]!;
       if (m === 0) {
@@ -150,7 +170,7 @@ export function swayField(
   // by the changed columns can come from a swaying cell up to twice that far from them)
   const a = Math.max(0, x0 - 2 * SWAY_REACH);
   const z = Math.min(w - 1, x1 + 2 * SWAY_REACH);
-  for (let y = 0; y < h; y++) {
+  for (let y = y0; y <= y1; y++) {
     const o = y * w;
     let last = -1_000_000;
     for (let x = a; x <= z; x++) {
@@ -164,6 +184,79 @@ export function swayField(
     }
   }
   return true;
+}
+
+/** Whether typed-array words read low byte first (every phone and desktop this runs on). */
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+/** The rows that hold swaying cells: `top` and `bottom` (-1 and -1 when there are none). */
+export interface SwayRows {
+  top: number;
+  bottom: number;
+}
+
+/**
+ * One pass over a cell layer for the look scan: ORs `flags[cell]` of every cell and, when `flex`
+ * and `low` are given, sets `low[x]` to one more than the lowest row with a swaying cell in
+ * column `x` (of `w`; clear `low` first, 0 = none) and `rows` to the rows they span. Cells are
+ * read four at a time, and a word equal to the one before it (air, the inside of the ground:
+ * nearly all of a map) is passed in one compare unless that word held a swaying cell. The result
+ * is the same as looking at every cell.
+ */
+export function scanCells(
+  cells: Uint8Array,
+  flags: Uint8Array,
+  w = 0,
+  flex?: Uint8Array,
+  low?: Int32Array,
+  rows?: SwayRows,
+): number {
+  let any = 0;
+  const n = cells.length;
+  let first = -1;
+  let last = -1;
+  let i = 0;
+  if (LITTLE_ENDIAN && cells.byteOffset % 4 === 0) {
+    const words = new Uint32Array(cells.buffer, cells.byteOffset, n >> 2);
+    let prev = -1;
+    let prevFlex = false;
+    for (let k = 0; k < words.length; k++) {
+      const wd = words[k]!;
+      if (wd === prev && !prevFlex) continue;
+      prev = wd;
+      const a = wd & 255;
+      const b = (wd >>> 8) & 255;
+      const c = (wd >>> 16) & 255;
+      const d = wd >>> 24;
+      any |= flags[a]! | flags[b]! | flags[c]! | flags[d]!;
+      if (!flex || !low) continue;
+      prevFlex = (flex[a]! | flex[b]! | flex[c]! | flex[d]!) !== 0;
+      if (!prevFlex) continue;
+      for (let j = k << 2, e = j + 4; j < e; j++) {
+        if (flex[cells[j]!] === 0) continue;
+        const x = j % w;
+        low[x] = (j - x) / w + 1;
+        if (first < 0) first = j;
+        last = j;
+      }
+    }
+    i = words.length << 2;
+  }
+  for (; i < n; i++) {
+    const m = cells[i]!;
+    any |= flags[m]!;
+    if (flex && low && flex[m] !== 0) {
+      const x = i % w;
+      low[x] = (i - x) / w + 1;
+      if (first < 0) first = i;
+      last = i;
+    }
+  }
+  if (rows && w > 0) {
+    rows.top = first < 0 ? -1 : Math.floor(first / w);
+    rows.bottom = last < 0 ? -1 : Math.floor(last / w);
+  }
+  return any;
 }
 
 /** Wind at which trees bend their furthest (the classic mode's top wind). */
