@@ -82,7 +82,11 @@ export function MatchView({
   const over = hud.phase === 'over';
   const awards = useMemo(() => (over ? stats.awards() : []), [over, stats]);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const [anchor, setAnchor] = useState<Vec2 | null>(null);
+  // where the active tank's barrel is on screen. Not React state: it changes on every frame of a
+  // pan, and a render of the whole match view per frame held the game (and the rain) up. The
+  // frame loop moves the aim guide itself, with a transform the compositor applies for free.
+  const anchorRef = useRef<Vec2 | null>(null);
+  const aimRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [perf, setPerf] = useState<PerfStats | null>(null);
   // playfield size in CSS px, for the aim guide's length
@@ -365,7 +369,12 @@ export function MatchView({
       const tank = match.world.tanks[match.world.activePlayer];
       if (tank) {
         const p = r.project({ x: tank.x + 0.5, y: tank.y - 7.5 });
-        setAnchor((a) => (a && a.x === p.x && a.y === p.y ? a : p));
+        const a = anchorRef.current;
+        if (!a || a.x !== p.x || a.y !== p.y) {
+          anchorRef.current = p;
+          const el = aimRef.current;
+          if (el) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+        }
       }
       if (markers) {
         const ts = match.world.tanks;
@@ -651,13 +660,11 @@ export function MatchView({
   // aim guide: a line from the barrel whose length follows power, sized to the screen so it
   // reads on a phone as well as a laptop
   const aimLine = (() => {
-    if (!anchor || !active || hud.phase !== 'aim') return null;
+    if (!active || hud.phase !== 'aim') return null;
     const a = (active.angle * Math.PI) / 180;
     const len = 24 + (active.power / 1000) * Math.max(120, viewMin * 0.45) * 0.8;
-    return {
-      x2: anchor.x + Math.cos(a) * len,
-      y2: anchor.y - Math.sin(a) * len,
-    };
+    // from the barrel, which is where the guide's own origin sits
+    return { x2: Math.cos(a) * len, y2: -Math.sin(a) * len };
   })();
   const color = `#${(PLAYER_COLORS[hud.activePlayer % PLAYER_COLORS.length] ?? 0xffffff)
     .toString(16)
@@ -693,12 +700,20 @@ export function MatchView({
               onDismiss={() => setPerfLog(null)}
             />
           )}
-          <svg className="overlay" aria-hidden="true">
-            {aimLine && anchor && (
-              <>
+          {aimLine && (
+            <div
+              className="aim-guide"
+              aria-hidden="true"
+              ref={(el) => {
+                aimRef.current = el;
+                const p = anchorRef.current;
+                if (el && p) el.style.transform = `translate(${p.x}px, ${p.y}px)`;
+              }}
+            >
+              <svg className="aim-lines">
                 <line
-                  x1={anchor.x}
-                  y1={anchor.y}
+                  x1={0}
+                  y1={0}
                   x2={aimLine.x2}
                   y2={aimLine.y2}
                   stroke="#000"
@@ -707,8 +722,8 @@ export function MatchView({
                   opacity={0.35}
                 />
                 <line
-                  x1={anchor.x}
-                  y1={anchor.y}
+                  x1={0}
+                  y1={0}
                   x2={aimLine.x2}
                   y2={aimLine.y2}
                   stroke={color}
@@ -724,17 +739,19 @@ export function MatchView({
                   stroke="#000"
                   strokeOpacity={0.5}
                 />
-                <g className="aim-marker">
-                  <polygon
-                    points={`${anchor.x - 7},${anchor.y - 22} ${anchor.x + 7},${anchor.y - 22} ${anchor.x},${anchor.y - 13}`}
-                    fill={color}
-                    stroke="#000"
-                    strokeOpacity={0.6}
-                    strokeLinejoin="round"
-                  />
-                </g>
-              </>
-            )}
+              </svg>
+              <svg className="aim-marker" viewBox="-8 -23 16 11">
+                <polygon
+                  points="-7,-22 7,-22 0,-13"
+                  fill={color}
+                  stroke="#000"
+                  strokeOpacity={0.6}
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+          )}
+          <svg className="overlay" aria-hidden="true">
             {drag && (
               <>
                 <circle cx={drag.x0} cy={drag.y0} r={10} fill="none" stroke="#fff" opacity={0.5} />
