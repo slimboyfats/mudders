@@ -445,3 +445,33 @@ on a map that keeps changing.
 The recorder hid this: it showed the renderer's step only as an average, and its list of long
 frames gave the costs of the late frame, not of the frame before it whose work made it late.
 The rows now have `step max`, and each long frame also lists the costs of the frame before.
+
+## Two full phone logs: trees landing, first blast, quality step, rain turn start (2026-11-18)
+
+Two whole recorder files (Village, rain, upright, zoom 0.24, Ion Cannon; both from before the
+look scan fix above) showed four single long ticks or frames.
+
+- **"structures" ticks of 22 to 40 ms** while rock was falling. Not `supportPass`: a toppled
+  tree that lands looped over every cell of the map looking for cells still carrying its group
+  slot, and several trees land in the same tick after a wide blast. It now finds them with
+  `indexOf` on the group layer. 3 to 6 ms a landing tick down to 0.8 ms (node, 1600x800), same
+  results.
+- **The Ion Cannon's impact tick, 14 to 44 ms in "shells".** Part of it was memory: the
+  kernel's scratch arrays were only promised by the system until first written, and the prop
+  groups allocated theirs (a dozen MB) at the first blast near a building. `Scratch` now writes
+  its arrays once when made, and `Groups.prepare` does the same when props stand on a new map.
+  Worst impact tick after the first run: 8 to 25 ms before, mostly 6 to 8 ms after (one run
+  14 ms). The first run of a process is still 40 ms of cold code, which the client's warm-up
+  covers.
+- **A 209 ms frame (145 ms of script, nine shader links) when the quality stepped from high to
+  medium.** `setQuality` builds the particles and the smoke anew, and their shaders were
+  compiled again: 94 of 130 ms in headless Chromium at 6x CPU slowdown sat in
+  `getShaderParameter` and `getProgramParameter`, which wait for the compile. `compileKept`
+  keeps those programs for the life of the context: 27 ms, most of it `checkFramebufferStatus`
+  for the new smoke fields. Live particles and smoke are still dropped at a step.
+- **"turn end" of 7 to 14 ms at every turn start in rain.** Half of it was a walk down every
+  column for the surface. `Grid.surfaces` reads the sky a row at a time, four cells a look,
+  and walks only the last deep columns (0.78 to 0.38 ms), and the water count starts at the
+  highest ground (0.39 to 0.25 ms). About 40% off the tick; it may still cost a frame.
+
+None of this is measured on a phone.

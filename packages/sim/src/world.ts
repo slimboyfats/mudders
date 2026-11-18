@@ -1445,6 +1445,7 @@ export class World implements SimApi {
     for (const gl of res.glue ?? []) this.groups.glue(g, gl.prop, this.mats.cellOf(gl.material));
     if (genItem.props) this.groups.place(g, this.rng, genItem.props, spawns);
     for (const sp of this.options.props ?? []) this.groups.placeAt(g, sp.prop, sp.x, this.rng);
+    if (this.groups.any) this.groups.prepare(g);
     // Pre-settle anything loose the generator left, so a round starts still.
     g.markDirty(0, 0, g.width - 1, g.height - 1);
     for (let i = 0; i < 2000 && g.settling; i++) settleStep(g, this.mats, i, g.size);

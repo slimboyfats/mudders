@@ -293,9 +293,10 @@ export class Toppler {
       sy += (i - x) / W;
     }
     // cells an op shoved elsewhere while it fell still carry the slot: let them go too
+    // (the whole map, once per tree that lands: `indexOf` finds the few there are many times
+    // faster than a loop over every cell, which was a long tick when several trees came down)
     const group = grid.group;
-    for (let i = 0; i < group.length; i++) {
-      if (group[i] !== body.slot) continue;
+    for (let i = group.indexOf(body.slot); i >= 0; i = group.indexOf(body.slot, i + 1)) {
       group[i] = 0;
       const x = i % W;
       const y = (i - x) / W;

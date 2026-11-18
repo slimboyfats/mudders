@@ -462,6 +462,46 @@ export class Grid {
     return out;
   }
 
+  /**
+   * `surfaceY` of every column at once into `out` (at least `width` long). The sky is read a row
+   * at a time, four cells a look, until most columns have their surface; the few deep ones left
+   * are then walked down one by one. A walk down every column from the top touched a new cache
+   * line per cell and was a long tick on a phone.
+   */
+  surfaces(out: Int32Array): void {
+    const W = this.width;
+    const H = this.height;
+    const m = this.material;
+    out.fill(H, 0, W);
+    let y = 0;
+    if ((W & 3) === 0 && m.byteOffset === 0) {
+      const words = new Uint32Array(m.buffer, 0, m.length >> 2);
+      // columns still open in each group of four: a group that is done is passed in one look
+      const open = new Uint8Array(W >> 2).fill(4);
+      let left = W;
+      const few = W >> 3;
+      for (; y < H && left > few; y++) {
+        const row = y * W;
+        for (let x = 0, k = row >> 2, c = 0; x < W; x += 4, k++, c++) {
+          if (words[k] === 0 || open[c] === 0) continue;
+          for (let j = x; j < x + 4; j++) {
+            if (m[row + j] !== 0 && out[j] === H) {
+              out[j] = y;
+              open[c] = open[c]! - 1;
+              left--;
+            }
+          }
+        }
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      if (out[x] !== H) continue;
+      let r = y;
+      for (let i = y * W + x; r < H && m[i] === 0; i += W) r++;
+      out[x] = r;
+    }
+  }
+
   /** Surface row of column x: the first solid row from the top, or `height` if none. */
   surfaceY(x: number): number {
     if (x < 0 || x >= this.width) return this.height;
