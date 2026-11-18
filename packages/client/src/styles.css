@@ -3621,7 +3621,7 @@ a.button {
   }
   /* the turn banner drops below the wind/round row instead of sliding under it */
   .turn-banner {
-    top: calc(env(safe-area-inset-top) + 150px);
+    top: max(calc(env(safe-area-inset-top) + 150px), calc(var(--hud-top, 0px) + 6px));
   }
 }
 
