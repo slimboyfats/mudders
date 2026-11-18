@@ -1,5 +1,6 @@
-import { Shape, type QuadBatch } from './batch';
+import type { QuadBatch } from './batch';
 import { compile, uniforms } from './gl';
+import { QUAD_FS } from './shaders';
 
 /**
  * The loose bits on the sudden-death wall (§3.1): green motes rising through it, wisps torn off
@@ -25,8 +26,6 @@ function h01(i: number, salt: number): number {
   x = Math.imul(x ^ (x >>> 12), 0x297a2d39);
   return ((x ^ (x >>> 15)) >>> 0) / 4294967296;
 }
-
-const mod = (a: number, n: number): number => ((a % n) + n) % n;
 
 const WISPS_PER_100 = 70;
 /** Lattice the motes sit on (cells). */
@@ -68,6 +67,48 @@ void main() {
   gl_Position = vec4(px.x / u_view.x * 2.0 - 1.0, 1.0 - px.y / u_view.y * 2.0, 0.0, 1.0);
 }`;
 
+/** Wisps kept ready per side (enough for a view 5800 cells high). */
+const WISP_MAX = 4096;
+/** Floats per wisp: life, phase, height (0…1 of the view), reach, index, size, colour. */
+const WISP_STRIDE = 7;
+
+/** Places a wisp and hands it to the quad shader's stipple shape (`QUAD_FS`, shape 6). */
+const WISP_VS = `#version 300 es
+precision highp float;
+layout(location = 0) in vec4 a_wisp; // life (ticks), phase, height (0..1 of the span), reach
+layout(location = 1) in vec3 a_look; // index, size (cells), colour (0..2)
+uniform vec2 u_view;
+uniform vec2 u_origin;
+uniform float u_scale;
+uniform float u_time;
+uniform float u_zone;
+uniform vec2 u_span;  // top row and rows the wisps are spread over
+uniform vec2 u_side;  // map x of this side's edge, and which way is inward (+1 / -1)
+uniform float u_fresh;
+out vec2 v_local;
+out vec4 v_color;
+flat out int v_shape;
+flat out vec3 v_blob;
+flat out vec4 v_seg;
+void main() {
+  v_seg = vec4(0.0);
+  int id = gl_VertexID % 6;
+  vec2 corner = vec2(id == 1 || id == 2 || id == 4 ? 1.0 : 0.0, id == 2 || id == 4 || id == 5 ? 1.0 : 0.0);
+  vec2 l = corner - 0.5;
+  float p = fract(u_time / a_wisp.x + a_wisp.y);
+  float u = u_zone + 1.0 + p * a_wisp.w;
+  float y = a_wisp.z * u_span.y + sin(p * 5.0 + a_look.x) * 2.0 - p * 4.0;
+  vec2 pos = vec2(floor(u_side.x + u_side.y * u + 0.5), floor(mod(y, u_span.y) + u_span.x + 0.5));
+  vec3 col = a_look.z < 0.5 ? ${hex(WISP[0])} : a_look.z < 1.5 ? ${hex(WISP[1])} : ${hex(WISP[2])};
+  if (u_fresh > 0.0 && mod(a_look.x, 3.0) < 0.5) col = ${hex(BOLT_HALO)};
+  v_local = l * 2.0;
+  v_color = vec4(col, (1.0 - p) * 0.45);
+  v_shape = 6;
+  v_blob = vec3(pos, a_look.y * 0.5);
+  vec2 px = u_origin + (pos + l * a_look.y) * u_scale;
+  gl_Position = vec4(px.x / u_view.x * 2.0 - 1.0, 1.0 - px.y / u_view.y * 2.0, 0.0, 1.0);
+}`;
+
 const MOTE_FS = `#version 300 es
 precision highp float;
 in vec4 v_color;
@@ -88,16 +129,10 @@ export interface WallView {
 }
 
 /**
- * Draw the wall with its face `zone` cells in from each side (fractional while it creeps), at
- * render time `t` (ticks). `fresh` (0…1) tints the face toxic just after the zone moved in.
+ * Draw the lightning inside a wall whose face stands `zone` cells in from each side (fractional
+ * while it creeps), at render time `t` (ticks).
  */
-export function drawDeathWall(
-  normal: QuadBatch,
-  zone: number,
-  t: number,
-  v: WallView,
-  fresh: number,
-): void {
+export function drawDeathWall(normal: QuadBatch, zone: number, t: number, v: WallView): void {
   for (let side = 0; side < 2; side++) {
     const left = side === 0;
     // the screen's outermost cell on this side, as u
@@ -109,29 +144,7 @@ export function drawDeathWall(
 
     // the body itself is painted by the wall shader (wall.ts), the motes by `WallMotes`
 
-    // wisps: small tendrils torn off the face, drifting out over the battlefield and fading
-    const salt = side * 7919;
-    const wn = Math.ceil((span / 100) * WISPS_PER_100);
-    for (let i = 0; i < wn; i++) {
-      const life = 120 + h01(i, 11 + salt) * 160;
-      const p = mod(t / life + h01(i, 12 + salt), 1);
-      const y0 = top + h01(i, 13 + salt) * span;
-      const u = zone + 1 + p * (6 + h01(i, 14 + salt) * 14);
-      const y = y0 + Math.sin(p * 5 + i) * 2 - p * 4;
-      const size = Math.round(2 + h01(i, 15 + salt) * 3);
-      const alpha = (1 - p) * 0.45;
-      let col: number = WISP[i % WISP.length]!;
-      if (fresh > 0 && i % 3 === 0) col = BOLT_HALO;
-      normal.push(
-        Math.round(toX(u)),
-        Math.round(mod(y - top, span) + top),
-        size,
-        size,
-        col,
-        alpha,
-        Shape.Stipple,
-      );
-    }
+    // (the wisps torn off the face are `WallWisps`)
 
     // green lightning deep in the wall: now and then a jagged bolt crackles down for a few frames
     const slot = Math.floor(t / 6);
@@ -259,6 +272,107 @@ export class WallMotes {
     gl.bindVertexArray(this.vao);
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, this.n);
     gl.bindVertexArray(null);
+  }
+
+  dispose(): void {
+    this.gl.deleteBuffer(this.buf);
+    this.gl.deleteVertexArray(this.vao);
+    this.gl.deleteProgram(this.prog);
+  }
+}
+
+/**
+ * The wisps: small tendrils torn off the wall's face, drifting out over the battlefield and
+ * fading. Like the motes each is a pure function of its index and the render time, so what never
+ * changes about a wisp sits in a static buffer and the vertex shader does the rest. They are
+ * spread over the rows on screen, so the more of the wall is in view the more of them there are.
+ */
+export class WallWisps {
+  private readonly prog: WebGLProgram;
+  private readonly vao: WebGLVertexArrayObject;
+  private readonly buf: WebGLBuffer;
+  private readonly u;
+
+  constructor(private readonly gl: WebGL2RenderingContext) {
+    this.prog = compile(gl, WISP_VS, QUAD_FS);
+    this.u = uniforms(gl, this.prog, [
+      'u_view',
+      'u_origin',
+      'u_scale',
+      'u_time',
+      'u_zone',
+      'u_span',
+      'u_side',
+      'u_fresh',
+    ]);
+    // both sides in one buffer, the left side first
+    const d = new Float32Array(2 * WISP_MAX * WISP_STRIDE);
+    let o = 0;
+    for (let side = 0; side < 2; side++) {
+      const salt = side * 7919;
+      for (let i = 0; i < WISP_MAX; i++) {
+        d[o] = 120 + h01(i, 11 + salt) * 160;
+        d[o + 1] = h01(i, 12 + salt);
+        d[o + 2] = h01(i, 13 + salt);
+        d[o + 3] = 6 + h01(i, 14 + salt) * 14;
+        d[o + 4] = i;
+        d[o + 5] = Math.round(2 + h01(i, 15 + salt) * 3);
+        d[o + 6] = i % WISP.length;
+        o += WISP_STRIDE;
+      }
+    }
+    this.vao = gl.createVertexArray();
+    this.buf = gl.createBuffer();
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+    gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+  }
+
+  /** Draw the wisps of both walls. Expects premultiplied alpha blending, like the quad batches. */
+  draw(
+    view: [number, number],
+    origin: [number, number],
+    scale: number,
+    zone: number,
+    t: number,
+    v: WallView,
+    fresh: number,
+  ): void {
+    const gl = this.gl;
+    const top = Math.floor(v.y0) - 6;
+    const span = Math.ceil(v.y1 - v.y0) + 12;
+    const n = Math.min(WISP_MAX, Math.ceil((span / 100) * WISPS_PER_100));
+    let bound = false;
+    for (let side = 0; side < 2; side++) {
+      const left = side === 0;
+      const uOut = Math.floor(left ? v.x0 : v.width - v.x1) - 2;
+      if (uOut >= zone + 8) continue; // this wall is off screen
+      if (!bound) {
+        bound = true;
+        gl.useProgram(this.prog);
+        gl.uniform2f(this.u.u_view, view[0], view[1]);
+        gl.uniform2f(this.u.u_origin, origin[0], origin[1]);
+        gl.uniform1f(this.u.u_scale, scale);
+        gl.uniform1f(this.u.u_time, t);
+        gl.uniform1f(this.u.u_zone, zone);
+        gl.uniform2f(this.u.u_span, top, span);
+        gl.uniform1f(this.u.u_fresh, fresh);
+        gl.bindVertexArray(this.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buf);
+      }
+      gl.uniform2f(this.u.u_side, left ? 0 : v.width, left ? 1 : -1);
+      // this side's wisps: point the attributes at its half of the buffer
+      const base = side * WISP_MAX * WISP_STRIDE * 4;
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 4, gl.FLOAT, false, WISP_STRIDE * 4, base);
+      gl.vertexAttribDivisor(0, 1);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, WISP_STRIDE * 4, base + 16);
+      gl.vertexAttribDivisor(1, 1);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+    }
+    if (bound) gl.bindVertexArray(null);
   }
 
   dispose(): void {
