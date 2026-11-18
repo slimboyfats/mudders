@@ -5755,3 +5755,200 @@ button.hold {
     align-self: stretch;
   }
 }
+
+/* ── Training: the bar under the HUD's top row, and the coach card ──
+   Deep-tinted glass (no blur: it sits over the live map), text at 4.5:1 on the darkest map. */
+.training-bar {
+  position: absolute;
+  /* under the player chips (two rows with team letters) */
+  top: calc(env(safe-area-inset-top) + 64px * var(--ui-scale, 1));
+  left: calc(env(safe-area-inset-left) + 8px);
+  display: flex;
+  flex-wrap: wrap;
+  white-space: nowrap;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  font-size: 0.75rem;
+}
+
+.training-bar .seg {
+  display: flex;
+  gap: 0;
+}
+
+.training-bar button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+.training-bar .seg button {
+  border-radius: 0;
+}
+
+.training-bar .seg button:first-child {
+  border-radius: 10px 0 0 10px;
+}
+
+.training-bar .seg button:last-child {
+  border-radius: 0 10px 10px 0;
+}
+
+.training-tally {
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #fff6e6;
+  background: rgb(6 10 30 / 0.72);
+}
+
+.coach-card {
+  position: absolute;
+  /* top middle: mostly sky between the tanks */
+  top: calc(env(safe-area-inset-top) + 104px * var(--ui-scale, 1));
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(360px, calc(100% - 16px));
+  max-height: calc(100% - 200px * var(--ui-scale, 1));
+  overflow: auto;
+  padding: 8px 12px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--g-edge);
+  border-left: 4px solid #6fb6ff;
+  background: var(--g-streak), linear-gradient(180deg, rgb(10 22 64 / 0.86), rgb(6 12 38 / 0.9));
+  box-shadow: var(--g-glow-sm);
+  color: var(--fg);
+  font-size: 0.8rem;
+  line-height: 1.3;
+  /* in only by opacity and transform: no repaint of the HUD each frame */
+  animation: coach-in 0.18s ease-out;
+}
+
+.coach-card.good {
+  border-left-color: #7cf05a;
+}
+
+.coach-card.near {
+  border-left-color: #ffd84a;
+}
+
+.coach-card.miss {
+  border-left-color: #ff8a5c;
+}
+
+.coach-card.coach-final {
+  top: 50%;
+  translate: -50% -50%;
+  max-height: calc(100% - 140px * var(--ui-scale, 1));
+}
+
+@keyframes coach-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.coach-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.coach-head strong {
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 400;
+  color: #fff6e6;
+}
+
+.coach-card.good .coach-head strong {
+  color: #a6ff8a;
+}
+
+.coach-card.near .coach-head strong {
+  color: #ffe27a;
+}
+
+.coach-card p,
+.coach-why {
+  margin: 0;
+}
+
+.coach-why {
+  padding-left: 16px;
+}
+
+.coach-next {
+  color: #fff;
+}
+
+.coach-label {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: #3ce0ff;
+  color: #04122a;
+  font-weight: 700;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.coach-tip {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.coach-card .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.coach-card .row:empty {
+  display: none;
+}
+
+.coach-card .row button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+.coach-fold {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.coach-chip {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 104px * var(--ui-scale, 1));
+  left: 50%;
+  translate: -50% 0;
+  max-width: min(320px, calc(100% - 16px));
+  min-height: 32px;
+  padding: 4px 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  background: var(--g-streak), linear-gradient(180deg, rgb(10 22 64 / 0.86), rgb(6 12 38 / 0.9));
+}
+
+.training-label {
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: #fff6e6;
+  background: rgb(6 10 30 / 0.72);
+}
