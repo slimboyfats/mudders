@@ -14,6 +14,29 @@ describe('Grid', () => {
     expect(g.surfaceY(-1)).toBe(5);
   });
 
+  it('finds every column surface at once, the same as column by column', () => {
+    const out = new Int32Array(40).fill(-7);
+    // widths that go by words of four cells and one that does not
+    for (const w of [36, 37]) {
+      const g = new Grid(w, 23);
+      let r = 12345;
+      for (let x = 0; x < w; x++) {
+        if (x % 9 === 4) continue; // open to the floor
+        for (let y = 0; y < 23; y++) {
+          r = (Math.imul(r, 1103515245) + 12345) >>> 0;
+          if (r >>> 28 < (x < 20 ? 1 : 6)) g.set(x, y, 1 + (r & 3));
+        }
+      }
+      out.fill(-7);
+      g.surfaces(out);
+      for (let x = 0; x < w; x++) expect(out[x]).toBe(g.surfaceY(x));
+      expect(out[w]).toBe(-7);
+    }
+    const empty = new Grid(8, 4);
+    empty.surfaces(out);
+    expect(Array.from(out.subarray(0, 8))).toEqual([4, 4, 4, 4, 4, 4, 4, 4]);
+  });
+
   it('tracks a settle region from the top down to the dirty rect', () => {
     const g = new Grid(100, 50);
     expect(g.settling).toBe(false);

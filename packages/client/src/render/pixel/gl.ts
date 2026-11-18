@@ -1,6 +1,11 @@
 /** Small WebGL2 helpers. Everything here must run on SwiftShader (headless capture, §2d). */
 
-export function compile(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
+export function compile(
+  gl: WebGL2RenderingContext,
+  vs: string,
+  fs: string,
+  feedback?: readonly string[],
+): WebGLProgram {
   const prog = gl.createProgram();
   for (const [type, src] of [
     [gl.VERTEX_SHADER, vs],
@@ -16,10 +21,34 @@ export function compile(gl: WebGL2RenderingContext, vs: string, fs: string): Web
     gl.attachShader(prog, sh);
     gl.deleteShader(sh);
   }
+  if (feedback) gl.transformFeedbackVaryings(prog, [...feedback], gl.INTERLEAVED_ATTRIBS);
   gl.linkProgram(prog);
   if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
     throw new Error(`program link failed: ${gl.getProgramInfoLog(prog) ?? ''}`);
   }
+  return prog;
+}
+
+const kept = new WeakMap<WebGL2RenderingContext, Map<string, WebGLProgram>>();
+
+/**
+ * `compile`, but the program is kept for the life of its context and handed out again for the
+ * same sources: never delete one. For the parts that are built anew when the quality steps
+ * (particles, smoke): compiling their shaders again was most of a 150 to 200 ms freeze at the
+ * step on a phone. Whoever gets a program sets every uniform it relies on, as after a fresh
+ * compile it could not rely on values either.
+ */
+export function compileKept(
+  gl: WebGL2RenderingContext,
+  vs: string,
+  fs: string,
+  feedback?: readonly string[],
+): WebGLProgram {
+  let map = kept.get(gl);
+  if (!map) kept.set(gl, (map = new Map()));
+  const key = `${vs}\0${fs}\0${feedback?.join(',') ?? ''}`;
+  let prog = map.get(key);
+  if (!prog) map.set(key, (prog = compile(gl, vs, fs, feedback)));
   return prog;
 }
 

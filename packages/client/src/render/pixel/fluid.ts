@@ -20,7 +20,7 @@
  * Needs float render targets (`EXT_color_buffer_float`); without them the fluid is off and
  * everything else carries on.
  */
-import { compile, texture } from './gl';
+import { compileKept, texture } from './gl';
 
 /** Anything that can pour into the field: the fluid in the renderer, a recorder in tests. */
 export interface FluidSink {
@@ -383,7 +383,7 @@ export class GpuFluid implements FluidSink {
     // from unit 0; a `null` skips a unit).
     const was = gl.getParameter(gl.CURRENT_PROGRAM) as WebGLProgram | null;
     const mk = (name: string, fs: string, units: (string | null)[], names: string[]): void => {
-      const p = compile(gl, FULL_VS, fs);
+      const p = compileKept(gl, FULL_VS, fs);
       this.progs[name] = p;
       const u: Record<string, WebGLUniformLocation | null> = {};
       for (const n of ['u_size', 'u_terrain', 'u_map', 'u_div', ...names])
@@ -666,7 +666,7 @@ export class GpuFluid implements FluidSink {
       }
     }
     for (const f of this.pair ?? []) gl.deleteFramebuffer(f);
-    for (const p of Object.values(this.progs)) gl.deleteProgram(p);
+    // the programs stay with the context (`compileKept`)
     this.vel = this.dye = this.pressure = this.pair = undefined;
     this.progs = {};
   }

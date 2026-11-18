@@ -23,6 +23,14 @@ export class Scratch {
     this.tmpMat = new Uint8Array(size);
     this.tmpCoat = new Uint8Array(size);
     this.tmpState = new Uint8Array(size);
+    // Written once so the memory is really there. A fresh typed array is only promised by the
+    // system, and the first big blast of a match then paid for every page it touched.
+    this.queue.fill(0);
+    this.mark.fill(0);
+    this.moved.fill(0);
+    this.tmpMat.fill(0);
+    this.tmpCoat.fill(0);
+    this.tmpState.fill(0);
   }
 
   /** New stamp for `mark`. A cell is marked iff `mark[i] === gen`. */

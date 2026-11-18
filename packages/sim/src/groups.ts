@@ -762,6 +762,24 @@ export class Groups {
     this.holdOn(grid, g, fx);
   }
 
+  /**
+   * Have the scratch buffers ready before play (called once props stand on a new map). They are
+   * a dozen MB on a large map: allocated at the first blast near a building instead, that tick
+   * paid for the allocation and for first use of the memory, a visible hitch on a phone. Never
+   * part of the sim state.
+   */
+  prepare(grid: Grid): void {
+    if (this.mark.length === grid.size) return;
+    this.ensureScratch(grid);
+    // written once so the pages are really there
+    this.mark.fill(0);
+    this.queue.fill(0);
+    this.snapMat.fill(0);
+    this.snapCoat.fill(0);
+    this.snapState.fill(0);
+    this.snapGroup.fill(0);
+  }
+
   private ensureScratch(grid: Grid): void {
     if (this.mark.length === grid.size) return;
     this.mark = new Uint8Array(grid.size);

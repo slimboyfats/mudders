@@ -1,5 +1,5 @@
 import { QUAD_FS } from './shaders';
-import { compile } from './gl';
+import { compileKept } from './gl';
 import { LIGHT_BANDS, MAX_LIGHTS, type Lights } from './lighting';
 import { ParticleLanes } from './particle-lanes';
 import { FIRE_RGB } from './blast-styles';
@@ -763,30 +763,6 @@ void main() {
   gl_Position = vec4(px.x / u_view.x * 2.0 - 1.0, 1.0 - px.y / u_view.y * 2.0, 0.0, 1.0);
 }`;
 
-function linkFeedback(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {
-  const prog = gl.createProgram();
-  for (const [type, src] of [
-    [gl.VERTEX_SHADER, vs],
-    [gl.FRAGMENT_SHADER, fs],
-  ] as const) {
-    const sh = gl.createShader(type);
-    if (!sh) throw new Error('createShader failed');
-    gl.shaderSource(sh, src);
-    gl.compileShader(sh);
-    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-      throw new Error(`shader compile failed: ${gl.getShaderInfoLog(sh) ?? ''}`);
-    }
-    gl.attachShader(prog, sh);
-    gl.deleteShader(sh);
-  }
-  gl.transformFeedbackVaryings(prog, ['v_dyn'], gl.INTERLEAVED_ATTRIBS);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
-    throw new Error(`program link failed: ${gl.getProgramInfoLog(prog) ?? ''}`);
-  }
-  return prog;
-}
-
 /** Bytes per particle in the static buffer: spawn, life, size (f32) + kind/colour (u32). */
 const STAT_BYTES = 16;
 const DYN_BYTES = 16;
@@ -845,8 +821,8 @@ export class GpuParticles implements ParticleSink {
     this.statF = new Float32Array(stat);
     this.statU = new Uint32Array(stat);
 
-    this.updProg = linkFeedback(gl, UPDATE_VS, NULL_FS);
-    this.drawProg = compile(gl, DRAW_VS, QUAD_FS);
+    this.updProg = compileKept(gl, UPDATE_VS, NULL_FS, ['v_dyn']);
+    this.drawProg = compileKept(gl, DRAW_VS, QUAD_FS);
     for (const n of [
       'u_tick',
       'u_gravity',
@@ -1235,7 +1211,6 @@ export class GpuParticles implements ParticleSink {
     gl.deleteBuffer(this.statBuf);
     for (const v of [...this.updVao, this.drawVao]) gl.deleteVertexArray(v);
     gl.deleteTransformFeedback(this.tf);
-    gl.deleteProgram(this.updProg);
-    gl.deleteProgram(this.drawProg);
+    // the programs stay with the context (`compileKept`)
   }
 }

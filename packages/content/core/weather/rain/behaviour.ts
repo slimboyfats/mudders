@@ -41,15 +41,18 @@ export default defineWeather<z.infer<typeof params>>({
     const tanks = tankColumns(api);
     const touched = new Touched();
 
-    // once per turn, not a hot path
     const surf = new Int32Array(W);
-    for (let x = 0; x < W; x++) surf[x] = g.surfaceY(x);
+    g.surfaces(surf);
 
     // the count only matters up to the cap; `indexOf` scans at native speed (this runs once a
     // turn, so a plain loop over the whole map would run unoptimised and cost a frame or two)
     const cap = Math.trunc((p.maxWater * W) / 100);
     let wet = 0;
-    for (let i = m.indexOf(water); i !== -1 && wet < cap; i = m.indexOf(water, i + 1)) wet++;
+    // (and starts at the highest ground: everything above it is air)
+    let sky = H;
+    for (let x = 0; x < W; x++) if (surf[x]! < sky) sky = surf[x]!;
+    for (let i = m.indexOf(water, sky * W); i !== -1 && wet < cap; i = m.indexOf(water, i + 1))
+      wet++;
 
     // The lowest row in every window of `reach` columns, in one pass each way: `fore[j]` is the
     // minimum from the start of j's block up to j, `back[j]` from j to the end of its block, so a
