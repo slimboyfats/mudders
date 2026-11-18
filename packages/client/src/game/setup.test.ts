@@ -117,6 +117,11 @@ describe('match setup', () => {
     // bounty + comeback cash: passed on when switched on, left out otherwise
     expect(toWorldOptions({ ...base, startingCash: 0, bounty: true }, 1).rules?.bounty).toBe(true);
     expect(toWorldOptions({ ...base, startingCash: 0 }, 1).rules?.bounty).toBeUndefined();
+    // shop time: passed on as picked, left out (the mode's 30 s) when unset
+    expect(toWorldOptions({ ...base, startingCash: 0, shopTimer: 90 }, 1).rules?.shopTimer).toBe(
+      90,
+    );
+    expect(toWorldOptions({ ...base, startingCash: 0 }, 1).rules?.shopTimer).toBeUndefined();
   });
 });
 
