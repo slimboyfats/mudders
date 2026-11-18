@@ -6,6 +6,7 @@ import { teamName } from '../game/setup';
 import { sfx } from '../audio/bridge';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { categoryColor, categoryGroup, categoryLabel } from './categories';
+import { WeaponPreview } from './WeaponPreview';
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const pcolor = (p: number) => css(PLAYER_COLORS[p % PLAYER_COLORS.length] ?? 0xffffff);
@@ -100,6 +101,22 @@ function loadSort(): SortKey {
   }
 }
 
+/** Words to search the shop by: name, kind and description, in lower case. */
+function searchText(it: ShopItem): string {
+  return `${it.name} ${categoryLabel(it.category)} ${it.description}`.toLowerCase();
+}
+
+/**
+ * Does the item match what was typed in the search box? Every word typed must appear somewhere
+ * (name, kind or description), so "fire roll" finds a rolling fire weapon; an empty box finds all.
+ */
+export function matchesSearch(it: ShopItem, query: string): boolean {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return true;
+  const text = searchText(it);
+  return words.every((w) => text.includes(w));
+}
+
 /**
  * Shop order: 'price' keeps the default (gear first, then weapons cheapest first). The others put
  * weapons first by the chosen stat (biggest or newest first, ties by price) and gear after them.
@@ -149,6 +166,9 @@ export function Shop({ hud, controls, send }: ShopProps) {
   const [filter, setFilter] = useState('all');
   const [info, setInfo] = useState<string | null>(null);
   const [sort, setSort] = useState<SortKey>(loadSort);
+  const [query, setQuery] = useState('');
+  // the weapon being previewed, or null
+  const [peek, setPeek] = useState<string | null>(null);
   const items = useMemo(() => sortShop(hud.shop, sort), [hud.shop, sort]);
   const pickSort = (k: SortKey) => {
     setSort(k);
@@ -171,10 +191,69 @@ export function Shop({ hud, controls, send }: ShopProps) {
     if (!groups.includes(g)) groups.push(g);
   }
   groups.push('driving');
+  const searching = query.trim() !== '';
   const shown = (category: string, fresh = false, deal = false) =>
     filter === 'all' ||
     (filter === 'new' ? fresh : filter === 'deals' ? deal : categoryGroup(category) === filter);
+  const visible = useMemo(() => {
+    const hits = items.filter(
+      (it) => shown(it.category, it.isNew, it.deal !== undefined) && matchesSearch(it, query),
+    );
+    // searching: weapons with the words in their name come before ones that only mention them
+    const q = query.trim().toLowerCase();
+    if (!q) return hits;
+    const named = (it: ShopItem) => Number(it.name.toLowerCase().includes(q));
+    return hits.sort((a, b) => named(b) - named(a));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, query, filter]);
+  const fuelShown =
+    shown('driving') &&
+    matchesSearch(
+      {
+        id: 'fuel',
+        name: 'Fuel Tank',
+        description: 'fuel driving drive',
+        category: 'driving',
+        price: 0,
+        pack: 0,
+      },
+      query,
+    );
+  // the preview steps through the weapons the shop shows, in its order (no gear)
+  const peekable = visible.filter((it) => it.gear === undefined);
+  const peekIndex = peek === null ? -1 : peekable.findIndex((it) => it.id === peek);
   const low = hud.seconds >= 0 && hud.seconds <= 5;
+  const buyButton = (it: ShopItem) => {
+    if (!me) return null;
+    const have = owned(it.id);
+    const full = it.gear !== undefined && have >= it.gear.max;
+    const out = it.deal === 'out';
+    const poor = me.money < it.price;
+    const can = !me.ready && have >= 0 && !full && !out && !poor;
+    return (
+      <button
+        className="buy"
+        disabled={!can}
+        onClick={() => {
+          sfx('audio.ui-buy');
+          send(me.player, { type: 'buy', item: it.id, packs: 1 });
+        }}
+        aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
+      >
+        <span>
+          {out
+            ? 'Sold out'
+            : full
+              ? 'Full'
+              : poor
+                ? `Need ${money(it.price - me.money)} more`
+                : `Buy +${it.pack}`}
+        </span>
+        {/* too poor: the button says how much is missing instead of the price */}
+        {!poor && <span className="price">{money(it.price)}</span>}
+      </button>
+    );
+  };
 
   return (
     <div className="shop" role="dialog" aria-label="Shop">
@@ -231,6 +310,20 @@ export function Shop({ hud, controls, send }: ShopProps) {
       {me && (
         <>
           <div className="shop-filters">
+            <label className="shop-search">
+              <span aria-hidden="true">⌕</span>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search"
+                aria-label="Search the shop"
+                enterKeyHint="search"
+                autoComplete="off"
+                spellCheck={false}
+                data-testid="shop-search"
+              />
+            </label>
             <label className="shop-sort">
               <span aria-hidden="true">⇅</span>
               <select
@@ -312,7 +405,13 @@ export function Shop({ hud, controls, send }: ShopProps) {
               </details>
             )}
             <div className="cards">
-              {shown('driving') && (
+              {searching && visible.length === 0 && !fuelShown && (
+                <p className="shop-empty" role="status">
+                  Nothing in the shop matches “{query.trim()}”
+                  {filter !== 'all' ? ' under this filter' : ''}.
+                </p>
+              )}
+              {fuelShown && (
                 <div
                   className="card fuel-card"
                   style={{ '--cat': categoryColor('driving') } as CSSProperties}
@@ -351,13 +450,11 @@ export function Shop({ hud, controls, send }: ShopProps) {
                   </button>
                 </div>
               )}
-              {items.map((it) => {
-                if (!shown(it.category, it.isNew, it.deal !== undefined)) return null;
+              {visible.map((it) => {
                 const have = owned(it.id);
                 const full = it.gear !== undefined && have >= it.gear.max;
                 const out = it.deal === 'out';
                 const poor = me.money < it.price;
-                const can = !me.ready && have >= 0 && !full && !out && !poor;
                 return (
                   <div
                     key={it.id}
@@ -393,26 +490,20 @@ export function Shop({ hud, controls, send }: ShopProps) {
                       {it.blast ? <small className="stat"> · blast {it.blast}</small> : null}{' '}
                       {it.description}
                     </p>
-                    <button
-                      className="buy"
-                      disabled={!can}
-                      onClick={() => {
-                        sfx('audio.ui-buy');
-                        send(me.player, { type: 'buy', item: it.id, packs: 1 });
-                      }}
-                      aria-label={`Buy ${it.pack} ${it.name} for ${it.price}`}
-                    >
-                      <span>
-                        {out
-                          ? 'Sold out'
-                          : full
-                            ? 'Full'
-                            : poor
-                              ? `Need ${money(it.price - me.money)} more`
-                              : `Buy +${it.pack}`}
-                      </span>
-                      <span className="price">{money(it.price)}</span>
-                    </button>
+                    <div className="card-acts">
+                      {it.gear === undefined && (
+                        <button
+                          className="peek"
+                          onClick={() => setPeek(it.id)}
+                          aria-label={`Watch ${it.name}`}
+                          title="Watch it fired"
+                          data-testid={`preview-${it.id}`}
+                        >
+                          <span aria-hidden="true">▶</span>
+                        </button>
+                      )}
+                      {buyButton(it)}
+                    </div>
                   </div>
                 );
               })}
@@ -425,7 +516,7 @@ export function Shop({ hud, controls, send }: ShopProps) {
                 : humans.length > 1
                   ? `P${me.player + 1} is shopping. Pass the device after Ready.`
                   : 'Buy what you need, then Ready.'}{' '}
-              Tap a name to read all about it.
+              Tap a name to read all about it, ▶ to watch it fired.
             </span>
             <button
               className="primary ready"
@@ -441,6 +532,22 @@ export function Shop({ hud, controls, send }: ShopProps) {
             </button>
           </div>
         </>
+      )}
+      {peekIndex >= 0 && (
+        <WeaponPreview
+          items={peekable}
+          index={peekIndex}
+          onIndex={(i) => setPeek(peekable[i]?.id ?? null)}
+          onClose={() => {
+            // focus goes back to the ▶ the preview was opened from
+            const id = peek;
+            setPeek(null);
+            requestAnimationFrame(() =>
+              document.querySelector<HTMLElement>(`[data-testid="preview-${id}"]`)?.focus(),
+            );
+          }}
+          buy={buyButton}
+        />
       )}
     </div>
   );
