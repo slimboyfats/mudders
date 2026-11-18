@@ -5975,11 +5975,13 @@ button.hold {
 }
 
 /* ── shop cards fit their Buy row (Joel: prices cut off once ▶ sat beside Buy) ──
-   A card measures itself: when it is too narrow for ▶ + "Buy +2" + the price on one line, the
+   The button row measures itself: when it is too narrow for ▶ + "Buy +2" + the price on one line, the
    label and the price stack in two lines inside the button, and "Need $X more" may wrap. On wide
    screens the cards get a little wider instead, and the filter chips wrap onto a second row
    rather than running off the right edge. */
-.shop .card {
+/* the button row is the container, not the card: a container has layout containment, and that
+   turns off the card's subgrid (below) */
+.shop .card-acts {
   container-type: inline-size;
 }
 
@@ -5987,7 +5989,7 @@ button.hold {
   overflow: hidden;
 }
 
-@container (max-width: 224px) {
+@container (max-width: 204px) {
   .shop .card-acts:has(.peek) .buy {
     flex-direction: column;
     align-items: flex-start;
@@ -6011,4 +6013,39 @@ button.hold {
     flex-wrap: wrap;
     overflow-x: visible;
   }
+}
+
+/* ── shop cards line up across a row (Joel: "flex-box alignment margin-auto etc subgrids?") ──
+   Every card spans three rows of the shop grid and takes them as a subgrid: name row, text row,
+   button row. A badge that wraps the name onto two lines (½ PRICE beside "have 2") then makes
+   that row taller for the whole row of cards, so names, text and the ▶/Buy buttons stay level
+   in every card, and the buttons sit on the card's bottom. */
+.shop .cards {
+  grid-auto-rows: auto;
+}
+
+.shop .card {
+  display: grid;
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: 6px;
+  align-content: start;
+}
+
+.shop .card > .card-top {
+  align-self: start;
+}
+
+.shop .card > p {
+  align-self: start;
+}
+
+/* the button row is as tall as the tallest button in the row of cards, and every button fills it */
+.shop .card > .card-acts,
+.shop .card > .buy {
+  align-self: stretch;
+}
+
+.shop .cards > .shop-empty {
+  grid-row: span 1;
 }
