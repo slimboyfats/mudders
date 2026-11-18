@@ -415,3 +415,33 @@ errors, the window changing size and the tab being hidden. The summary has frame
 and draw calls a frame, the rows have a `draws` column, and the log ends with `END` so a cut-off
 paste shows. The counting wraps the context's draw and link calls only while a recording runs
 (`watchGl` in `game/perf-log.ts`) and removes the wrappers on Stop.
+
+## Rain: the look scan every 20 ticks was a 35 ms frame on the phone (2026-11-18, seventh log)
+
+The first recorder v3 log (upright, zoom 0.24, Village, rain) had 42 browser stalls, all at the
+frame callback, 0.33 s apart, with 35 to 45 ms of script each, while sim, render and other JS
+added up to about 5 ms. Seconds with no terrain change ran a flat 60. The time was in the
+renderer's step, which the log only shows as an average: `scanLooks`, every 20 ticks whenever
+terrain changed. Rain changes cells in every column on every tick, so in rain the scan never
+rested and always covered the whole width: two whole-map passes for the look flags, a walk up
+every column for the sway field, and a whole-map compare for its texture.
+
+On a 1600x800 Village map in rain (node, bundled): flags pass 3.1 ms each for terrain and
+coating, sway field 6.4 ms, about 12.5 ms per scan on a desktop. Now:
+
+- `scanCells` reads the layer four cells at a time and passes a word equal to the one before
+  it in one compare (320 000 words, 4 300 differ from their neighbour): 0.9 ms for terrain
+  including the sway columns, less for coating.
+- The same pass notes, per column, the lowest row with a swaying cell and the rows they span.
+  The sway field is rebuilt only in runs of columns that held a swaying cell or hold one now,
+  each column starts at its lowest swaying cell instead of the bottom of the map, and only the
+  rows that can hold swaying cells are cleared, marked and compared for upload: 1.1 ms.
+
+About 2.3 ms per scan instead of 12.5, with the same field (tests compare it with a whole
+rebuild over 300 random edits; the benchmark compares it on the real map). Not measured on a
+phone. Left: the heat field is still a whole-map rebuild every 20 ticks while lava or fire is
+on a map that keeps changing.
+
+The recorder hid this: it showed the renderer's step only as an average, and its list of long
+frames gave the costs of the late frame, not of the frame before it whose work made it late.
+The rows now have `step max`, and each long frame also lists the costs of the frame before.

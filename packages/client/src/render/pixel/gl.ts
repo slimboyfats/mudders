@@ -80,6 +80,8 @@ export function uploadChanged(
   h: number,
   from = 0,
   to = w - 1,
+  top = 0,
+  bottom = h - 1,
 ): boolean {
   let y0 = -1;
   let y1 = -1;
@@ -87,7 +89,7 @@ export function uploadChanged(
   let x1 = -1;
   const lo = Math.max(0, from);
   const hi = Math.min(w - 1, to);
-  for (let y = 0; y < h; y++) {
+  for (let y = Math.max(0, top), end = Math.min(h - 1, bottom); y <= end; y++) {
     const o = y * w;
     let a = -1;
     for (let x = lo; x <= hi; x++) {
