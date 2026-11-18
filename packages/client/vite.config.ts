@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
@@ -100,11 +101,25 @@ const signalProxy: Record<string, ProxyOptions> = {
   },
 };
 
+function buildId(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
 export default defineConfig(({ command }) => ({
   plugins: [react(), chiptuneWorklet(), pwa()],
   base: process.env.MUDDERS_BASE ?? '/',
   // LAN addresses go in dev only; a production build must not carry the build machine's IPs
-  define: { __MUDDERS_LAN_HOSTS__: JSON.stringify(command === 'serve' ? lanHosts() : []) },
+  define: {
+    __MUDDERS_LAN_HOSTS__: JSON.stringify(command === 'serve' ? lanHosts() : []),
+    // the commit, for the performance log's header
+    __MUDDERS_BUILD__: JSON.stringify(buildId()),
+  },
   build: {
     target,
     sourcemap: true,

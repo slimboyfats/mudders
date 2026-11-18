@@ -42,3 +42,8 @@ export const SIGNAL_URL = resolveSignalUrl(
   typeof location === 'undefined' ? '' : location.search,
   typeof location === 'undefined' ? '' : location.origin,
 );
+
+declare const __MUDDERS_BUILD__: string | undefined;
+/** The commit this client was built from (`dev` under Vitest and where git is absent). */
+export const BUILD_ID: string =
+  typeof __MUDDERS_BUILD__ === 'undefined' ? 'dev' : __MUDDERS_BUILD__;

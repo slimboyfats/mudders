@@ -12,8 +12,10 @@ import {
   SlowWatch,
   perfFileName,
   stallDetail,
+  watchGl,
   type PerfContext,
 } from '../game/perf-log';
+import { BUILD_ID } from '../config';
 import type { Settings } from '../game/settings';
 import { holdSimWarmup } from '../game/sim-warmup';
 import { SlowMo } from '../game/slowmo';
@@ -121,6 +123,7 @@ export function MatchView({
       {
         when: new Date().toISOString(),
         kernel: KERNEL_VERSION,
+        build: BUILD_ID,
         browser: navigator.userAgent,
         gpu: rp?.device() ?? 'unknown',
         'gpu timer': !timed
@@ -168,6 +171,50 @@ export function MatchView({
     });
     obs.observe({ type });
     return () => obs.disconnect();
+  }, [isRec]);
+  // ... and so do shaders built during play, draw calls, console errors and a hidden tab
+  const glWatch = useRef<{ take: () => number } | null>(null);
+  useEffect(() => {
+    if (!isRec) return;
+    const note = (kind: string, detail: string): void =>
+      recRef.current?.note(performance.now(), kind, detail);
+    const gl = canvasRef.current?.getContext('webgl2');
+    const watch = gl ? watchGl(gl, (ms) => note('shader link', `${ms.toFixed(1)} ms`)) : null;
+    glWatch.current = watch;
+    const text = (a: unknown[]): string =>
+      a.map((x) => (x instanceof Error ? x.message : String(x))).join(' ');
+    const { error, warn } = console;
+    console.error = (...a: unknown[]): void => {
+      note('console error', text(a));
+      error.apply(console, a);
+    };
+    console.warn = (...a: unknown[]): void => {
+      note('console warn', text(a));
+      warn.apply(console, a);
+    };
+    const onError = (e: ErrorEvent): void =>
+      note(
+        'js error',
+        `${e.message} at ${e.filename.split('/').pop() ?? ''}:${e.lineno}:${e.colno}`,
+      );
+    const onReject = (e: PromiseRejectionEvent): void => note('promise', String(e.reason));
+    const onVis = (): void => note('tab', document.hidden ? 'hidden' : 'shown');
+    // the address bar sliding away, a rotation: the whole page is laid out again
+    const onResize = (): void => note('resize', `${window.innerWidth}x${window.innerHeight}`);
+    window.addEventListener('error', onError);
+    window.addEventListener('resize', onResize);
+    window.addEventListener('unhandledrejection', onReject);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      watch?.stop();
+      glWatch.current = null;
+      console.error = error;
+      console.warn = warn;
+      window.removeEventListener('error', onError);
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('unhandledrejection', onReject);
+      document.removeEventListener('visibilitychange', onVis);
+    };
   }, [isRec]);
   // slow-mo finisher (presentation only: it scales the time fed to the match, never the sim)
   const slowmoRef = useRef<SlowMo | null>(null);
@@ -369,6 +416,7 @@ export function MatchView({
           const step = (r.perf?.pushMs() ?? 0) - step0;
           recFrame = () => {
             const other = performance.now() - top - (t2 - t0);
+            rec.drew(glWatch.current?.take() ?? 0);
             rec.frame(now, wall, ticks, t1 - t0 - step, step, t2 - t1, other, simDt, perfContext);
           };
         }
