@@ -20,9 +20,21 @@ draws a set first range, for screenshots and tests). Client-only: no sim or prot
   exact for the first impact in the base wind). The still-air comparison sets `windBase` to 0 for
   one prediction and puts it back in a `finally`; a test checks the world hash is unchanged.
 
+## Tank grid and shot paths
+
+- `ui/training-overlay.ts` (`TrainingOverlay`, a `FrameOverlay` that MatchView calls from its frame
+  loop) draws on a 2D canvas over the map, redrawn only when the camera, the paths or the grid
+  switch change. Nothing camera-linked goes through React state.
+- **Tank grid** (toggle, saved in prefs): lines one tank width apart (`Tank.w`, 16 cells for the
+  classic tank) counted out from your tank, every 5th brighter and numbered.
+- **Shot paths**: `TrainingRun` follows the first shell of each of your shots through
+  `World.projectiles` (read only) and keeps the last 3 flights as dotted paths with a cross where
+  they came down, newest brightest. They stay until New range.
+- The coach counts distances in tanks (`tanks()`: "less than a tank", "2½ tanks"), not cells.
+
 ## What the coach says
 
-- Headline: Direct hit, Close (within 14 cells), N cells short / long, Wrong way, Own goal.
+- Headline: Direct hit, Close (within 14 cells), N tanks short / long, Wrong way, Own goal.
 - Why: how far the wind held the shell back or carried it on (compared with the same aim in
   still air), "in still air that was a direct hit", the high ground in front of the target, and
   how far 50 power moves the landing at this angle.

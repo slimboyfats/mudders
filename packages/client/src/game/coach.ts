@@ -29,6 +29,8 @@ export interface ShotReport {
   wind: number;
   /** Shell left the map or never came down. */
   lost: boolean;
+  /** Width of your tank in cells: the coach counts distances in tanks. */
+  tank: number;
 }
 
 /** An aim for the next shot. */
@@ -135,6 +137,7 @@ export function reportShot(w: World, me: Tank, aim: Aim & { weapon: number }): S
     per50,
     wind,
     lost: !p.landed,
+    tank: Math.max(1, me.w),
   };
 }
 
@@ -204,7 +207,18 @@ export function windWords(wind: number): string {
   return `${how} ${wind < 0 ? 'headwind' : 'tailwind'}`;
 }
 
-const cells = (n: number) => `${n} ${n === 1 ? 'cell' : 'cells'}`;
+/**
+ * A distance in tank lengths, the unit a player can see: "less than a tank", "1 tank",
+ * "2½ tanks", "12 tanks".
+ */
+export function tanks(cells: number, tank: number): string {
+  const v = Math.abs(cells) / Math.max(1, tank);
+  if (v < 0.75) return 'less than a tank';
+  const n = v >= 10 ? Math.round(v) : Math.round(v * 2) / 2;
+  const whole = Math.floor(n);
+  const half = n - whole >= 0.5 ? '½' : '';
+  return `${whole}${half} ${n === 1 ? 'tank' : 'tanks'}`;
+}
 /** Angles the player sees: the HUD shows the angle as is (0 right, 90 up, 180 left). */
 const deg = (a: number) => `${a}°`;
 
@@ -219,6 +233,7 @@ export function coach(
   windNow = r.wind,
 ): Coaching {
   const why: string[] = [];
+  const cells = (n: number) => tanks(n, r.tank);
   const off = Math.abs(r.missBy);
   let headline: string;
   let tone: Coaching['tone'] = 'miss';

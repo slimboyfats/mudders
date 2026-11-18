@@ -14,6 +14,7 @@ import {
   type TrainingPrefs,
 } from '../game/training';
 import { MatchView } from './MatchView';
+import { TrainingOverlay } from './training-overlay';
 
 interface Props {
   /** First range's seed; unset = a random one. */
@@ -77,6 +78,15 @@ function Range({ seed, prefs, setPrefs, tally, settings, onExit, onDone, onNext 
     return new LocalMatch(content, trainingRange(content, seed, prefs.wind).options);
   });
   const run = useMemo(() => new TrainingRun(), []);
+  const overlay = useMemo(() => {
+    const o = new TrainingOverlay();
+    o.paths = run.paths;
+    return o;
+  }, [run]);
+  useEffect(() => {
+    overlay.setGrid(prefs.grid);
+  }, [overlay, prefs.grid]);
+  useEffect(() => () => overlay.dispose(), [overlay]);
   const [card, setCard] = useState<Coaching | null>(null);
   const [state, setState] = useState<RangeState>('playing');
   const [shots, setShots] = useState(0);
@@ -85,7 +95,9 @@ function Range({ seed, prefs, setPrefs, tally, settings, onExit, onDone, onNext 
   useEffect(
     () =>
       match.subscribe(() => {
-        if (!run.observe(match.world)) return;
+        const changed = run.observe(match.world);
+        overlay.pathVersion = run.pathVersion;
+        if (!changed) return;
         setCard(run.card);
         setShots(run.shots);
         if (run.state !== 'playing') {
@@ -97,7 +109,7 @@ function Range({ seed, prefs, setPrefs, tally, settings, onExit, onDone, onNext 
       }),
     // onDone is a fresh closure each render; the run reports once per range
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [match, run],
+    [match, run, overlay],
   );
 
   const setAim = (a: { angle: number; power: number }) =>
@@ -127,6 +139,14 @@ function Range({ seed, prefs, setPrefs, tally, settings, onExit, onDone, onNext 
             </button>
           ))}
         </div>
+        <button
+          className={prefs.grid ? 'on' : ''}
+          aria-pressed={prefs.grid}
+          onClick={() => setPrefs({ ...prefs, grid: !prefs.grid })}
+          data-testid="training-grid"
+        >
+          ▦ Tank grid
+        </button>
         <button onClick={onNext} data-testid="training-new">
           New range
         </button>
@@ -224,6 +244,7 @@ function Range({ seed, prefs, setPrefs, tally, settings, onExit, onDone, onNext 
       controls={(p) => p === 0 && !over}
       onExit={onExit}
       banner={banner}
+      overlay={overlay}
       ownEnd
     />
   );
