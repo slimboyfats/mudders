@@ -307,3 +307,59 @@ the ground-at-rest test anyway. Same results: golden hashes unchanged, no kernel
 Village 1600x800 in rain, the 180 ticks after each turn start, in node: settling 3.1 to 0.6 ms a
 tick on average, single ticks 10 to 12 ms down to 1.5 to 5 ms. (An earlier try at this, in #215,
 changed results and was dropped; it lacked the test for stamped grains or the row below.)
+
+## The first big blast of a session ran on cold code (2026-11-18)
+
+The phone logs kept showing single ticks of 25 to 50 ms: the Ion Cannon beam landing, the seven
+ticks after it while the hillside comes down, a Nuke's crater settling. Profiling the same turn
+twice in one process gave the cause. It is not the amount of work, it is the first time:
+
+- Ion Cannon on Village 1600x800 in rain, production bundle in node: worst tick 43 ms the first
+  time (settling 23 to 27 ms for seven ticks, the beam 38 ms), 8 to 10 ms from the second time on.
+- Nuke, after three Ion Cannons and two Superstorms in the same process: settling 14 to 20 ms a
+  tick the first time, 1 ms the second.
+
+`--trace-deopt` shows why. `settleStep` is one large function; V8 optimizes it for the paths it
+has seen (rain trickling, small craters) and throws that code away the moment a path it has not
+seen runs (a mass landing hard, grains pressed sideways, spray). The rest of that tick, and the
+next few while a new version compiles (20 to 50 ms on a desktop), run on unoptimized code, ten
+times slower. Each new kind of blast repeats this once.
+
+Fix: `game/sim-warmup.ts` fires an Ion Cannon, a Nuke and a Superstorm on a hidden 480x240
+village in rain, one tick at a time in idle callbacks, starting 1.5 s after the page loads (about
+1300 ticks, 0.7 s of CPU on a desktop). It stays out of the way while a match resolves a shot.
+Nothing of it is drawn or kept; the sim keeps no state between worlds. After it, in node: first
+Ion Cannon worst tick 43 to 17 ms (settling ticks 25 to under 4), first Nuke 14 to 8 ms, first
+Kaiju 25 to 6 ms, first Napalm 11 to 4 ms. A 240 or 320 wide map was not enough (the Nuke's
+slow ticks stayed), and one weapon alone only covers its own paths.
+
+Measuring notes, for next time:
+
+- Vitest and `vite-run` (so `pnpm bench` too) read every imported constant (`FP_SHIFT`,
+  `SETTLE_FALL`) through a getter on the module object. In hot loops that getter is most of the
+  time, so line profiles from there point at the wrong lines (the debris trace looked four
+  times as expensive as it is). Profile a bundle instead: `vite build` with `build.ssr` and
+  `ssr.noExternal`, then plain `node`.
+- Run a turn twice in one process before believing a slow tick. If the second run is fast, it
+  is cold code, and making the code cheaper will not help.
+
+## Rock, props and mixed ground, four cells at a time (2026-11-18)
+
+The scan in `settleStep` passed air, resting liquid and one kind of resting ground by the word;
+rock, walls, props and ground of mixed kinds still went cell by cell, and in a village in a storm
+that was most of the cells it looked at. Two more word tests, by a class table per material:
+
+- four cells that never move (`SETTLE_STATIC`) are passed at once;
+- so are four cells of anything but air and runny liquid, none of them moving, with something
+  beside them at both ends and a floor under all four that nothing sinks through. With a
+  neighbour on each side and a floor, a cell that is not moving takes none of the rules.
+
+The test for "no grain stamped this pass" on the resting-ground word is gone: a stamped grain
+that came to rest takes the same way out as its neighbours, and a stamp left behind is never
+read again (pass numbers are not reused; the stamps are cleared when the counter starts over).
+
+Same results: golden hashes unchanged, no kernel bump. Superstorm on Village 1600x800 in rain,
+bundle in node, second run: settling 470 to 318 ms over the turn's 790 ticks.
+
+Tried and dropped: tracing flying earth with one division per axis instead of one per step. No
+measurable gain in the bundle (the divisions only looked expensive under Vitest, see above).

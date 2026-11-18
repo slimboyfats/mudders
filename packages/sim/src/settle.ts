@@ -81,6 +81,15 @@ const runnyWord = new Uint32Array(256);
 let runnyOf: MaterialTable | null = null;
 /** The same for ground that falls (`SETTLE_FALL`): the bulk of what a region holds. */
 const groundWord = new Uint32Array(256);
+/**
+ * What a material is to the scan: `CLS_STATIC` never moves, `CLS_BODY` is anything but air and
+ * the runny liquids (which have their own rules), `CLS_FLOOR` holds up whatever stands on it
+ * (anything but air and liquids, which a heavier cell sinks through).
+ */
+const cls = new Uint8Array(256);
+const CLS_STATIC = 1;
+const CLS_BODY = 2;
+const CLS_FLOOR = 4;
 
 function wordsView(a: Uint8Array | Int8Array): Uint32Array {
   return a.byteOffset % 4 === 0
@@ -116,7 +125,12 @@ export function settleStep(
   surfaceFlowStep(grid, mats);
   if (!grid.settling) return 0;
   if (stamp.length < grid.size) stamp = new Int32Array(grid.size);
-  pass = pass >= 0x7ffffff0 ? 1 : pass + 1;
+  if (pass >= 0x7ffffff0) {
+    // pass numbers start over: no stamp of an old pass may look like one of a new pass
+    stamp.fill(0);
+    pass = 0;
+  }
+  pass++;
   const W = grid.width;
   const H = grid.height;
   const mat = grid.material;
@@ -136,6 +150,12 @@ export function settleStep(
       runnyWord[m] = Math.imul(runny ? m : m ^ 1, 0x01010101);
       const ground = m !== 0 && mats.settle[m] === SETTLE_FALL;
       groundWord[m] = Math.imul(ground ? m : m ^ 1, 0x01010101);
+      cls[m] =
+        m === 0
+          ? 0
+          : (mats.settle[m] === SETTLE_STATIC ? CLS_STATIC : 0) |
+            (runny ? 0 : CLS_BODY) |
+            (mats.settle[m] === SETTLE_FLOW ? 0 : CLS_FLOOR);
     }
   }
   // rows of whole words (so the word under a word is the row below), and every view in place
@@ -187,8 +207,6 @@ export function settleStep(
   let capped = false;
   // grains held up behind moving ones keep the region alive without having moved
   let waiting = false;
-  // a grain was stamped this pass (moved up or sideways into a cell the scan has yet to reach)
-  let stamped = false;
   const ltr = (tick & 1) === 0;
 
   rows: for (let y = Math.min(grid.settleMaxY, H - 2); y >= 0; y--) {
@@ -253,13 +271,13 @@ export function settleStep(
           }
         }
         // Four cells of one kind of ground at rest inside its mass: the same ground under all
-        // four, none falling or sliding, none shaken loose, and no grain stamped this pass that
-        // one of them could be. Each has ground beside it (its neighbour in the word), so each
-        // would take the ground-at-rest way out below: all four go at once. Most of the land
-        // under a region that spans the map (rain on every hollow marks the whole width).
+        // four, none falling or sliding, none shaken loose. Each has ground beside it (its
+        // neighbour in the word), so each would take the ground-at-rest way out below: all four
+        // go at once. (A grain stamped this pass that came to rest here takes the same way out,
+        // so its stamp is just left to go stale.) Most of the land under a region that spans
+        // the map (rain on every hollow marks the whole width).
         if (
           byWord &&
-          !stamped &&
           groundWord[w & 255] === w &&
           words[wi + wpr] === w &&
           fallWords[wi] === 0 &&
@@ -267,6 +285,33 @@ export function settleStep(
         ) {
           i += 3;
           continue;
+        }
+        // The same for four cells of any mix: rock, walls and props (which never move), and
+        // ground or thick liquid at rest shut in on both sides, standing on something it cannot
+        // sink through. With something beside it and a floor under it, a cell that is not
+        // moving takes none of the rules below, whatever else it is.
+        if (byWord) {
+          const c = cls[w & 255]! & cls[(w >>> 8) & 255]! & cls[(w >>> 16) & 255]! & cls[w >>> 24]!;
+          if ((c & CLS_STATIC) !== 0) {
+            i += 3;
+            continue;
+          }
+          if ((c & CLS_BODY) !== 0 && fallWords[wi] === 0 && xl > 0 && xl + 4 < W) {
+            const wb = words[wi + wpr]!;
+            if (
+              (cls[wb & 255]! &
+                cls[(wb >>> 8) & 255]! &
+                cls[(wb >>> 16) & 255]! &
+                cls[wb >>> 24]! &
+                CLS_FLOOR) !==
+                0 &&
+              mat[lo - 1] !== 0 &&
+              mat[lo + 4] !== 0
+            ) {
+              i += 3;
+              continue;
+            }
+          }
         }
       }
       const m = mat[idx]!;
@@ -530,7 +575,6 @@ export function settleStep(
             nv = (dy > 0 ? 1 : 0) | (sv << SLIDE_SHIFT) | (sv > 0 && sd < 0 ? SLIDE_LEFT : 0);
             if (dy <= 0) {
               stamp[dst] = pass;
-              stamped = true;
             }
             // every pass on the move spends a loosen step, like a slump does
             if (state[idx] !== 0 && repose[m] !== 0) state[idx] = state[idx]! - 1;

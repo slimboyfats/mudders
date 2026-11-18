@@ -15,6 +15,7 @@ import {
   type PerfContext,
 } from '../game/perf-log';
 import type { Settings } from '../game/settings';
+import { holdSimWarmup } from '../game/sim-warmup';
 import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { HitStop } from '../render/impact';
@@ -365,6 +366,7 @@ export function MatchView({
         r.render(match.advance(simDt), stop.held);
       }
       slowmo.observe(match.world);
+      if (match.world.phase === 'resolve') holdSimWarmup(now);
       refreshHud();
       const tank = match.world.tanks[match.world.activePlayer];
       if (tank) {
