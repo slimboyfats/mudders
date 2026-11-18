@@ -18,6 +18,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-18',
+    title: 'Training mode with a shot coach',
+    items: [
+      'Training (on the start screen): endless target practice on fresh small maps, with a coach after every shot. It says how far short or long the shell came down, how much the wind moved it, whether a hill in front stopped it and how far 50 power moves the landing at your angle, then what to try next: keep the angle and add or take off power, go steeper or flatter, or split the difference once you have the target bracketed. "Set it for me" dials in an aim that hits. Pick Calm, Steady or Shifting wind; New range draws another map',
+    ],
+  },
+  {
     date: '2026-11-16',
     title:
       'Smarter bots, bounty on the leader, talking bots, tides, changing weather, material flasks, acid, lightning through steel and tank stains',

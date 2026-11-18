@@ -14,6 +14,9 @@ const Challenges = lazy(() => import('./ui/Challenges').then((m) => ({ default: 
 const ChallengePlay = lazy(() =>
   import('./ui/ChallengePlay').then((m) => ({ default: m.ChallengePlay })),
 );
+const TrainingPlay = lazy(() =>
+  import('./ui/TrainingPlay').then((m) => ({ default: m.TrainingPlay })),
+);
 const Changelog = lazy(() => import('./ui/Changelog').then((m) => ({ default: m.Changelog })));
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
 const HostGame = lazy(() => import('./ui/Online').then((m) => ({ default: m.HostGame })));
@@ -26,6 +29,7 @@ type Route =
   | { name: 'settings' }
   | { name: 'changelog' }
   | { name: 'challenges' }
+  | { name: 'training'; seed?: number }
   | { name: 'challenge'; challenge: Challenge }
   | { name: 'play'; quick?: { players: number; size: MapSize } }
   | { name: 'sandbox' }
@@ -41,6 +45,9 @@ function fromHash(): Route {
   if (h.startsWith('#settings')) return { name: 'settings' };
   if (h.startsWith('#changelog')) return { name: 'changelog' };
   if (h === '#challenges') return { name: 'challenges' };
+  // #training/<seed> draws a set first range (screenshots, tests)
+  const tr = /^#training(?:\/(\d+))?$/.exec(h);
+  if (tr) return { name: 'training', ...(tr[1] ? { seed: Number(tr[1]) } : {}) };
   const ch = /^#challenge\/([a-z0-9.-]+)$/.exec(h);
   const challenge = ch?.[1] ? challengeById(ch[1]) : undefined;
   if (challenge) return { name: 'challenge', challenge };
@@ -133,6 +140,9 @@ export function App() {
       {route.name === 'changelog' && <Changelog onBack={() => go('')} />}
       {route.name === 'challenges' && (
         <Challenges onPick={(id) => go(`#challenge/${id}`)} onBack={() => go('')} />
+      )}
+      {route.name === 'training' && (
+        <TrainingPlay seed={route.seed} settings={settings} onExit={() => go('')} />
       )}
       {route.name === 'challenge' && (
         <ChallengePlay

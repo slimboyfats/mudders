@@ -69,6 +69,15 @@ export function Title({ onPlay }: Props) {
             </small>
           </span>
         </a>
+        <a className="secondary tile solo-tile" href="#training" data-testid="training">
+          <span className="tile-icon" aria-hidden="true">
+            ◎
+          </span>
+          <span>
+            Training
+            <small>Target practice with a coach</small>
+          </span>
+        </a>
         <div className="menu-group" role="group" aria-label="Online">
           <span className="menu-label">Online</span>
           <div className="menu-tiles">
