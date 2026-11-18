@@ -3127,11 +3127,35 @@ a.button {
   }
 }
 
-/* The fill used to be stripes that ran with the wind (`background-position`, animated for ever).
-   That repaints the HUD on every frame of the match, and a phone pays for it with dropped frames;
-   the bar's length, the arrow and the gust streaks say how hard it blows. */
+/* Stripes run along the fill with the wind. They are a strip of their own inside the fill that
+   only slides (`transform`), so the compositor moves it and the HUD is not repainted. (Animating
+   the fill's `background-position` instead repainted the whole HUD on every frame of the match,
+   and a phone paid for it with dropped frames.) */
 .wind-fill {
   background: #9fd8ff;
+  overflow: hidden;
+}
+
+.wind-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -18px;
+  right: -18px;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, rgb(8 30 80 / 0.4) 6px 9px);
+  will-change: transform;
+  animation: wind-run var(--wind-speed, 2s) linear infinite;
+}
+
+.wind-fill.to-left::after {
+  animation-direction: reverse;
+}
+
+@keyframes wind-run {
+  to {
+    transform: translateX(18px);
+  }
 }
 
 .wind-was {
@@ -3190,7 +3214,7 @@ a.button {
 
 @media (prefers-reduced-motion: reduce) {
   .wind.changed,
-  .wind-fill,
+  .wind-fill::after,
   .gust span {
     animation: none;
   }
