@@ -363,3 +363,29 @@ bundle in node, second run: settling 470 to 318 ms over the turn's 790 ticks.
 
 Tried and dropped: tracing flying earth with one division per axis instead of one per step. No
 measurable gain in the bundle (the divisions only looked expensive under Vitest, see above).
+
+## Zoomed far out: the motes in the edge walls (2026-11-18)
+
+Fifth phone log: render CPU 5 to 7 ms a frame at zoom 0.12 to 0.27, against 1 to 2 ms up close.
+A CPU profile of the built client in headless Chromium, upright and zoomed all the way out, named
+it at once: `drawDeathWall` 25% of all CPU time, with the batch `push` and upload behind it
+another 6%. Zoomed out, the walls beside the map fill much of the screen, and the green motes
+inside them sit on a lattice of 61 columns per side by one row per 26 cells of view height: tens
+of thousands of motes, each worked out (four hashes, a sine) and pushed as a quad every frame.
+
+A mote is a pure function of its lattice place and the render time, so `WallMotes` puts the
+lattice in a static instance buffer (rebuilt only when the camera leaves the rows that are
+ready, 12 spare rows each way, or the face moves a column) and the vertex shader works out where
+each speck is now. Same specks in the same places: the capture sheet of a zoomed-out scene
+differs from the old one in 113 of 3.9 million pixels, by one step of 255.
+
+Same profile after: `drawDeathWall` 3091 to 968 ms of 12 s (what is left is the wisps on the
+face), `push` 590 to 190 ms, idle 43% to 62%.
+
+## Wind bar stripes, back as a layer (2026-11-18)
+
+The stripes that ran along the wind bar were removed in #223 because animating the fill's
+`background-position` repainted the whole HUD every frame. Joel asked for them back on their own
+layer. They are now a strip inside the fill (`.wind-fill::after`, clipped by the fill) that only
+slides with `transform`, so the compositor moves it. Chromium trace of 15 s of a match in rain:
+Paint 0 to 3 ms a second, as without the stripes.
