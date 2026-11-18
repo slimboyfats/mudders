@@ -17,13 +17,15 @@ describe('opening shop (§3.6)', () => {
     expect(w.results).toHaveLength(0);
   });
 
-  it('waits for the human, with bots already done', () => {
+  it('waits for the human, with bots already done, however long the shop is', () => {
     const w = makeWorld({
       seed: 9,
       players: 2,
       bots: [null, 'ai.cyborg'],
-      rules: { openingShop: true },
+      rules: { openingShop: true, shopTimer: 120 },
     });
+    expect(w.timer).toBe(w.shopTimerTicks);
+    expect(w.shopTimerTicks).toBe(120 * 60);
     w.run(100);
     expect(w.phase).toBe('shop');
     expect(w.tanks[1]!.ready).toBe(true);

@@ -166,6 +166,8 @@ export interface MatchSetup {
   rounds: number;
   /** Seconds; 0 = off. */
   turnTimer: number;
+  /** Shop time in seconds, before round 1 and between rounds (§3.6); unset = the mode's 30 s. */
+  shopTimer?: number | undefined;
   wind: WindType;
   /** Weather (§3.4): rain or snow change shots and terrain; random picks one from the match seed. */
   weather?: WeatherPick | undefined;
@@ -236,6 +238,9 @@ export const SUDDEN_DEATH_DEFAULT = 8;
 /** Starting cash steps in the rules picker; the default is 3,000. */
 export const STARTING_CASH_STEPS = [0, 3000, 10000, 30000, 50000, 100000] as const;
 /** Per-round bonus steps in the rules picker; 0 = off (the default). */
+/** Shop time choices in seconds; bots shop at once, and the shop closes when every player is ready. */
+export const SHOP_TIMER_STEPS = [30, 60, 90, 120] as const;
+export const SHOP_TIMER_DEFAULT = 30;
 export const ROUND_BONUS_STEPS = [0, 5000, 10000, 20000, 50000] as const;
 
 const KEY = 'mudders.setup.v1';
@@ -248,6 +253,7 @@ export function defaultSetup(): MatchSetup {
     scenery: 'village',
     rounds: 3,
     turnTimer: 15,
+    shopTimer: SHOP_TIMER_DEFAULT,
     wind: 'perTurn',
     weather: 'clear',
     suddenDeath: true,
@@ -366,6 +372,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
   const rules: MatchRules = {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
+    ...(s.shopTimer !== undefined ? { shopTimer: s.shopTimer } : {}),
     suddenDeath: s.suddenDeath,
     ...(s.suddenDeath && s.suddenDeathFrom !== undefined
       ? { suddenDeathFrom: s.suddenDeathFrom }
@@ -373,7 +380,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     windType: s.wind,
     startingCash: s.startingCash,
     ...(s.roundBonus ? { roundBonus: s.roundBonus } : {}),
-    // everyone shops before round 1 too, with the same 30 s timer as between rounds (§3.6)
+    // everyone shops before round 1 too, with the same timer as between rounds (§3.6)
     openingShop: true,
     // swallow flocks over every map (a shell that hits one goes off there)
     birds: true,

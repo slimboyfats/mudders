@@ -2,6 +2,8 @@ import {
   PRESETS,
   PRESET_NAMES,
   ROUND_BONUS_STEPS,
+  SHOP_TIMER_DEFAULT,
+  SHOP_TIMER_STEPS,
   STARTING_CASH_STEPS,
   SUDDEN_DEATH_DEFAULT,
   SUDDEN_DEATH_TURNS,
@@ -62,6 +64,19 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         >
           <option value={0}>Off</option>
           {[10, 15, 20, 30, 45].map((s) => (
+            <option key={s} value={s}>
+              {s} s
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Shop time
+        <select
+          value={value.shopTimer ?? SHOP_TIMER_DEFAULT}
+          onChange={(e) => onChange({ shopTimer: Number(e.target.value) })}
+        >
+          {SHOP_TIMER_STEPS.map((s) => (
             <option key={s} value={s}>
               {s} s
             </option>
