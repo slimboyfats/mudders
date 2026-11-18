@@ -90,6 +90,15 @@ export function App() {
   }, [settings.uiScale]);
 
   useEffect(() => {
+    // practice blasts in the background, so the first big one of a match doesn't stutter
+    const t = setTimeout(
+      () => void import('./game/sim-warmup').then((m) => m.startSimWarmup()),
+      1500,
+    );
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
     const on = () => setRoute(fromHash());
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
