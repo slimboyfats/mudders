@@ -72,12 +72,15 @@ let groupWords: Uint32Array = new Uint32Array(0);
 let fallWords: Uint32Array = new Uint32Array(0);
 let flowWords: Uint32Array = new Uint32Array(0);
 let stampWords: Uint32Array = new Uint32Array(0);
+let stateWords: Uint32Array = new Uint32Array(0);
 /**
  * `runnyWord[m]` is the word four cells of `m` make when `m` is a runny liquid (the kind
  * `liquidCell` moves), and a word no four such cells can make otherwise.
  */
 const runnyWord = new Uint32Array(256);
 let runnyOf: MaterialTable | null = null;
+/** The same for ground that falls (`SETTLE_FALL`): the bulk of what a region holds. */
+const groundWord = new Uint32Array(256);
 
 function wordsView(a: Uint8Array | Int8Array): Uint32Array {
   return a.byteOffset % 4 === 0
@@ -124,12 +127,15 @@ export function settleStep(
     fallWords = wordsView(grid.fallVel);
     flowWords = wordsView(grid.flowVel);
     stampWords = wordsView(grid.flowTick);
+    stateWords = wordsView(grid.cellState);
   }
   if (runnyOf !== mats) {
     runnyOf = mats;
     for (let m = 0; m < 256; m++) {
       const runny = m !== 0 && mats.settle[m] === SETTLE_FLOW && mats.disperse[m]! > 1;
       runnyWord[m] = Math.imul(runny ? m : m ^ 1, 0x01010101);
+      const ground = m !== 0 && mats.settle[m] === SETTLE_FALL;
+      groundWord[m] = Math.imul(ground ? m : m ^ 1, 0x01010101);
     }
   }
   // rows of whole words (so the word under a word is the row below), and every view in place
@@ -141,7 +147,8 @@ export function settleStep(
     groupWords.length === words.length &&
     fallWords.length === words.length &&
     flowWords.length === words.length &&
-    stampWords.length === words.length;
+    stampWords.length === words.length &&
+    stateWords.length === words.length;
   const coat = grid.coating;
   const gas = grid.gas;
   const state = grid.cellState;
@@ -180,6 +187,8 @@ export function settleStep(
   let capped = false;
   // grains held up behind moving ones keep the region alive without having moved
   let waiting = false;
+  // a grain was stamped this pass (moved up or sideways into a cell the scan has yet to reach)
+  let stamped = false;
   const ltr = (tick & 1) === 0;
 
   rows: for (let y = Math.min(grid.settleMaxY, H - 2); y >= 0; y--) {
@@ -242,6 +251,22 @@ export function settleStep(
             i += 3;
             continue;
           }
+        }
+        // Four cells of one kind of ground at rest inside its mass: the same ground under all
+        // four, none falling or sliding, none shaken loose, and no grain stamped this pass that
+        // one of them could be. Each has ground beside it (its neighbour in the word), so each
+        // would take the ground-at-rest way out below: all four go at once. Most of the land
+        // under a region that spans the map (rain on every hollow marks the whole width).
+        if (
+          byWord &&
+          !stamped &&
+          groundWord[w & 255] === w &&
+          words[wi + wpr] === w &&
+          fallWords[wi] === 0 &&
+          stateWords[wi] === 0
+        ) {
+          i += 3;
+          continue;
         }
       }
       const m = mat[idx]!;
@@ -503,7 +528,10 @@ export function settleStep(
             dst = p;
             coast = true;
             nv = (dy > 0 ? 1 : 0) | (sv << SLIDE_SHIFT) | (sv > 0 && sd < 0 ? SLIDE_LEFT : 0);
-            if (dy <= 0) stamp[dst] = pass;
+            if (dy <= 0) {
+              stamp[dst] = pass;
+              stamped = true;
+            }
             // every pass on the move spends a loosen step, like a slump does
             if (state[idx] !== 0 && repose[m] !== 0) state[idx] = state[idx]! - 1;
           }

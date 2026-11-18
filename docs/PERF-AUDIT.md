@@ -291,3 +291,19 @@ Chromium trace of ten seconds of one-finger panning in portrait: paints of the p
 of the overlay 177 to 0, raster 362 ms to 234 ms.
 
 Rule: nothing that changes with the camera goes through React state.
+
+## Resting ground, four cells at a time (2026-11-18)
+
+In rain every turn starts with 1 to 2 seconds at 42 to 55 fps on the phone. `weather.rain` wets
+hollows all over the map and reports them as one box, so the settle region spans the whole map
+for about 80 ticks while the new water finds its place. The scan already skipped air and resting
+liquid by the word; ground at rest still went cell by cell, and it is nearly all of such a region.
+
+`settleStep` now passes four cells of one kind of falling ground at once when the same ground lies
+under all four, none of them falls, slides or is shaken loose, and no grain has been stamped in
+this pass. Each of the four has its neighbour in the word beside it, so each would have left by
+the ground-at-rest test anyway. Same results: golden hashes unchanged, no kernel bump.
+
+Village 1600x800 in rain, the 180 ticks after each turn start, in node: settling 3.1 to 0.6 ms a
+tick on average, single ticks 10 to 12 ms down to 1.5 to 5 ms. (An earlier try at this, in #215,
+changed results and was dropped; it lacked the test for stamped grains or the row below.)
