@@ -19,9 +19,11 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-18',
-    title: 'Training mode with a shot coach',
+    title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [
       'Training (on the start screen): endless target practice on fresh small maps, with a coach after every shot. It says how far short or long the shell came down, how much the wind moved it, whether a hill in front stopped it and how far 50 power moves the landing at your angle, then what to try next: keep the angle and add or take off power, go steeper or flatter, or split the difference once you have the target bracketed. "Set it for me" dials in an aim that hits. Pick Calm, Steady or Shifting wind; New range draws another map',
+      'Shop search: type in the box above the filters to find weapons and gear by name, kind or what they do ("roll", "fire", "nuke"). Every word has to match, and names come first',
+      'Weapon previews: the ▶ next to Buy plays a real shot of that weapon at a tank on a small map, over and over, with its description, damage, blast size and Buy button beside it. ◀ ▶ step through the weapons the shop is showing, and ❚❚ pauses it',
     ],
   },
   {

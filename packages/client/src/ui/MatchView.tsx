@@ -20,6 +20,7 @@ import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { HitStop } from '../render/impact';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { previewing } from './WeaponPreview';
 import { PerfMeter, PerfOverlay, saveText, type PerfLog, type PerfStats } from './Perf';
 import { Hud } from './Hud';
 import { PlayerMarkers, measureInsets, type MarkerTank } from './markers';
@@ -344,7 +345,7 @@ export function MatchView({
         const t0 = performance.now();
         const at = match.advance(simDt);
         const t1 = performance.now();
-        r.render(at, stop.held);
+        if (!previewing.open) r.render(at, stop.held);
         const t2 = performance.now();
         const ticks = match.world.tick - tick0;
         const stats = meter.frame(now, wall, ticks, t1 - t0, t2 - t1);
@@ -363,7 +364,9 @@ export function MatchView({
           };
         }
       } else {
-        r.render(match.advance(simDt), stop.held);
+        // a shop weapon preview is open over it: the map is covered, so only the preview draws
+        const at = match.advance(simDt);
+        if (!previewing.open) r.render(at, stop.held);
       }
       slowmo.observe(match.world);
       if (match.world.phase === 'resolve') holdSimWarmup(now);
