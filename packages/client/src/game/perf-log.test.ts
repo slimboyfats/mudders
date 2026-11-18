@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { GPU_PARTS } from '../render/types';
-import { PerfRecorder, SlowWatch, perfFileName, stallDetail, type PerfContext } from './perf-log';
+import {
+  PerfRecorder,
+  SlowWatch,
+  perfFileName,
+  stallDetail,
+  watchGl,
+  type PerfContext,
+} from './perf-log';
 
 const ctx = (over: Partial<PerfContext> = {}): (() => PerfContext) => {
   return () => ({
@@ -43,9 +50,9 @@ describe('PerfRecorder', () => {
     const at = run(rec, 0, 3, 20);
     run(rec, at, 2, 50);
     const text = rec.report();
-    expect(text.startsWith('# mudders performance log v2\nkernel: 1.2.3\nplayers: 4\n')).toBe(true);
+    expect(text.startsWith('# mudders performance log v3\nkernel: 1.2.3\nplayers: 4\n')).toBe(true);
     expect(text).toContain('seconds: 5\n');
-    const rows = text.split('## every second\n')[1]!.trim().split('\n');
+    const rows = text.split('## every second\n')[1]!.split('\n\nEND')[0]!.trim().split('\n');
     const head = rows[0]!.split(',');
     expect(rows).toHaveLength(6);
     const col = (row: number, name: string): string =>
@@ -127,7 +134,7 @@ describe('PerfRecorder marks and game speed', () => {
       /game speed: avg 83\.\d%, slowest second 83\.\d%, 5 of 5 seconds under 90%/,
     );
     expect(text).toContain('marked slow by the player at: 3.4\n');
-    const rows = text.split('## every second\n')[1]!.trim().split('\n');
+    const rows = text.split('## every second\n')[1]!.split('\n\nEND')[0]!.trim().split('\n');
     const head = rows[0]!.split(',');
     expect(rows[1]!.split(',')[head.indexOf('speed %')]).toMatch(/^83/);
     expect(rows[1]!.split(',')[head.indexOf('asked %')]).toBe('100');
@@ -155,7 +162,7 @@ describe('PerfRecorder diagnostics', () => {
     const text = rec.report();
     const turns = text.split('## turns')[1]!.split('\n\n')[0]!.split('\n').slice(1);
     expect(turns).toEqual(['1,0,2,4,weapon.nuke,fire', '1,1,1,0,weapon.nuke,bot thinking']);
-    const rows = text.split('## every second\n')[1]!.split('\n');
+    const rows = text.split('## every second\n')[1]!.split('\n\nEND')[0]!.split('\n');
     const head = rows[0]!.split(',');
     expect(rows[3]!.split(',')[head.indexOf('waiting on')]).toBe('debris + fire');
     expect(rows[3]!.split(',')[head.indexOf('note')]).toBe('gen.lakeland weather.rain weapon.nuke');
@@ -184,7 +191,7 @@ describe('PerfRecorder diagnostics', () => {
       '## browser stalls (t, kind, ms, detail)\n0.4,long-animation-frame,180,script 150  gc\n',
     );
     expect(text).toContain('js heap MB: 31 to 55, 1 drops (garbage collections seen)');
-    expect(text).toContain(',31,,guest starved=12 behind=3 rebuilds=0,');
+    expect(text).toContain(',31,,,guest starved=12 behind=3 rebuilds=0,');
     expect(text).toContain('fastest frame: 20 ms (the screen runs at up to about 50 Hz)');
     expect(text).toContain('other js ms/frame: avg 0.3, worst 0.3');
   });
@@ -202,7 +209,97 @@ describe('PerfRecorder diagnostics', () => {
           { duration: 60, invoker: 'FrameRequestCallback', sourceFunctionName: 'frame' },
         ],
       }),
-    ).toBe('blocking 70 script 80 style+layout 20 longest frame 60');
+    ).toBe('blocking 70 script 80 style+layout 20 longest frame 60 from FrameRequestCallback');
+  });
+
+  it('says where the longest script is and how much layout it forced', () => {
+    expect(
+      stallDetail({
+        duration: 230,
+        startTime: 0,
+        scripts: [
+          {
+            duration: 167,
+            invoker: 'FrameRequestCallback',
+            sourceFunctionName: 's',
+            sourceURL: 'https://example.test/mudders/assets/main-abc.js?v=1',
+            sourceCharPosition: 4711,
+            forcedStyleAndLayoutDuration: 160.2,
+          },
+        ],
+      }),
+    ).toBe(
+      'script 167 longest s 167 at main-abc.js:4711 from FrameRequestCallback forced layout 160.2',
+    );
+  });
+});
+
+describe('events, draw calls and percentiles', () => {
+  const ctx = (): PerfContext => ({
+    phase: 'aim',
+    round: 0,
+    turn: 0,
+    quality: 'high',
+    particles: 0,
+    projectiles: 0,
+    debris: 0,
+    settle: 0,
+    react: 0,
+    gpu: null,
+    note: '',
+    weapon: '',
+    holding: '',
+    net: '',
+    heap: 0,
+    parts: null,
+    worstTick: '',
+  });
+
+  it('lists events, counts draws and ends with END', () => {
+    const rec = new PerfRecorder({ kernel: '1' });
+    let now = 0;
+    for (let i = 0; i < 100; i++) {
+      now += i === 50 ? 100 : 20;
+      rec.drew(40);
+      if (i === 10) rec.note(now, 'shader link', '120.0 ms');
+      rec.frame(now, i === 50 ? 100 : 20, 1, 1, 0, 1, 0, 16, ctx);
+    }
+    const text = rec.report();
+    expect(text).toContain('frame ms: p50 20, p95 20, p99 20, max 100');
+    expect(text).toContain('draw calls/frame: avg 40, most 40');
+    expect(text).toContain('## events (t, kind, detail)\n0.2,shader link,120.0 ms');
+    expect(text.endsWith('\nEND\n')).toBe(true);
+  });
+
+  it('counts draw calls and times links, then puts the context back', () => {
+    const calls: string[] = [];
+    const proto = {
+      LINK_STATUS: 1,
+      drawArrays: () => calls.push('drawArrays'),
+      drawElements: () => calls.push('drawElements'),
+      drawArraysInstanced: () => calls.push('inst'),
+      drawElementsInstanced: () => calls.push('instE'),
+      drawRangeElements: () => calls.push('range'),
+      linkProgram: () => calls.push('link'),
+      getProgramParameter: () => true,
+    };
+    const gl = Object.create(proto) as unknown as WebGL2RenderingContext;
+    const links: number[] = [];
+    let t = 0;
+    const w = watchGl(
+      gl,
+      (ms) => links.push(ms),
+      () => (t += 7),
+    );
+    gl.drawArrays(0, 0, 3);
+    gl.drawElements(0, 3, 0, 0);
+    gl.linkProgram({} as WebGLProgram);
+    expect(w.take()).toBe(2);
+    expect(w.take()).toBe(0);
+    expect(links).toEqual([7]);
+    expect(calls).toEqual(['drawArrays', 'drawElements', 'link']);
+    w.stop();
+    expect(Object.keys(gl)).toEqual([]);
   });
 });
 

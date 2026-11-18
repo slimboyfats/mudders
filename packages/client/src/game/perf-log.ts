@@ -73,7 +73,19 @@ interface Row extends PerfContext {
   asked: number;
   /** Times the player pressed Slow now in this second. */
   marks: number;
+  /** Draw calls a frame (0 where they weren't counted). */
+  draws: number;
 }
+
+/** Something that happened once: a shader built during play, a console error, the tab hidden. */
+interface Note {
+  t: number;
+  kind: string;
+  detail: string;
+}
+const MAX_NOTES = 120;
+/** Frame times kept for the percentiles (an hour at 120 Hz is 432 000). */
+const MAX_WALLS = 500_000;
 
 /** The browser reported the page blocked: a long task or a long animation frame. */
 interface Stall {
@@ -120,6 +132,9 @@ export class PerfRecorder {
   private fastest = Infinity;
   private readonly stalls: Stall[] = [];
   private readonly marked: number[] = [];
+  private readonly notes: Note[] = [];
+  private readonly walls: number[] = [];
+  private draws = 0;
 
   /** @param meta facts about the device and the match, printed at the top as `key: value`. */
   constructor(
@@ -162,6 +177,7 @@ export class PerfRecorder {
     // the first frame, or the one after the tab was hidden, has no real length
     if (wall > 0 && wall < 5000) {
       this.times.push(wall);
+      if (this.walls.length < MAX_WALLS) this.walls.push(wall);
       if (wall < this.fastest) this.fastest = wall;
       let b = 0;
       while (b < BARS.length && wall > (BARS[b] ?? Infinity)) b++;
@@ -215,6 +231,7 @@ export class PerfRecorder {
       speed: (this.ticks * this.tickMs * 100) / span,
       asked: (this.asked * 100) / span,
       marks: this.marks,
+      draws: this.draws / frames,
     });
     if (this.rows.length > MAX_ROWS) {
       this.rows.shift();
@@ -224,7 +241,7 @@ export class PerfRecorder {
     this.secStart = now;
     this.ticks = 0;
     this.sim = this.simMax = this.step = this.render = this.renderMax = 0;
-    this.asked = this.marks = this.other = this.otherMax = 0;
+    this.asked = this.marks = this.other = this.otherMax = this.draws = 0;
   }
 
   /** The player says it feels slow right now: the second gets a mark in the log. */
@@ -241,10 +258,21 @@ export class PerfRecorder {
     this.stalls.push({ t: (now - this.t0) / 1000, kind, ms, detail });
   }
 
+  /** Draw calls the renderer made since the last call. */
+  drew(calls: number): void {
+    this.draws += calls;
+  }
+
+  /** Something worth seeing next to the frames: a shader built mid-play, a console error. */
+  note(now: number, kind: string, detail: string): void {
+    if (this.t0 < 0 || now < this.t0 || this.notes.length >= MAX_NOTES) return;
+    this.notes.push({ t: (now - this.t0) / 1000, kind, detail: detail.slice(0, 300) });
+  }
+
   /** The whole recording as text: facts, a summary, the slowest seconds, then every second. */
   report(): string {
     const rows = this.rows;
-    const out: string[] = ['# mudders performance log v2'];
+    const out: string[] = ['# mudders performance log v3'];
     for (const [k, v] of Object.entries(this.meta)) out.push(`${k}: ${v}`);
     out.push(
       `seconds: ${rows.length}${this.dropped > 0 ? ` (first ${this.dropped} dropped)` : ''}`,
@@ -261,6 +289,18 @@ export class PerfRecorder {
       out.push(
         `fps: avg ${f1(avg((r) => r.fps))}, median ${f1(fps[fps.length >> 1] ?? 0)}, worst second ${f1(fps[0] ?? 0)}`,
       );
+      const w = [...this.walls].sort((a, b) => a - b);
+      const pct = (p: number): number =>
+        w[Math.min(w.length - 1, Math.max(0, Math.ceil((p / 100) * w.length) - 1))] ?? 0;
+      out.push(
+        `frame ms: p50 ${f1(pct(50))}, p95 ${f1(pct(95))}, p99 ${f1(pct(99))}, max ${f1(w[w.length - 1] ?? 0)}`,
+      );
+      const drawn = rows.filter((r) => r.draws > 0);
+      if (drawn.length > 0) {
+        out.push(
+          `draw calls/frame: avg ${f1(drawn.reduce((a, r) => a + r.draws, 0) / drawn.length)}, most ${f1(drawn.reduce((a, r) => Math.max(a, r.draws), 0))}`,
+        );
+      }
       out.push(
         `sim ms/tick: avg ${f1(avg((r) => r.simAvg))}, worst tick ${f1(max((r) => r.simMax))}`,
       );
@@ -365,6 +405,11 @@ export class PerfRecorder {
       if (this.stalls.length === MAX_STALLS) out.push('(more not listed)');
     }
 
+    out.push('', '## events (t, kind, detail)');
+    if (this.notes.length === 0) out.push('none');
+    for (const x of this.notes) out.push(`${f1(x.t)},${x.kind},${x.detail.replace(/[,\n]/g, ' ')}`);
+    if (this.notes.length === MAX_NOTES) out.push('(more not listed)');
+
     if (this.long.length > 0) {
       out.push(
         '',
@@ -401,6 +446,8 @@ export class PerfRecorder {
         );
       }
     }
+    // a paste that lacks this line was cut short
+    out.push('', 'END');
     return out.join('\n') + '\n';
   }
 }
@@ -408,7 +455,7 @@ export class PerfRecorder {
 const HEAD =
   't,fps,frame avg,frame p95,frame max,ticks,sim avg,sim max,step avg,render avg,render max,other avg,other max,speed %,asked %,' +
   `${GPU_PARTS.map((p) => `gpu ${p}`).join(',')},quality,phase,round,turn,` +
-  'particles,projectiles,debris,settle cells,react cells,heap MB,waiting on,net,note';
+  'particles,projectiles,debris,settle cells,react cells,heap MB,draws,waiting on,net,note';
 
 function line(r: Row): string {
   const g = r.gpu;
@@ -440,6 +487,7 @@ function line(r: Row): string {
     r.settle,
     r.react,
     r.heap > 0 ? f1(r.heap) : '',
+    r.draws > 0 ? Math.round(r.draws) : '',
     r.holding.replace(/[,\n]/g, ' '),
     r.net.replace(/[,\n]/g, ' '),
     (r.marks > 0 ? 'SLOW-NOW ' : '') + `${r.note} ${r.weapon}`.trim().replace(/[,\n]/g, ' '),
@@ -456,6 +504,8 @@ interface LongFrameEntry {
     duration: number;
     invoker?: string;
     sourceFunctionName?: string;
+    sourceURL?: string;
+    sourceCharPosition?: number;
     forcedStyleAndLayoutDuration?: number;
   }[];
 }
@@ -467,7 +517,7 @@ export function stallDetail(entry: unknown): string {
   const out: string[] = [];
   if (e.blockingDuration !== undefined) out.push(`blocking ${f1(e.blockingDuration)}`);
   let script = 0;
-  let top: { duration: number; invoker?: string; sourceFunctionName?: string } | undefined;
+  let top: NonNullable<LongFrameEntry['scripts']>[number] | undefined;
   for (const sc of e.scripts) {
     script += sc.duration;
     if (!top || sc.duration > top.duration) top = sc;
@@ -476,8 +526,15 @@ export function stallDetail(entry: unknown): string {
   if (e.styleAndLayoutStart !== undefined && e.styleAndLayoutStart > 0) {
     out.push(`style+layout ${f1(e.startTime + e.duration - e.styleAndLayoutStart)}`);
   }
-  if (top)
+  if (top) {
     out.push(`longest ${top.sourceFunctionName || top.invoker || 'script'} ${f1(top.duration)}`);
+    // where that function is, so a shortened name can be looked up in the build's source map
+    const file = top.sourceURL?.split(/[?#]/)[0]?.split('/').pop();
+    if (file) out.push(`at ${file}:${top.sourceCharPosition ?? -1}`);
+    if (top.invoker && top.sourceFunctionName) out.push(`from ${top.invoker.split('/').pop()}`);
+    const forced = top.forcedStyleAndLayoutDuration ?? 0;
+    if (forced >= 1) out.push(`forced layout ${f1(forced)}`);
+  }
   return out.join(' ');
 }
 
@@ -512,4 +569,53 @@ export class SlowWatch {
     this.score = 0;
     return true;
   }
+}
+
+/** The WebGL calls the recorder counts and times. */
+const DRAW_CALLS = [
+  'drawArrays',
+  'drawElements',
+  'drawArraysInstanced',
+  'drawElementsInstanced',
+  'drawRangeElements',
+] as const;
+
+/**
+ * While a recording runs: counts the context's draw calls and times every shader program linked
+ * (a program built in the middle of play is a freeze of 100 ms and more on a phone). The link is
+ * made to finish inside the call so its time is seen. Returns `take` (draw calls since the last
+ * take) and `stop`, which puts the context back as it was.
+ */
+export function watchGl(
+  gl: WebGL2RenderingContext,
+  linked: (ms: number) => void,
+  clock: () => number = () => performance.now(),
+): { take: () => number; stop: () => void } {
+  let draws = 0;
+  // own properties shadow the prototype's methods; deleting them restores the context
+  const own = gl as unknown as Record<string, unknown>;
+  for (const name of DRAW_CALLS) {
+    const orig = gl[name] as (...a: unknown[]) => void;
+    own[name] = (...a: unknown[]): void => {
+      draws++;
+      orig.apply(gl, a);
+    };
+  }
+  const link = gl.linkProgram;
+  own['linkProgram'] = (p: WebGLProgram): void => {
+    const t = clock();
+    link.call(gl, p);
+    gl.getProgramParameter(p, gl.LINK_STATUS);
+    linked(clock() - t);
+  };
+  return {
+    take: () => {
+      const n = draws;
+      draws = 0;
+      return n;
+    },
+    stop: () => {
+      for (const name of [...DRAW_CALLS, 'linkProgram']) Reflect.deleteProperty(own, name);
+    },
+  };
 }

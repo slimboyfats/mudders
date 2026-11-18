@@ -402,3 +402,16 @@ of the zoomed-out scene is pixel-identical. Same profile: `drawDeathWall` gone f
 Checked and left alone: the sway of grass and trees. The swaying is done in the background
 shader already; `swayField` only rebuilds the map of what can sway for the columns whose
 terrain changed (1.4% of CPU in rain, where water changes every tick).
+
+## Recorder v3: where a stall is, shader links, draw calls (2026-11-18)
+
+Taken from the logging guide of Joel's other game. The log's header now carries `build` (the
+commit). A browser stall names the file and character position of its longest script
+(`at MatchView-xxxx.js:73407`), which the build's source map turns back into a function when the
+name is a shortened one, and how much layout that script forced. A new `## events` section lists
+every shader program linked while recording with its time (a link in the middle of play is a
+freeze on a phone; none should appear after the warm-up), console errors and warnings, uncaught
+errors, the window changing size and the tab being hidden. The summary has frame time p50, p95, p99 and max over all frames
+and draw calls a frame, the rows have a `draws` column, and the log ends with `END` so a cut-off
+paste shows. The counting wraps the context's draw and link calls only while a recording runs
+(`watchGl` in `game/perf-log.ts`) and removes the wrappers on Stop.
