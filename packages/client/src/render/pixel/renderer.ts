@@ -21,7 +21,7 @@ import { type GpuClock, GpuSampler, GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
 import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
-import { WallMotes, drawDeathWall, type WallView } from './deathwall';
+import { WallMotes, WallWisps, drawDeathWall, type WallView } from './deathwall';
 import { EdgeWall } from './wall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
 import { PixelAir } from './air';
@@ -288,6 +288,7 @@ export class PixelRenderer implements Renderer {
   /** The edge walls' body: a liquid on its side that swallows shells (cosmetic). */
   private readonly wall: EdgeWall;
   private motes!: WallMotes;
+  private wisps!: WallWisps;
   /** The Spotter Flare aim preview from the last snapshot (flat x, y pairs), or null. */
   private preview: number[] | null = null;
   private zoneGrewAt = -1e9;
@@ -684,6 +685,7 @@ export class PixelRenderer implements Renderer {
 
     this.wall.init(gl);
     this.motes = new WallMotes(gl);
+    this.wisps = new WallWisps(gl);
     this.terrainProg = compile(gl, TERRAIN_VS, TERRAIN_FS);
     this.uTer = uniforms(gl, this.terrainProg, [
       'u_rows',
@@ -2769,7 +2771,7 @@ export class PixelRenderer implements Renderer {
       y0: -oy / scale,
       y1: (H - oy) / scale,
     };
-    drawDeathWall(this.normal, zone, t, wallView, fresh);
+    drawDeathWall(this.normal, zone, t, wallView);
     this.wall.drawParticles(this.normal, this.additive, zone);
     // hit numbers and callouts on top of everything
     drawCallouts(this.normal, this.hits, t, scale);
@@ -2778,6 +2780,7 @@ export class PixelRenderer implements Renderer {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     // (the motes first: everything else on the wall is drawn over them)
     this.motes.draw(view, origin, scale, zone, t, wallView);
+    this.wisps.draw(view, origin, scale, zone, t, wallView, fresh);
     this.normal.flush(view, origin, scale);
     gl.blendFunc(gl.ONE, gl.ONE);
     this.additive.flush(view, origin, scale);
@@ -4175,6 +4178,7 @@ export class PixelRenderer implements Renderer {
     this.additive.dispose();
     this.wall.dispose(gl);
     this.motes.dispose();
+    this.wisps.dispose();
     gl.deleteTexture(this.terrainTex);
     gl.deleteTexture(this.coatTex);
     gl.deleteTexture(this.gasTex);

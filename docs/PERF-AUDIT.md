@@ -389,3 +389,16 @@ The stripes that ran along the wind bar were removed in #223 because animating t
 layer. They are now a strip inside the fill (`.wind-fill::after`, clipped by the fill) that only
 slides with `transform`, so the compositor moves it. Chromium trace of 15 s of a match in rain:
 Paint 0 to 3 ms a second, as without the stripes.
+
+## The wall's wisps too (2026-11-18)
+
+What was left of `drawDeathWall` zoomed far out (968 ms of 12 s) was the wisps torn off the
+wall's face: 70 per 100 rows of view per side, each five hashes and a sine a frame. `WallWisps`
+keeps what never changes about a wisp in a static buffer and a vertex shader places it, handing
+the quad shader's stipple shape the same centre, size and density as before. The capture sheet
+of the zoomed-out scene is pixel-identical. Same profile: `drawDeathWall` gone from the list
+(only the lightning is left in it), idle 62% to 67%; from the start of this work 43% to 67%.
+
+Checked and left alone: the sway of grass and trees. The swaying is done in the background
+shader already; `swayField` only rebuilds the map of what can sway for the columns whose
+terrain changed (1.4% of CPU in rain, where water changes every tick).
