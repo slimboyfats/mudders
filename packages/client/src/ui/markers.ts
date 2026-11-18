@@ -182,6 +182,12 @@ export function measureInsets(playfield: HTMLElement): Insets {
   if (controls) {
     const r = controls.getBoundingClientRect();
     if (r.height > 0 && r.top < box.bottom) bottom = Math.max(bottom, box.bottom - r.top + 4);
+    // upright phones float the gear chips (Heavy, Chute) just above the dock
+    const gear = controls.querySelector('.weapons');
+    if (gear) {
+      const g = gear.getBoundingClientRect();
+      if (g.height > 0 && g.top < r.top) bottom = Math.max(bottom, box.bottom - g.top + 4);
+    }
   }
   return { top, right: pad, bottom, left: pad };
 }

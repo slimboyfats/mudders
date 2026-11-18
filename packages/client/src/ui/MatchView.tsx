@@ -241,7 +241,7 @@ export function MatchView({
     // player markers: chips over tiny tanks when zoomed out, arrows at the edge for off-screen ones
     const markers = markersRef.current ? new PlayerMarkers(markersRef.current) : null;
     const marks: MarkerTank[] = [];
-    let frames = 0;
+    let measured = -1e9;
     // sim time by part of the tick, through the kernel's probe hook (only while recording)
     const partMs = new Array<number>(STEP_PARTS.length).fill(0);
     let probeAt = 0;
@@ -407,11 +407,19 @@ export function MatchView({
           };
         }
         // the HUD can reflow (a player row wraps, the shop closes): re-measure now and then
-        if (frames++ % 30 === 0) {
+        if (now - measured >= 500) {
+          measured = now;
           const insets = measureInsets(wrap);
           markers.setInsets(insets);
           // the performance overlay sits just above the controls
           wrap.style.setProperty('--hud-bottom', `${Math.round(insets.bottom)}px`);
+          // the turn banner drops in under the top bar however many rows it wraps to; set on
+          // the match root (the HUD lies beside the playfield) and only when it changes, since
+          // a new value restyles everything below
+          const top = `${Math.round(insets.top)}px`;
+          const root = wrap.closest<HTMLElement>('.match');
+          if (root && root.style.getPropertyValue('--hud-top') !== top)
+            root.style.setProperty('--hud-top', top);
         }
         const cell = r.camera.scale / renderDpr(quality, window.devicePixelRatio);
         markers.update(marks, (q) => r.project(q), cell, wrap.clientWidth, wrap.clientHeight);
