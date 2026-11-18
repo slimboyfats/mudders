@@ -11,6 +11,7 @@ import { CHILL_POWER } from '@mudders/sim';
 import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
 import { Scrub } from './Scrub';
 import { WeaponPicker } from './WeaponPicker';
+import { HoldButton } from './HoldButton';
 import { toggleFullscreen, useFullscreen } from './fullscreen';
 
 interface Props {
@@ -412,15 +413,15 @@ export function Hud({
             ))}
         </div>
         <div className="cam" role="group" aria-label="Camera">
-          <button onClick={() => renderer.current?.camera.glideBy(-1)} aria-label="Zoom out">
+          <HoldButton onPress={() => renderer.current?.camera.glideBy(-1)} aria-label="Zoom out">
             −
-          </button>
+          </HoldButton>
           <button onClick={() => renderer.current?.camera.fit()} aria-label="Fit map">
             ⤢
           </button>
-          <button onClick={() => renderer.current?.camera.glideBy(1)} aria-label="Zoom in">
+          <HoldButton onPress={() => renderer.current?.camera.glideBy(1)} aria-label="Zoom in">
             +
-          </button>
+          </HoldButton>
         </div>
         {fs.mode !== 'none' && (
           <button

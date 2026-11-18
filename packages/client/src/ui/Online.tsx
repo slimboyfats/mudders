@@ -194,6 +194,7 @@ function SeatRow({
       {onSet && (seat.kind === 'open' || seat.kind === 'bot') && (
         <select
           value={seat.kind === 'open' ? 'open' : (seat.bot ?? '')}
+          className="seat-pick"
           onChange={(e) => onSet(e.target.value)}
           aria-label={`Seat ${i + 1}`}
         >
