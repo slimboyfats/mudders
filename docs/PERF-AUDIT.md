@@ -277,3 +277,17 @@ that is every second refresh with a full 16.7 ms to finish in, at 60 and 90 Hz e
 
 Not verified on the phone. Still open in that log: single ticks of 36 to 50 ms (a wide settle
 after the Ion Cannon, the first plan of a bot, the Ion Cannon shell landing).
+
+## Panning held the game up (2026-11-18, fifth phone log)
+
+With even pacing the calm seconds of the log are a steady 60. Joel: "the rain hold up when I pan".
+The frame loop put the active tank's screen position in React state (`setAnchor`), for the aim
+guide. That position changes on every frame of a pan or pinch, so the whole match view rendered
+again per frame and the full-screen SVG overlay was repainted with it. The cost sits outside the
+frame callback, so the recorder's "other js" never showed it.
+
+The aim guide is now its own small layer, moved with a transform straight from the frame loop.
+Chromium trace of ten seconds of one-finger panning in portrait: paints of the page 194 to 26,
+of the overlay 177 to 0, raster 362 ms to 234 ms.
+
+Rule: nothing that changes with the camera goes through React state.

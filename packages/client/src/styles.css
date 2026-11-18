@@ -3056,7 +3056,35 @@ a.button {
 }
 
 /* aim guide over the playfield: the active tank's marker and the drag readout */
+/* The aim guide is its own layer, moved by a transform from the frame loop: a pan then costs no
+   paint. The marker is an element of its own (not a group inside a big SVG), so its bob is a
+   transform the compositor runs, where it used to repaint the whole overlay on every frame. */
+.aim-guide {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.aim-lines {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+}
+
 .aim-marker {
+  position: absolute;
+  left: -8px;
+  top: -23px;
+  width: 16px;
+  height: 11px;
+  overflow: visible;
   animation: aim-bob 0.9s ease-in-out infinite alternate;
 }
 
