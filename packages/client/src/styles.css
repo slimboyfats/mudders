@@ -5973,3 +5973,42 @@ button.hold {
     0 0 0 1px #3ce0ff,
     0 0 12px rgb(60 224 255 / 0.45);
 }
+
+/* ── shop cards fit their Buy row (Joel: prices cut off once ▶ sat beside Buy) ──
+   A card measures itself: when it is too narrow for ▶ + "Buy +2" + the price on one line, the
+   label and the price stack in two lines inside the button, and "Need $X more" may wrap. On wide
+   screens the cards get a little wider instead, and the filter chips wrap onto a second row
+   rather than running off the right edge. */
+.shop .card {
+  container-type: inline-size;
+}
+
+.shop .card-acts .buy {
+  overflow: hidden;
+}
+
+@container (max-width: 224px) {
+  .shop .card-acts:has(.peek) .buy {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    padding: 3px 8px;
+    line-height: 1.15;
+  }
+  .shop .card-acts:has(.peek) .buy > span {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (min-width: 900px) and (min-height: 461px) {
+  .shop .cards {
+    grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
+  }
+  .shop-filters {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
