@@ -138,10 +138,11 @@ export function Scrub(props: Props) {
     const up = invert ? ['ArrowLeft', 'ArrowUp'] : ['ArrowRight', 'ArrowUp'];
     const down = invert ? ['ArrowRight', 'ArrowDown'] : ['ArrowLeft', 'ArrowDown'];
     const s = e.shiftKey ? big : step;
-    const v = up.includes(e.key) ? value + s : down.includes(e.key) ? value - s : null;
-    if (v === null) return;
-    const next = scrubValue(spec, v);
-    if (next !== value) onChange(next);
+    const sign = up.includes(e.key) ? 1 : down.includes(e.key) ? -1 : 0;
+    if (sign === 0) return;
+    // a held key repeats faster than the match echoes `value` back, so count on from what we sent
+    if (!e.repeat || local === null) live.current.sent = value;
+    emit(live.current.sent + sign * s);
     // the match's own arrow-key shortcuts must not apply the same press twice
     e.preventDefault();
     e.stopPropagation();
@@ -202,6 +203,7 @@ export function Scrub(props: Props) {
         onPointerUp={onUp}
         onPointerCancel={onUp}
         onKeyDown={onKey}
+        onKeyUp={() => setLocal(null)}
         onContextMenu={(e) => e.preventDefault()}
       >
         <span className="scrub-label">{label}</span>

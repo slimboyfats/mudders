@@ -476,6 +476,7 @@ export function MatchView({
   ]);
 
   // keyboard (§3.3): fine and coarse steps, fire, weapon cycle, zoom
+  const keyAim = useRef<{ angle: number; power: number } | null>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -491,7 +492,8 @@ export function MatchView({
       }
       if (!canAim || !active) return;
       const big = e.shiftKey;
-      let { angle, power } = active;
+      // a held arrow repeats faster than the HUD echoes the aim back: count on from what we sent
+      let { angle, power } = e.repeat && keyAim.current ? keyAim.current : active;
       switch (e.key) {
         case 'ArrowLeft':
           angle += big ? 5 : 1;
@@ -532,9 +534,11 @@ export function MatchView({
           return;
       }
       e.preventDefault();
-      send({ type: 'aim', ...clampAim({ angle, power }) });
+      keyAim.current = clampAim({ angle, power });
+      send({ type: 'aim', ...keyAim.current });
     };
     const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key.startsWith('Arrow')) keyAim.current = null;
       if (!canAim || !active) return;
       if ('aAdD'.includes(e.key) && e.key.length === 1) send({ type: 'drive', dir: 0 });
     };
