@@ -62,4 +62,39 @@ describe('weather.rain', () => {
     expect(run('weather.rain')).toBe(run('weather.rain'));
     expect(run('weather.rain')).not.toBe(run());
   });
+
+  it("keeps the grid's clear-sky rows true while water runs and a shell lands", () => {
+    // `Grid.skyLow` lets the water step and the settle scan skip the sky: every row above it
+    // must really be air, each tick, whoever wrote the cells
+    const w = makeWorld({
+      seed: 5,
+      players: 2,
+      map: { generator: 'gen.village', width: 480, height: 240 },
+      weather: 'weather.rain',
+    });
+    const g = w.grid;
+    const check = () => {
+      for (let c = 0; c < g.width >> 4; c++) {
+        const top = g.skyLow[c]!;
+        for (let y = 0; y < top; y++) {
+          for (let x = c << 4; x < (c << 4) + 16; x++) {
+            if (g.material[y * g.width + x] !== 0)
+              throw new Error(`matter at ${x},${y} above ${top}`);
+          }
+        }
+      }
+    };
+    passTurns(w, 1);
+    const t = w.tanks[w.activePlayer]!;
+    t.angle = t.x < 240 ? 60 : 120;
+    t.power = 400;
+    w.applyInput(w.activePlayer, { type: 'fire' });
+    let raised = false;
+    for (let i = 0; i < 400; i++) {
+      w.step();
+      check();
+      if (g.skyLow.some((y) => y > 0)) raised = true;
+    }
+    expect(raised).toBe(true);
+  });
 });

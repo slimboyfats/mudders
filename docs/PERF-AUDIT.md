@@ -581,3 +581,23 @@ scenery shader draws one long dark deck just over the map while it rains or snow
 instead of above the tallest sky a view can show. A drop is in the air for about 3 seconds
 instead of 15, so about a fifth as many are alive, and the sky over the deck is clear.
 `Camera.maxSkyAbove` now only sets where beams start. Not seen or measured on a phone.
+
+## Rain turn start: the sky is not read again every tick (2026-11-19, build 9e3e311)
+
+Phone log, upright, zoom 0.24, rain: the second Joel marked is a turn start, 940 000 settle cells
+and 4 ms of sim a tick for about a second and a half. In node (Village 1600x800, the 180 ticks
+after each of six turn starts) 70% of `settleStep` showed up in the sky prescan of
+`surfaceFlowStep`, but taking that scan out moved the cost into the settle scan: both read the
+same rows of air over the land, and whichever came first paid for bringing them into the cache.
+
+- `Grid.skyLow` keeps, for each run of sixteen columns, a row above which the run holds only
+  air. `surfaceFlowStep` writes the row it finds and starts there the next tick;
+  `addRenderRect` lowers it for every reported change (every writer of matter reports, or the
+  picture would not follow). Any row at or above the true one gives the same columns.
+- `settleStep` stops at the lowest such row over its region, unless this pass has moved a cell
+  above it (a wave throwing water up a bank: found by a self-check that ran the whole test
+  suite and threw on any matter in a skipped row).
+
+Settling 0.50 to 0.40 and 0.36 to 0.27 ms a tick on two seeds, same hashes, golden unchanged.
+A test steps a rainy Village through a shot and checks every row above `skyLow` each tick.
+Not measured on a phone.

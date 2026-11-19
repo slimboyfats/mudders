@@ -64,6 +64,14 @@ export class Grid {
   readonly surfIdle: Uint8Array;
   /** Row of the top cell of each column of open water this tick (-1 = none); scratch, not state. */
   readonly surfTop: Int16Array;
+  /**
+   * For each run of sixteen columns, a row above which the run is known to hold only air. Kept
+   * by `surfaceFlowStep` (which finds the true row) and lowered by every reported change
+   * (`addRenderRect`, which every writer of matter calls so the picture follows). Any row at or
+   * above the true one gives that step the same columns, so it starts its look for the sky
+   * here instead of at row 0.
+   */
+  readonly skyLow: Int16Array;
   /** Whether open water is still moving (it keeps the settle region alive). */
   surfLive = false;
   /** Columns where settle met a runny liquid last tick: only those are worth the column step. */
@@ -170,6 +178,7 @@ export class Grid {
     this.surfAcc = new Int16Array(width);
     this.surfIdle = new Uint8Array(width);
     this.surfTop = new Int16Array(width).fill(-1);
+    this.skyLow = new Int16Array((width >> 4) + 1);
     this.group = new Uint8Array(this.size);
     this.groupMat = new Uint8Array(this.size);
     this.shade = new Uint8Array(this.size);
@@ -190,6 +199,7 @@ export class Grid {
     this.surfAcc.fill(0);
     this.surfIdle.fill(0);
     this.surfTop.fill(-1);
+    this.skyLow.fill(0);
     this.surfLive = false;
     this.surfSeenMinX = 0;
     this.surfSeenMaxX = -1;
@@ -426,6 +436,8 @@ export class Grid {
     const w = Math.min(this.width, x0 + w0) - x;
     const h = Math.min(this.height, y0 + h0) - y;
     if (w <= 0 || h <= 0) return;
+    const sky = this.skyLow;
+    for (let c = x >> 4, c1 = (x + w - 1) >> 4; c <= c1; c++) if (y < sky[c]!) sky[c] = y;
     const rects = this.renderRects;
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i]!;
