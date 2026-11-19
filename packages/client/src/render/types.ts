@@ -137,6 +137,8 @@ export interface RendererOptions {
   dayNight?: boolean;
   /** Bots say things in speech bubbles over their tanks (default on). */
   chatter?: boolean;
+  /** Draw the liquid edge walls while they stand at the map's sides (default on). */
+  walls?: boolean;
   /** Keep the drawing buffer so it can be read back (headless capture). */
   preserveDrawingBuffer?: boolean;
   /**

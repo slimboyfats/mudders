@@ -491,6 +491,7 @@ export function MatchView({
           shake: settings.shake,
           dayNight: settings.dayNight,
           chatter: settings.chatter,
+          walls: settings.walls,
           onCues: effectSounds,
           onProcesses: processSounds,
           // a late frame never pays GPU smoke/particle passes for more than two ticks
@@ -538,6 +539,7 @@ export function MatchView({
     settings.shake,
     settings.dayNight,
     settings.chatter,
+    settings.walls,
     settings.theme,
     refreshHud,
     hudStore,

@@ -142,6 +142,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
         <label className="check">
           <input
             type="checkbox"
+            checked={settings.walls}
+            onChange={(e) => update({ ...settings, walls: e.target.checked })}
+          />
+          Green walls at the map's sides
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={settings.perfHud}
             onChange={(e) => update({ ...settings, perfHud: e.target.checked })}
           />
