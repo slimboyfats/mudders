@@ -141,11 +141,23 @@ export function litColor(rgb: number, l: readonly [number, number, number]): num
   );
 }
 
+/** The box of cells a `heatField` build wrote (x1 < x0: none), kept between builds. */
+export interface HeatBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
 /**
  * Chamfer distance (3-4 metric, in whole cells) from every cell whose material or coating glows
  * (hot, flaming or emitting look flag), capped at `GLOW_REACH`; `HEAT_NONE` beyond. With `src`,
  * also the glowing material each cell's nearest source is made of (0 beyond reach), so the
  * renderer lights each cell in that material's colour. Only the box around the sources is walked.
+ * With `box` (kept by the caller between builds on the same `out` and `src`, which start out
+ * clear), only the cells the build before wrote are cleared instead of the whole map.
  * Returns whether any source exists.
  */
 export function heatField(
@@ -156,14 +168,69 @@ export function heatField(
   h: number,
   out: Uint8Array,
   src?: Uint8Array,
+  box?: HeatBox,
 ): boolean {
-  out.fill(HEAT_NONE);
-  if (src) src.fill(0);
+  if (box) {
+    // only what the build before wrote: the rest is still clear
+    for (let y = box.y0; y <= box.y1; y++) {
+      out.fill(HEAT_NONE, y * w + box.x0, y * w + box.x1 + 1);
+      if (src) src.fill(0, y * w + box.x0, y * w + box.x1 + 1);
+    }
+    box.x0 = box.y0 = 0;
+    box.x1 = box.y1 = -1;
+  } else {
+    out.fill(HEAT_NONE);
+    if (src) src.fill(0);
+  }
   let x0 = w;
   let y0 = h;
   let x1 = -1;
   let y1 = -1;
-  for (let i = 0; i < terrain.length; i++) {
+  const n = terrain.length;
+  let i = 0;
+  // Four cells a look. A pair of words equal to the pair before it (air, the inside of the
+  // ground) is passed in one compare unless that pair held a source: nearly all of a map.
+  if (LITTLE_ENDIAN && terrain.byteOffset % 4 === 0 && coating.byteOffset % 4 === 0) {
+    const tw = new Uint32Array(terrain.buffer, terrain.byteOffset, n >> 2);
+    const cw = new Uint32Array(coating.buffer, coating.byteOffset, n >> 2);
+    let pt = -1;
+    let pc = -1;
+    let glow = false;
+    for (let k = 0; k < tw.length; k++) {
+      const a = tw[k]!;
+      const c = cw[k]!;
+      if (a === pt && c === pc && !glow) continue;
+      pt = a;
+      pc = c;
+      glow =
+        ((flags[a & 255]! |
+          flags[(a >>> 8) & 255]! |
+          flags[(a >>> 16) & 255]! |
+          flags[a >>> 24]! |
+          flags[c & 255]! |
+          flags[(c >>> 8) & 255]! |
+          flags[(c >>> 16) & 255]! |
+          flags[c >>> 24]!) &
+          GLOWS) !==
+        0;
+      if (!glow) continue;
+      for (let j = k << 2, e = j + 4; j < e; j++) {
+        const tm = terrain[j]!;
+        const glowT = (flags[tm]! & GLOWS) !== 0;
+        if (!glowT && (flags[coating[j]!]! & GLOWS) === 0) continue;
+        out[j] = 0;
+        if (src) src[j] = glowT ? tm : coating[j]!;
+        const x = j % w;
+        const y = (j - x) / w;
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    i = tw.length << 2;
+  }
+  for (; i < n; i++) {
     const tm = terrain[i]!;
     const glowT = (flags[tm]! & GLOWS) !== 0;
     if (!glowT && (flags[coating[i]!]! & GLOWS) === 0) continue;
@@ -181,6 +248,12 @@ export function heatField(
   y0 = Math.max(0, y0 - GLOW_REACH);
   x1 = Math.min(w - 1, x1 + GLOW_REACH);
   y1 = Math.min(h - 1, y1 + GLOW_REACH);
+  if (box) {
+    box.x0 = x0;
+    box.y0 = y0;
+    box.x1 = x1;
+    box.y1 = y1;
+  }
   // distances in thirds of a cell (3 straight, 4 diagonal) while walking, then whole cells
   const cap = GLOW_REACH * 3 + 3;
   const big = 250;

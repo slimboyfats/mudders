@@ -20,7 +20,14 @@ import { GPU_PARTS, type RenderPerf } from '../types';
 import { type GpuClock, GpuSampler, GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
-import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
+import {
+  drawWeather,
+  drawZones,
+  emitWeather,
+  stormFlash,
+  weatherTop,
+  type AmbientProbe,
+} from './ambient';
 import { WallMotes, WallWisps, drawDeathWall, type WallView } from './deathwall';
 import { EdgeWall } from './wall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
@@ -49,6 +56,7 @@ import {
   glowReach,
   heatFalloff,
   heatField,
+  type HeatBox,
   lightAt,
   litColor,
 } from './lighting';
@@ -428,6 +436,10 @@ export class PixelRenderer implements Renderer {
   private heat = new Uint8Array(0);
   private heatTex!: WebGLTexture;
   private heatOn = false;
+  /** How far above the map the sky already holds rain or snow (cells). */
+  private weatherFilled = 0;
+  /** The cells the last heat build wrote. */
+  private readonly heatBox: HeatBox = { x0: 0, y0: 0, x1: -1, y1: -1 };
   /** The glowing material each cell's nearest glow source is made of (R8UI), with `heat`. */
   private glowSrc = new Uint8Array(0);
   /** What the heat, glow and sway textures hold, so a rebuild uploads only what changed. */
@@ -867,6 +879,7 @@ export class PixelRenderer implements Renderer {
       this.burn,
     );
     this.heat = new Uint8Array(this.mapWidth * this.mapHeight).fill(HEAT_NONE);
+    this.heatBox.x1 = this.heatBox.y1 = -1;
     this.heatShown = this.heat.slice();
     this.heatTex = texture(gl);
     gl.texImage2D(
@@ -1092,12 +1105,15 @@ export class PixelRenderer implements Renderer {
       old?.dispose();
       this.fluid?.dispose();
       this.particles = new GpuParticles(this.gl, cap, q.mult);
+      // the new engine is empty: the sky over the map fills again at once
+      this.weatherFilled = 0;
       this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
       this.fluid.maxSteps = this.catchUp;
-      // Particles get twice the ticks the smoke does: a pass of theirs is cheap next to a fluid
-      // step, and a tick they skip ages them without moving them, so at three ticks a frame the
-      // rain died a third of the way short of the ground and stood as a curtain ending in mid-air.
-      if (Number.isFinite(this.catchUp)) this.particles.maxPasses = this.catchUp * 2;
+      // Particles get four times the ticks the smoke does, which is every tick a late frame can
+      // catch up on: a pass of theirs is cheap next to a fluid step, and a tick they skip ages
+      // them without moving them. At twice, a frame that caught up five ticks or more (a stutter)
+      // held the rain still for the rest, and it died short of the ground in a band.
+      if (Number.isFinite(this.catchUp)) this.particles.maxPasses = this.catchUp * 4;
       this.air = new PixelAir(this.fluid.ok ? this.fluid : null, this.particles, q.mult);
       this.fx = new EffectSystem(this.particles, this.air, {
         width: this.mapWidth,
@@ -1331,6 +1347,7 @@ export class PixelRenderer implements Renderer {
     }
     if ((s.weather?.id ?? '') !== (this.weather?.id ?? '')) {
       this.weather = s.weather;
+      this.weatherFilled = 0;
       this.applyTheme();
       this.dirty = [0, 0, this.mapWidth, this.mapHeight];
     }
@@ -1885,11 +1902,43 @@ export class PixelRenderer implements Renderer {
     if (!any && !this.heatOn) return;
     const w = this.mapWidth;
     const h = this.mapHeight;
-    this.heatOn =
-      any && heatField(this.terrain, this.coating, this.lookFlags, w, h, this.heat, this.glowSrc);
-    if (!this.heatTex) return;
-    uploadChanged(this.gl, this.heatTex, this.heat, this.heatShown, w, h);
-    uploadChanged(this.gl, this.glowTex, this.glowSrc, this.glowShown, w, h);
+    // the cells the last build wrote and the ones this build writes: nothing else can differ
+    // from what the textures hold (the whole map for both, three times a second while rain
+    // kept changing the ground near a fire, was a 20 to 30 ms frame on a phone)
+    const b = this.heatBox;
+    let x0 = b.x1 < b.x0 ? w : b.x0;
+    let y0 = b.x1 < b.x0 ? h : b.y0;
+    let x1 = b.x1;
+    let y1 = b.x1 < b.x0 ? -1 : b.y1;
+    if (any) {
+      this.heatOn = heatField(
+        this.terrain,
+        this.coating,
+        this.lookFlags,
+        w,
+        h,
+        this.heat,
+        this.glowSrc,
+        b,
+      );
+    } else {
+      // no source left: clear what the last build wrote
+      for (let y = b.y0; y <= b.y1; y++) {
+        this.heat.fill(HEAT_NONE, y * w + b.x0, y * w + b.x1 + 1);
+        this.glowSrc.fill(0, y * w + b.x0, y * w + b.x1 + 1);
+      }
+      b.x1 = b.y1 = -1;
+      this.heatOn = false;
+    }
+    if (b.x1 >= b.x0) {
+      x0 = Math.min(x0, b.x0);
+      y0 = Math.min(y0, b.y0);
+      x1 = Math.max(x1, b.x1);
+      y1 = Math.max(y1, b.y1);
+    }
+    if (!this.heatTex || x1 < x0) return;
+    uploadChanged(this.gl, this.heatTex, this.heat, this.heatShown, w, h, x0, x1, y0, y1);
+    uploadChanged(this.gl, this.glowTex, this.glowSrc, this.glowShown, w, h, x0, x1, y0, y1);
   }
 
   /** Flame tongues, sparks and black smoke rising off burning surfaces (napalm, burning oil). */
@@ -2198,6 +2247,12 @@ export class PixelRenderer implements Renderer {
       this.probe,
       this.fx.mult,
       skyAbove,
+      this.weatherFilled,
+    );
+    // what fell from higher up drains away at about the speed it falls once the view narrows
+    this.weatherFilled = Math.max(
+      weatherTop(skyAbove, this.mapHeight),
+      this.weatherFilled - (this.theme.ambient.kind === 'snow' ? 0.45 : 4),
     );
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);

@@ -118,3 +118,50 @@ describe('supportPass', () => {
     expect(g.material[60 * W + 165]).toBe(0);
   });
 });
+
+describe('supportPass, four columns a look', () => {
+  it('releases the same cells as the cell by cell walk on a map three columns wider', () => {
+    // a width that is a multiple of four takes the wide path; three columns of air to the right
+    // change nothing about what hangs, and put the same terrain on the plain path
+    let r = 4242;
+    const rnd = (n: number): number => {
+      r = (Math.imul(r, 1103515245) + 12345) >>> 0;
+      return (r >>> 8) % n;
+    };
+    for (let round = 0; round < 12; round++) {
+      const w = 96;
+      const h = 64;
+      const cells = new Uint8Array(w * h);
+      cells.fill(DIRT, 40 * w);
+      // rock shelves, floatstone and loose blobs over pits
+      for (let k = 0; k < 14; k++) {
+        const x0 = rnd(w - 30);
+        const y0 = 8 + rnd(40);
+        const len = 4 + rnd(40);
+        const thick = 1 + rnd(5);
+        const m = k % 5 === 4 ? FLOAT : ROCK;
+        for (let y = y0; y < Math.min(h, y0 + thick); y++)
+          for (let x = x0; x < Math.min(w, x0 + len); x++) cells[y * w + x] = m;
+      }
+      for (let k = 0; k < 6; k++) {
+        const x0 = rnd(w - 12);
+        const wd = 3 + rnd(10);
+        const top = 30 + rnd(20);
+        for (let y = top; y < h; y++) for (let x = x0; x < x0 + wd; x++) cells[y * w + x] = 0;
+      }
+      const run = (width: number): { lost: number; cells: Uint8Array } => {
+        const g = new Grid(width, h);
+        for (let y = 0; y < h; y++) g.material.set(cells.subarray(y * w, y * w + w), y * width);
+        g.markDirty(0, 0, width - 1, h - 1);
+        const lost = supportPass(g, mats, new Scratch(g.size), new DebrisPool(), fx);
+        const out = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) out.set(g.material.subarray(y * width, y * width + w), y * w);
+        return { lost, cells: out };
+      };
+      const a = run(w);
+      const b = run(w + 3);
+      expect(a.lost).toBe(b.lost);
+      expect(a.cells).toEqual(b.cells);
+    }
+  });
+});

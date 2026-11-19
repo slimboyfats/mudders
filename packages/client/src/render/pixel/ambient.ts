@@ -73,11 +73,30 @@ export function drawWeather(
   }
 }
 
+/** How far above the map the weather can start, in map heights, and where it starts thinning. */
+const SKY_CAP = 8;
+const SKY_FULL = 3;
+
+/**
+ * Where the weather starts for `above` cells of sky on screen over the map (a phone held
+ * upright, or zoomed out): that far up, to a limit.
+ */
+export function weatherTop(above: number, mapHeight: number): number {
+  return Math.max(0, Math.min(above, mapHeight * SKY_CAP));
+}
+
 /**
  * This tick's rain or snow, spawned into the GPU engine along the top of the map (and a little
  * past the sides, so the wind can carry it in): rain as streaks that splash where they land,
  * snow as swaying flakes that settle. Density is the theme's; the count per tick is set so the
  * same number is in the air as the old drawn weather had, times the extra the GPU affords.
+ *
+ * `above` is the sky on screen over the map; the weather starts that much higher and lives that
+ * much longer, so it comes down from the top of the screen. `filled` is how far up the sky
+ * already holds weather: when the view shows more than that (zoomed out, panned up), the new
+ * band is filled at once, as if it had been falling there all along. Without it the new sky
+ * stayed empty until the weather had fallen all the way down from the new top, seconds for rain
+ * and most of a minute for snow.
  */
 export function emitWeather(
   sink: ParticleSink,
@@ -87,36 +106,34 @@ export function emitWeather(
   probe: AmbientProbe,
   mult: number,
   above = 0,
+  filled = above,
 ): void {
   const a = theme.ambient;
   if ((a.kind !== 'rain' && a.kind !== 'snow') || a.density <= 0) return;
-  // `above`: cells of sky on screen over the top of the map (a phone held upright, or zoomed
-  // out). The weather starts that much higher and lives that much longer, so it comes down from
-  // the top of the screen instead of beginning at a line where the map starts.
-  const up = Math.max(0, Math.min(above, probe.height * 3));
   const W = probe.width;
   const H = probe.height;
+  const up = weatherTop(above, H);
   const rain = a.kind === 'rain';
   // in the air at once ≈ density × W/1000 × 14 (rain) or × 15 (snow); each lives about H / speed
-  // ticks. Several times the old drawn weather: the GPU can afford a real downpour
+  // ticks. Several times the old drawn weather: the GPU can afford a real downpour. Past a few
+  // map heights of sky it thins, so the number in the air stops growing with the height.
   const speed = rain ? 4.8 : 0.65;
-  const perTick = (((a.density * W * mult) / 1000) * (rain ? 14 : 15)) / (H / speed);
-  let n = Math.floor(perTick);
-  if (h01(t, 977) < perTick - n) n++;
+  const thin = up > H * SKY_FULL ? (H * (SKY_FULL + 1)) / (H + up) : 1;
+  const perTick = ((((a.density * W * mult) / 1000) * (rain ? 14 : 15)) / (H / speed)) * thin;
   const lean = Math.max(-1.5, Math.min(1.5, wind * 120));
   const margin = Math.abs(lean) * (H + up) * 0.4 + 10;
-  for (let i = 0; i < n; i++) {
-    const r0 = h01(t * 131 + i, 1);
-    const r1 = h01(t * 131 + i, 2);
-    const r2 = h01(t * 131 + i, 3);
+  const drop = (seed: number, y: number): void => {
+    const r0 = h01(seed, 1);
+    const r1 = h01(seed, 2);
+    const r2 = h01(seed, 3);
     const x = -margin * (lean > 0 ? 1 : 0) + r0 * (W + margin);
     if (rain) {
       sink.add({
         x,
-        y: -2 - r1 * 6 - up,
+        y: y - r1 * 6,
         vx: lean * 0.9,
         vy: 4 + r2 * 2,
-        life: (H + up) / 4 + 60,
+        life: (H - y - 2) / 4 + 60,
         size: 1,
         color: a.color,
         kind: PKind.Rain,
@@ -124,14 +141,28 @@ export function emitWeather(
     } else {
       sink.add({
         x,
-        y: -2 - r1 * 6 - up,
+        y: y - r1 * 6,
         vx: lean * 0.3 + (r2 - 0.5) * 0.3,
         vy: 0.45 + r2 * 0.4,
-        life: (H + up) / 0.55 + 120 + r1 * 200,
+        life: (H - y - 2) / 0.55 + 120 + r1 * 200,
         size: r2 > 0.7 ? 2 : 1,
         color: a.color,
         kind: PKind.Flake,
       });
+    }
+  };
+  let n = Math.floor(perTick);
+  if (h01(t, 977) < perTick - n) n++;
+  for (let i = 0; i < n; i++) drop(t * 131 + i, -2 - up);
+  // newly shown sky: as many per row as steady fall leaves there
+  const from = Math.max(0, Math.min(filled, up));
+  if (up > from) {
+    const rows = up - from;
+    const want = (perTick / speed) * rows;
+    let k = Math.floor(want);
+    if (h01(t, 3301) < want - k) k++;
+    for (let i = 0; i < k; i++) {
+      drop(t * 131 + 7919 + i, -2 - from - h01(t * 131 + i, 4) * rows);
     }
   }
 }

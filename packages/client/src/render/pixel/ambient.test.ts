@@ -70,6 +70,30 @@ describe('ambient layers', () => {
     expect(out).toEqual([]);
   });
 
+  it('fills newly shown sky at once, and only that band', () => {
+    const th = pixelTheme('theme.storm', themes);
+    const p = probe(150);
+    const steady: Emit[] = [];
+    emitWeather({ add: (e) => steady.push(e) }, th, 9, 0, p, 1, 600, 600);
+    for (const e of steady) expect(e.y).toBeLessThan(-600);
+    const grown: Emit[] = [];
+    emitWeather({ add: (e) => grown.push(e) }, th, 9, 0, p, 1, 600, 200);
+    const fill = grown.filter((e) => e.y > -600);
+    // about as many per row as steady fall leaves: this tick's drops spread over their speed
+    expect(fill.length).toBeGreaterThan(steady.length * 40);
+    expect(fill.length).toBeLessThan(steady.length * 160);
+    for (const e of fill) {
+      expect(e.y).toBeLessThan(-200);
+      expect(e.y).toBeGreaterThan(-610);
+      // each lives long enough to reach the bottom of the map from where it starts
+      expect(e.life * e.vy).toBeGreaterThan(p.height - e.y);
+    }
+    // nothing extra once the sky is full, or when the view shows less than it holds
+    const full: Emit[] = [];
+    emitWeather({ add: (e) => full.push(e) }, th, 9, 0, p, 1, 600, 900);
+    expect(full).toEqual(steady);
+  });
+
   it('draws each zone look', () => {
     // a gas haze draws nothing here: it is gas cells fed into the air (see air.test.ts)
     for (const look of ['acid', 'resonance', 'acid-cloud'] as const) {

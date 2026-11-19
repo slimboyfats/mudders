@@ -16,9 +16,15 @@ const MAX_THICKNESS = 32;
 /** Cells released per material in the current pass (transient scratch). */
 const perMaterial = new Int32Array(256);
 
-/** Per column while climbing: is the cell below grounded, and the bottom row of the open run. */
+/**
+ * Per column while climbing: is the cell below grounded, the bottom row of the open run, and
+ * whether a run is open at all (for a look at four columns at once).
+ */
 let colBelow = new Uint8Array(0);
 let colRun = new Int16Array(0);
+let colOpen = new Uint8Array(0);
+let colBelow32 = new Uint32Array(0);
+let colOpen32 = new Uint32Array(0);
 
 /** Order-free hash: how ragged the break line is per row. */
 function jag(y: number, x: number): number {
@@ -92,8 +98,19 @@ export function supportPass(
   // its own nor belongs to a group has air right under it: the lowest hanging cell of a column
   // is such a cell. One cheap look for that first; without one there is nothing to work out.
   let any = false;
+  // (four cells a look where rows start on a word: air, or cells all standing on something,
+  // cannot hold one)
+  const mat32 =
+    (W & 3) === 0 && mat.byteOffset === 0 ? new Uint32Array(mat.buffer, 0, mat.length >> 2) : null;
   look: for (let y = H - 2; y >= 0; y--) {
     for (let i = y * W + rx0, end = y * W + rx1; i <= end; i++) {
+      if (mat32 !== null && (i & 3) === 0 && i + 3 <= end) {
+        const below = mat32[(i + W) >> 2]!;
+        if (mat32[i >> 2] === 0 || ((below - 0x01010101) & ~below & 0x80808080) === 0) {
+          i += 3;
+          continue;
+        }
+      }
       const m = mat[i]!;
       if (m === 0 || mat[i + W] !== 0 || group[i] !== 0) continue;
       if (settle[m] === SETTLE_STATIC && spanOf[m] === 255) continue;
@@ -113,11 +130,25 @@ export function supportPass(
   // columns climb together, a row at a time, so the layers are read in memory order (a column at a
   // time touched a new cache line per cell, and this pass runs after every change to the ground).
   if (colBelow.length < W) {
-    colBelow = new Uint8Array(W);
-    colRun = new Int16Array(W);
+    const n = (W + 3) & ~3;
+    colBelow = new Uint8Array(n);
+    colRun = new Int16Array(n);
+    colOpen = new Uint8Array(n);
+    colBelow32 = new Uint32Array(colBelow.buffer);
+    colOpen32 = new Uint32Array(colOpen.buffer);
   }
   const colB = colBelow;
   const colR = colRun;
+  const colO = colOpen;
+  // Four columns a look where the map allows it (rows start on a word). Solid ground standing
+  // on grounded cells, and air over air with no run open, are nearly all of a map: the first
+  // is grounded as a whole, the second changes nothing.
+  const grounded32 =
+    mat32 !== null && grounded.byteOffset === 0
+      ? new Uint32Array(grounded.buffer, 0, mat.length >> 2)
+      : null;
+  const colB32 = colBelow32;
+  const colO32 = colOpen32;
   // the box the hanging cells lie in: all the later passes have to look at
   let hx0 = W;
   let hx1 = -1;
@@ -125,6 +156,7 @@ export function supportPass(
   let hy1 = -1;
   colB.fill(1, rx0, rx1 + 1);
   colR.fill(-1, rx0, rx1 + 1);
+  colO.fill(0, rx0, rx1 + 1);
   // a row of air over a row of air (the sky over the land) changes nothing: every run is closed
   // and nothing in it is ever read back
   let wasAir = false;
@@ -132,12 +164,32 @@ export function supportPass(
     if (y >= 0) {
       let p = y * W + rx0;
       const end = y * W + rx1;
-      while (p <= end && mat[p] === 0) p++;
+      while (p <= end && mat[p] === 0) {
+        if (mat32 !== null && (p & 3) === 0 && p + 3 <= end && mat32[p >> 2] === 0) p += 4;
+        else p++;
+      }
       const air = p > end;
       if (air && wasAir) continue;
       wasAir = air;
     }
     for (let x = rx0, i = y * W + rx0; x <= rx1; x++, i++) {
+      if (mat32 !== null && grounded32 !== null && y >= 0 && (x & 3) === 0 && x + 3 <= rx1) {
+        const mw = mat32[i >> 2]!;
+        const bw = colB32[x >> 2]!;
+        if (bw === 0x01010101 && ((mw - 0x01010101) & ~mw & 0x80808080) === 0) {
+          // four solid cells on grounded ones (no run can be open over a grounded cell)
+          grounded32[i >> 2] = 0x01010101;
+          x += 3;
+          i += 3;
+          continue;
+        }
+        if (mw === 0 && bw === 0 && colO32[x >> 2] === 0) {
+          // air over air, no run to close; `grounded` is never read for an air cell
+          x += 3;
+          i += 3;
+          continue;
+        }
+      }
       const m = y < 0 ? 0 : mat[i]!;
       let g = 0;
       if (m === 0) {
@@ -151,7 +203,10 @@ export function supportPass(
         if (g === 0) {
           hanging++;
           dist[i] = 255;
-          if (colR[x]! < 0) colR[x] = y;
+          if (colR[x]! < 0) {
+            colR[x] = y;
+            colO[x] = 1;
+          }
           if (x < hx0) hx0 = x;
           if (x > hx1) hx1 = x;
           if (y < hy0) hy0 = y;
@@ -164,6 +219,7 @@ export function supportPass(
         const t = Math.min(255, run - y);
         for (let k = y + 1, kk = i + W; k <= run; k++, kk += W) thick[kk] = t;
         colR[x] = -1;
+        colO[x] = 0;
       }
     }
   }

@@ -475,3 +475,50 @@ look scan fix above) showed four single long ticks or frames.
   highest ground (0.39 to 0.25 ms). About 40% off the tick; it may still cost a frame.
 
 None of this is measured on a phone.
+
+## Log after the deploy: glow field and collapse check (2026-11-19, build bd7d8b8)
+
+Village, rain, Low gravity, upright, zoom 0.17 to 0.28, High quality, 52 fps average. Seconds
+with only rain ran 57 to 60 fps with the renderer's step at 6 to 10 ms at most (the look scan
+fix), and no tree landing showed.
+
+- **Renderer step of 20 to 33 ms about once a second while fire or lava was on the map**
+  (seconds 9 to 14 and 64 to 85). `heatField` cleared both whole-map fields, looked at every
+  cell for sources, and the two textures were compared over the whole map, on every look scan;
+  rain keeps the scan going. It now reads four cells a look and passes repeated words, clears
+  only the box the build before wrote (`HeatBox`), and the upload compare covers only the old
+  and new box. 3.7 ms to 1.5 ms for the field on 1600x800 (node), same field (a test compares
+  it with a whole rebuild over 120 edits).
+- **"structures" ticks of 9 to 34 ms when the world goes still** (28 s, 52 s while aiming,
+  73 s). This one is `supportPass`: rain marks the whole width as changed, so the pass climbs
+  every column of the map. The climb now looks at four columns at once: solid cells standing
+  on grounded ones are grounded as a word, air over air with no open run is passed; the two
+  prescans read words too. 4.5 ms to 1.6 ms on Village after an Ion Cannon (node), same cells
+  released (a test compares the wide path with the plain one on a map three columns wider).
+- **Not ours to see from here:** frames of 50 to 75 ms with about 10 ms of script at zoom 0.17
+  with 40 000 to 80 000 particles (Chain Reactor, Supernova), and 41 to 44 fps with only a
+  Singularity or Chain Reactor shell in flight (stalls with no script at all). The burst GPU
+  measuring gave 3 to 4 ms a frame there, so it is not the passes it brackets. Auto quality
+  never stepped: no stretch stayed over 25 ms a frame for four seconds.
+
+Not measured on a phone.
+
+## Rain with blank areas (2026-11-19)
+
+Joel after the deploy: "rain still holds and makes blank areas". Not a speed problem: the
+weather spawned only along the top of the sky the screen showed at that tick. Sky that came
+into view (zooming out, panning up, the start of a match upright) stayed empty until rain had
+fallen down from the new top, 3 to 10 s, and snow most of a minute; and past three map heights
+of sky the start line sat below the top of the screen. `emitWeather` now takes how far up the
+sky already holds weather and fills a newly shown band at once, with as many drops per row as
+steady fall leaves there; the limit is eight map heights, thinning past three so the number in
+the air stops growing. The renderer keeps that height (`weatherFilled`), lets it drain at
+falling speed when the view narrows, and resets it when the weather or the particle engine
+changes. Screenshots in headless Chromium before and after; not seen on a phone. The "holds"
+part is not pinned down.
+
+Joel on the "holds": "When zooming mostly but also during stutter". The zooming part is the
+empty new sky above. The stutter part: particles ran at most four update passes a frame
+(`catchUp` 2, times two), and a tick without a pass ages them without moving them, so a frame
+that caught up five to eight ticks held the rain still and it died short of the ground. They
+now get a pass for every tick a late frame can catch up on (`catchUp` times four = `MAX_STEPS`).
