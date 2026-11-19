@@ -522,3 +522,24 @@ empty new sky above. The stutter part: particles ran at most four update passes 
 (`catchUp` 2, times two), and a tick without a pass ages them without moving them, so a frame
 that caught up five to eight ticks held the rain still and it died short of the ground. They
 now get a pass for every tick a late frame can catch up on (`catchUp` times four = `MAX_STEPS`).
+
+## Rain that stutters and falls in groups (2026-11-19, log from build 98cb33b)
+
+The renderer's step is back to 4 to 9 ms at most with fire on the map, and no stall repeats.
+What is left in the log: 12% of frames come 25 ms after the one before instead of 16.7 (the
+screen runs at 120 Hz, the game takes every second refresh), with about 4 ms of our work and
+2 ms of measured GPU time in them. Joel marks exactly those seconds, and what he sees is the
+rain: "still stutters and falls in groups sometimes".
+
+- **Stutter.** Particles sit where the last tick put them. Rain falls five cells a tick, so a
+  frame that came half a tick late showed it standing and the next showed a jump. The draw
+  shader now takes how far into the next tick the frame is (`u_sub`) and draws falling rain
+  and snow that much further along their velocity. Captures draw on the tick, so they are
+  unchanged.
+- **Groups.** After the view narrowed (zooming in, panning down) new weather started at the
+  new top at once while what had started higher up was still coming down through it: double
+  weather for as long as that took. New weather now waits until the old has drained to the
+  new top (`weatherFilled` sinks at falling speed, `emitWeather` holds back while it is above).
+
+Not seen on a phone. The late frames themselves are not explained: no part we measure is slow
+in them.

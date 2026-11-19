@@ -88,10 +88,14 @@ describe('ambient layers', () => {
       // each lives long enough to reach the bottom of the map from where it starts
       expect(e.life * e.vy).toBeGreaterThan(p.height - e.y);
     }
-    // nothing extra once the sky is full, or when the view shows less than it holds
+    // nothing extra once the sky is full
     const full: Emit[] = [];
-    emitWeather({ add: (e) => full.push(e) }, th, 9, 0, p, 1, 600, 900);
+    emitWeather({ add: (e) => full.push(e) }, th, 9, 0, p, 1, 600, 604);
     expect(full).toEqual(steady);
+    // and nothing at all while rain started higher up is still coming down through the top
+    const draining: Emit[] = [];
+    emitWeather({ add: (e) => draining.push(e) }, th, 9, 0, p, 1, 600, 900);
+    expect(draining).toEqual([]);
   });
 
   it('draws each zone look', () => {

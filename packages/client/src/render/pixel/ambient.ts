@@ -77,6 +77,14 @@ export function drawWeather(
 const SKY_CAP = 8;
 const SKY_FULL = 3;
 
+/** How far above the start line older weather may still be before new weather waits for it. */
+const DRAIN_SLACK = 8;
+
+/** Cells a tick the top of weather started higher up sinks: how fast rain and snow fall. */
+export function weatherDrain(theme: PixelTheme): number {
+  return theme.ambient.kind === 'snow' ? 0.65 : 5;
+}
+
 /**
  * Where the weather starts for `above` cells of sky on screen over the map (a phone held
  * upright, or zoomed out): that far up, to a limit.
@@ -153,9 +161,15 @@ export function emitWeather(
   };
   let n = Math.floor(perTick);
   if (h01(t, 977) < perTick - n) n++;
-  for (let i = 0; i < n; i++) drop(t * 131 + i, -2 - up);
+  // After the view narrowed, what was started higher up is still coming down through the new
+  // top: starting more there as well doubled the weather for as long as that took, and it fell
+  // in groups. Nothing new until the old has drained to the new top (`filled` sinks with it).
+  const held = weatherTop(filled, H);
+  if (held <= up + DRAIN_SLACK) {
+    for (let i = 0; i < n; i++) drop(t * 131 + i, -2 - up);
+  }
   // newly shown sky: as many per row as steady fall leaves there
-  const from = Math.max(0, Math.min(filled, up));
+  const from = Math.min(held, up);
   if (up > from) {
     const rows = up - from;
     const want = (perTick / speed) * rows;
