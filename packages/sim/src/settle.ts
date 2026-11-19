@@ -209,8 +209,17 @@ export function settleStep(
   let waiting = false;
   const ltr = (tick & 1) === 0;
 
+  // Rows the grid knows to be clear sky over the whole region (`Grid.skyLow`) are not read at
+  // all: a region reaches down from row 0, and with rain on every hollow it spans the map, so
+  // most of what the scan read was air above the land. (Not above anything this pass has moved,
+  // though: a wave may throw a cell up into what was clear, and the scan still passes it.)
+  let clear = H;
+  const skyLow = grid.skyLow;
+  for (let c = x0 >> 4, c1 = x1 >> 4; c <= c1; c++) if (skyLow[c]! < clear) clear = skyLow[c]!;
+
   rows: for (let y = Math.min(grid.settleMaxY, H - 2); y >= 0; y--) {
     const row = y * W;
+    if (y < clear && y < nMinY) break;
     // Air does nothing, and nothing moves into a cell the scan has yet to reach except from a
     // cell it visits first: the scan starts at the row's first cell that holds anything. A region
     // reaches down from row 0, so most of it is sky, skipped here four cells at a time.
