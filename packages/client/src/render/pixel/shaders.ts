@@ -4,6 +4,7 @@
  */
 
 import { HEAT_STRENGTH, LIGHT_BANDS, MAX_LIGHTS } from './lighting';
+import { DECK_BASE, DECK_TOP } from './weather-deck';
 import { SWAY_BLAST_TICKS, SWAY_BLASTS, SWAY_LEAF, SWAY_REACH, SWAY_UNIT } from './sway';
 
 /** Shared GLSL helpers: integer hash, 4×4 ordered dither, value noise on whole cells. */
@@ -557,6 +558,7 @@ uniform vec3 u_top;
 uniform vec3 u_bottom;
 uniform vec2 u_cloud;        // cover, drift (cells)
 uniform float u_boil;        // slow phase the billows boil to (steps)
+uniform float u_deck;        // 1 = rain or snow: the deck it falls from lies over the map
 uniform vec3 u_cloudLight;
 uniform vec3 u_cloudShadow;
 uniform vec3 u_ranges[3];    // far to near
@@ -665,6 +667,30 @@ vec4 clouds(vec2 p, ivec2 tx, vec3 sky) {
   if (cl.w < 2.0 || (cl.w < 4.0 && checker)) c = u_cloudShadow;
   return vec4(mix(c, sky, far * 0.42), 0.0);
 }
+// The weather's deck (weather-deck.ts): a long dark cloud just over the map, fixed to it (the
+// rain comes out of it, so no parallax), drifting with the other clouds. A ragged belly, a
+// billowed top, three hard tones from a dark underside to a paler crown.
+vec4 deck(vec2 p, ivec2 tx) {
+  if (p.y > -${(DECK_BASE - 30).toFixed(1)} || p.y < -${(DECK_TOP + 90).toFixed(1)}) return vec4(0.0, 0.0, 0.0, 1.0);
+  float sx = p.x + floor(u_cloud.y / 2.0) * 2.0;
+  float b = u_boil * 0.03;
+  float belly = -${DECK_BASE.toFixed(1)} + (vnoise(vec2(sx / 46.0, 1.3 + b)) - 0.5) * 34.0
+    + (vnoise(vec2(sx / 13.0, 9.1 - b)) - 0.5) * 14.0;
+  float crown = -${DECK_TOP.toFixed(1)} - vnoise(vec2(sx / 70.0, 5.2 + b * 0.5)) * 60.0
+    - abs(vnoise(vec2(sx / 19.0, 2.7 + b)) - 0.5) * 44.0;
+  if (p.y > belly || p.y < crown) return vec4(0.0, 0.0, 0.0, 1.0);
+  float t = (belly - p.y) / (belly - crown);
+  t += (vnoise(vec2(sx / 27.0, p.y / 15.0 + b)) - 0.5) * 0.45;
+  vec3 grey = vec3(dot(u_cloudShadow, vec3(0.3, 0.59, 0.11)));
+  vec3 dark = mix(u_cloudShadow, grey, 0.6) * 0.42;
+  vec3 mid = mix(u_cloudShadow, grey, 0.6) * 0.62;
+  vec3 pale = mix(mix(u_cloudShadow, u_cloudLight, 0.3), grey, 0.5) * 0.8;
+  bool checker = ((tx.x + tx.y) & 1) == 0;
+  vec3 c = t < 0.3 ? dark : t < 0.68 ? mid : pale;
+  if (abs(t - 0.3) < 0.035 && checker) c = t < 0.3 ? mid : dark;
+  if (abs(t - 0.68) < 0.035 && checker) c = t < 0.68 ? pale : mid;
+  return vec4(c, 0.0);
+}
 float lin1(float x, int seed) {
   float i = floor(x);
   return mix(hash(ivec2(int(i), seed)), hash(ivec2(int(i) + 1, seed)), x - i);
@@ -761,6 +787,10 @@ void main() {
   vec4 c = ranges(p, tx, vec4(sky, 1.0), sky, 0, far);
   vec4 cl = clouds(p, tx, sky);
   if (cl.a < 0.5) c = cl;
+  if (u_deck > 0.5) {
+    vec4 dk = deck(p, tx);
+    if (dk.a < 0.5) c = dk;
+  }
   o = ranges(p, tx, c, sky, far, 3);
 }`;
 

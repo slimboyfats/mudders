@@ -20,11 +20,13 @@ import { GPU_PARTS, type RenderPerf } from '../types';
 import { type GpuClock, GpuSampler, GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
+import { DECK_START } from './weather-deck';
 import {
   drawWeather,
   drawZones,
   emitWeather,
   stormFlash,
+  weatherDeck,
   weatherDrain,
   weatherTop,
   type AmbientProbe,
@@ -147,6 +149,7 @@ const SCENERY_UNIFORMS = [
   'u_bottom',
   'u_cloud',
   'u_boil',
+  'u_deck',
   'u_cloudLight',
   'u_cloudShadow',
   'u_ranges',
@@ -2245,10 +2248,10 @@ export class PixelRenderer implements Renderer {
     this.skirts.prune(this.fxTick);
     this.steam.tick(this.fxTick, this.steamWater, this.particles, this.fx.mult);
     this.steam.prune(this.fxTick);
-    // the weather always starts above the most sky the view can ever show, whatever it shows
-    // now: started at the top of the current view it came in groups and left gaps whenever the
-    // view moved (Joel: "why don't we start the rain always from the top of screen")
-    const skyAbove = this.camera.maxSkyAbove();
+    // the weather falls out of its own cloud deck just over the map (weather-deck.ts), from one
+    // fixed height whatever the view shows: started at the top of the view it came in groups
+    // and left gaps whenever the view moved
+    const skyAbove = DECK_START;
     emitWeather(
       this.particles,
       this.theme,
@@ -2992,7 +2995,8 @@ export class PixelRenderer implements Renderer {
     const mh = this.mapHeight;
     const dx = camX - mw / 2;
     const dy = camY - mh / 2;
-    let key = `${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)},${Math.floor(this.fxTick / 10)}`;
+    const deck = weatherDeck(th);
+    let key = `${deck},${th.skyTop},${th.skyBottom},${th.clouds.cover},${th.clouds.light},${th.clouds.shadow},${th.ranges.join('/')},${this.horizon},${Math.floor(this.cloudX / 2)},${Math.floor(this.fxTick / 10)}`;
     for (const k of [0.9, 0.85, 0.75, 0.55, 0.35]) {
       key += `,${Math.floor((dx * k) / 2)},${Math.floor((dy * k) / 2)}`;
     }
@@ -3029,6 +3033,7 @@ export class PixelRenderer implements Renderer {
     gl.uniform2f(u.u_cloud, th.clouds.cover, this.cloudX);
     // the clouds boil in slow steps: the scenery repaints every ten ticks for it
     gl.uniform1f(u.u_boil, Math.floor(this.fxTick / 10));
+    gl.uniform1f(u.u_deck, deck ? 1 : 0);
     gl.uniform3fv(u.u_cloudLight, rgb(th.clouds.light));
     gl.uniform3fv(u.u_cloudShadow, rgb(th.clouds.shadow));
     const nr = th.ranges.length;
