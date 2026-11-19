@@ -1109,10 +1109,11 @@ export class PixelRenderer implements Renderer {
       this.weatherFilled = 0;
       this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
       this.fluid.maxSteps = this.catchUp;
-      // Particles get twice the ticks the smoke does: a pass of theirs is cheap next to a fluid
-      // step, and a tick they skip ages them without moving them, so at three ticks a frame the
-      // rain died a third of the way short of the ground and stood as a curtain ending in mid-air.
-      if (Number.isFinite(this.catchUp)) this.particles.maxPasses = this.catchUp * 2;
+      // Particles get four times the ticks the smoke does, which is every tick a late frame can
+      // catch up on: a pass of theirs is cheap next to a fluid step, and a tick they skip ages
+      // them without moving them. At twice, a frame that caught up five ticks or more (a stutter)
+      // held the rain still for the rest, and it died short of the ground in a band.
+      if (Number.isFinite(this.catchUp)) this.particles.maxPasses = this.catchUp * 4;
       this.air = new PixelAir(this.fluid.ok ? this.fluid : null, this.particles, q.mult);
       this.fx = new EffectSystem(this.particles, this.air, {
         width: this.mapWidth,

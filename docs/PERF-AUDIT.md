@@ -516,3 +516,9 @@ the air stops growing. The renderer keeps that height (`weatherFilled`), lets it
 falling speed when the view narrows, and resets it when the weather or the particle engine
 changes. Screenshots in headless Chromium before and after; not seen on a phone. The "holds"
 part is not pinned down.
+
+Joel on the "holds": "When zooming mostly but also during stutter". The zooming part is the
+empty new sky above. The stutter part: particles ran at most four update passes a frame
+(`catchUp` 2, times two), and a tick without a pass ages them without moving them, so a frame
+that caught up five to eight ticks held the rain still and it died short of the ground. They
+now get a pass for every tick a late frame can catch up on (`catchUp` times four = `MAX_STEPS`).
