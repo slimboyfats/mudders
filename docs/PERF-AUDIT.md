@@ -502,3 +502,17 @@ fix), and no tree landing showed.
   never stepped: no stretch stayed over 25 ms a frame for four seconds.
 
 Not measured on a phone.
+
+## Rain with blank areas (2026-11-19)
+
+Joel after the deploy: "rain still holds and makes blank areas". Not a speed problem: the
+weather spawned only along the top of the sky the screen showed at that tick. Sky that came
+into view (zooming out, panning up, the start of a match upright) stayed empty until rain had
+fallen down from the new top, 3 to 10 s, and snow most of a minute; and past three map heights
+of sky the start line sat below the top of the screen. `emitWeather` now takes how far up the
+sky already holds weather and fills a newly shown band at once, with as many drops per row as
+steady fall leaves there; the limit is eight map heights, thinning past three so the number in
+the air stops growing. The renderer keeps that height (`weatherFilled`), lets it drain at
+falling speed when the view narrows, and resets it when the weather or the particle engine
+changes. Screenshots in headless Chromium before and after; not seen on a phone. The "holds"
+part is not pinned down.

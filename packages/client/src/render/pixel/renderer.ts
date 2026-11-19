@@ -20,7 +20,14 @@ import { GPU_PARTS, type RenderPerf } from '../types';
 import { type GpuClock, GpuSampler, GpuTimer } from './gpu-timer';
 import { birdHit, birdPulp, drawBirds } from './birds';
 import { DropFx, drawDrops } from './drops';
-import { drawWeather, drawZones, emitWeather, stormFlash, type AmbientProbe } from './ambient';
+import {
+  drawWeather,
+  drawZones,
+  emitWeather,
+  stormFlash,
+  weatherTop,
+  type AmbientProbe,
+} from './ambient';
 import { WallMotes, WallWisps, drawDeathWall, type WallView } from './deathwall';
 import { EdgeWall } from './wall';
 import { GpuFluid, QUALITY_FLUID } from './fluid';
@@ -429,6 +436,8 @@ export class PixelRenderer implements Renderer {
   private heat = new Uint8Array(0);
   private heatTex!: WebGLTexture;
   private heatOn = false;
+  /** How far above the map the sky already holds rain or snow (cells). */
+  private weatherFilled = 0;
   /** The cells the last heat build wrote. */
   private readonly heatBox: HeatBox = { x0: 0, y0: 0, x1: -1, y1: -1 };
   /** The glowing material each cell's nearest glow source is made of (R8UI), with `heat`. */
@@ -1096,6 +1105,8 @@ export class PixelRenderer implements Renderer {
       old?.dispose();
       this.fluid?.dispose();
       this.particles = new GpuParticles(this.gl, cap, q.mult);
+      // the new engine is empty: the sky over the map fills again at once
+      this.weatherFilled = 0;
       this.fluid = new GpuFluid(this.gl, this.mapWidth, this.mapHeight, fq.div, fq.iters);
       this.fluid.maxSteps = this.catchUp;
       // Particles get twice the ticks the smoke does: a pass of theirs is cheap next to a fluid
@@ -1335,6 +1346,7 @@ export class PixelRenderer implements Renderer {
     }
     if ((s.weather?.id ?? '') !== (this.weather?.id ?? '')) {
       this.weather = s.weather;
+      this.weatherFilled = 0;
       this.applyTheme();
       this.dirty = [0, 0, this.mapWidth, this.mapHeight];
     }
@@ -2234,6 +2246,12 @@ export class PixelRenderer implements Renderer {
       this.probe,
       this.fx.mult,
       skyAbove,
+      this.weatherFilled,
+    );
+    // what fell from higher up drains away at about the speed it falls once the view narrows
+    this.weatherFilled = Math.max(
+      weatherTop(skyAbove, this.mapHeight),
+      this.weatherFilled - (this.theme.ambient.kind === 'snow' ? 0.45 : 4),
     );
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
