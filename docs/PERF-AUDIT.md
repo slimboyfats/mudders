@@ -572,3 +572,12 @@ upwind side only, so a wind change between turns left the rain already in the ai
 wrong way and part of the map dry. Rain and snow now live on a ring: the update shader wraps
 `x` into `[-WEATHER_PAD, W + WEATHER_PAD)` and `emitWeather` starts them evenly across that span
 with no wind margin. Cover is even in any wind, and the count no longer thins with the margin.
+
+## Rain falls from its own cloud deck (2026-11-19)
+
+Joel: "have more clouds during rain that creates the rain instead of filling the full map". The
+scenery shader draws one long dark deck just over the map while it rains or snows
+(`weather-deck.ts`, `deck()` in `SCENERY_FS`), and `emitWeather` starts the weather inside it
+instead of above the tallest sky a view can show. A drop is in the air for about 3 seconds
+instead of 15, so about a fifth as many are alive, and the sky over the deck is clear.
+`Camera.maxSkyAbove` now only sets where beams start. Not seen or measured on a phone.

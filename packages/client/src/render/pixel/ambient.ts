@@ -80,6 +80,12 @@ const SKY_FULL = 3;
 /** How far above the start line older weather may still be before new weather waits for it. */
 const DRAIN_SLACK = 8;
 
+/** Whether the theme's weather has a cloud deck over the map to fall from (weather-deck.ts). */
+export function weatherDeck(theme: PixelTheme): boolean {
+  const a = theme.ambient;
+  return (a.kind === 'rain' || a.kind === 'snow') && a.density > 0;
+}
+
 /** Cells a tick the top of weather started higher up sinks: how fast rain and snow fall. */
 export function weatherDrain(theme: PixelTheme): number {
   return theme.ambient.kind === 'snow' ? 0.65 : 5;
