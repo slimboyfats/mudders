@@ -12,6 +12,12 @@ export interface Settings {
   dayNight: boolean;
   /** Bots say things in speech bubbles (taunts, yelps, last words). */
   chatter: boolean;
+  /**
+   * Draw the green liquid walls past the map's sides. Off shows the land and sky there instead,
+   * with a thin line where the wall stands; the wall itself still swallows shells, and it is
+   * always drawn once it moves in for sudden death.
+   */
+  walls: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -37,6 +43,7 @@ function defaults(): Settings {
     slowmo: true,
     dayNight: true,
     chatter: true,
+    walls: true,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,

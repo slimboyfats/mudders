@@ -617,6 +617,8 @@ export class PixelRenderer implements Renderer {
   /** Bot chatter: speech bubbles over bot tanks. */
   private readonly speech = new SpeechTracker();
   private chatterOn = true;
+  /** Draw the edge walls while they stand at the map's sides (a setting; see `render`). */
+  private wallsOn = true;
   /** Rabbits and fish (cosmetic, seeded from the map so every client sees the same). */
   private readonly critters = new Critters();
   private fxTick = -1;
@@ -694,6 +696,7 @@ export class PixelRenderer implements Renderer {
     this.shakeOn = options.shake ?? true;
     this.dayNightOn = options.dayNight ?? true;
     this.chatterOn = options.chatter ?? true;
+    this.wallsOn = options.walls ?? true;
     this.onCues = options.onCues;
     this.onProcesses = options.onProcesses;
     this.catchUp = options.catchUp ?? Infinity;
@@ -2889,7 +2892,11 @@ export class PixelRenderer implements Renderer {
     // the edge walls last, over smoke, sparks and weather: the body, then its loose bits
     const zone = this.shownZone(t);
     const fresh = Math.max(0, 1 - (t - this.zoneGrewAt) / ZONE_CREEP_TICKS);
-    this.wall.draw(gl, this.emptyVao, view, origin, scale, zone, t, fresh);
+    // with the walls switched off in the settings they are not drawn while they stand at the
+    // map's sides: the land and sky past the edges show instead, and a thin line marks where a
+    // shell is swallowed. Once they move in for sudden death they are drawn whatever the setting.
+    const walls = this.wallsOn || zone > 0.5;
+    if (walls) this.wall.draw(gl, this.emptyVao, view, origin, scale, zone, t, fresh);
     const wallView: WallView = {
       width: this.mapWidth,
       height: this.mapHeight,
@@ -2898,7 +2905,15 @@ export class PixelRenderer implements Renderer {
       y0: -oy / scale,
       y1: (H - oy) / scale,
     };
-    drawDeathWall(this.normal, zone, t, wallView);
+    if (walls) drawDeathWall(this.normal, zone, t, wallView);
+    else {
+      const top = Math.floor(wallView.y0) - 1;
+      const len = Math.ceil(wallView.y1) + 1 - top;
+      const w = Math.max(1, Math.ceil(1.5 / scale));
+      for (const x of [-w / 2, this.mapWidth + w / 2]) {
+        this.normal.push(x, top + len / 2, w, len, 0x2f8a52, 0.55);
+      }
+    }
     this.wall.drawParticles(this.normal, this.additive, zone);
     // hit numbers and callouts on top of everything
     drawCallouts(this.normal, this.hits, t, scale);
@@ -2906,8 +2921,10 @@ export class PixelRenderer implements Renderer {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     // (the motes first: everything else on the wall is drawn over them)
-    this.motes.draw(view, origin, scale, zone, t, wallView);
-    this.wisps.draw(view, origin, scale, zone, t, wallView, fresh);
+    if (walls) {
+      this.motes.draw(view, origin, scale, zone, t, wallView);
+      this.wisps.draw(view, origin, scale, zone, t, wallView, fresh);
+    }
     this.normal.flush(view, origin, scale);
     gl.blendFunc(gl.ONE, gl.ONE);
     this.additive.flush(view, origin, scale);
