@@ -465,6 +465,7 @@ uniform vec2 u_view;
 uniform vec2 u_origin;
 uniform float u_scale;
 uniform float u_tick;
+uniform float u_sub; // how far into the next tick this frame is drawn, 0..1
 uniform int u_pass; // 0 normal blend, 1 additive
 uniform int u_lightCount; // the frame's point lights (lighting.ts): fire lights what drifts near it
 uniform vec4 u_lights[${MAX_LIGHTS}]; // x, y (cells), radius, strength
@@ -500,7 +501,12 @@ void main() {
   float t = age / life;
   // a mote's own threshold: as a cloud thins, motes wink out one by one (hard pixels, no alpha)
   float th = fract(sin(float(gl_InstanceID) * 12.9898 + a_stat.x * 78.233) * 43758.5453);
-  vec2 cell = floor(a_dyn.xy) + 0.5;
+  // Falling rain and snow are drawn where they are at this frame's moment, not at the last
+  // tick: they fall fast and steadily, so a frame that came late (or a screen faster than the
+  // tick) showed them standing for a frame and then jumping, the stutter most easily seen.
+  vec2 at = a_dyn.xy;
+  if ((k == ${PKind.Rain} && a_dyn.w > 1.0) || k == ${PKind.Flake}) at += a_dyn.zw * u_sub;
+  vec2 cell = floor(at) + 0.5;
   vec2 pos = cell;
   vec2 size = vec2(1.0);
   float alpha = 1.0;
@@ -627,7 +633,7 @@ void main() {
       // falling: a streak back along its path. Three depths: far drops are short and faint,
       // near ones long and bright, so the sheet of rain has some air in it
       float depth = th < 0.45 ? 0.0 : th < 0.85 ? 1.0 : 2.0;
-      vec2 tail = floor(a_dyn.xy - a_dyn.zw * (0.4 + depth * 0.4)) + 0.5;
+      vec2 tail = floor(at - a_dyn.zw * (0.4 + depth * 0.4)) + 0.5;
       v_seg = vec4(cell, tail);
       pos = (cell + tail) * 0.5;
       size = abs(cell - tail) + 1.0;
@@ -845,6 +851,7 @@ export class GpuParticles implements ParticleSink {
       'u_origin',
       'u_scale',
       'u_tick',
+      'u_sub',
       'u_pass',
       'u_lightCount',
       'u_lights',
@@ -1155,6 +1162,7 @@ export class GpuParticles implements ParticleSink {
     scale: number,
     flow: FlowField | null = null,
     lights: Lights | null = null,
+    sub = 0,
   ): void {
     this.upload();
     this.update(terrain, mapW, mapH, flow);
@@ -1166,6 +1174,7 @@ export class GpuParticles implements ParticleSink {
     gl.uniform2f(this.uDraw.u_origin!, origin[0], origin[1]);
     gl.uniform1f(this.uDraw.u_scale!, scale);
     gl.uniform1f(this.uDraw.u_tick!, this.tick);
+    gl.uniform1f(this.uDraw.u_sub!, Math.max(0, Math.min(1, sub)));
     gl.uniform1i(this.uDraw.u_lightCount!, lights ? lights.count : 0);
     if (lights && lights.count > 0) {
       gl.uniform4fv(this.uDraw.u_lights!, lights.pos);

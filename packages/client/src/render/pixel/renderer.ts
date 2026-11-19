@@ -25,6 +25,7 @@ import {
   drawZones,
   emitWeather,
   stormFlash,
+  weatherDrain,
   weatherTop,
   type AmbientProbe,
 } from './ambient';
@@ -2252,7 +2253,7 @@ export class PixelRenderer implements Renderer {
     // what fell from higher up drains away at about the speed it falls once the view narrows
     this.weatherFilled = Math.max(
       weatherTop(skyAbove, this.mapHeight),
-      this.weatherFilled - (this.theme.ambient.kind === 'snow' ? 0.45 : 4),
+      this.weatherFilled - weatherDrain(this.theme),
     );
     this.fx.wind = this.wind;
     this.fx.tick(this.fxTick);
@@ -2843,6 +2844,7 @@ export class PixelRenderer implements Renderer {
       scale,
       air ? { tex: air, w: this.fluid.w, h: this.fluid.h, div: this.fluid.div } : null,
       this.lights,
+      t - this.lastTick,
     );
     gpu?.begin(GPU_REST);
     this.liquid.draw(this.normal, this.additive, t);
