@@ -89,6 +89,49 @@ describe('heatField', () => {
     expect(src[5 * w + 47]).toBe(0);
   });
 
+  it('with a kept box gives the same field as a whole rebuild, edit after edit', () => {
+    const w = 132;
+    const h = 90;
+    const terrain = new Uint8Array(w * h);
+    const coating = new Uint8Array(w * h);
+    const flags = new Uint8Array(256);
+    flags[5] = 2;
+    flags[90] = 8;
+    const out = new Uint8Array(w * h).fill(HEAT_NONE);
+    const src = new Uint8Array(w * h);
+    const box = { x0: 0, y0: 0, x1: -1, y1: -1 };
+    const wholeOut = new Uint8Array(w * h);
+    const wholeSrc = new Uint8Array(w * h);
+    let r = 99;
+    const rnd = (n: number): number => {
+      r = (Math.imul(r, 1103515245) + 12345) >>> 0;
+      return (r >>> 8) % n;
+    };
+    for (let step = 0; step < 120; step++) {
+      // sources come and go in a patch that wanders; now and then all of them go out
+      if (step % 17 === 16) {
+        terrain.fill(step % 2 ? 0 : 3);
+        coating.fill(0);
+      } else {
+        const cx = rnd(w);
+        const cy = rnd(h);
+        for (let k = 0; k < 6; k++) {
+          const i = Math.min(h - 1, cy + rnd(5)) * w + Math.min(w - 1, cx + rnd(9));
+          const kind = rnd(4);
+          if (kind === 0) terrain[i] = 5;
+          else if (kind === 1) coating[i] = 90;
+          else if (kind === 2) terrain[i] = 3;
+          else coating[i] = 0;
+        }
+      }
+      const a = heatField(terrain, coating, flags, w, h, out, src, box);
+      const b = heatField(terrain, coating, flags, w, h, wholeOut, wholeSrc);
+      expect(a).toBe(b);
+      expect(out).toEqual(wholeOut);
+      expect(src).toEqual(wholeSrc);
+    }
+  });
+
   it('reports no sources on a cold map', () => {
     const out = new Uint8Array(4);
     const z = new Uint8Array(4);
