@@ -57,8 +57,9 @@ function cumulus(
   size: number,
   seed: number,
   sky: CloudSky,
+  thin = 1,
 ): boolean {
-  const cover = sky.cover;
+  const cover = sky.cover * thin;
   const j0 = Math.floor(px / slotW);
   for (let s = -1; s <= 1; s++) {
     const j = j0 + s;
@@ -106,6 +107,16 @@ export function cloudAt(x: number, y: number, sky: CloudSky): number {
   if (cumulus(qx, py, 190, hz * 0.44, 1, 21, sky)) return 1;
   const qx2 = px - Math.floor((dx * 0.9) / 2) * 2 + Math.floor((drift * 0.5) / 2) * 2;
   if (cumulus(qx2, py, 110, hz * 0.7, 0.8, 37, sky)) return 2;
+  // the decks up the open sky above (the shader's `clouds`)
+  const gap = Math.max(200, sky.mapH * 0.6);
+  const d = Math.floor((hz * 0.44 - py) / gap);
+  if (d >= 1 && d <= 2) {
+    const slot = 150 + Math.floor(hash(d, 91) * 5) * 20;
+    const size = 0.8 + 0.4 * hash(d, 92);
+    const ox = qx + Math.floor(hash(d, 93) * slot);
+    const oy = py - (hz * 0.44 - d * gap) + 120;
+    if (cumulus(ox, oy, slot, 120, size, 53 + d * 7, sky, d === 1 ? 0.7 : 0.45)) return 1;
+  }
   return 0;
 }
 

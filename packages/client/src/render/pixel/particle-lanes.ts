@@ -57,6 +57,11 @@ export class ParticleLanes {
     this.death = new Float32Array(at);
   }
 
+  /** Slots kept for the weather: how much rain or snow can be in the air at once. */
+  get weatherRoom(): number {
+    return this.size[WEATHER]!;
+  }
+
   /** Slots the GPU passes touch. */
   get n(): number {
     return this.total;

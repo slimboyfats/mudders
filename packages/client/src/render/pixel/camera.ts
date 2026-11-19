@@ -102,6 +102,15 @@ export class Camera implements CameraControl {
   }
 
   /**
+   * The most sky, in cells, the view can ever show above the map: zoomed all the way out and
+   * panned all the way up. Things that come down from the sky (rain, beams) start up there, so
+   * they never begin inside the picture however the view moves.
+   */
+  maxSkyAbove(): number {
+    return Math.ceil(this.vh / (2 * this.minScale()));
+  }
+
+  /**
    * The scale `steps` zoom steps from `from`. Above the fit view the steps are whole cell scales
    * (crisp pixels); at or below it they are `OUT_STEP` multiples down to `minScale`, and zooming
    * back in from there stops at the fit view first.

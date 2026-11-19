@@ -473,6 +473,12 @@ export class EffectSystem {
   wind = 0;
   /** Orbital Lance lock-ons and beams. */
   readonly lances: Lances;
+  /**
+   * The row lightning out of the open sky starts at: the top of what the view shows (negative
+   * when there is sky on screen above the map), set by the renderer. From the map's top row a
+   * bolt began in the middle of the picture on an upright phone.
+   */
+  skyTop = 0;
   /** Ion Cannon charges and beams. */
   readonly ions: IonStrikes;
   /**
@@ -4563,7 +4569,7 @@ export class EffectSystem {
   }
 
   /**
-   * A jagged lightning channel from the top of the map (or a storm cloud's base, `params.top`)
+   * A jagged lightning channel from the top of the sky on screen (or a storm cloud's base, `params.top`)
    * down to (x, y), with a branch or two.
    */
   private bolt(e: EffectEvent): void {
@@ -4575,7 +4581,7 @@ export class EffectSystem {
       this.rngFor(e, 29),
       w,
       Math.round(20 * Math.min(2, w)),
-      e.params.top ?? 0,
+      e.params.top ?? this.skyTop,
       e.params.storm === 1,
     );
     this.glows.push({
@@ -4592,7 +4598,7 @@ export class EffectSystem {
   }
 
   /**
-   * One jagged channel from the top of the map down to (x, y) with a few branches, starting at
+   * One jagged channel from the sky (`from`, by default the top of it on screen) down to (x, y) with a few branches, starting at
    * tick `start`; `w` scales its thickness.
    */
   private skyBolt(
@@ -4602,7 +4608,7 @@ export class EffectSystem {
     rng: FxRng,
     w: number,
     dur: number,
-    from = 0,
+    from = this.skyTop,
     storm = false,
   ): void {
     const e = { x: Math.round(x), y: Math.max(1, Math.round(y)) };
@@ -4620,7 +4626,7 @@ export class EffectSystem {
       return x;
     };
     // aim the main channel so it lands on the target column
-    const top = Math.max(0, Math.min(e.y - 1, Math.round(from)));
+    const top = Math.min(e.y - 1, Math.round(from));
     walk(e.x + Math.round(rng.range(storm ? -8 : -18, storm ? 8 : 18)), top, e.y, 0);
     if (pts.length === 0) return;
     const fixX = e.x - pts[pts.length - 2]!;

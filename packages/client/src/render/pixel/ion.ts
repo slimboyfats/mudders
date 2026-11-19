@@ -140,12 +140,16 @@ export class IonStrikes {
     return shake;
   }
 
-  draw(add: QuadBatch, t: number): void {
-    for (const c of this.charges) this.drawCharge(add, c, t);
-    for (const b of this.beams) this.drawBeam(add, b, t);
+  /**
+   * `top` is the row the beam and its sight line come down from: the top of the sky the view can
+   * show (negative, above the map), so they never start in mid-picture at the map's top row.
+   */
+  draw(add: QuadBatch, t: number, top = 0): void {
+    for (const c of this.charges) this.drawCharge(add, c, t, top);
+    for (const b of this.beams) this.drawBeam(add, b, t, top);
   }
 
-  private drawCharge(add: QuadBatch, c: Charge, t: number): void {
+  private drawCharge(add: QuadBatch, c: Charge, t: number, top: number): void {
     const age = t - c.start;
     if (age < 0) return;
     const k = Math.min(1, age / c.dur);
@@ -159,14 +163,14 @@ export class IonStrikes {
     if (k > 0.85) {
       // the last stretch: a solid, thickening column of light
       const w = 1 + 2 * Math.round((k - 0.85) * 20);
-      add.push(x, c.y / 2, w + 4, c.y, 0x2c5cff, 0.35);
-      add.push(x, c.y / 2, w, c.y, 0xd0f0ff, 0.9);
+      add.push(x, (top + c.y) / 2, w + 4, c.y - top, 0x2c5cff, 0.35);
+      add.push(x, (top + c.y) / 2, w, c.y - top, 0xd0f0ff, 0.9);
     } else if (age % 6 !== 5) {
       const dash = 6;
       const gap = 5;
       const phase = (age * 3) % (dash + gap);
-      for (let y = phase - dash; y < c.y; y += dash + gap) {
-        const y0 = Math.max(0, y);
+      for (let y = top + phase - dash; y < c.y; y += dash + gap) {
+        const y0 = Math.max(top, y);
         const y1 = Math.min(c.y, y + dash);
         if (y1 <= y0) continue;
         add.push(x, (y0 + y1) / 2, 1, y1 - y0, 0x50b8ff, 0.4 + 0.5 * k);
@@ -189,7 +193,7 @@ export class IonStrikes {
     }
   }
 
-  private drawBeam(add: QuadBatch, b: Beam, t: number): void {
+  private drawBeam(add: QuadBatch, b: Beam, t: number, top: number): void {
     const age = t - b.start;
     if (age < 0) return;
     let f = Math.min(1, (age + 1) / OPEN);
@@ -200,22 +204,25 @@ export class IonStrikes {
     const jit = (h & 3) === 0 ? -1 : (h & 3) === 3 ? 2 : 0;
     const w = Math.max(0.5, b.hw * f + jit);
     const x = b.x + 0.5;
-    const cy = b.y / 2;
+    const len = b.y - top;
+    const cy = (top + b.y) / 2;
     for (const [frac, col, a] of BANDS) {
       const bw = Math.round(w * frac);
       if (bw < 0) continue;
-      add.push(x, cy, bw * 2 + 1, b.y, col, a);
+      add.push(x, cy, bw * 2 + 1, len, col, a);
     }
     // energy rings racing down the beam
     const spacing = 22;
     const rw = Math.round(w * 1.15) * 2 + 3;
-    for (let y = (age * 9) % spacing; y < b.y; y += spacing) {
+    for (let y = top + ((age * 9) % spacing); y < b.y; y += spacing) {
       add.push(x, Math.floor(y) + 1, rw, 2, 0xe0f4ff, 0.6 * f);
     }
     // dithered crackle along the edges
-    for (let i = 0; i < 24; i++) {
+    // as thick along the sky above the map as along the map's own height
+    const bits = Math.min(96, Math.round((24 * len) / Math.max(1, b.y)));
+    for (let i = 0; i < bits; i++) {
       const hh = hash(t * 97 + i * 13 + b.x * 7);
-      const y = hh % Math.max(1, b.y);
+      const y = top + (hash(hh + i) % Math.max(1, len));
       const side = (hh >> 12) & 1 ? 1 : -1;
       const out = Math.round(w * 1.15) + 1 + ((hh >> 13) & 3);
       add.push(x + side * out, y + 0.5, 1, 1, (hh >> 10) & 1 ? 0xffffff : 0x80d0ff, 0.9);

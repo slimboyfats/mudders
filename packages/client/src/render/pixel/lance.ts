@@ -200,12 +200,13 @@ export class Lances {
     return shake;
   }
 
-  draw(add: QuadBatch, t: number): void {
-    for (const c of this.charges) this.drawCharge(add, c, t);
-    for (const b of this.beams) this.drawBeam(add, b, t);
+  /** `top` is the row the beam and sight line come down from: the top of the sky (see ion.ts). */
+  draw(add: QuadBatch, t: number, top = 0): void {
+    for (const c of this.charges) this.drawCharge(add, c, t, top);
+    for (const b of this.beams) this.drawBeam(add, b, t, top);
   }
 
-  private drawCharge(add: QuadBatch, c: Charge, t: number): void {
+  private drawCharge(add: QuadBatch, c: Charge, t: number, top: number): void {
     const age = t - c.start;
     if (age < 0) return;
     const k = Math.min(1, age / c.dur);
@@ -219,14 +220,14 @@ export class Lances {
     }
     // sight line: dashes racing down from the sky, solid and hotter for the last stretch
     if (k > 0.85) {
-      add.push(x, c.y / 2, 3, c.y, 0xff2a10, 0.35);
-      add.push(x, c.y / 2, 1, c.y, 0xffe0d0, 0.9);
+      add.push(x, (top + c.y) / 2, 3, c.y - top, 0xff2a10, 0.35);
+      add.push(x, (top + c.y) / 2, 1, c.y - top, 0xffe0d0, 0.9);
     } else if (age % 6 !== 5) {
       const dash = 6;
       const gap = 5;
       const phase = (age * 3) % (dash + gap);
-      for (let y = phase - dash; y < c.y; y += dash + gap) {
-        const y0 = Math.max(0, y);
+      for (let y = top + phase - dash; y < c.y; y += dash + gap) {
+        const y0 = Math.max(top, y);
         const y1 = Math.min(c.y, y + dash);
         if (y1 <= y0) continue;
         add.push(x, (y0 + y1) / 2, 1, y1 - y0, 0xff3030, 0.4 + 0.5 * k);
@@ -247,7 +248,7 @@ export class Lances {
     }
   }
 
-  private drawBeam(add: QuadBatch, b: Beam, t: number): void {
+  private drawBeam(add: QuadBatch, b: Beam, t: number, top: number): void {
     const age = t - b.start;
     if (age < 0) return;
     const off = b.done >= 0 ? Math.max(0, t - b.done) : 0;
@@ -260,22 +261,24 @@ export class Lances {
     w = Math.max(0.5, Math.round(w + ((h & 3) === 0 ? -1 : (h & 3) === 3 ? 1 : 0)));
     const head = Math.max(1, Math.round(b.head));
     const x = b.x + 0.5;
-    const cy = head / 2;
+    const len = head - top;
+    const cy = (top + head) / 2;
     const k = w / HW;
     for (const [dw, col, a] of BANDS) {
       const bw = Math.round(w + dw * k);
       if (bw < 0) continue;
-      add.push(x, cy, bw * 2 + 1, head, col, a);
+      add.push(x, cy, bw * 2 + 1, len, col, a);
     }
     // energy bands racing down the beam
     const spacing = 18;
-    for (let y = (age * 7) % spacing; y < head; y += spacing) {
+    for (let y = top + ((age * 7) % spacing); y < head; y += spacing) {
       add.push(x, Math.floor(y) + 1, Math.round(w) * 2 + 3, 2, 0xffffff, 0.55);
     }
     // dithered sparkle along the edges
-    for (let i = 0; i < 10; i++) {
+    const bits = Math.min(60, Math.round((10 * len) / head));
+    for (let i = 0; i < bits; i++) {
       const hh = hash(t * 97 + i * 13 + b.x * 7);
-      const y = hh % head;
+      const y = top + (hash(hh + i) % len);
       const side = (hh >> 12) & 1 ? 1 : -1;
       add.push(x + side * (Math.round(w) + 2 + ((hh >> 13) & 1)), y + 0.5, 1, 1, 0xffd080, 0.9);
     }

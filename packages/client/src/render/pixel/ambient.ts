@@ -104,7 +104,7 @@ export function weatherTop(above: number, mapHeight: number): number {
  * already holds weather: when the view shows more than that (zoomed out, panned up), the new
  * band is filled at once, as if it had been falling there all along. Without it the new sky
  * stayed empty until the weather had fallen all the way down from the new top, seconds for rain
- * and most of a minute for snow.
+ * and most of a minute for snow. `room` is how many the engine can hold in the air at once.
  */
 export function emitWeather(
   sink: ParticleSink,
@@ -115,6 +115,7 @@ export function emitWeather(
   mult: number,
   above = 0,
   filled = above,
+  room = Infinity,
 ): void {
   const a = theme.ambient;
   if ((a.kind !== 'rain' && a.kind !== 'snow') || a.density <= 0) return;
@@ -127,7 +128,11 @@ export function emitWeather(
   // map heights of sky it thins, so the number in the air stops growing with the height.
   const speed = rain ? 4.8 : 0.65;
   const thin = up > H * SKY_FULL ? (H * (SKY_FULL + 1)) / (H + up) : 1;
-  const perTick = ((((a.density * W * mult) / 1000) * (rain ? 14 : 15)) / (H / speed)) * thin;
+  const full = ((((a.density * W * mult) / 1000) * (rain ? 14 : 15)) / (H / speed)) * thin;
+  // each holds its slot for its whole life (the longest: see `drop`), so no more a tick than
+  // the weather's share of the engine has room for; past that the oldest would vanish mid-air
+  const longest = rain ? (H + up) / 4 + 66 : (H + up) / 0.55 + 331;
+  const perTick = Math.min(full, (room * 0.9) / longest);
   const lean = Math.max(-1.5, Math.min(1.5, wind * 120));
   const margin = Math.abs(lean) * (H + up) * 0.4 + 10;
   const drop = (seed: number, y: number): void => {
