@@ -909,6 +909,11 @@ export class GpuParticles implements ParticleSink {
     this.tf = gl.createTransformFeedback();
   }
 
+  /** How much rain or snow can be in the air at once. */
+  get weatherRoom(): number {
+    return this.lanes.weatherRoom;
+  }
+
   /** Slots that may hold a live particle (the range each pass touches). */
   get n(): number {
     return this.lanes.n;

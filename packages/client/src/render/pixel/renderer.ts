@@ -248,6 +248,9 @@ const DEBRIS_SHADES = [0.62, 0.8, 0.96, 1.12] as const;
 /** Ticks the death-zone wall takes to creep to its new line after sudden death moves it. */
 const ZONE_CREEP_TICKS = 180;
 
+/** Map heights of painted sky (clouds, mountains rising with the camera) above the map's top row. */
+const SCENERY_SKY = 1.5;
+
 /** A plague cloud's cells, heart to rim, and the one puff it is fed from. */
 const PLAGUE_TONES = [0x3c6a2a, 0x5f9a3a, 0x7ab84a, 0x9ccc5a] as const;
 const ACID_TONES = [0x6a9a20, 0x8cc425, 0xb8f040, 0xd4ff70] as const;
@@ -948,7 +951,8 @@ export class PixelRenderer implements Renderer {
     // and a map height above the top row: with the camera high the parallax mountains rise above
     // the map, and they must go on up there instead of being cut flat along row 0
     this.sceneryW = this.apron.width / 2;
-    this.sceneryTop = Math.ceil(this.mapHeight / 2) * 2;
+    // (and half as much again for the two thinner cloud decks up the open sky)
+    this.sceneryTop = Math.ceil((this.mapHeight * SCENERY_SKY) / 2) * 2;
     this.sceneryH = Math.ceil((this.apron.height + this.sceneryTop) / 2);
     this.sceneryTex = texture(gl);
     gl.texImage2D(
@@ -2238,8 +2242,10 @@ export class PixelRenderer implements Renderer {
     this.skirts.prune(this.fxTick);
     this.steam.tick(this.fxTick, this.steamWater, this.particles, this.fx.mult);
     this.steam.prune(this.fxTick);
-    // sky on screen above the map, in cells: the weather starts up there
-    const skyAbove = Math.max(0, Math.ceil(-this.camera.unproject({ x: 0, y: 0 }).y));
+    // the weather always starts above the most sky the view can ever show, whatever it shows
+    // now: started at the top of the current view it came in groups and left gaps whenever the
+    // view moved (Joel: "why don't we start the rain always from the top of screen")
+    const skyAbove = this.camera.maxSkyAbove();
     emitWeather(
       this.particles,
       this.theme,
@@ -2249,6 +2255,7 @@ export class PixelRenderer implements Renderer {
       this.fx.mult,
       skyAbove,
       this.weatherFilled,
+      this.particles.weatherRoom,
     );
     // what fell from higher up drains away at about the speed it falls once the view narrows
     this.weatherFilled = Math.max(
@@ -2256,6 +2263,9 @@ export class PixelRenderer implements Renderer {
       this.weatherFilled - weatherDrain(this.theme),
     );
     this.fx.wind = this.wind;
+    // lightning starts just above the sky on screen (its channel is drawn cell by cell, so no
+    // higher than can be seen)
+    this.fx.skyTop = Math.min(0, Math.floor(this.camera.unproject({ x: 0, y: 0 }).y) - 12);
     this.fx.tick(this.fxTick);
     this.wall.tick(this.fxTick);
     this.water.tick(this.entities, this.fxTick);
@@ -2860,8 +2870,10 @@ export class PixelRenderer implements Renderer {
     this.drawPreview(t);
     this.fx.drawGlows(this.additive, t);
     this.fx.drawBolts(this.additive, t);
-    this.fx.lances.draw(this.additive, t);
-    this.fx.ions.draw(this.additive, t);
+    // beams come down from above the most sky the view can show, not from the map's top row
+    const beamTop = -this.camera.maxSkyAbove();
+    this.fx.lances.draw(this.additive, t, beamTop);
+    this.fx.ions.draw(this.additive, t, beamTop);
     this.fx.drawCrystals(this.additive, t);
     drawWeather(this.normal, this.additive, th, t, this.wind, this.probe, mult);
     drawStorm(this.normal, this.stormKind, this.stormK, t, this.wind, this.probe, mult);

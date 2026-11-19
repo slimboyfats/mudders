@@ -85,6 +85,7 @@ uniform vec4 u_dustSheet;    // gust sheet rgb, strength per step
 uniform vec4 u_dustK;        // band strength, growth per band, sheet ceiling (share of H), drift
 uniform float u_anim;
 uniform float u_stars;
+const vec3 SPACE = vec3(0.012, 0.014, 0.04);
 uniform vec3 u_starColor;
 uniform sampler2D u_scenery; // sky, clouds and ranges per 2×2 cells; a = open sky
 uniform float u_sceneryTop;  // map rows the scenery reaches above the map's top row
@@ -241,7 +242,11 @@ void main() {
   if (m.y < 0.0) {
     // above the map: the scenery goes on (the parallax mountains rise up here when the camera is
     // high), and over the top of it the open sky's top colour
-    c = u_top;
+    // far up the sky turns into space: it darkens in hard steps (on the scenery's 2×2 art pixels)
+    // from 0.6 to 3 map heights up, and the stars come out as it does, whatever the theme
+    float sp = clamp((-m.y / u_map.y - 0.6) / 2.4, 0.0, 1.0);
+    sp = floor(sp * (2.0 - sp) * 14.0 + narrow(wc >> 1)) / 14.0;
+    c = mix(u_top, SPACE, sp);
     bool open = true;
     if (wc.y >= -ST) {
       int ex = wc.x + AS;
@@ -253,14 +258,16 @@ void main() {
       vec4 sc = texelFetch(u_scenery, ivec2(ex, wc.y + ST) >> 1, 0);
       if (sc.a < 0.5) {
         open = false;
-        c = sc.rgb * (1.0 - u_dark * 0.82);
+        // clouds and peaks dim with the sky behind them
+        c = sc.rgb * (1.0 - u_dark * 0.82) * (1.0 - sp * 0.6);
       }
     }
     ivec2 sc = wc + ivec2(4096, 4096);
     float h = hash(sc + ivec2(31, 17));
-    if (open && u_stars > 0.0 && h > 1.0 - u_stars) {
+    float stars = max(u_stars, sp * 0.035);
+    if (open && stars > 0.0 && h > 1.0 - stars) {
       float tw = hash(sc + ivec2(int(u_time / 23.0 + h * 97.0), 5));
-      c = mix(c, u_starColor, tw > 0.25 ? 0.75 : 0.3);
+      c = mix(c, u_stars > 0.0 ? u_starColor : vec3(0.86, 0.9, 1.0), (tw > 0.25 ? 0.75 : 0.3) * (u_stars > 0.0 ? 1.0 : sp));
     }
     if (u_dust.a > 0.0) c = dusty(c, wc);
     c += u_flash;
@@ -562,8 +569,9 @@ ${NOISE}
 // cumulus built from puffs on a flat base: per slot along x, a cloud of up to seven overlapping
 // discs (biggest in the middle) with a noisy rim. Returns (local x, local y, coverage, base gap)
 // of the front-most puff covering p, or coverage 0.
+float g_thin = 1.0; // the decks up the open sky are sparser
 vec4 cumulus(vec2 p, float slotW, float baseY, float size, int seed) {
-  float cover = u_cloud.x;
+  float cover = u_cloud.x * g_thin;
   float j0 = floor(p.x / slotW);
   vec4 best = vec4(0.0);
   for (int s = -1; s <= 1; s++) {
@@ -620,6 +628,25 @@ vec4 clouds(vec2 p, ivec2 tx, vec3 sky) {
     size = 0.8;
     seed = 37;
     far = 1.0;
+  }
+  if (cl.z == 0.0) {
+    // the open sky above the map: two more decks, each sparser and with its own spacing, size
+    // and place, so the clouds thin out upward instead of stopping in a band over the horizon
+    // when the view shows a tall sky; past them the sky darkens into space (BG_FS).
+    // cloud-wake.ts repeats this.
+    float gap = max(200.0, u_map.y * 0.6);
+    float d = floor((hz * 0.44 - p.y) / gap);
+    if (d >= 1.0 && d <= 2.0) {
+      g_thin = d < 1.5 ? 0.7 : 0.45;
+      ivec2 ds = ivec2(int(d), 91);
+      slot = 150.0 + floor(hash(ds) * 5.0) * 20.0;
+      size = 0.8 + 0.4 * hash(ds + ivec2(0, 1));
+      seed = 53 + int(d) * 7;
+      base = 120.0;
+      o = vec2(q.x + floor(hash(ds + ivec2(0, 2)) * slot), p.y - (hz * 0.44 - d * gap) + base);
+      cl = cumulus(o, slot, base, size, seed);
+      far = 0.0;
+    }
   }
   if (cl.z == 0.0) return vec4(sky, 1.0);
   // tones from the whole cloud's outline: a lit rim where the sun side (up-left) is open sky,

@@ -98,6 +98,31 @@ describe('ambient layers', () => {
     expect(draining).toEqual([]);
   });
 
+  it('never starts more than the engine has room to hold in the air', () => {
+    for (const id of ['theme.storm', 'theme.snow']) {
+      const th = pixelTheme(id, themes);
+      const p = probe(150);
+      const count = (room?: number): number => {
+        let n = 0;
+        // the sky already full, so only the steady fall counts
+        for (let t = 0; t < 400; t++) {
+          emitWeather({ add: () => n++ }, th, t, 0, p, 1, 800, 800, room);
+        }
+        return n;
+      };
+      const free = count();
+      expect(free).toBeGreaterThan(0);
+      let longest = 0;
+      emitWeather({ add: (e) => (longest = Math.max(longest, e.life)) }, th, 1, 0, p, 1, 800, 0);
+      const room = Math.round(((free / 400) * longest) / 4);
+      const tight = count(room);
+      expect(tight).toBeLessThan(free * 0.3);
+      expect((tight / 400) * longest).toBeLessThanOrEqual(room);
+      // plenty of room changes nothing
+      expect(count(room * 100)).toBe(free);
+    }
+  });
+
   it('draws each zone look', () => {
     // a gas haze draws nothing here: it is gas cells fed into the air (see air.test.ts)
     for (const look of ['acid', 'resonance', 'acid-cloud'] as const) {

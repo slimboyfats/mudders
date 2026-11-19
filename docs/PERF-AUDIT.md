@@ -543,3 +543,24 @@ rain: "still stutters and falls in groups sometimes".
 
 Not seen on a phone. The late frames themselves are not explained: no part we measure is slow
 in them.
+
+## Rain from one fixed height, and the sky above the map (2026-11-19)
+
+Joel: "why don't we start the rain always from the top of screen, not top of viewport?" Rain
+and snow started at the top of what the view showed, so every zoom and pan changed where they
+started, and the gaps, the waits and the double rain all came from following the view. They now
+always start above the most sky the camera can ever show (`Camera.maxSkyAbove`: zoomed all the
+way out, panned all the way up). The view no longer matters; only turning the phone changes the
+height, and the existing fill and drain cover that. The number started a tick is held to what
+the weather's share of the particle engine can keep in the air (`emitWeather` `room`), so at
+Medium and Low the rain is thinner instead of losing its oldest drops mid-air.
+
+Same thread, the look: the Ion Cannon's beam and sight line, the Orbital Lance and lightning
+were drawn from the map's top row, which is the middle of the picture on an upright phone.
+Beams now run from above the highest sky (two rectangles, free); lightning from just above the
+sky on screen when it strikes, since its channel is drawn cell by cell. The scenery has two
+more, thinner cloud decks up the open sky (the scenery texture reaches 1.5 map heights up, was
+1), and from 0.6 to 3 map heights up the sky darkens in hard steps into space with stars.
+
+Not seen on a phone. Cost not measured there: more rain is alive at once upright (it falls
+through the whole tall sky), and the scenery texture is a fifth larger.
