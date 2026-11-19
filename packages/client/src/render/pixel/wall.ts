@@ -29,6 +29,14 @@ const COLS = 120;
 const DEPTH = COLS * R;
 const C2 = 0.2;
 const DAMP = 0.994;
+/**
+ * How deep the wall is drawn as liquid, and over how many cells more it fades to black. Past
+ * that it is plain black: the currents (three warped noise fields a pixel) were computed for
+ * every pixel of both sides out to the screen's edges, most of an upright phone's picture when
+ * zoomed out. About ten tanks wide (Joel: "only 10 tanks wide then fade into black").
+ */
+export const WALL_BAND = 120;
+export const WALL_FADE = 48;
 /** Cells the face moves out per unit of wave height. */
 const KF = 0.6;
 /** Analytic ring packets drawn at once, and how fast they run (cells/tick). */
@@ -142,6 +150,10 @@ void main() {
   float t = u_time;
   float depth = d + roll(s, y, t) + KF * wave(s, 0.0, y);
   if (depth < 0.0) discard;
+  if (depth >= ${(WALL_BAND + WALL_FADE).toFixed(1)}) {
+    o = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
   ivec2 ic = ivec2(cell);
 
   // the ripple field lit as a surface: crests catch the light, troughs fall into shadow
@@ -171,6 +183,11 @@ void main() {
   float sp = 0.15 + 0.3 * hash(ivec2(ic.x, 91));
   if (hash(ivec2(ic.x, ic.y - int(floor(t * sp)))) > 0.9992 && depth > 3.0) col = vec3(0.18, 0.54, 0.32);
   float a = mix(0.78, 0.97, smoothstep(0.0, 18.0, depth));
+  // past the band the liquid sinks into black in hard dithered steps
+  float fade = clamp((depth - ${WALL_BAND.toFixed(1)}) / ${WALL_FADE.toFixed(1)}, 0.0, 1.0);
+  fade = clamp(floor(fade * 6.0 + narrow(ic >> 1)) / 6.0, 0.0, 1.0);
+  col *= 1.0 - fade;
+  a = mix(a, 1.0, fade);
   o = vec4(col * a, a);
 }`;
 

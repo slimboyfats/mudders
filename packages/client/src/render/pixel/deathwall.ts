@@ -1,6 +1,7 @@
 import type { QuadBatch } from './batch';
 import { compile, uniforms } from './gl';
 import { QUAD_FS } from './shaders';
+import { WALL_BAND, WALL_FADE } from './wall';
 
 /**
  * The loose bits on the sudden-death wall (§3.1): green motes rising through it, wisps torn off
@@ -33,7 +34,7 @@ const DEEP_TILE = 9;
 /** Rows per green mote column cell. */
 const MOTE_TILE = 26;
 /** Lattice columns of motes behind the face, per side. */
-const MOTE_COLS = 61;
+const MOTE_COLS = Math.ceil((WALL_BAND + WALL_FADE) / 9);
 /** Lattice rows kept ready above and below the screen, so a pan rarely rebuilds the buffer. */
 const MOTE_PAD = 12;
 /** Floats per mote: x, y where it starts, life, phase, depth `u`. */
@@ -57,7 +58,7 @@ void main() {
   vec2 corner = vec2(id == 1 || id == 2 || id == 4 ? 1.0 : 0.0, id == 2 || id == 4 || id == 5 ? 1.0 : 0.0);
   float p = fract(u_time / a_mote.z + a_mote.w);
   float blink = sin(p * 3.14159265);
-  if (blink < 0.25 || a_u > u_zone - 3.0) {
+  if (blink < 0.25 || a_u > u_zone - 3.0 || u_zone - a_u > ${(WALL_BAND + WALL_FADE * 0.5).toFixed(1)}) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     return;
   }
@@ -149,7 +150,8 @@ export function drawDeathWall(normal: QuadBatch, zone: number, t: number, v: Wal
     // green lightning deep in the wall: now and then a jagged bolt crackles down for a few frames
     const slot = Math.floor(t / 6);
     if (h01(slot, 30 + side) > 0.82) {
-      const depth = 14 + h01(slot, 31 + side) * Math.max(10, zone - uOut - 14);
+      // (inside the band that is drawn as liquid: past it the wall is black)
+      const depth = 14 + h01(slot, 31 + side) * Math.max(10, Math.min(WALL_BAND, zone - uOut) - 14);
       const ub = zone - depth;
       if (ub > uOut) {
         let x = toX(ub);
