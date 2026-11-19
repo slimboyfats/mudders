@@ -1,6 +1,6 @@
 import type { ZoneView } from '@mudders/shared';
 import { Shape, type QuadBatch } from './batch';
-import { PKind, type ParticleSink } from './particles';
+import { PKind, WEATHER_PAD, type ParticleSink } from './particles';
 import { ZONE_COLOR } from './effects';
 import type { PixelTheme } from './theme';
 
@@ -133,13 +133,14 @@ export function emitWeather(
   // the weather's share of the engine has room for; past that the oldest would vanish mid-air
   const longest = rain ? (H + up) / 4 + 66 : (H + up) / 0.55 + 331;
   const perTick = Math.min(full, (room * 0.9) / longest);
+  // started evenly across the map and the pad either side, whatever the wind: the engine carries
+  // what drifts out of one side back in at the other
   const lean = Math.max(-1.5, Math.min(1.5, wind * 120));
-  const margin = Math.abs(lean) * (H + up) * 0.4 + 10;
   const drop = (seed: number, y: number): void => {
     const r0 = h01(seed, 1);
     const r1 = h01(seed, 2);
     const r2 = h01(seed, 3);
-    const x = -margin * (lean > 0 ? 1 : 0) + r0 * (W + margin);
+    const x = -WEATHER_PAD + r0 * (W + 2 * WEATHER_PAD);
     if (rain) {
       sink.add({
         x,

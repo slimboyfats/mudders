@@ -564,3 +564,11 @@ more, thinner cloud decks up the open sky (the scenery texture reaches 1.5 map h
 
 Not seen on a phone. Cost not measured there: more rain is alive at once upright (it falls
 through the whole tall sky), and the scenery texture is a fifth larger.
+
+## Rain goes round the map (2026-11-19)
+
+With the fixed tall sky a drop falls for about 15 seconds. Rain used to start with a margin on the
+upwind side only, so a wind change between turns left the rain already in the air drifting the
+wrong way and part of the map dry. Rain and snow now live on a ring: the update shader wraps
+`x` into `[-WEATHER_PAD, W + WEATHER_PAD)` and `emitWeather` starts them evenly across that span
+with no wind margin. Cover is even in any wind, and the count no longer thins with the margin.

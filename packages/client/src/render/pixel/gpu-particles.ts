@@ -3,7 +3,7 @@ import { compileKept } from './gl';
 import { LIGHT_BANDS, MAX_LIGHTS, type Lights } from './lighting';
 import { ParticleLanes } from './particle-lanes';
 import { FIRE_RGB } from './blast-styles';
-import { PKind, type Emit, type ParticleSink, type Vortex } from './particles';
+import { PKind, WEATHER_PAD, type Emit, type ParticleSink, type Vortex } from './particles';
 
 /**
  * GPU particle engine (§2a): the cosmetic particles live in GPU buffers and are stepped by a
@@ -426,8 +426,16 @@ void main() {
     float ja = hash(vec2(float(gl_VertexID) * 0.37, u_tick * 1.31)) * 6.2831853;
     q += vec2(cos(ja), sin(ja)) * D.w;
   }
+  // weather goes round the map: out one side, in at the other (see WEATHER_PAD)
+  bool wrapped = false;
+  if (k == ${PKind.Rain} || k == ${PKind.Flake}) {
+    float span = float(u_map.x) + ${(2 * WEATHER_PAD).toFixed(1)};
+    float wx = mod(q.x + ${WEATHER_PAD.toFixed(1)}, span) - ${WEATHER_PAD.toFixed(1)};
+    wrapped = wx != q.x;
+    q.x = wx;
+  }
   // terrain: only from open air, so bits spawned inside fresh rubble still fly out
-  if (C.y > 0.5 && solid(q) && !solid(p)) {
+  if (!wrapped && C.y > 0.5 && solid(q) && !solid(p)) {
     float bounce = C.z;
     float fr = C.w;
     if (!solid(vec2(q.x, p.y))) {

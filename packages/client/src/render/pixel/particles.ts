@@ -6,6 +6,11 @@ import { shade } from './theme';
  * into the sim (particles that become terrain are sim debris). Struct-of-arrays in typed arrays,
  * fixed capacity per quality level; stepped once per sim tick so captures replay exactly.
  */
+/** Rain and snow live on a ring around the map: one that drifts this far past a side comes back
+ * in at the other. The wind may turn while they are in the air (a fall from the top of the tall
+ * sky takes many seconds), and whatever it does, the map stays evenly covered. */
+export const WEATHER_PAD = 40;
+
 export const PKind = {
   /** Additive, bright, falls. */
   Spark: 0,
