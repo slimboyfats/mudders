@@ -1,7 +1,11 @@
 import { PROCESS_KINDS, type ProcessCounts, type SynthVoice } from '@mudders/shared';
 import { ModulePlayer } from './module';
 import { Soundscape } from './soundscape';
+import { SnesMusic } from './snes/sequencer';
+import { SONGS } from './snes/songs';
+import { place, playPlaced } from './spatial';
 import { patchLength, playVoices, radiusScale } from './synth';
+import type { Tension } from './tension';
 
 /**
  * Headless audio preview page (`pnpm audio:preview`): renders synth patches and tracker modules
@@ -53,6 +57,53 @@ const api = {
     await new Promise((r) => setTimeout(r, 400));
     player.play(Uint8Array.from(bytes).buffer, true);
     await new Promise((r) => setTimeout(r, 200));
+    return pack(await ctx.startRendering());
+  },
+  /**
+   * A live SNES-style song through the game's own sequencer: `plan` is [seconds, tension] steps,
+   * with stings (live song names) at times in seconds.
+   */
+  async live(
+    song: string,
+    plan: [number, Tension][],
+    stings: [number, string][],
+  ): Promise<number[][]> {
+    const secs = plan.reduce((t, [s]) => t + s, 0) + 1;
+    const ctx = new OfflineAudioContext(2, Math.ceil(secs * RATE), RATE);
+    const music = new SnesMusic(ctx, ctx.destination);
+    const make = SONGS[song];
+    if (!make) throw new Error(`no live song ${song}`);
+    const s = make();
+    if (s.length > 0) {
+      music.play(s, 0);
+      let t = 0;
+      for (const [len, tension] of plan) {
+        music.setTension(tension, Math.max(0.01, t));
+        t += len;
+      }
+      music.renderUntil(secs);
+    } else {
+      music.sting(s, 0.05);
+    }
+    for (const [at, name] of stings) {
+      const st = SONGS[name];
+      if (st) music.sting(st(), at);
+    }
+    return pack(await ctx.startRendering());
+  },
+  /**
+   * Sound in space: the same blast across the screen from left to right, then further and further
+   * off screen to the right (later, quieter, duller), for a view 400 cells wide.
+   */
+  async spatial(voices: SynthVoice[], radiusRef: number): Promise<number[][]> {
+    const ear = { x: 400, y: 200, halfW: 200, halfH: 110 };
+    const xs = [220, 400, 580, 800, 1100, 1500];
+    const gap = 1.3;
+    const ctx = new OfflineAudioContext(2, Math.ceil((xs.length * gap + 1) * RATE), RATE);
+    const scale = radiusScale(radiusRef, radiusRef);
+    xs.forEach((x, i) => {
+      playPlaced(ctx, ctx.destination, voices, i * gap, scale, place(x, 200, ear));
+    });
     return pack(await ctx.startRendering());
   },
 };

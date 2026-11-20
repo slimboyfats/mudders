@@ -20,9 +20,12 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
     title:
-      'Weapon mods, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
-    pack: 'core@0.98.0',
+      'Sound in space, live 16-bit battle music, weapon mods, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+    pack: 'core@0.98.0 – 0.99.0',
     items: [
+      'Sound in space: blasts, shots and every other effect sound pan left or right with where they happen on screen. Off screen they arrive a moment late, quieter and duller, the further away the more, so you can hear a fight going on over the hill',
+      'New battle music in a 16-bit console style, played live as you play: strings, fingered bass, harp and a flute lead with echo. Timpani, snare and a driving bass come in once a tank is badly hurt or the last two of a bigger match face off, and kicks, brass stabs, racing strings and choir join when a tank is near death or sudden death starts. They fade back out in the shop and when the danger passes',
+      'Music stings, on the beat: a falling brass call when a tank is destroyed, a harp sweep when only two tanks are left, and a low brass growl when sudden death begins. The music dips under each one',
       'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
       'Split Mod: the shell leaves the barrel as three, in a fan 6° apart. Bouncy Mod: it bounces off the ground three times before it goes off, or at once on a tank. Fuse Mod: it skips along and settles instead of going off on the ground, with a red light blinking faster and faster, and blows four seconds after firing wherever it is; a tank still sets it off at once',
       'Bots do not use mods yet',

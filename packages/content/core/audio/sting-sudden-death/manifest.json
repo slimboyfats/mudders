@@ -1,0 +1,19 @@
+{
+  "id": "audio.sting-sudden-death",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Sudden death sting",
+    "description": "Sudden death begins: a low brass tritone (A against D#) with a dark choir cluster, hammered kicks and timpani, and a long crash.",
+    "since": "core@0.99.0"
+  },
+  "bus": "music",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Score in packages/client/src/audio/snes/songs.ts, played live by the client's SNES-style sequencer with instruments synthesised in code"
+  },
+  "gap": 2,
+  "live": {
+    "song": "sting-sudden-death"
+  }
+}

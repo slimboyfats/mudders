@@ -1317,6 +1317,16 @@ export const AudioSchema = z.strictObject({
       loop: z.boolean().default(true),
     })
     .optional(),
+  /**
+   * Played live by the client's SNES-style sequencer (§8b: sampled-chip instruments, 8 voices,
+   * echo) instead of a module or patch: the song or sting named here, from
+   * `packages/client/src/audio/snes/songs.ts`. A song's layers follow the match's tension (§7.2).
+   */
+  live: z
+    .strictObject({
+      song: z.string().regex(/^[a-z0-9-]+$/),
+    })
+    .optional(),
   /** Effect events that play this sound (SFX). */
   on: z.array(AudioTriggerSchema).default([]),
   /** Minimum seconds between two starts of this sound, so bursts don't stack into noise. */

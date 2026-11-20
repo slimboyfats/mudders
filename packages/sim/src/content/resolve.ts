@@ -356,7 +356,10 @@ export function resolveContent(source: ContentSource): ResolvedContent {
     }
     if (type === 'audio') {
       const a = item as ManifestByType['audio'];
-      if (!a.synth === !a.module) problems.push(`${id}: needs exactly one of synth or module`);
+      // a live song may keep a module beside it (the reference tune); otherwise one of the two
+      if (a.synth && a.module) problems.push(`${id}: has both synth and module`);
+      if (!a.synth && !a.module && !a.live)
+        problems.push(`${id}: needs a synth, module or live song`);
     }
     if (type === 'mode') {
       const m = item as ManifestByType['mode'];

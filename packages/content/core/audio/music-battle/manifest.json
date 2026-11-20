@@ -3,17 +3,20 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Battle music",
-    "description": "Ambient, tense A-minor chip tune for matches: long triangle bass, a soft echoing broken-chord pad, a sparse vibrato lead and distant low thuds.",
+    "description": "Battle music, played live in a SNES-style sound: sampled-chip strings, fingered bass, harp and a flute lead in A minor at 100 BPM, with echo. Two layers come in as the match gets tense: timpani, snare, hats and a driving bass once a tank is hurt or a duel is on, then kicks, crashes, brass stabs, racing staccato strings and choir near the end. The module is the earlier tracker tune, kept as the reference.",
     "since": "core@0.9.0"
   },
   "bus": "music",
   "licence": {
     "spdx": "CC0-1.0",
     "author": "Mudders contributors",
-    "source": "Composed as note data and rendered with synthesised chip samples by packages/content/scripts/make-music.ts (pnpm --filter @mudders/content music)"
+    "source": "Live score in packages/client/src/audio/snes/songs.ts with instruments synthesised in code; the module was composed as note data and rendered by packages/content/scripts/make-music.ts"
   },
   "module": {
     "file": "battle.mod",
     "loop": true
+  },
+  "live": {
+    "song": "battle"
   }
 }

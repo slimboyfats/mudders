@@ -1,0 +1,24 @@
+{
+  "id": "audio.sting-kill",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Kill sting",
+    "description": "A tank destroyed: a falling SNES-style brass call in A minor over a timpani roll and a crash, played live on the next beat of the music, which dips under it.",
+    "since": "core@0.99.0"
+  },
+  "bus": "music",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Score in packages/client/src/audio/snes/songs.ts, played live by the client's SNES-style sequencer with instruments synthesised in code"
+  },
+  "on": [
+    {
+      "event": "tankDeath"
+    }
+  ],
+  "gap": 0.8,
+  "live": {
+    "song": "sting-kill"
+  }
+}

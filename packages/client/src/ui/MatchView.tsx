@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Input } from '@mudders/shared';
 import { KERNEL_VERSION, STEP_PARTS } from '@mudders/sim';
-import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
+import {
+  effectSounds,
+  processSounds,
+  setListener,
+  setMusic,
+  setMusicTension,
+  sfx,
+} from '../audio/bridge';
+import { musicTension } from '../audio/tension';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
@@ -328,6 +336,23 @@ export function MatchView({
   useEffect(() => {
     if (roundOver) sfx('audio.round-end');
   }, [roundOver]);
+  // music that follows the match (§7.2): layers build with the tension; a sting when the last
+  // two of a bigger match face off, and when sudden death starts
+  const tension = musicTension(hud);
+  useEffect(() => {
+    setMusicTension(tension);
+  }, [tension]);
+  useEffect(() => () => setMusicTension(0), []);
+  const alive = hud.tanks.reduce((n, t) => n + (t.alive ? 1 : 0), 0);
+  const duel =
+    alive === 2 && hud.tanks.length > 2 && (hud.phase === 'aim' || hud.phase === 'resolve');
+  useEffect(() => {
+    if (duel) sfx('audio.sting-duel');
+  }, [duel]);
+  const sudden = hud.suddenDeath && hud.phase !== 'shop' && hud.phase !== 'over';
+  useEffect(() => {
+    if (sudden) sfx('audio.sting-sudden-death');
+  }, [sudden]);
 
   const send = useCallback(
     (input: Input) => {
@@ -345,6 +370,8 @@ export function MatchView({
     let raf = 0;
     let last = -1;
     let ro: ResizeObserver | undefined;
+    const ear = { x: 0, y: 0, halfW: 0, halfH: 0 };
+    setListener(ear);
     const w = match.world;
     const meter = new PerfMeter();
     const slowmo = (slowmoRef.current ??= new SlowMo());
@@ -464,6 +491,12 @@ export function MatchView({
       const mid = r.unproject({ x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 });
       const centre = `${Math.round(mid.x)},${Math.round(mid.y)}`;
       if (wrap.dataset['centre'] !== centre) wrap.dataset['centre'] = centre;
+      // sound in space: the view centre and half size are the ears (one object, updated in place)
+      const corner = r.unproject({ x: 0, y: 0 });
+      ear.x = mid.x;
+      ear.y = mid.y;
+      ear.halfW = mid.x - corner.x;
+      ear.halfH = mid.y - corner.y;
       // a hit-stop hold eats wall time first; the slow-mo finisher then slows what is left
       const scale = slowmo.next(wall);
       const simDt = stop.take(wall) * scale;
@@ -611,6 +644,7 @@ export function MatchView({
       match.timeParts(null);
       setRecording(null);
       processSounds(null);
+      setListener(null);
     };
   }, [
     match,
