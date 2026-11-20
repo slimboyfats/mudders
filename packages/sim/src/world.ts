@@ -4698,7 +4698,7 @@ export class World implements SimApi {
    * cells beside its hull, in the row its treads stand in, walking outward. `dir` 0 spills on both
    * sides in turn; driving (`dir` ±1) drips only behind the tank.
    */
-  private leak(t: Tank, n: number, dir: -1 | 0 | 1): void {
+  private leak(t: Tank, n: number, dir: number): void {
     const cell = this.leakCell;
     const g = this.grid;
     const y = t.y - 1;
