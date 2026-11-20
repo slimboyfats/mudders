@@ -18,6 +18,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    title: 'Weapon mods: Split, Bouncy and Fuse',
+    pack: 'core@0.98.0',
+    items: [
+      'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
+      'Split Mod: the shell leaves the barrel as three, in a fan 6° apart. Bouncy Mod: it bounces off the ground three times before it goes off, or at once on a tank. Fuse Mod: it skips along and settles instead of going off on the ground, with a red light blinking faster and faster, and blows four seconds after firing wherever it is; a tank still sets it off at once',
+      'Bots do not use mods yet',
+    ],
+  },
+  {
     date: '2026-11-18',
     title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [

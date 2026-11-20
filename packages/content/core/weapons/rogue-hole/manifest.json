@@ -33,6 +33,7 @@
       "damageType": "shock"
     }
   ],
+  "mods": false,
   "shop": {
     "price": 17000,
     "pack": 1,

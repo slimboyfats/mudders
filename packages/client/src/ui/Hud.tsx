@@ -628,7 +628,29 @@ export function Hud({
           {t?.gear
             .filter((g) => g.count > 0)
             .map((g) =>
-              g.deploy === 'manual' ? (
+              g.deploy === 'mod' ? (
+                <button
+                  key={g.id}
+                  className={`gear-btn mod-btn${g.fitted ? ' fitted' : ''}`}
+                  disabled={!canAim}
+                  aria-pressed={g.fitted}
+                  onClick={() => send({ type: 'useGear', gear: g.id })}
+                  aria-label={`${g.fitted ? 'Take off' : 'Fit'} ${g.name} (${g.count} left)${
+                    g.fitted && !t.modFits ? ": this weapon doesn't take mods" : ''
+                  }`}
+                  title={
+                    g.fitted && !t.modFits
+                      ? "This weapon doesn't take mods: it stays fitted for the next shell that does"
+                      : `${g.name}: changes your next shell`
+                  }
+                  data-testid={`gear-${g.id}`}
+                >
+                  <span className="wname">{g.label}</span>
+                  <span className="count">
+                    {g.fitted ? (t.modFits ? 'on' : 'on · no fit') : 'mod'} · {g.count}
+                  </span>
+                </button>
+              ) : g.deploy === 'manual' ? (
                 <button
                   key={g.id}
                   className="gear-btn"

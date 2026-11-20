@@ -714,6 +714,11 @@ export const WeaponSchema = z.strictObject({
    * laser's cut, a water cannon's stream). Most weapons have none.
    */
   pulse: z.array(ImpactSchema).default([]),
+  /**
+   * Whether weapon mods (§4.1) may change it, when its flight is a plain arc that goes off on the
+   * ground. `false` for the one-of-a-kind and the heaviest shells (three Supernovas at once).
+   */
+  mods: z.boolean().default(true),
   shop: z.strictObject({
     price: z.number().int().min(0),
     pack: z.number().int().min(1),
@@ -1018,22 +1023,45 @@ export type TankManifest = z.infer<typeof TankSchema>;
  *   health. It can't be used when it would change nothing.
  * - `deploy: "fall"`: opens by itself when a fall would hurt; the tank drifts down at `fallSpeed`
  *   cells per tick and lands unhurt (falling out of the map is still fatal).
+ * - `deploy: "mod"` (§4.1 weapon mods): the owner fits it while aiming and it changes the next shell
+ *   fired, if that weapon takes mods (a plain arcing shell that goes off on the ground); one is used
+ *   up per shot. Pressing it again takes it off. See `mod`.
  */
-export const GearSchema = z.strictObject({
-  ...base,
-  deploy: z.enum(['manual', 'fall']),
-  shield: z.number().int().min(0).max(400).default(0),
-  heal: z.number().int().min(0).max(400).default(0),
-  fallSpeed: z.number().int().min(1).max(8).default(1),
-  shop: z.strictObject({
-    price: z.number().int().min(1),
-    pack: z.number().int().min(1).max(20),
-    /** Most a tank may carry. */
-    max: z.number().int().min(1).max(99).default(9),
-  }),
-  /** Short label for the in-match button (renderer/UI only). */
-  label: z.string().min(1).max(12),
+export const GearModSchema = z.strictObject({
+  /** Shells fired at once, in a fan `spread` degrees apart (1 = just the one). */
+  split: z.number().int().min(1).max(5).default(1),
+  spread: z.number().int().min(0).max(30).default(0),
+  /**
+   * A flight whose `contact` hook takes over the shell's hits (its own flight still moves it), e.g.
+   * `{ "use": "flight.ricochet" }` to bounce.
+   */
+  flight: EmbeddedFlightSchema.optional(),
+  /** Goes off this many ticks after firing wherever it is; 0 = no fuse. */
+  fuse: z.number().int().min(0).max(1200).default(0),
 });
+export type GearMod = z.infer<typeof GearModSchema>;
+
+export const GearSchema = z
+  .strictObject({
+    ...base,
+    deploy: z.enum(['manual', 'fall', 'mod']),
+    shield: z.number().int().min(0).max(400).default(0),
+    heal: z.number().int().min(0).max(400).default(0),
+    fallSpeed: z.number().int().min(1).max(8).default(1),
+    mod: GearModSchema.optional(),
+    shop: z.strictObject({
+      price: z.number().int().min(1),
+      pack: z.number().int().min(1).max(20),
+      /** Most a tank may carry. */
+      max: z.number().int().min(1).max(99).default(9),
+    }),
+    /** Short label for the in-match button (renderer/UI only). */
+    label: z.string().min(1).max(12),
+  })
+  .refine((g) => (g.deploy === 'mod') === (g.mod !== undefined), {
+    message: '`mod` goes with `deploy: "mod"`, and only there',
+    path: ['mod'],
+  });
 export type GearManifest = z.infer<typeof GearSchema>;
 
 // ── prop ────────────────────────────────────────────────────────────────────────────────────

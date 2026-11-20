@@ -1,0 +1,70 @@
+{
+  "id": "gear.mod-fuse",
+  "schemaVersion": 1,
+  "description": "P1 fits a Fuse Mod and lobs a Missile short of P2: it skips along, settles in the dirt beside P2 and blows four seconds after firing.",
+  "subject": "gear.mod-fuse",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "gear.mod-fuse": 1,
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 20,
+      "player": 0,
+      "action": {
+        "type": "useGear",
+        "gear": "gear.mod-fuse"
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 55,
+        "power": 470
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1200,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

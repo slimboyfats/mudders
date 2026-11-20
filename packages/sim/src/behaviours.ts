@@ -185,6 +185,8 @@ export interface Projectile {
   alive: boolean;
   /** Behaviour-owned integers (bounce counters, homing target…), hashed with the state. */
   data: number[];
+  /** Weapon mod fitted when it was fired (index into `World.gear`); absent on plain shells. */
+  mod?: number;
 }
 
 /**
@@ -226,6 +228,12 @@ export interface FlightBehaviour<P = unknown> extends BehaviourBase<P> {
   step(api: SimApi, p: Projectile, params: P): FlightSignal;
   /** Called on a hit; without it every hit is an `impact`. */
   contact?(api: SimApi, p: Projectile, params: P, hit: FlightHit): ContactResult;
+  /**
+   * A plain arc that weapon mods (§4.1, `gear` with `deploy: "mod"`) may change: split into a fan,
+   * take over its hits with another flight's `contact`, or set it off on a fuse. Only flights that
+   * keep nothing of their own in `Projectile.data` and have no `contact` of their own say yes.
+   */
+  readonly modable?: boolean;
 }
 
 // ── terrain ops ─────────────────────────────────────────────────────────────────────────────
@@ -360,7 +368,7 @@ export interface AiGearView {
   /** Index to return from `AiBehaviour.gear`. */
   readonly index: number;
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   /** Shield points it raises my shield to, and health it restores. */
   readonly shield: number;
   readonly heal: number;
@@ -477,7 +485,7 @@ export interface AiShopApi {
 export interface AiShopGear {
   readonly index: number;
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   readonly shield: number;
   readonly heal: number;
   readonly price: number;
