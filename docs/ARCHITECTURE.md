@@ -418,6 +418,46 @@ frame, snapshot stream, HUD state), `game/aim.ts` (slingshot maths), `ui/MatchVi
 pointer/keyboard input, aim preview), `ui/Hud.tsx` (wind, players, drag-to-change aim pills in `ui/Scrub.tsx`, weapon strip, FIRE),
 `ui/Sandbox.tsx` (§2c.5). The match and sandbox are code-split from the title screen.
 
+### 5.2 The sim worker (client)
+
+Local and online matches run their World in a Web Worker (`client/src/game/sim-worker.ts`), so the
+sim and the drawing use two cores and a long tick holds up neither the camera, the HUD nor a
+touch. It is a client arrangement only: the kernel, the content and the lockstep protocol know
+nothing of it, and a match gives the same hashes on either thread.
+
+- **What runs where.** The worker owns the whole match object (`LocalMatch`, `HostMatch` or
+  `GuestMatch`, unchanged), so the turn clock, the input log and the hash checks stay next to the
+  World. The page holds a `RemoteMatch` (`sim-client.ts`) that fits the same `GameMatch` interface
+  the match view uses for a match on the page. Sessions build their match through a factory
+  (`MakeHost`/`MakeGuest`), and the page keeps the wires: what the worker's match sends a peer
+  comes back as a message and goes out on the page's `Link`.
+- **Snapshots** (`sim-wire.ts`). Per tick the worker posts a packet: the snapshot's plain data plus
+  one transferred buffer with the dirty rects' rows of terrain, coating and shade, the gas rect's
+  rows and the debris. `SnapshotMirror` patches them into the page's own copy of the map and hands
+  the renderer an ordinary `RenderSnapshot`, so the renderer is untouched. Buffers go back with
+  the next message and are reused. A test steps a bot match on both threads and compares every
+  snapshot. No `SharedArrayBuffer`: it needs cross-origin isolation headers GitHub Pages does not
+  send.
+- **Time.** Each frame the page posts the wall-clock time that passed (`advance`) and draws the
+  ticks the worker made of the frame before, at the render time the worker returned with them. The
+  picture is therefore one frame behind the controls. One `advance` is in the air at a time; while
+  the worker is busy the page saves the time up (at most `MAX_STEPS` ticks) and hands it over when
+  the worker answers. The worker's frame budget is a whole tick (`WORKER_BUDGET_MS`), not the 10 ms
+  a frame on the page gets.
+- **What the page still reads.** `match.world` on a remote match is a small view (tick, phase,
+  active player, tank positions and health) the worker refreshes with every answer; the HUD state
+  comes over only when its change key changes. The performance recorder's sim figures are taken in
+  the worker and merged on the page.
+- **A guest's reconnect.** `resumeFrom()` must answer at once, so it gives the last tick the page
+  heard of; the worker may be a few ticks further. The host then re-sends inputs the guest has
+  already simulated, and the worker drops those (`SimHost.unseen`) instead of asking for a resync.
+- **Fallback.** The worker starts with the app. A match made before it has answered, on a browser
+  without module workers, or with Settings → "Run the game beside the drawing" off, runs on the
+  page as before. Solo challenges, training, the sandbox and shop previews always run on the page:
+  they read the World directly.
+- **Warm-up.** Compiled code is per thread, so the worker runs its own practice blasts
+  (`SimWarmup`), a few ms at a time and never while a match resolves a shot.
+
 ## 6. Audio (milestone 6; requirement §8b)
 
 Chiptune only, and client only: the sim never reads audio, so a muted or audio-less peer stays

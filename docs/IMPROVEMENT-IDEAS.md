@@ -312,6 +312,8 @@ All chiptune, synthesised or tracker (§8b).
    dirty rectangles. A 40 ms tick then costs the picture nothing, and the phone logs show long
    ticks as the main remaining stutter. Lockstep is unchanged. Shared memory needs headers that
    GitHub Pages does not send, so start with transferred buffers. _L, client. No rule change._
+   **Built** (ARCHITECTURE §5.2): local and online matches; challenges, training and the
+   sandbox still run on the page.
 2. **Sun and shadow.** The time of day already moves across rounds. Cast a hard, dithered shadow
    from the skyline by the sun's angle (a 1D skyline texture and a short march in the terrain
    shader), long at dawn and dusk. Big blasts light the ground for a moment in hard bands.

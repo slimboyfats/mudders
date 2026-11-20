@@ -5,7 +5,7 @@ import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
-import { HudStore, SIM_BUDGET_MS, type SimMatch } from '../game/match';
+import { HudStore, SIM_BUDGET_MS, type GameMatch } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import {
   PerfRecorder,
@@ -32,7 +32,7 @@ import type { FrameOverlay } from './training-overlay';
 import { GhostOverlay } from './ghost-overlay';
 
 interface Props {
-  match: SimMatch;
+  match: GameMatch;
   settings: Settings;
   /** Which players this client controls (hot-seat: all). */
   controls: (player: number) => boolean;
@@ -183,6 +183,9 @@ export function MatchView({
         players: w.tanks.length,
         bots: hudStore.get().tanks.filter((t) => t.bot).length,
         online: match.net().split(' ')[0] || 'no',
+        'sim thread': match.simMs
+          ? "worker (sim ms are the worker's; the page draws its ticks a frame later)"
+          : 'page',
       },
       STEP_PARTS,
     );
@@ -367,75 +370,36 @@ export function MatchView({
     const markers = markersRef.current ? new PlayerMarkers(markersRef.current) : null;
     const marks: MarkerTank[] = [];
     let measured = -1e9;
-    // sim time by part of the tick, through the kernel's probe hook (only while recording)
-    const partMs = new Array<number>(STEP_PARTS.length).fill(0);
-    let probeAt = 0;
-    let tickAt = 0;
-    let tickTop = 0;
-    let tickTopMs = 0;
-    let worstMs = 0;
-    let worst = '';
-    const probe = (part: number) => {
-      const n = performance.now();
-      if (part < 0) {
-        tickAt = n;
-        tickTopMs = -1;
-      } else {
-        const d = n - probeAt;
-        partMs[part] = (partMs[part] ?? 0) + d;
-        if (d > tickTopMs) {
-          tickTopMs = d;
-          tickTop = part;
-        }
-        // the shop's only part, or the last one: the tick is over
-        if ((part === 0 || part === STEP_PARTS.length - 1) && n - tickAt > worstMs) {
-          worstMs = n - tickAt;
-          worst = `${worstMs.toFixed(1)} ms of which ${STEP_PARTS[tickTop] ?? ''} ${tickTopMs.toFixed(1)}`;
-        }
-      }
-      probeAt = n;
-    };
     const perfContext = (): PerfContext => {
       const wd = match.world;
-      const parts = partMs.slice();
-      const worstTick = worst;
-      partMs.fill(0);
-      worstMs = 0;
-      worst = '';
+      const sim = match.takePerf();
       const heap = (performance as { memory?: { usedJSHeapSize: number } }).memory;
-      const g = wd.grid;
-      const twist = wd.options.perRound?.[wd.round % wd.options.perRound.length]?.twist;
       return {
         phase: wd.phase,
         round: wd.round,
         turn: wd.turn,
         quality,
         particles: rendererRef.current?.perf?.particles() ?? 0,
-        projectiles: wd.projectiles.length,
-        debris: wd.debris.count,
-        settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
-        react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
+        projectiles: sim.projectiles,
+        debris: sim.debris,
+        settle: sim.settle,
+        react: sim.react,
         gpu: rendererRef.current?.perf?.takeGpu() ?? null,
-        note: [
-          wd.generator,
-          wd.weather?.id ?? 'clear',
-          twist ?? '',
-          `zoom ${wrap.dataset['zoom'] ?? '?'}`,
-        ]
-          .filter(Boolean)
-          .join(' '),
+        note: `${sim.note} zoom ${wrap.dataset['zoom'] ?? '?'}`,
         weapon: fired,
-        holding: wd.holding(),
-        net: match.net(),
+        holding: sim.holding,
+        net: sim.net,
         heap: heap ? heap.usedJSHeapSize / 1048576 : 0,
-        parts,
-        worstTick,
+        parts: sim.parts,
+        worstTick: sim.worstTick,
       };
     };
     let recFrame: (() => void) | null = null;
     let probing = false;
     // while recording: measures the GPU by itself when frames turn slow
     let slowWatch: SlowWatch | null = null;
+    // sim ms so far, where the sim runs in the worker and this loop can't time it
+    let simSeen = match.simMs?.() ?? 0;
     match.limitFrame(SIM_BUDGET_MS);
     const frame = (now: number) => {
       const r = rendererRef.current;
@@ -471,7 +435,7 @@ export function MatchView({
         const rec = recRef.current;
         if (probing !== (rec !== null)) {
           probing = rec !== null;
-          match.timeParts(probing ? probe : null);
+          match.timeParts(probing);
         }
         const top = performance.now();
         const tick0 = match.world.tick;
@@ -482,7 +446,11 @@ export function MatchView({
         if (!previewing.open) r.render(at, stop.held);
         const t2 = performance.now();
         const ticks = match.world.tick - tick0;
-        const stats = meter.frame(now, wall, ticks, t1 - t0, t2 - t1);
+        // in the worker: its own time for the ticks that came back since the last frame
+        const simNow = match.simMs?.();
+        const sim = simNow === undefined ? t1 - t0 : simNow - simSeen;
+        if (simNow !== undefined) simSeen = simNow;
+        const stats = meter.frame(now, wall, ticks, sim, t2 - t1);
         if (stats) {
           setPerf(stats);
           if (rec) setRecording(rec.seconds);
@@ -493,9 +461,21 @@ export function MatchView({
           // the renderer takes each tick in as it is made, inside `advance`: split that off
           const step = (r.perf?.pushMs() ?? 0) - step0;
           recFrame = () => {
-            const other = performance.now() - top - (t2 - t0);
+            // with the sim in the worker, taking its packets in is this thread's own work
+            const unpack = simNow === undefined ? 0 : t1 - t0 - step;
+            const other = performance.now() - top - (t2 - t0) + unpack;
             rec.drew(glWatch.current?.take() ?? 0);
-            rec.frame(now, wall, ticks, t1 - t0 - step, step, t2 - t1, other, simDt, perfContext);
+            rec.frame(
+              now,
+              wall,
+              ticks,
+              simNow === undefined ? t1 - t0 - step : sim,
+              step,
+              t2 - t1,
+              other,
+              simDt,
+              perfContext,
+            );
           };
         }
       } else {
@@ -608,7 +588,7 @@ export function MatchView({
       rendererRef.current?.unmount();
       rendererRef.current = null;
       recRef.current = null;
-      match.timeParts(null);
+      match.timeParts(false);
       setRecording(null);
       processSounds(null);
     };

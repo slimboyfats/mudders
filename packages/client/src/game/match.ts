@@ -2,6 +2,7 @@ import type { Input, RenderSnapshot } from '@mudders/shared';
 import {
   DEAL_OUT,
   DEAL_SALE,
+  STEP_PARTS,
   TICK_RATE,
   World,
   type ResolvedContent,
@@ -170,6 +171,144 @@ export interface HudState {
   alert: { text: string; tick: number } | null;
 }
 
+/** What the frame loop reads of a tank between snapshots. */
+export interface TankView {
+  readonly x: number;
+  readonly y: number;
+  /** Width in cells. */
+  readonly w: number;
+  readonly alive: boolean;
+  readonly health: number;
+  readonly maxHealth: number;
+  readonly team: number;
+  /** Index of the bot playing this tank, or -1 for a human. */
+  readonly bot: number;
+}
+
+/**
+ * The little of a World the match view reads directly (everything else comes through snapshots
+ * and the HUD state). A `World` fits it as it is; a match whose sim runs in the worker keeps a
+ * copy that the worker refreshes after every message.
+ */
+export interface WorldView {
+  readonly tick: number;
+  readonly phase: HudState['phase'];
+  readonly round: number;
+  readonly turn: number;
+  readonly activePlayer: number;
+  readonly tanks: readonly TankView[];
+  readonly grid: { readonly width: number; readonly height: number };
+}
+
+/** What the sim tells the performance recorder about the time since it was last asked. */
+export interface SimPerf {
+  projectiles: number;
+  debris: number;
+  /** Cells in the settle and reaction regions. */
+  settle: number;
+  react: number;
+  /** The map, the weather and a twist, in words. */
+  note: string;
+  /** What the turn is waiting on ('' = nothing). */
+  holding: string;
+  /** Sim ms by part of the tick (`STEP_PARTS` order). */
+  parts: number[];
+  /** The longest tick, in ms and in words ('' = none timed). */
+  worstMs: number;
+  worstTick: string;
+  /** Online: this side's standing with the other ('' = local). */
+  net: string;
+}
+
+/**
+ * A match as the UI sees it. `SimMatch` runs its World on this thread; `RemoteMatch`
+ * (`sim-client.ts`) is the same match running in the sim worker.
+ */
+export interface GameMatch extends SnapshotStream {
+  readonly content: ResolvedContent;
+  readonly world: WorldView;
+  /** False until the first map has arrived (a worker match builds its world off this thread). */
+  readonly ready: boolean;
+  /** Calls `fn` once the match is ready (at once when it already is); returns a way to cancel. */
+  whenReady(fn: () => void): () => void;
+  /** Frames that ran out of sim budget. */
+  shed: number;
+  input(player: number, input: Input): void;
+  /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
+  advance(dtMs: number): number;
+  limitFrame(ms: number): void;
+  /** Time the sim by part of the tick (for the performance recorder), or stop. */
+  timeParts(on: boolean): void;
+  /** The recorder's figures since the last call. */
+  takePerf(): SimPerf;
+  net(): string;
+  hud(): HudState;
+  /** Sim ms spent so far, where the sim runs off this thread (so the frame loop can't time it). */
+  simMs?(): number;
+  /** The match is over for this page: free what it holds elsewhere. */
+  dispose?(): void;
+}
+
+/**
+ * Times the parts of a tick through the kernel's `World.probe` hook: ms per part, and the longest
+ * tick with the part that took most of it.
+ */
+export class PartTimer {
+  private ms = new Array<number>(STEP_PARTS.length).fill(0);
+  private probeAt = 0;
+  private tickAt = 0;
+  private top = 0;
+  private topMs = 0;
+  private worstMs = 0;
+  private worst = '';
+
+  readonly probe = (part: number): void => {
+    const n = performance.now();
+    if (part < 0) {
+      this.tickAt = n;
+      this.topMs = -1;
+    } else {
+      const d = n - this.probeAt;
+      this.ms[part] = (this.ms[part] ?? 0) + d;
+      if (d > this.topMs) {
+        this.topMs = d;
+        this.top = part;
+      }
+      // the shop's only part, or the last one: the tick is over
+      if ((part === 0 || part === STEP_PARTS.length - 1) && n - this.tickAt > this.worstMs) {
+        this.worstMs = n - this.tickAt;
+        this.worst = `${this.worstMs.toFixed(1)} ms of which ${STEP_PARTS[this.top] ?? ''} ${this.topMs.toFixed(1)}`;
+      }
+    }
+    this.probeAt = n;
+  };
+
+  /** Figures since the last call. */
+  take(): Pick<SimPerf, 'parts' | 'worstMs' | 'worstTick'> {
+    const out = { parts: this.ms, worstMs: this.worstMs, worstTick: this.worst };
+    this.ms = new Array<number>(STEP_PARTS.length).fill(0);
+    this.worstMs = 0;
+    this.worst = '';
+    return out;
+  }
+}
+
+/** The recorder's gauges, read off a World. */
+export function worldPerf(
+  w: World,
+): Pick<SimPerf, 'projectiles' | 'debris' | 'settle' | 'react' | 'note' | 'holding'> {
+  const g = w.grid;
+  const twist = w.options.perRound?.[w.round % w.options.perRound.length]?.twist;
+  return {
+    projectiles: w.projectiles.length,
+    debris: w.debris.count,
+    settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
+    react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
+    note: [w.generator, w.weather?.id ?? 'clear', twist ?? ''].filter(Boolean).join(' '),
+    holding: w.holding(),
+  };
+}
+
 /** Ticks a pickup stays in the HUD. */
 const PICKUP_TICKS = 180;
 
@@ -179,7 +318,7 @@ const PICKUP_TICKS = 180;
  * inputs reach the sim and how wall-clock time turns into ticks: `LocalMatch` (hot-seat) here,
  * `HostMatch`/`GuestMatch` in `net/` (§6.3 lockstep).
  */
-export abstract class SimMatch implements SnapshotStream {
+export abstract class SimMatch implements GameMatch {
   world: World;
   protected listeners: ((s: RenderSnapshot) => void)[] = [];
   private readonly names: Record<string, string> = {};
@@ -238,6 +377,13 @@ export abstract class SimMatch implements SnapshotStream {
       });
     }
     this.gearItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
+  }
+
+  readonly ready = true;
+
+  whenReady(fn: () => void): () => void {
+    fn();
+    return () => {};
   }
 
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
@@ -354,11 +500,19 @@ export abstract class SimMatch implements SnapshotStream {
   }
 
   protected partProbe: ((part: number) => void) | null = null;
+  private timer: PartTimer | null = null;
 
-  /** Time the sim by part of the tick (the kernel's `World.probe`), or stop with null. */
-  timeParts(probe: ((part: number) => void) | null): void {
-    this.partProbe = probe;
-    this.world.probe = probe;
+  /** Time the sim by part of the tick (the kernel's `World.probe`), or stop. */
+  timeParts(on: boolean): void {
+    if (on === (this.timer !== null)) return;
+    this.timer = on ? new PartTimer() : null;
+    this.partProbe = this.timer?.probe ?? null;
+    this.world.probe = this.partProbe;
+  }
+
+  takePerf(): SimPerf {
+    const t = this.timer?.take() ?? { parts: [], worstMs: 0, worstTick: '' };
+    return { ...worldPerf(this.world), ...t, net: this.net() };
   }
 
   /** Online: this side's standing with the other, for the performance log ('' = local). */
@@ -571,7 +725,7 @@ export class HudStore {
   private key: string;
   private readonly subs = new Set<() => void>();
 
-  constructor(private readonly match: SimMatch) {
+  constructor(private readonly match: GameMatch) {
     this.state = match.hud();
     this.key = hudKey(this.state);
   }
@@ -585,6 +739,8 @@ export class HudStore {
 
   refresh = (): void => {
     const s = this.match.hud();
+    // a worker match hands out the same state until the worker sends a new one
+    if (s === this.state) return;
     const k = hudKey(s);
     if (k === this.key) return;
     this.state = s;

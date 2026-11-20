@@ -176,6 +176,14 @@ button.primary,
   overflow: visible;
 }
 
+.match-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: #dfe9f5;
+  font-size: 1.1rem;
+}
+
 .error {
   position: absolute;
   inset: auto 8px 8px;
