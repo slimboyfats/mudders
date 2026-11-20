@@ -1,0 +1,23 @@
+{
+  "id": "terrainop.dam",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Dam",
+    "description": "A map event. A concrete dam stands across the deepest valley clear of the tanks, holding back a lake of real water up to just under its crest. Crack the wall and the lake bursts out through the hole and floods downhill, carrying its weight and speed with it.",
+    "since": "core@0.98.0"
+  },
+  "behaviour": "terrainop.dam",
+  "wall": "material.concrete",
+  "water": "material.water",
+  "heights": [30, 24, 18],
+  "crest": 4,
+  "freeboard": 2,
+  "key": 4,
+  "drop": 8,
+  "minWidth": 30,
+  "maxWidth": 240,
+  "minCells": 500,
+  "maxCells": 7000,
+  "margin": 40,
+  "clear": 24
+}

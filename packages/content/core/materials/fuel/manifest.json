@@ -1,0 +1,48 @@
+{
+  "id": "material.fuel",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel",
+    "description": "Fuel from a fuel tank: a dark liquid that runs like oil and coats what it touches, but far quicker to catch. Any blast or heat that reaches it lights it, and burning fuel spreads through the rest of the pool and goes off in fiery pops.",
+    "since": "core@0.98.0",
+    "color": "#3a2c22"
+  },
+  "extends": "material.oil",
+  "cell": 140,
+  "ignite": {
+    "into": "material.burning-fuel",
+    "by": ["blast", "heat", "shock"]
+  },
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.burning-fuel",
+      "chance": 0.5
+    },
+    {
+      "with": "material.burning-fuel",
+      "into": "material.burning-fuel",
+      "chance": 0.5
+    },
+    {
+      "with": "material.burning-oil",
+      "into": "material.burning-fuel",
+      "chance": 0.5
+    },
+    {
+      "with": "material.lava",
+      "into": "material.burning-fuel",
+      "chance": 0.6
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.burning-fuel",
+      "chance": 0.6
+    },
+    {
+      "with": "#hot",
+      "into": "material.burning-fuel",
+      "chance": 0.5
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "material.lit-keg-powder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Burning keg powder",
+    "description": "Keg powder burning fast. It lights the powder beside it and bursts far more often than loose gunpowder, so a lit store goes off as a chain of blasts.",
+    "since": "core@0.98.0",
+    "color": "#ffd040"
+  },
+  "extends": "material.lit-gunpowder",
+  "cell": 144,
+  "detonate": {
+    "explosion": {
+      "use": "explosion.standard",
+      "radius": 12,
+      "damage": 30,
+      "effects": {
+        "burst": {
+          "count": 18,
+          "style": 2
+        },
+        "flash": {
+          "strength": 0.8
+        },
+        "shake": {
+          "strength": 1.4
+        }
+      }
+    },
+    "chance": 0.09
+  },
+  "reactions": [
+    {
+      "with": "material.keg-powder",
+      "other": "material.lit-keg-powder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.gunpowder",
+      "other": "material.lit-gunpowder",
+      "chance": 0.4
+    },
+    {
+      "with": "air",
+      "spawn": "material.flame",
+      "chance": 0.06
+    }
+  ]
+}

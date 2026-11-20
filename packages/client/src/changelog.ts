@@ -18,6 +18,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    title: 'Things on the map that react: fuel tanks, water towers, power pylons, powder stores and dams',
+    pack: 'core@0.98.0',
+    items: [
+      'Fuel tanks: a steel tank full of fuel on two concrete saddles. A hit holes the shell where it lands and the fuel pours out and runs downhill. The vapour under its roof goes off the moment a hole lets air in: one huge fireball that tears the tank open, throws burning fuel high into the air and flings two drums that burst like fireworks. The fuel left behind lights and keeps popping as it burns, in a river of fire. In the City, on the hills and sometimes on the Badlands',
+      'Fuel barrels: a stack of three steel drums of fuel under pressure. Break one open and it bursts in a fireball and shoots up into the sky like a rocket, then blows apart at the top in a firework of burning stars and fuel that rains down and sets the ground alight. The blast opens the next drum, so the stack goes up one after another. In the City, on the Badlands, in the Village and on the hills',
+      'Water towers: a steel tank of water high up on four legs. Hole the tank and the water jets out of the hole; knock the legs out and the tower comes down and dumps its load in a wave. In the Village, by the lakes, in the City and on the hills',
+      'Power pylons: two steel lattice pylons with lines slung between them and a transformer box low on one leg. Break the box open, or bring that pylon down, and it shorts out in a blue-white flash, sending a charge through every pylon, line and puddle joined to it: a tank leaning on the steel or standing in charged water is shocked. Lightning on the steel shocks it as before. On the hills, in the City, by the lakes and on the Glacier',
+      'Powder stores: a squat brick bunker stacked with kegs of blasting powder. Any blast, fire or heat that reaches the kegs lights them and they go off together in a burst of blasts that tears the bunker apart. In the Village and on the Badlands',
+      'Dams (a map event, with map events on): on the hills, in the Village and in the City, a concrete dam may stand across the deepest valley clear of the tanks, holding back a lake of real water. Crack the wall below the water line and the lake bursts out through the hole and floods downhill',
+    ],
+  },
+  {
     date: '2026-11-18',
     title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [

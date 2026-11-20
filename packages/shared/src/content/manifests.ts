@@ -418,7 +418,7 @@ export type GenProp = z.infer<typeof GenPropSchema>;
 
 export const GeneratorSchema = z.looseObject({
   ...behaviourBacked,
-  props: z.array(GenPropSchema).max(8).optional(),
+  props: z.array(GenPropSchema).max(12).optional(),
   /** Base air temperature in °C (§3.4); unset = TEMP_MILD. */
   temperature: z.number().int().min(-20).max(45).optional(),
   /**

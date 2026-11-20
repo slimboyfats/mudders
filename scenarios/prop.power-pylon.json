@@ -1,0 +1,72 @@
+{
+  "id": "prop.power-pylon",
+  "schemaVersion": 1,
+  "description": "A flat shot breaks open the transformer box on a pair of power pylons: it shorts out and the charge runs along the lines into the far pylon, shocking the tank parked against it.",
+  "subject": "prop.power-pylon",
+  "mode": "mode.classic",
+  "seed": 3,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.missile": 5,
+        "weapon.baby-missile": 5,
+        "weapon.heavy-shockwave": 2
+      }
+    },
+    {
+      "x": 494,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "props": [
+    {
+      "prop": "prop.power-pylon",
+      "x": 450
+    }
+  ],
+  "rules": {
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 30,
+        "power": 530
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 3000,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

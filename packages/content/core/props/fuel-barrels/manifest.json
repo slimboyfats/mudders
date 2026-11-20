@@ -1,0 +1,49 @@
+{
+  "id": "prop.fuel-barrels",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel Barrels",
+    "description": "A stack of three steel drums of fuel under pressure. Break one open and it bursts in a fireball and shoots up into the sky like a rocket, then blows apart at the top in a firework of burning stars and fuel that rains down and sets the ground alight. The blast breaks the next drum open, so the stack goes up one after another.",
+    "since": "core@0.98.0"
+  },
+  "shape": [
+    "     SSSS     ",
+    "    SSFFSS    ",
+    "    SFFFFS    ",
+    "    HFFFFH    ",
+    "    SFFFFS    ",
+    "    SFFFFS    ",
+    "    SSFFSS    ",
+    "     SSSS     ",
+    "  SSSS  SSSS  ",
+    " SSFFSSSSFFSS ",
+    " SFFFFSSFFFFS ",
+    " HFFFFHHFFFFH ",
+    " SFFFFSSFFFFS ",
+    " SFFFFSSFFFFS ",
+    " SSFFSSSSFFSS ",
+    "  SSSS  SSSS  "
+  ],
+  "legend": {
+    "S": "drum",
+    "H": "hoop",
+    "F": "fuel"
+  },
+  "materials": {
+    "drum": "material.drum-steel",
+    "hoop": "material.drum-steel",
+    "fuel": "material.barrel-fuel"
+  },
+  "groups": [
+    {
+      "name": "drums",
+      "glue": "local",
+      "loosen": 1,
+      "roles": ["drum", "hoop"]
+    }
+  ],
+  "placement": {
+    "maxSlope": 4,
+    "clearance": 20
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "weapon.pylon-short",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Pylon short-out",
+    "description": "A power pylon's transformer shorting out: a blinding blue-white flash where the box burst, and the pylon's whole charge dumped into the steel and the lines. It runs through every conductor joined to them, steel and water alike, and shocks each tank touching the charged metal or standing in the charged water.",
+    "category": "submunition",
+    "since": "core@0.98.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "terrainOp": {
+        "use": "terrainop.conduct",
+        "damage": 40,
+        "reach": 900,
+        "sparks": 16,
+        "crawls": 24
+      },
+      "radius": 14,
+      "damageType": "shock"
+    },
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 6,
+        "damage": 20,
+        "damageType": "shock",
+        "effects": {
+          "flash": {
+            "strength": 1.2
+          },
+          "burst": {
+            "count": 24,
+            "style": 4
+          },
+          "shake": {
+            "strength": 1.5
+          },
+          "arcs": {
+            "strength": 1
+          }
+        }
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}

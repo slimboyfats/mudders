@@ -1,0 +1,33 @@
+{
+  "id": "material.transformer",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Transformer",
+    "description": "The live core of a power pylon's transformer, sealed in a steel box. Once a hit breaks the box open, or the pylon comes down, the core shorts out in a flash and dumps its charge into the steel and the lines: every tank touching metal or water joined to them is shocked.",
+    "since": "core@0.98.0",
+    "color": "#3c8a9a"
+  },
+  "cell": 142,
+  "settle": "static",
+  "density": 200,
+  "strength": {
+    "blast": 8,
+    "kinetic": 8,
+    "heat": 8,
+    "shock": 8,
+    "dig": 4,
+    "corrosive": 4
+  },
+  "cohesion": 0,
+  "coating": false,
+  "tags": ["conducts"],
+  "burst": {
+    "weapon": "weapon.pylon-short",
+    "max": 400
+  },
+  "look": {
+    "cycle": ["#3c8a9a", "#46a0b4", "#3c8a9a", "#5ad0e8"],
+    "cycleTicks": 12,
+    "emit": "#5ad0e8"
+  }
+}

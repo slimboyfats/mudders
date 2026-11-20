@@ -1,0 +1,27 @@
+{
+  "id": "material.fuel-vapour",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel vapour",
+    "description": "The pocket of fuel vapour trapped under the roof of a fuel tank. The moment air reaches it, through a hole in the roof, or as the fuel below drains or burns away, it goes off in one huge fireball that tears the tank apart and throws burning fuel high into the air.",
+    "since": "core@0.98.0",
+    "color": "#4c3a2c"
+  },
+  "cell": 147,
+  "settle": "static",
+  "density": 5,
+  "strength": {
+    "blast": 5,
+    "kinetic": 6,
+    "heat": 5,
+    "shock": 6,
+    "dig": 4,
+    "corrosive": 3
+  },
+  "cohesion": 0,
+  "coating": false,
+  "burst": {
+    "weapon": "weapon.fuel-tank-blast",
+    "max": 200
+  }
+}

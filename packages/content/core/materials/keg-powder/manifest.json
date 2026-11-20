@@ -1,0 +1,49 @@
+{
+  "id": "material.keg-powder",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Keg powder",
+    "description": "Fine blasting powder packed into kegs in a powder store. Like gunpowder it lights from any blast, fire or heat that reaches it, but once lit far more of it bursts, so a store full of kegs goes off in a rolling chain of blasts.",
+    "since": "core@0.98.0",
+    "color": "#34303a"
+  },
+  "extends": "material.gunpowder",
+  "cell": 143,
+  "ignite": {
+    "into": "material.lit-keg-powder",
+    "by": ["blast", "heat", "shock"]
+  },
+  "reactions": [
+    {
+      "with": "material.fire",
+      "into": "material.lit-keg-powder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.lava",
+      "into": "material.lit-keg-powder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.napalm",
+      "into": "material.lit-keg-powder",
+      "chance": 0.5
+    },
+    {
+      "with": "material.burning-oil",
+      "into": "material.lit-keg-powder",
+      "chance": 0.5
+    },
+    {
+      "with": "#hot",
+      "into": "material.lit-keg-powder",
+      "chance": 0.45
+    }
+  ],
+  "strength": {
+    "blast": 3,
+    "kinetic": 3,
+    "heat": 2,
+    "corrosive": 10
+  }
+}

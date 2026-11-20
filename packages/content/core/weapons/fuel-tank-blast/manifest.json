@@ -1,0 +1,64 @@
+{
+  "id": "weapon.fuel-tank-blast",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel tank blast",
+    "description": "A fuel tank's vapour going off: one huge fireball that tears the tank apart and flings globs of burning fuel and fiery stars high into the air.",
+    "category": "submunition",
+    "since": "core@0.98.0"
+  },
+  "flight": {
+    "use": "flight.ballistic"
+  },
+  "triggers": ["onSolid", "onTank"],
+  "impact": [
+    {
+      "explosion": {
+        "use": "explosion.standard",
+        "radius": 26,
+        "damage": 45,
+        "damageType": "heat",
+        "effects": {
+          "flash": {
+            "strength": 1.6
+          },
+          "burst": {
+            "count": 60,
+            "style": 11
+          },
+          "shake": {
+            "strength": 4
+          }
+        }
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.napalm-glob",
+        "count": 6,
+        "inherit": 0,
+        "spread": 1.4,
+        "jitter": 0.5,
+        "up": 2
+      }
+    },
+    {
+      "spawn": {
+        "weapon": "weapon.flying-barrel",
+        "count": 2,
+        "inherit": 0,
+        "jitter": 0.8,
+        "up": 2.4
+      }
+    }
+  ],
+  "shop": {
+    "price": 0,
+    "pack": 1,
+    "tier": 0
+  },
+  "ai": {
+    "expectedDamage": 0,
+    "terrainValue": 0
+  }
+}
