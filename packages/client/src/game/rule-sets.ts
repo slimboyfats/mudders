@@ -5,7 +5,7 @@ import type { MatchSetup } from './setup';
 export type RulesValue = Omit<MatchSetup, 'slots' | 'tanks' | 'skills'>;
 
 /** The rules a rule set or a share code sets (teams stay with the seats). */
-export type RuleSetRules = Required<Omit<RulesValue, 'teams'>>;
+export type RuleSetRules = Required<Omit<RulesValue, 'teams' | 'game'>>;
 
 export interface RuleSet {
   id: string;
@@ -33,6 +33,7 @@ const BASE: RuleSetRules = {
   arsenal: false,
   bounty: true,
   ghost: true,
+  volley: false,
 };
 
 /**

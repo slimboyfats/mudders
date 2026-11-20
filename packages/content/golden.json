@@ -1,5 +1,5 @@
 {
-  "contentHash": "3b3f9728ca47a9d8",
+  "contentHash": "da3dbe7911e2b1ce",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -853,6 +853,14 @@
       "ticks": 852,
       "hash": "b12e18f553cdda44"
     },
+    "mode.coop": {
+      "ticks": 2400,
+      "hash": "546ee5dce16bf6ab"
+    },
+    "mode.points": {
+      "ticks": 46,
+      "hash": "e97210d049b0de7e"
+    },
     "mode.teams": {
       "ticks": 2400,
       "hash": "e5dc246d02be8ea6"
@@ -1044,6 +1052,10 @@
     "showcase.tree-sway": {
       "ticks": 300,
       "hash": "81663b12ddd794bd"
+    },
+    "showcase.volley": {
+      "ticks": 593,
+      "hash": "d5208867ecd1ecb9"
     },
     "showcase.wall-absorb": {
       "ticks": 900,

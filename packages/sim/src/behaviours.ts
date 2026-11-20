@@ -76,7 +76,7 @@ export interface SimApi extends EffectSink {
   readonly shellPhysics: boolean;
   /**
    * The wind a shell feels in cell (x, y), fixed-point cells/tick². Plain `wind` unless the match
-   * rule `windShape` is on (kernel 0.65.0): then it grows with height over the ground and falls
+   * rule `windShape` is on (kernel 0.67.0): then it grows with height over the ground and falls
    * away in the lee of high ground. Read-only and the same all turn, so the aim predictor may ask.
    */
   windAt(x: number, y: number): number;

@@ -1,0 +1,54 @@
+{
+  "id": "showcase.volley",
+  "schemaVersion": 1,
+  "description": "Volley turns: four bots aim during the same timer, lock in, and all four shells leave on one tick and land together; two volleys.",
+  "mode": "mode.classic",
+  "seed": 11,
+  "players": 4,
+  "map": {
+    "width": 800,
+    "height": 360,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 90,
+      "inventory": {
+        "weapon.missile": 3
+      }
+    },
+    {
+      "x": 300,
+      "inventory": {
+        "weapon.missile": 3
+      }
+    },
+    {
+      "x": 510,
+      "inventory": {
+        "weapon.missile": 3
+      }
+    },
+    {
+      "x": 710,
+      "inventory": {
+        "weapon.missile": 3
+      }
+    }
+  ],
+  "turnOrder": [0, 1, 2, 3],
+  "wind": 0,
+  "bots": ["ai.shooter", "ai.tosser", "ai.cyborg", "ai.shooter"],
+  "rules": {
+    "rounds": 1,
+    "suddenDeath": false,
+    "turnCap": 2,
+    "volley": true
+  },
+  "inputs": [],
+  "capture": {
+    "maxTicks": 1600,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

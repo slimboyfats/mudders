@@ -3,7 +3,7 @@ import type { World } from '@mudders/sim';
 import { flatWorld, passTurns } from './testing';
 
 /**
- * Wind with shape (`rules.windShape`, kernel 0.65.0, `World.windAt`): the wind grows with height
+ * Wind with shape (`rules.windShape`, kernel 0.67.0, `World.windAt`): the wind grows with height
  * over the ground and all but dies in the lee of high ground.
  */
 

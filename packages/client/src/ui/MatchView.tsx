@@ -5,7 +5,7 @@ import { effectSounds, processSounds, setMusic, sfx } from '../audio/bridge';
 import { clampAim, slingshotAim } from '../game/aim';
 import { AutoQuality, renderDpr } from '../game/auto-quality';
 import { MatchStats, earthCells } from '../game/awards';
-import { HudStore, SIM_BUDGET_MS, type SimMatch } from '../game/match';
+import { HudStore, SIM_BUDGET_MS, type SimMatch, volleyView } from '../game/match';
 import { paletteFrom } from '../game/palette';
 import {
   PerfRecorder,
@@ -130,7 +130,14 @@ export function MatchView({
     return (id: string) => text.get(id) ?? '';
   }, [match]);
   const hudStore = useMemo(() => new HudStore(match), [match]);
-  const hud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
+  const simHud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
+  // a volley: this device's seat that still aims stands in for the active player
+  const hud = useMemo(() => volleyView(simHud, controls), [simHud, controls]);
+  const volleySeat = useRef(-1);
+  const seat = hud.volley ? hud.activePlayer : -1;
+  useEffect(() => {
+    volleySeat.current = seat;
+  }, [seat]);
   const refreshHud = hudStore.refresh;
   // end-of-match awards, counted from the snapshot stream over the whole match
   const stats = useMemo(() => new MatchStats(earthCells(match.content.list('material'))), [match]);
@@ -331,9 +338,12 @@ export function MatchView({
 
   const send = useCallback(
     (input: Input) => {
-      if (hud.activePlayer >= 0) match.input(hud.controller, input);
+      // fire again while it flies (Cloud Whale) goes from the seat whose shell it is
+      if (input.type === 'fire' && hud.phase === 'resolve' && hud.command >= 0) {
+        match.input(hud.command, input);
+      } else if (hud.activePlayer >= 0) match.input(hud.controller, input);
     },
-    [match, hud.activePlayer, hud.controller],
+    [match, hud.activePlayer, hud.controller, hud.phase, hud.command],
   );
 
   // renderer + frame loop
@@ -506,7 +516,8 @@ export function MatchView({
       slowmo.observe(match.world);
       if (match.world.phase === 'resolve') holdSimWarmup(now);
       refreshHud();
-      const tank = match.world.tanks[match.world.activePlayer];
+      const w0 = match.world;
+      const tank = w0.tanks[w0.volley ? volleySeat.current : w0.activePlayer];
       if (tank) {
         const p = r.project({ x: tank.x + 0.5, y: tank.y - 7.5 });
         const a = anchorRef.current;
@@ -529,7 +540,9 @@ export function MatchView({
             health: t.health,
             maxHealth: t.maxHealth,
             name: huds[i]?.bot ?? '',
-            active: i === match.world.activePlayer,
+            active: match.world.volley
+              ? match.world.phase === 'aim' && t.alive && !t.ready
+              : i === match.world.activePlayer,
           };
         }
         // the HUD can reflow (a player row wraps, the shop closes): re-measure now and then

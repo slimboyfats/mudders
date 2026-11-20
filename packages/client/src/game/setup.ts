@@ -1,4 +1,12 @@
-import { BOT_SKILLS, MAP_SIZES, MAX_PLAYERS, type BotSkill, type WindType } from '@mudders/shared';
+import {
+  BOT_SKILLS,
+  GAME_KINDS,
+  MAP_SIZES,
+  MAX_PLAYERS,
+  type BotSkill,
+  type GameKind,
+  type WindType,
+} from '@mudders/shared';
 import type { MatchRules, RoundPlan, WorldOptions } from '@mudders/sim';
 
 export type MapSize = keyof typeof MAP_SIZES;
@@ -31,10 +39,17 @@ const BETWEEN_ROUNDS = 20;
  * Rough match length in minutes for the setup screen. A turn takes about half its timer plus the
  * shell's flight (an untimed turn counts as a 20 s timer). A guide, not a promise.
  */
-export function estimateMinutes(rounds: number, turnTimer: number, players: number): number {
+export function estimateMinutes(
+  rounds: number,
+  turnTimer: number,
+  players: number,
+  volley = false,
+): number {
   const turn = (turnTimer > 0 ? turnTimer : 20) * 0.5 + 6;
+  // a volley is one turn for everyone: the slowest aimer plus one flight
+  const turns = volley ? 1.5 : Math.max(2, players);
   // every round opens with the shop, round 1 included
-  const secs = rounds * (Math.max(2, players) * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
+  const secs = rounds * (turns * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
   return Math.max(1, Math.round(secs / 60));
 }
 
@@ -154,8 +169,32 @@ export function isSkill(v: unknown): v is BotSkill {
   return typeof v === 'string' && (BOT_SKILLS as readonly string[]).includes(v);
 }
 
+/** The kinds of match for the setup screens: name and one line about it. */
+export const GAMES: Record<GameKind, { name: string; about: string }> = {
+  classic: {
+    name: 'Classic',
+    about: 'Last tank standing wins the round. Shop between rounds.',
+  },
+  points: {
+    name: 'Points draft',
+    about:
+      'Take turns picking weapons from one pool, then fire them all. Nobody is knocked out: a destroyed tank comes back and loses 50 points. Most points wins.',
+  },
+  coop: {
+    name: 'Co-op waves',
+    about:
+      'Every human on one team against waves of bots that get tougher each round. Lose a wave and it is over.',
+  },
+};
+
+export function isGame(v: unknown): v is GameKind {
+  return typeof v === 'string' && (GAME_KINDS as readonly string[]).includes(v);
+}
+
 /** Match setup (§8 lobby settings), persisted per device. Only `toWorldOptions` reaches the sim. */
 export interface MatchSetup {
+  /** Kind of match; unset (older saves, older hosts) = classic. */
+  game?: GameKind | undefined;
   slots: Slot[];
   size: MapSize;
   /**
@@ -190,6 +229,8 @@ export interface MatchSetup {
    * players behind get a share of the gap as cash each round; unset (older saves, hosts) = off.
    */
   bounty?: boolean | undefined;
+  /** Volley turns: everyone aims during the same timer, then all shells fly together; unset = off. */
+  volley?: boolean | undefined;
   /**
    * Last-shot ghost: while you aim, your previous shell's path shows faintly over the map and the
    * angle and power pills mark the values you fired with. An aid, so a host rule; presentation
@@ -254,6 +295,7 @@ const KEY = 'mudders.setup.v1';
 export function defaultSetup(): MatchSetup {
   const small = typeof window !== 'undefined' && Math.min(innerWidth, innerHeight) < 500;
   return {
+    game: 'classic',
     slots: ['human', 'ai.shooter', 'off', 'off', 'off', 'off', 'off', 'off'],
     size: small ? 'small' : 'medium',
     scenery: 'village',
@@ -288,6 +330,7 @@ export function loadSetup(): MatchSetup {
       if (!s.weather || !WEATHER_PICKS.includes(s.weather)) s.weather = 'clear';
       if (!s.drops || !DROP_RATES.includes(s.drops)) s.drops = 'normal';
       if (s.teams !== null && !Array.isArray(s.teams)) s.teams = null;
+      if (!isGame(s.game)) s.game = 'classic';
       const tanks: unknown = s.tanks;
       s.tanks = Array.from({ length: MAX_PLAYERS }, (_, i) => {
         const t = Array.isArray(tanks) ? (tanks as unknown[])[i] : undefined;
@@ -354,8 +397,13 @@ export function activeTanks(s: Pick<SetupLike, 'slots' | 'tanks'>): string[] {
   return out;
 }
 
-/** Team of each active slot, in player order; null for a free-for-all. */
-export function activeTeams(s: Pick<SetupLike, 'slots' | 'teams'>): number[] | null {
+/**
+ * Team of each active slot, in player order; null for a free-for-all. Co-op puts every human on
+ * team A and every bot on team B; a points match is always every player for themselves.
+ */
+export function activeTeams(s: Pick<SetupLike, 'slots' | 'teams' | 'game'>): number[] | null {
+  if (s.game === 'points') return null;
+  if (s.game === 'coop') return activeSlots(s).map((x) => (x.startsWith('ai.') ? 1 : 0));
   const { teams } = s;
   if (!teams) return null;
   const out: number[] = [];
@@ -365,17 +413,40 @@ export function activeTeams(s: Pick<SetupLike, 'slots' | 'teams'>): number[] | n
   return out;
 }
 
-/** Can this setup start? At least two players, and with teams on, at least two teams. */
-export function canStart(s: Pick<SetupLike, 'slots' | 'teams'>): boolean {
+/**
+ * Can this setup start? At least two players, and with teams on, at least two teams (in co-op: at
+ * least one human and one bot).
+ */
+export function canStart(s: Pick<SetupLike, 'slots' | 'teams' | 'game'>): boolean {
   if (activeSlots(s).length < 2) return false;
   const t = activeTeams(s);
   return !t || new Set(t).size >= 2;
 }
 
-export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
+/** What the setup's rule pickers mean for this kind of match: points has no shop, cash or crates. */
+function rulesFor(s: SetupLike): SetupLike {
+  if (s.game === 'points') {
+    return {
+      ...s,
+      suddenDeath: false,
+      drops: 'off',
+      roundBonus: 0,
+      deals: false,
+      arsenal: false,
+      bounty: false,
+    };
+  }
+  // co-op: no bounty on a teammate
+  if (s.game === 'coop') return { ...s, bounty: false };
+  return s;
+}
+
+export function toWorldOptions(s0: SetupLike, seed: number): WorldOptions {
+  const s = rulesFor(s0);
   const slots = activeSlots(s);
   const teams = activeTeams(s);
-  const skills = activeSkills(s);
+  // co-op: the waves set the bots' difficulty
+  const skills = s.game === 'coop' ? null : activeSkills(s);
   const rules: MatchRules = {
     rounds: s.rounds,
     turnTimer: s.turnTimer,
@@ -403,6 +474,7 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),
     ...(s.bounty ? { bounty: true } : {}),
+    ...(s.volley ? { volley: true } : {}),
   };
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;
@@ -422,7 +494,14 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
       : null;
   return {
     seed,
-    mode: teams ? 'mode.teams' : 'mode.classic',
+    mode:
+      s.game === 'points'
+        ? 'mode.points'
+        : s.game === 'coop'
+          ? 'mode.coop'
+          : teams
+            ? 'mode.teams'
+            : 'mode.classic',
     players: slots.length,
     map: {
       ...MAP_SIZES[s.size],

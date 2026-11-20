@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 23;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -189,7 +189,14 @@ export const BOT_SKILLS = ['easy', 'normal', 'hard', 'ace'] as const;
 export const BotSkillSchema = z.enum(BOT_SKILLS);
 export type BotSkill = z.infer<typeof BotSkillSchema>;
 
+/** What kind of match (protocol 22): classic, a points match with a weapon draft, or co-op waves. */
+export const GAME_KINDS = ['classic', 'points', 'coop'] as const;
+export const GameKindSchema = z.enum(GAME_KINDS);
+export type GameKind = z.infer<typeof GameKindSchema>;
+
 export const NetSetupSchema = z.object({
+  /** Kind of match (protocol 22); unset = classic. */
+  game: GameKindSchema.optional(),
   slots: z
     .array(z.union([z.literal('human'), z.literal('off'), ContentIdSchema]))
     .min(2)
@@ -232,6 +239,8 @@ export const NetSetupSchema = z.object({
   arsenal: z.boolean().optional(),
   /** Bounty on the leader + comeback cash (protocol 18); unset = off. */
   bounty: z.boolean().optional(),
+  /** Volley turns (protocol 23): everyone aims at once and all shells fly together; unset = off. */
+  volley: z.boolean().optional(),
   /**
    * Last-shot ghost: each player sees their previous shell's path while aiming. Client-side only
    * (the sim never reads it); older hosts don't send it, which means on.
