@@ -25,10 +25,20 @@ export const OWN_GOAL = 15;
 export const SNIPE_CELLS = 500;
 
 export type CalloutKind =
-  'cover' | 'close' | 'direct' | 'own' | 'kill' | 'snipe' | 'double' | 'triple' | 'multi';
+  | 'cover'
+  | 'crippled'
+  | 'close'
+  | 'direct'
+  | 'own'
+  | 'kill'
+  | 'snipe'
+  | 'double'
+  | 'triple'
+  | 'multi';
 
 const WORDS: Record<CalloutKind, string> = {
   cover: 'COVER',
+  crippled: 'CRIPPLED',
   close: 'CLOSE CALL',
   direct: 'DIRECT HIT',
   own: 'OWN GOAL',
@@ -42,6 +52,7 @@ const WORDS: Record<CalloutKind, string> = {
 /** Higher wins when two callouts want the same tank. */
 const RANK: Record<CalloutKind, number> = {
   cover: 0,
+  crippled: 1,
   close: 1,
   direct: 2,
   own: 2,
@@ -54,6 +65,7 @@ const RANK: Record<CalloutKind, number> = {
 
 const COLOR: Record<CalloutKind, number> = {
   cover: 0xb8c4d0,
+  crippled: 0xd8a24a,
   close: 0x7ad8ff,
   direct: 0xffe14a,
   own: 0xff9a3a,
@@ -182,6 +194,13 @@ export class CalloutTracker {
       if (ev.type !== 'cover') continue;
       const t = this.tankOf(s, ev.params.player ?? -1);
       if (t?.alive) this.say(t, 'cover', s.tick);
+    }
+
+    // a tank's tracks broke and its fuel tank was holed (the sim's `crippled` event)
+    for (const ev of s.effectEvents) {
+      if (ev.type !== 'crippled') continue;
+      const t = this.tankOf(s, ev.params.player ?? -1);
+      if (t?.alive) this.say(t, 'crippled', s.tick);
     }
 
     // follow the tanks (a number rides a falling tank down), then drop what has faded

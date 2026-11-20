@@ -110,6 +110,7 @@ export const ScenarioSchema = z.strictObject({
       shells: z.boolean().optional(),
       /** Wind grows with height and dies in the lee of high ground (off unless set). */
       windShape: z.boolean().optional(),
+      tankDamage: z.boolean().optional(),
       /** Bounty on the match leader and comeback cash for players behind (off unless set). */
       bounty: z.boolean().optional(),
       /** Volley turns: everyone aims at once, all shells fly together (off unless set). */

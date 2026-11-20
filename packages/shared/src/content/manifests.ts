@@ -930,6 +930,20 @@ export const ModeSchema = z.looseObject({
       burning: { damage: 5 },
     }),
   /**
+   * Crippled tanks (match rule `tankDamage`, kernel 0.68.0): at or under `at` percent of its
+   * health a tank's tracks are broken, so it drives `drive` percent of its cells a turn, and its
+   * fuel tank is holed: `spill` cells of `leak` run out beside it at once and one more for every
+   * third cell it drives. No `leak`: nothing runs out.
+   */
+  wounds: z
+    .strictObject({
+      at: z.number().int().min(1).max(99),
+      drive: z.number().int().min(0).max(100),
+      spill: z.number().int().min(0).max(12),
+      leak: MaterialRefSchema.optional(),
+    })
+    .default({ at: 25, drive: 50, spill: 6 }),
+  /**
    * Weapon draft (points match, kernel 0.62.0): before every round the match draws a pool of
    * `picks` weapons per player from what the shop sells (only weapons that deal damage), and the
    * players take turns picking from it, snake order, `pickTimer` seconds a pick. Each tank then
