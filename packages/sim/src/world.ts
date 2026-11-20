@@ -173,7 +173,7 @@ export interface MatchRules {
    */
   mapEvents?: boolean | undefined;
   /**
-   * Blast cover (kernel 0.62.0): solid ground between a blast and a tank soaks up part of its
+   * Blast cover (kernel 0.63.0): solid ground between a blast and a tank soaks up part of its
    * damage and shove, and a blast shut in by ground on nearly every side reaches further along
    * whatever opening it has. See `World.coverKeep`. Off unless set, so scenarios and tests keep
    * their results.
@@ -378,6 +378,11 @@ export interface Tank extends TankHandle {
   gear: number[];
   /** A parachute opened during the current fall: it drifts down and lands unhurt. */
   chute: boolean;
+  /**
+   * Weapon mod fitted for the next shot (§4.1), index into `World.gear`, or -1. It stays on until a
+   * shot that takes mods uses it up, or the owner takes it off. Hashed only while fitted.
+   */
+  mod: number;
   angle: number;
   power: number;
   weapon: number;
@@ -684,6 +689,8 @@ interface RtWeapon {
   /** Goes off when its shooter presses fire again in flight. */
   onCommand: boolean;
   onTimer: number;
+  /** Takes weapon mods (§4.1): a plain arc that goes off on the ground. */
+  modable: boolean;
   impacts: RtImpact[];
   pulse: RtImpact[];
   price: number;
@@ -696,10 +703,18 @@ interface RtWeapon {
 /** A `gear.*` item as the kernel uses it (§5.1). */
 export interface RtGear {
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   readonly shield: number;
   readonly heal: number;
   readonly fallSpeed: number;
+  /** Weapon mod (§4.1, `deploy: "mod"`): shells in the fan and degrees between them. */
+  readonly split: number;
+  readonly spread: number;
+  /** Weapon mod: ticks after firing it goes off wherever it is (0 = no fuse). */
+  readonly fuse: number;
+  /** Weapon mod: a flight whose `contact` takes over the shell's hits, or null. */
+  readonly modFlight: FlightBehaviour | null;
+  readonly modParams: unknown;
   readonly price: number;
   readonly pack: number;
   readonly max: number;
@@ -991,6 +1006,13 @@ export class World implements SimApi {
         onApex: named.includes('onApex'),
         onCommand: named.includes('onCommand'),
         onTimer,
+        modable:
+          w.mods &&
+          flight.modable === true &&
+          named.includes('onSolid') &&
+          !named.includes('onApex') &&
+          !named.includes('onCommand') &&
+          onTimer === 0,
         impacts: w.impact.map((imp) => this.bindImpact(imp, w.id)),
         pulse: w.pulse.map((imp) => this.bindImpact(imp, w.id)),
         price: w.shop.price,
@@ -1002,12 +1024,19 @@ export class World implements SimApi {
     }
     for (const g of content.list('gear')) {
       this.gearIndex[g.id] = this.gear.length;
+      const mf = g.mod?.flight;
+      const modFlight = mf ? content.behaviours.getKind(mf.behaviour, 'flight') : null;
       this.gear.push({
         id: g.id,
         deploy: g.deploy,
         shield: g.shield,
         heal: g.heal,
         fallSpeed: g.fallSpeed,
+        split: g.mod?.split ?? 1,
+        spread: g.mod?.spread ?? 0,
+        fuse: g.mod?.fuse ?? 0,
+        modFlight,
+        modParams: mf && modFlight ? modFlight.params.parse(behaviourParams(mf)) : null,
         price: g.shop.price,
         pack: g.shop.pack,
         max: g.shop.max,
@@ -1321,6 +1350,7 @@ export class World implements SimApi {
         shieldMax: 0,
         gear,
         chute: false,
+        mod: -1,
         angle: 90,
         power: START_POWER,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
@@ -2003,9 +2033,17 @@ export class World implements SimApi {
     }
   }
 
+  /** Whether a weapon takes weapon mods (§4.1): a plain arc that goes off on the ground. */
+  weaponModable(id: string): boolean {
+    const w = Object.hasOwn(this.weaponIndex, id) ? this.weaponIndex[id] : undefined;
+    return w !== undefined && this.weapons[w]!.modable;
+  }
+
   /** Whether switching on gear `g` now would change anything for this tank. */
   gearUseful(t: Tank, g: number): boolean {
     const gear = this.gear[g];
+    // a mod is a bolt-on part, not electrics: it fits (or comes off) whenever the tank has one
+    if (gear?.deploy === 'mod') return t.alive && ((t.gear[g] ?? 0) > 0 || t.mod === g);
     // a jammed tank's electrics are dead: no shield, no battery until it wears off
     if (!gear || gear.deploy !== 'manual' || !t.alive || t.jam > 0) return false;
     return (gear.shield > 0 && t.shield < gear.shield) || (gear.heal > 0 && t.health < t.maxHealth);
@@ -2014,10 +2052,17 @@ export class World implements SimApi {
   /**
    * Switch on a piece of gear while aiming (§5.1); it doesn't use up the turn. A shield raises the
    * tank's shield to the gear's points, a battery restores health up to the round-start health.
+   * A weapon mod (§4.1) is fitted for the next shot instead, and nothing is used up until that
+   * shot; pressing it again takes it off, and another mod replaces it.
    * Returns false (changing nothing) when the tank has none or it would do nothing.
    */
   useGear(t: Tank, g: number): boolean {
     if (this.phase !== 'aim' || t.player !== this.activePlayer) return false;
+    if (this.gear[g]?.deploy === 'mod' && this.gearUseful(t, g)) {
+      t.mod = t.mod === g ? -1 : g;
+      this.emit('modFit', t.x, t.y - t.h, t.half + 2, { player: t.player, on: t.mod >= 0 ? 1 : 0 });
+      return true;
+    }
     if ((t.gear[g] ?? 0) <= 0 || !this.gearUseful(t, g)) return false;
     const gear = this.gear[g]!;
     t.gear[g]!--;
@@ -2269,24 +2314,42 @@ export class World implements SimApi {
       power = Math.max(0, power + this.rng.range(-pw, pw));
       this.emit('rustWobble', t.x, t.y - t.h, t.half, { player: t.player });
     }
-    const c = cosDeci(a);
-    const s = sinDeci(a);
     const speed = this.muzzleSpeed(t, power);
-    const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
-    const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
-    this.projectiles.push({
-      id: this.nextProjectileId++,
-      weapon: fired,
-      // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
-      owner: this.controller === t.player ? t.player : this.controller,
-      x,
-      y,
-      vx: Math.trunc((speed * c) / FP),
-      vy: -Math.trunc((speed * s) / FP),
-      age: 0,
-      alive: true,
-      data: [],
-    });
+    // a fitted weapon mod (§4.1) goes on this shell if the weapon takes mods, and is used up
+    const m = t.mod;
+    const mod = m >= 0 && this.weapons[fired]!.modable && (t.gear[m] ?? 0) > 0 ? m : -1;
+    if (mod >= 0) {
+      t.gear[mod]!--;
+      if (t.gear[mod] === 0) t.mod = -1;
+      this.emit('modFire', t.x, t.y - t.h, t.half + 2, { player: t.player, gear: mod });
+    }
+    const split = mod >= 0 ? this.gear[mod]!.split : 1;
+    const spread = mod >= 0 ? this.gear[mod]!.spread * 10 : 0;
+    // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
+    const owner = this.controller === t.player ? t.player : this.controller;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < split; i++) {
+      // the fan is centred on the aim, `spread` degrees between shells, in tenths
+      const ai = a + ((2 * i - (split - 1)) * spread) / 2;
+      const c = cosDeci(ai);
+      const s = sinDeci(ai);
+      x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
+      y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        weapon: fired,
+        owner,
+        x,
+        y,
+        vx: Math.trunc((speed * c) / FP),
+        vy: -Math.trunc((speed * s) / FP),
+        age: 0,
+        alive: true,
+        data: [],
+        ...(mod >= 0 ? { mod } : {}),
+      });
+    }
     t.lastShotAngle = t.angle;
     t.lastShotPower = t.power;
     this.shooter = t.player;
@@ -2450,7 +2513,8 @@ export class World implements SimApi {
       shield: g.shield,
       heal: g.heal,
       count: t.gear[i] ?? 0,
-      useful: this.gearUseful(t, i),
+      // bots leave weapon mods alone for now (§4.1): their aim can't foresee a split or a bounce
+      useful: g.deploy !== 'mod' && this.gearUseful(t, i),
     }));
   }
 
@@ -2473,7 +2537,7 @@ export class World implements SimApi {
     if (bot.b.gear) {
       // gear first (a shield up before the shot), each use validated like a human's
       for (const g of bot.b.gear(this.aiApi(t), bot.params)) {
-        if (Number.isInteger(g)) this.useGear(t, g);
+        if (Number.isInteger(g) && this.gear[g]?.deploy !== 'mod') this.useGear(t, g);
       }
     }
     const shot = bot.b.aim(this.aiApi(t), bot.params);
@@ -2762,7 +2826,10 @@ export class World implements SimApi {
       }
 
       if (sig !== 'skip' && this.trace(px, py, p, w)) {
-        const res: ContactResult = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+        const mg = p.mod === undefined ? null : this.gear[p.mod]!;
+        const res: ContactResult = mg?.modFlight?.contact
+          ? this.modContact(p, mg, hit)
+          : (w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact');
         if (res === 'impact') {
           this.impact(p, hit.x, hit.y);
           continue;
@@ -2779,6 +2846,12 @@ export class World implements SimApi {
         this.impactHere(p);
       } else if (w.onTimer > 0 && p.age >= w.onTimer) {
         this.impactHere(p);
+      } else if (
+        p.mod !== undefined &&
+        this.gear[p.mod]!.fuse > 0 &&
+        p.age >= this.gear[p.mod]!.fuse
+      ) {
+        this.impactHere(p);
       } else if (p.age >= w.maxTicks || p.y < -4 * H * FP || p.y >= (H + 8) * FP) {
         p.alive = false;
       }
@@ -2786,6 +2859,31 @@ export class World implements SimApi {
     if (this.projectiles.some((p) => !p.alive)) {
       this.projectiles = this.projectiles.filter((p) => p.alive);
     }
+  }
+
+  /**
+   * A modded shell's hit (§4.1): the mod's flight decides, e.g. a bounce. A rebound is told to the
+   * renderer; on a fuse the ground never sets it off, only a tank or the fuse does.
+   */
+  private modContact(p: Projectile, mg: RtGear, hit: FlightHit): ContactResult {
+    const vx = p.vx;
+    const vy = p.vy;
+    let res = mg.modFlight!.contact!(this, p, mg.modParams, hit);
+    if (res === 'impact' && mg.fuse > 0 && hit.tank < 0) {
+      // out of bounces or speed on a fuse: it comes to rest here and waits
+      p.x = hit.freeX * FP + (FP >> 1);
+      p.y = hit.freeY * FP + (FP >> 1);
+      p.vx = 0;
+      p.vy = 0;
+      res = 'continue';
+    }
+    if (res === 'pulse') {
+      // a plain shell has no pulse of its own: the bounce is just a bounce
+      const sp = Math.abs(vx) + Math.abs(vy);
+      this.emit('modBounce', hit.freeX, hit.freeY, 2, { hard: Math.min(9, sp >> FP_SHIFT) });
+      return 'continue';
+    }
+    return res;
   }
 
   /** Scratch hit record filled by `trace`. */
@@ -5409,12 +5507,14 @@ export class World implements SimApi {
       });
     }
     for (const p of this.projectiles) {
+      const fuse = p.mod === undefined ? 0 : this.gear[p.mod]!.fuse;
       entities.push({
         kind: 'projectile',
         id: p.id,
         weapon: this.weaponId(p.weapon),
         x: p.x / FP,
         y: p.y / FP,
+        ...(fuse > 0 ? { fuse: Math.max(0, fuse - p.age) } : {}),
       });
     }
     for (const z of this.zones) {
@@ -5604,6 +5704,8 @@ export class World implements SimApi {
       // mark and scope (Spotter Flare): likewise only while set
       if (t.mark > 0) h.num(t.mark).num(t.markBy).num(t.markBonus);
       if (t.scope > 0) h.num(t.scope);
+      // weapon mod (kernel 0.63.0): likewise only while fitted
+      if (t.mod >= 0) h.num(t.mod ^ 0x6d6f);
       // stains (kernel 0.56.0): likewise only while stained
       if (t.wet > 0 || t.oiled > 0 || t.muddy > 0 || t.burning > 0) {
         h.num(t.wet).num(t.oiled).num(t.muddy).num(t.burning);
@@ -5613,6 +5715,7 @@ export class World implements SimApi {
     for (const p of this.projectiles) {
       h.num(p.id).num(p.weapon).num(p.owner).num(p.x).num(p.y).num(p.vx).num(p.vy).num(p.age);
       for (const v of p.data) h.num(v);
+      if (p.mod !== undefined) h.num(p.mod ^ 0x6d6f);
     }
     // pressure fronts (kernel 0.33.0): only hashed while one runs, so other ticks keep their hashes
     if (this.fronts.length > 0) {

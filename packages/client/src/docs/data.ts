@@ -1,3 +1,4 @@
+import { TICK_RATE } from '@mudders/shared';
 import type { Impact, MaterialManifest, PropManifest, WeaponManifest } from '@mudders/shared';
 import type { ResolvedContent } from '@mudders/sim';
 
@@ -521,10 +522,24 @@ export function docsData(c: ResolvedContent): DocsData {
       { label: 'Carry', value: `up to ${g.shop.max}` },
       {
         label: 'Use',
-        value: g.deploy === 'manual' ? 'switch on while aiming' : 'opens when falling',
+        value:
+          g.deploy === 'manual'
+            ? 'switch on while aiming'
+            : g.deploy === 'mod'
+              ? 'fit while aiming; used by your next plain shell'
+              : 'opens when falling',
       },
       ...(g.shield > 0 ? [{ label: 'Shield', value: String(g.shield) }] : []),
       ...(g.heal > 0 ? [{ label: 'Heal', value: `+${g.heal}` }] : []),
+      ...(g.mod && g.mod.split > 1
+        ? [{ label: 'Split', value: `${g.mod.split} shells, ${g.mod.spread}° apart` }]
+        : []),
+      ...(g.mod?.flight && g.mod.fuse === 0 && typeof g.mod.flight.bounces === 'number'
+        ? [{ label: 'Bounces', value: String(g.mod.flight.bounces) }]
+        : []),
+      ...(g.mod && g.mod.fuse > 0
+        ? [{ label: 'Fuse', value: `${(g.mod.fuse / TICK_RATE).toFixed(1)} s` }]
+        : []),
     ],
   }));
 

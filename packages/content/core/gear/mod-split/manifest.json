@@ -1,0 +1,20 @@
+{
+  "id": "gear.mod-split",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Split Mod",
+    "description": "A weapon mod. Fit it while aiming and your next plain shell leaves the barrel as three, in a fan 6° apart. Used up by that shot; press again to take it off. Works on shells that arc and go off on the ground.",
+    "since": "core@0.98.0"
+  },
+  "deploy": "mod",
+  "mod": {
+    "split": 3,
+    "spread": 6
+  },
+  "shop": {
+    "price": 3000,
+    "pack": 1,
+    "max": 9
+  },
+  "label": "Split"
+}
