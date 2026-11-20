@@ -260,11 +260,17 @@ export function Shop({ hud, controls, send }: ShopProps) {
       <header className="shop-head">
         <div className="shop-title">
           <span className="scrub-label">
-            {opening ? 'Before round 1' : `Round ${hud.round} of ${hud.rounds} over`}
+            {opening
+              ? hud.wave
+                ? 'Before wave 1'
+                : 'Before round 1'
+              : `${hud.wave ? 'Wave' : 'Round'} ${hud.round} of ${hud.rounds} over`}
           </span>
           <h2>
             {opening ? (
               <>Shop</>
+            ) : hud.wave ? (
+              <>Wave {hud.round} held</>
             ) : hud.teams && last && last.winnerTeam >= 0 ? (
               <>Team {teamName(last.winnerTeam)} wins</>
             ) : last && last.winner >= 0 ? (

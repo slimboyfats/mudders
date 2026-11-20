@@ -30,6 +30,7 @@ import {
   AI_FUEL,
   AI_EASY,
   AI_NORMAL,
+  AI_HARD,
   AI_ACE,
   type AiApi,
   type AiBehaviour,
@@ -134,6 +135,8 @@ const PREDICT_TICKS = 900;
 /** Shop deals (`rules.shopDeals`): half price, or sold out for this shop. */
 export const DEAL_SALE = 1;
 export const DEAL_OUT = 2;
+/** Ticks a bot takes over a draft pick, so people can follow the picks. */
+const DRAFT_BOT_TICKS = 40;
 /** Free weapons per round under the random arsenal rule. */
 const ARSENAL_COUNT = 4;
 const SALE_COUNT = 4;
@@ -179,6 +182,13 @@ export interface MatchRules {
    * their results.
    */
   cover?: boolean | undefined;
+  /**
+   * Shells and materials (kernel 0.64.0): a plain shell glances off rock, steel and ice on a flat
+   * hit, skips on water when fast and flat, and buries itself in snow, sand and mud before it goes
+   * off (`shellContact` in the content flights). Off unless set, so scenarios and tests keep their
+   * results.
+   */
+  shells?: boolean | undefined;
   /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
@@ -352,7 +362,7 @@ export const STANDARD_TANK: TankType = {
 };
 
 /** `shop` sits between rounds; `over` is the end of the match. */
-export type Phase = 'aim' | 'resolve' | 'shop' | 'over';
+export type Phase = 'aim' | 'resolve' | 'shop' | 'draft' | 'over';
 
 export interface Tank extends TankHandle {
   readonly player: number;
@@ -455,6 +465,8 @@ export interface Tank extends TankHandle {
   kills: number;
   damageDealt: number;
   selfDamage: number;
+  /** Times this tank was destroyed and came back this round (mode `respawn`). */
+  deaths: number;
   /** Match totals; persist across rounds. */
   score: number;
   money: number;
@@ -755,6 +767,8 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Match rule `shells`, read by flight behaviours (`SimApi.shellPhysics`). */
+  readonly shellPhysics: boolean;
   /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
   private readonly coverOn: boolean;
   private readonly coverWeight = new Uint8Array(256);
@@ -845,7 +859,8 @@ export class World implements SimApi {
   generator = '';
   /** Effective match rules (mode values with setup-screen overrides applied). */
   readonly rounds: number;
-  readonly turnCap: number;
+  /** Turns per player before the round ends; a weapon draft sets it to the picks per player. */
+  turnCap: number;
   readonly turnTimerTicks: number;
   readonly shopTimerTicks: number;
   readonly windType: WindType;
@@ -892,6 +907,14 @@ export class World implements SimApi {
   arsenal: number[] = [];
   /** Results of finished rounds. */
   readonly results: RoundResult[] = [];
+  /**
+   * Weapon draft (mode `draft`): this round's pool by weapon index, who took each slot (-1 =
+   * free), the order players pick in (one entry per pick) and how many picks are done.
+   */
+  draftPool: number[] = [];
+  draftBy: number[] = [];
+  draftOrder: number[] = [];
+  draftPos = 0;
   projectiles: Projectile[] = [];
   ops: OpInstance[] = [];
   private fronts: PressureFront[] = [];
@@ -964,6 +987,7 @@ export class World implements SimApi {
 
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
+    this.shellPhysics = rules.shells === true;
     this.coverOn = rules.cover === true;
     if (this.coverOn) {
       // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
@@ -1118,7 +1142,11 @@ export class World implements SimApi {
     };
 
     this.createTanks();
-    if (rules.openingShop === true) {
+    if (mode.draft) {
+      // a points match: no shop, the draft opens on round 1's map
+      this.startRound(false);
+      this.openDraft();
+    } else if (rules.openingShop === true) {
       // the opening shop (§3.6): round 1's map is generated and shown behind the shop, and the
       // first turn begins when everyone is ready or the timer runs out
       this.startRound(false);
@@ -1307,6 +1335,9 @@ export class World implements SimApi {
       this.timer = next >= 0 ? 0 : this.turnTimerTicks;
     } else if (this.phase === 'shop' && next >= 0 && !t.ready) {
       this.botShop(t);
+    } else if (this.phase === 'draft' && t.player === this.drafter) {
+      this.botWait = next >= 0 ? DRAFT_BOT_TICKS : 0;
+      this.timer = next >= 0 ? 0 : this.pickTimerTicks;
     }
   }
 
@@ -1385,6 +1416,7 @@ export class World implements SimApi {
         lastHitBy: -1,
         bountyCash: 0,
         kills: 0,
+        deaths: 0,
         damageDealt: 0,
         selfDamage: 0,
         score: setup?.score ?? 0,
@@ -1527,7 +1559,9 @@ export class World implements SimApi {
       const col = this.options.tankColumns?.[p] ?? res.spawns[p] ?? 0;
       tank.x = Math.max(tank.half, Math.min(g.width - tank.half - 1, col));
       tank.alive = true;
-      const full = Math.trunc((this.mode.startingHealth * tank.type.health) / 100);
+      const full = Math.trunc(
+        (this.mode.startingHealth * tank.type.health * this.wavePct(tank)) / 10000,
+      );
       tank.health = this.options.tankSetup?.[p]?.health ?? full;
       tank.maxHealth = Math.max(full, tank.health);
       tank.shield = tank.type.shield;
@@ -1562,6 +1596,7 @@ export class World implements SimApi {
       tank.lastHitBy = -1;
       tank.bountyCash = 0;
       tank.kills = 0;
+      tank.deaths = 0;
       tank.damageDealt = 0;
       tank.selfDamage = 0;
       tank.lastShotX = -1;
@@ -1858,8 +1893,9 @@ export class World implements SimApi {
     this.pendingInputs = [];
     for (const { player, input } of inputs) this.handleInput(player, input);
 
-    if (this.phase === 'shop') {
-      this.stepShop();
+    if (this.phase === 'shop' || this.phase === 'draft') {
+      if (this.phase === 'shop') this.stepShop();
+      else this.stepDraft();
       this.tick++;
       probe?.(0);
       return;
@@ -1985,6 +2021,12 @@ export class World implements SimApi {
     const t = this.tanks[player];
     if (!t) return;
     if (input.type === 'takeover') return this.takeover(t, input.bot);
+    if (input.type === 'pick') {
+      if (this.phase === 'draft' && player === this.drafter && t.bot < 0) {
+        this.takePick(t, input.slot);
+      }
+      return;
+    }
     if (input.type === 'buy' || input.type === 'buyFuel' || input.type === 'ready') {
       if (this.phase !== 'shop' || t.ready) return;
       if (input.type === 'ready') t.ready = true;
@@ -2482,6 +2524,9 @@ export class World implements SimApi {
 
   /** A seat's bot difficulty (AI_EASY … AI_ACE), AI_NORMAL when unset or out of range. */
   private botSkill(p: number): number {
+    const wv = this.mode.waves;
+    if (wv && (this.options.teams?.[p] ?? p) !== wv.team)
+      return wv.skill[Math.min(this.round, wv.skill.length - 1)]!;
     const s = this.options.botSkills?.[p];
     return typeof s === 'number' && Number.isInteger(s) && s >= AI_EASY && s <= AI_ACE
       ? s
@@ -2827,9 +2872,13 @@ export class World implements SimApi {
 
       if (sig !== 'skip' && this.trace(px, py, p, w)) {
         const mg = p.mod === undefined ? null : this.gear[p.mod]!;
-        const res: ContactResult = mg?.modFlight?.contact
-          ? this.modContact(p, mg, hit)
-          : (w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact');
+        let res: ContactResult;
+        if (mg?.modFlight?.contact) {
+          res = this.modContact(p, mg, hit);
+        } else {
+          res = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+          w.flight.contacted?.(this, p, w.flightParams, hit, res);
+        }
         if (res === 'impact') {
           this.impact(p, hit.x, hit.y);
           continue;
@@ -5161,6 +5210,7 @@ export class World implements SimApi {
         });
       }
     }
+    if (this.mode.respawn) this.respawnTanks();
     if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
       this.endRound();
       return;
@@ -5281,7 +5331,8 @@ export class World implements SimApi {
     const eco = this.mode.economy;
     const standing = this.teamTotals().filter((e) => e.alive);
     let winnerTeam = -1;
-    if (standing.length === 1) winnerTeam = standing[0]!.team;
+    if (this.mode.respawn) winnerTeam = this.bestScoringTeam();
+    else if (standing.length === 1) winnerTeam = standing[0]!.team;
     else if (standing.length > 1) {
       // turn cap: rank surviving teams by health, then damage dealt, then lowest player number
       winnerTeam = standing.sort(
@@ -5297,7 +5348,8 @@ export class World implements SimApi {
       let pts =
         Math.trunc(t.damageDealt * sc.damage) +
         t.kills * sc.kill -
-        Math.trunc(t.selfDamage * sc.selfDamage);
+        Math.trunc(t.selfDamage * sc.selfDamage) -
+        t.deaths * (this.mode.respawn?.penalty ?? 0);
       if (t.alive) pts += sc.survival;
       if (t.team === winnerTeam) pts += sc.roundWin;
       points.push(pts);
@@ -5341,11 +5393,238 @@ export class World implements SimApi {
     this.round++;
     this.projectiles = [];
     this.timer = 0;
-    if (this.round >= this.rounds) {
+    const lost = this.mode.waves !== null && winnerTeam !== this.mode.waves.team;
+    if (this.round >= this.rounds || lost) {
       this.phase = 'over';
       return;
     }
+    if (this.mode.draft) {
+      // a fresh map, then the next draft on it
+      this.startRound(false);
+      this.openDraft();
+      return;
+    }
     this.openShop();
+  }
+
+  /** Base points of a round so far per team (damage, kills, self-damage, deaths), best first. */
+  private bestScoringTeam(): number {
+    const sc = this.mode.scoring;
+    const pen = this.mode.respawn?.penalty ?? 0;
+    const teams: number[] = [];
+    const pts: number[] = [];
+    for (const t of this.tanks) {
+      let k = teams.indexOf(t.team);
+      if (k < 0) {
+        k = teams.length;
+        teams.push(t.team);
+        pts.push(0);
+      }
+      pts[k]! +=
+        Math.trunc(t.damageDealt * sc.damage) +
+        t.kills * sc.kill -
+        Math.trunc(t.selfDamage * sc.selfDamage) -
+        t.deaths * pen;
+    }
+    let best = -1;
+    let tie = false;
+    for (let k = 0; k < teams.length; k++) {
+      if (best < 0 || pts[k]! > pts[best]!) {
+        best = k;
+        tie = false;
+      } else if (pts[k] === pts[best]) tie = true;
+    }
+    return best < 0 || tie ? -1 : teams[best]!;
+  }
+
+  /**
+   * Respawn (mode `respawn`): every destroyed tank comes back at the end of the turn with full
+   * health and nothing stuck to it, where it fell, or on top of the ground if it fell out of the
+   * map. Its `deaths` count costs it the penalty at the round's end.
+   */
+  private respawnTanks(): void {
+    const g = this.grid;
+    for (const t of this.tanks) {
+      if (t.alive) continue;
+      t.alive = true;
+      t.deaths++;
+      t.health = t.maxHealth;
+      t.shield = t.type.shield;
+      t.shieldMax = t.type.shield;
+      t.falling = false;
+      t.fallVel = 0;
+      t.chute = false;
+      t.sunk = 0;
+      t.slid = 0;
+      t.chill = 0;
+      t.glue = 0;
+      t.rust = 0;
+      t.jam = 0;
+      t.mind = 0;
+      t.mindBy = -1;
+      t.mark = 0;
+      t.markBy = -1;
+      t.wet = 0;
+      t.oiled = 0;
+      t.muddy = 0;
+      t.burning = 0;
+      t.x = Math.max(t.half, Math.min(g.width - t.half - 1, t.x));
+      t.y = this.restingY(t);
+      if (t.y >= g.height) {
+        // nothing under it at all (dug out of the map): back in the middle
+        t.x = g.width >> 1;
+        t.y = this.restingY(t);
+      }
+      this.emit('respawn', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+    }
+  }
+
+  /** Health percent for a tank this round: the wave's for attackers in co-op, else 100. */
+  private wavePct(t: Tank): number {
+    const wv = this.mode.waves;
+    if (!wv || t.team === wv.team) return 100;
+    const n = wv.health.length;
+    const r = this.round;
+    return r < n ? wv.health[r]! : wv.health[n - 1]! + (r - n + 1) * wv.healthStep;
+  }
+
+  /**
+   * Co-op waves: how many waves the defending team has won (every round it won, since a lost
+   * one ends the match). -1 without waves.
+   */
+  get wavesWon(): number {
+    const wv = this.mode.waves;
+    if (!wv) return -1;
+    return this.results.filter((r) => r.winnerTeam === wv.team).length;
+  }
+
+  // ── weapon draft ────────────────────────────────────────────────────────────────────────
+
+  /** Picks per player this round's draft (the pool may be smaller than the mode asks). */
+  get draftPicks(): number {
+    return this.draftOrder.length / Math.max(1, this.tanks.length);
+  }
+
+  /** The player whose pick it is, or -1 outside a draft. */
+  get drafter(): number {
+    return this.phase === 'draft' ? (this.draftOrder[this.draftPos] ?? -1) : -1;
+  }
+
+  private get pickTimerTicks(): number {
+    return Math.max(1, Math.round((this.mode.draft?.pickTimer ?? 10) * TICK_RATE));
+  }
+
+  /**
+   * Open the draft (mode `draft`) on the round's fresh map: draw the pool from the weapons the
+   * shop sells that deal damage, empty every tank's weapons, and deal the picks in snake order
+   * of the round's turn order (1 2 3 3 2 1 1 2 3 …).
+   */
+  private openDraft(): void {
+    const dr = this.mode.draft!;
+    const n = this.tanks.length;
+    const eligible: number[] = [];
+    for (let i = 0; i < this.weapons.length; i++) {
+      const w = this.weapons[i]!;
+      if (w.price > 0 && w.expectedDamage > 0) eligible.push(i);
+    }
+    const picks = Math.max(1, Math.min(dr.picks, Math.trunc(eligible.length / n)));
+    const pool: number[] = [];
+    for (let k = 0; k < picks * n && eligible.length > 0; k++) {
+      pool.push(eligible.splice(this.rng.int(eligible.length), 1)[0]!);
+    }
+    // cheapest first, as the shop sorts them
+    pool.sort((a, b) => this.weapons[a]!.price - this.weapons[b]!.price || a - b);
+    this.draftPool = pool;
+    this.draftBy = pool.map(() => -1);
+    this.draftOrder = [];
+    for (let r = 0; r < picks; r++) {
+      for (let i = 0; i < n; i++) this.draftOrder.push(this.order[r % 2 === 0 ? i : n - 1 - i]!);
+    }
+    this.draftPos = 0;
+    this.turnCap = picks;
+    for (const t of this.tanks) {
+      t.inventory.fill(0);
+      t.ready = false;
+    }
+    this.phase = 'draft';
+    this.startPick();
+  }
+
+  /** Clock for the pick that is up: a bot thinks a moment, a human gets the pick timer. */
+  private startPick(): void {
+    const t = this.tanks[this.drafter];
+    const bot = t !== undefined && t.bot >= 0;
+    this.botWait = bot ? DRAFT_BOT_TICKS : 0;
+    this.timer = bot ? 0 : this.pickTimerTicks;
+  }
+
+  private stepDraft(): void {
+    const t = this.tanks[this.drafter];
+    if (!t) return this.endDraft();
+    if (t.bot >= 0) {
+      if (this.botWait > 0 && --this.botWait > 0) return;
+      return this.takePick(t, this.botPick(t));
+    }
+    if (this.timer > 0 && --this.timer > 0) return;
+    // out of time: the strongest weapon left is taken for the player
+    this.takePick(t, this.bestFree(-1));
+  }
+
+  /** Free slot with the highest expected damage among `among` (or all free slots for -1 … ). */
+  private bestFree(skip: number, among?: readonly number[]): number {
+    let best = -1;
+    const slots = among ?? this.draftPool.map((_, i) => i);
+    for (const s of slots) {
+      if (s === skip || this.draftBy[s] !== -1) continue;
+      const w = this.weapons[this.draftPool[s]!]!;
+      if (best < 0 || w.expectedDamage > this.weapons[this.draftPool[best]!]!.expectedDamage) {
+        best = s;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * A bot's pick: Easy takes any weapon, Normal the best of three it looks at, Hard and Ace the
+   * strongest left.
+   */
+  private botPick(t: Tank): number {
+    const free: number[] = [];
+    for (let s = 0; s < this.draftPool.length; s++) if (this.draftBy[s] === -1) free.push(s);
+    if (free.length === 0) return -1;
+    const skill = this.botSkill(t.player);
+    if (skill >= AI_HARD) return this.bestFree(-1, free);
+    if (skill <= AI_EASY) return free[this.rng.int(free.length)]!;
+    const look: number[] = [];
+    for (let k = 0; k < 3; k++) look.push(free[this.rng.int(free.length)]!);
+    return this.bestFree(-1, look);
+  }
+
+  private takePick(t: Tank, slot: number): void {
+    if (slot < 0 || slot >= this.draftPool.length || this.draftBy[slot] !== -1) return;
+    const w = this.draftPool[slot]!;
+    this.draftBy[slot] = t.player;
+    t.inventory[w] = (t.inventory[w] ?? 0) + 1;
+    this.emit('draftPick', 0, 0, 0, { player: t.player, weapon: w, slot });
+    this.draftPos++;
+    if (this.draftPos >= this.draftOrder.length) return this.endDraft();
+    this.startPick();
+  }
+
+  /** Everyone has picked: each tank aims its strongest weapon first, and the round's first turn begins. */
+  private endDraft(): void {
+    for (const t of this.tanks) {
+      let best = -1;
+      for (let i = 0; i < t.inventory.length; i++) {
+        if (t.inventory[i] === 0) continue;
+        if (best < 0 || this.weapons[i]!.expectedDamage > this.weapons[best]!.expectedDamage)
+          best = i;
+      }
+      t.weapon = best < 0 ? this.firstWeapon(t) : best;
+    }
+    this.botWait = 0;
+    this.timer = 0;
+    this.beginTurn();
   }
 
   private openShop(): void {
@@ -5370,8 +5649,11 @@ export class World implements SimApi {
         } else this.deals[w] = DEAL_OUT;
       }
     }
+    const wv = this.mode.waves;
     for (const t of this.tanks) {
       t.ready = false;
+      // co-op: the attackers get the wave's war chest before they shop
+      if (wv && t.team !== wv.team) t.money += wv.cash * (this.round + 1);
       if (t.bot >= 0) this.botShop(t);
     }
   }
@@ -5443,6 +5725,12 @@ export class World implements SimApi {
    */
   get matchWinnerTeam(): number {
     if (this.phase !== 'over') return -1;
+    const wv = this.mode.waves;
+    if (wv) {
+      // co-op: the defenders win by holding every wave; otherwise the attackers do
+      if (this.wavesWon >= this.rounds) return wv.team;
+      return this.tanks.find((t) => t.team !== wv.team)?.team ?? -1;
+    }
     const wins = (team: number) => this.results.filter((r) => r.winnerTeam === team).length;
     return this.teamTotals().sort(
       (a, b) => b.score - a.score || wins(b.team) - wins(a.team) || a.first - b.first,
@@ -5632,6 +5920,12 @@ export class World implements SimApi {
     for (const p of this.prices) h.num(p);
     if (this.options.rules?.shopDeals === true) for (const d of this.deals) h.num(d);
     if (this.options.rules?.randomArsenal === true) for (const a of this.arsenal) h.num(a);
+    if (this.mode.draft) {
+      h.num(this.draftPos).num(this.turnCap);
+      for (let i = 0; i < this.draftPool.length; i++)
+        h.num(this.draftPool[i]!).num(this.draftBy[i]!);
+      for (const p of this.draftOrder) h.num(p);
+    }
     for (let i = 0; i < 4; i++) h.u32(this.rng.state[i]!);
     h.bytes(g.material).bytes(g.coating).bytes(g.gas).bytes(g.cellState).bytes(g.fallVel);
     h.bytes(new Uint8Array(g.flowVel.buffer, g.flowVel.byteOffset, g.flowVel.length));
@@ -5686,6 +5980,7 @@ export class World implements SimApi {
         .num(t.fuelBurn)
         .num(t.lastHitBy);
       h.num(t.kills).num(t.damageDealt).num(t.selfDamage);
+      if (t.deaths !== 0) h.num(t.deaths ^ 0x0de4);
       h.num(t.score)
         .num(t.money)
         .num(t.bot)

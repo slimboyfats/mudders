@@ -70,6 +70,11 @@ export interface SimApi extends EffectSink {
   /** Air temperature now, whole °C (§3.4). Scale with `tempHeat`/`tempChill` from shared. */
   readonly temperature: number;
   /**
+   * Match rule `shells` (kernel 0.64.0): plain shells answer to what they hit (glance off hard
+   * ground, skip on water, bury themselves in soft ground). Flight behaviours read it in `contact`.
+   */
+  readonly shellPhysics: boolean;
+  /**
    * Knock a cell loose as a sim debris particle (fixed-point position and velocity). The cell is
    * cleared from the grid and becomes terrain again where the particle lands. Returns false (and
    * leaves the cell alone) if the debris pool is full.
@@ -229,9 +234,15 @@ export interface FlightBehaviour<P = unknown> extends BehaviourBase<P> {
   /** Called on a hit; without it every hit is an `impact`. */
   contact?(api: SimApi, p: Projectile, params: P, hit: FlightHit): ContactResult;
   /**
+   * Called right after `contact` on a real shot, never by the aim predictor, so this is where a
+   * contact's side effects go (effect events, cells knocked loose). `res` is what `contact` said.
+   */
+  contacted?(api: SimApi, p: Projectile, params: P, hit: FlightHit, res: ContactResult): void;
+  /**
    * A plain arc that weapon mods (§4.1, `gear` with `deploy: "mod"`) may change: split into a fan,
-   * take over its hits with another flight's `contact`, or set it off on a fuse. Only flights that
-   * keep nothing of their own in `Projectile.data` and have no `contact` of their own say yes.
+   * take over its hits with another flight's `contact`, or set it off on a fuse. Only flights whose
+   * own `contact`, if any, can be left out without loss say yes (`flight.ballistic`: a modded shell
+   * with a contact of its mod's skips the shell physics, and their `Projectile.data` never mix).
    */
   readonly modable?: boolean;
 }

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Sudden death sting",
     "description": "Sudden death begins: a low brass tritone (A against D#) with a dark choir cluster, hammered kicks and timpani, and a long crash.",
-    "since": "core@0.99.0"
+    "since": "core@0.100.0"
   },
   "bus": "music",
   "licence": {

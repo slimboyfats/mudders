@@ -6,6 +6,7 @@ import {
   activeTeams,
   canStart,
   defaultTeams,
+  GAMES,
   saveSetup,
   SKILL_ABOUT,
   SKILL_NAMES,
@@ -62,7 +63,9 @@ export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
     update({ ...setup, slots });
   };
   const n = activeSlots(setup).length;
-  const teams = setup.teams;
+  const game = setup.game ?? 'classic';
+  // teams are picked by hand only in a classic match (co-op sets them, points has none)
+  const teams = game === 'classic' ? setup.teams : null;
   const oneTeam = teams !== null && n >= 2 && !canStart(setup);
   const setTeam = (i: number, t: number) => {
     const next = [...(teams ?? defaultTeams(setup.slots.length))];
@@ -85,12 +88,19 @@ export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
         </p>
       )}
       <section className="slots" aria-label="Players">
-        <TeamsToggle
-          on={teams !== null}
-          onChange={(on) =>
-            update({ ...setup, teams: on ? defaultTeams(setup.slots.length) : null })
-          }
-        />
+        {game === 'classic' && (
+          <TeamsToggle
+            on={teams !== null}
+            onChange={(on) =>
+              update({ ...setup, teams: on ? defaultTeams(setup.slots.length) : null })
+            }
+          />
+        )}
+        {game === 'coop' && (
+          <p className="hint" data-testid="coop-hint">
+            Humans team up against the AI players. The waves set how well the bots play.
+          </p>
+        )}
         {setup.slots.slice(0, shown).map((slot, i) => (
           <label
             key={i}
@@ -122,7 +132,7 @@ export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
                 onChange={(t) => setTank(i, t)}
               />
             )}
-            {slot.startsWith('ai.') && (
+            {slot.startsWith('ai.') && game !== 'coop' && (
               <SkillPick value={setup.skills[i]} seat={i} onChange={(k) => setSkill(i, k)} />
             )}
             {teams && slot !== 'off' && (
@@ -130,6 +140,11 @@ export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
             )}
           </label>
         ))}
+        {game === 'coop' && n >= 2 && !canStart(setup) && (
+          <p className="hint" data-testid="coop-need">
+            Co-op needs at least one human and one AI player.
+          </p>
+        )}
         {oneTeam && (
           <p className="hint" data-testid="one-team">
             Everyone is on one team: put someone on another team to start.
@@ -173,7 +188,11 @@ export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
           onClick={onStart}
           data-testid="start"
         >
-          Start ({n} players{teamsLabel(activeTeams(setup))})
+          Start ({n} players
+          {game === 'classic'
+            ? teamsLabel(activeTeams(setup))
+            : `, ${GAMES[game].name.toLowerCase()}`}
+          )
         </button>
       </div>
     </main>

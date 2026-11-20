@@ -1,5 +1,5 @@
 {
-  "contentHash": "835ef9e1d50fbaf1",
+  "contentHash": "31dc35e4ed971f25",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -865,6 +865,14 @@
       "ticks": 852,
       "hash": "b12e18f553cdda44"
     },
+    "mode.coop": {
+      "ticks": 2400,
+      "hash": "546ee5dce16bf6ab"
+    },
+    "mode.points": {
+      "ticks": 46,
+      "hash": "e97210d049b0de7e"
+    },
     "mode.teams": {
       "ticks": 2400,
       "hash": "e5dc246d02be8ea6"
@@ -1016,6 +1024,10 @@
     "showcase.sandstorm": {
       "ticks": 241,
       "hash": "7f857de5c2befe35"
+    },
+    "showcase.shell-skip": {
+      "ticks": 426,
+      "hash": "e823940a74fb668f"
     },
     "showcase.slowmo-finisher": {
       "ticks": 230,
