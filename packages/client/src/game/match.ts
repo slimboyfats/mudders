@@ -59,7 +59,35 @@ export interface HudTank {
   ready: boolean;
   /** Cash for destroying this tank while it carries the leader's bounty; 0 = no bounty. */
   bounty: number;
+  /** Points match: times destroyed and brought back this round. */
+  deaths: number;
+  /** Points this round so far (damage, kills, self-damage, deaths), before the round's bonuses. */
+  roundPoints: number;
 }
+
+/** One weapon in a points match's draft pool. */
+export interface DraftSlot {
+  slot: number;
+  /** Player who took it, or -1 while it is free. */
+  by: number;
+  item: ShopItem;
+}
+
+/** The weapon draft of a points match, while it runs. */
+export interface HudDraft {
+  /** Player whose pick it is. */
+  drafter: number;
+  /** Picks each player makes; picks made so far, of `total`. */
+  picks: number;
+  pos: number;
+  total: number;
+  /** Who picks next, the current pick first. */
+  next: number[];
+  pool: DraftSlot[];
+}
+
+/** Kind of match, from the mode: classic, points (draft + respawn) or co-op waves. */
+export type HudGame = 'classic' | 'points' | 'coop';
 
 export interface HudGear {
   id: string;
@@ -92,7 +120,12 @@ export interface ShopItem {
 }
 
 export interface HudState {
-  phase: 'aim' | 'resolve' | 'shop' | 'over';
+  phase: 'aim' | 'resolve' | 'shop' | 'draft' | 'over';
+  game: HudGame;
+  /** Points match: the draft while it runs, else null. */
+  draft: HudDraft | null;
+  /** Co-op: waves held so far and the defending team, else null. */
+  wave: { won: number; team: number } | null;
   activePlayer: number;
   /** Player steering the active tank: itself, or its Telepathy caster while mind-linked. */
   controller: number;
@@ -242,7 +275,13 @@ export abstract class SimMatch implements SnapshotStream {
     // a match that changes map or sky between rounds says where this round is played
     const w = this.world;
     const news = w.options.perRound !== undefined || w.arsenal.length > 0 || w.bountyPlayer >= 0;
-    if (news && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
+    if (
+      news &&
+      w.phase !== 'shop' &&
+      w.phase !== 'draft' &&
+      w.phase !== 'over' &&
+      w.round !== this.shown
+    ) {
       this.shown = w.round;
       const free = w.arsenal.map((i) => this.names[w.weaponId(i)] ?? w.weaponId(i));
       this.alert = { text: roundLine(w, free), tick: s.tick };
@@ -273,6 +312,33 @@ export abstract class SimMatch implements SnapshotStream {
       text = `+$${p.amount.toLocaleString('en')}`;
     }
     return { player: p.player, text, tick: p.tick };
+  }
+
+  /** The draft as the HUD shows it: the pool in shop order, who took what, who picks next. */
+  private draftOf(w: World): HudDraft {
+    return {
+      drafter: w.drafter,
+      picks: w.draftPicks,
+      pos: w.draftPos,
+      total: w.draftOrder.length,
+      next: w.draftOrder.slice(w.draftPos, w.draftPos + 8),
+      pool: w.draftPool.map((wi, slot) => {
+        const id = w.weaponId(wi);
+        const known = this.shopItems.find((i) => i.index === wi);
+        return {
+          slot,
+          by: w.draftBy[slot] ?? -1,
+          item: known ?? {
+            id,
+            name: this.names[id] ?? id,
+            description: '',
+            category: this.categories[id] ?? '',
+            price: 0,
+            pack: 1,
+          },
+        };
+      }),
+    };
   }
 
   /** An input from this device for `player`. */
@@ -310,15 +376,19 @@ export abstract class SimMatch implements SnapshotStream {
   hud(): HudState {
     const w = this.world;
     const last = w.results[w.results.length - 1];
+    const wv = w.mode.waves;
     return {
       phase: w.phase,
+      game: w.mode.draft ? 'points' : wv ? 'coop' : 'classic',
+      draft: w.phase === 'draft' ? this.draftOf(w) : null,
+      wave: wv ? { won: w.wavesWon, team: wv.team } : null,
       activePlayer: w.activePlayer,
       controller: w.controller,
       turn: w.turn,
       round: w.phase === 'shop' || w.phase === 'over' ? w.round : w.round + 1,
       rounds: w.rounds,
       seconds: w.timer > 0 ? Math.ceil(w.timer / TICK_RATE) : -1,
-      suddenDeath: w.phase !== 'shop' && w.suddenDeathActive,
+      suddenDeath: w.phase !== 'shop' && w.phase !== 'draft' && w.suddenDeathActive,
       wind: hudWind(w.wind, w.mode.wind.max),
       windBase: hudWind(w.windBase, w.mode.wind.max),
       windMax: w.mode.wind.max,
@@ -364,6 +434,14 @@ export abstract class SimMatch implements SnapshotStream {
         money: t.money,
         score: t.score,
         ready: t.ready,
+        deaths: t.deaths,
+        roundPoints:
+          w.phase === 'aim' || w.phase === 'resolve'
+            ? Math.trunc(t.damageDealt * w.mode.scoring.damage) +
+              t.kills * w.mode.scoring.kill -
+              Math.trunc(t.selfDamage * w.mode.scoring.selfDamage) -
+              t.deaths * (w.mode.respawn?.penalty ?? 0)
+            : 0,
         bounty:
           t.player === w.bountyPlayer && w.phase !== 'shop' && w.phase !== 'over'
             ? w.bountyValue()
@@ -520,10 +598,10 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.commanders}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.commanders}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}|${h.draft ? `${h.draft.pos}:${h.draft.drafter}` : ''}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
+    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0},${t.deaths},${t.roundPoints}`;
     for (const i of t.inventory) k += `,${i.count}`;
     for (const g of t.gear) k += `;${g.count}${g.useful ? 'u' : ''}`;
   }

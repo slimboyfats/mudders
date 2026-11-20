@@ -68,6 +68,7 @@ function useChanges(source: { subscribe: (fn: () => void) => () => void } | null
 function rulesOf(): LobbyRules {
   const s = loadSetup();
   return {
+    game: s.game ?? 'classic',
     size: s.size,
     scenery: s.scenery,
     rounds: s.rounds,
@@ -466,17 +467,19 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
       )}
       {mode === 'direct' && <DirectInvite onLink={(l) => session.addLink(l)} />}
       <section className="slots" aria-label="Players">
-        <TeamsToggle
-          on={session.rules.teams !== null}
-          onChange={(on) => {
-            const rules = {
-              ...session.rules,
-              teams: on ? defaultTeams(session.seats.length) : null,
-            };
-            session.setRules(rules);
-            saveSetup({ ...loadSetup(), ...rules });
-          }}
-        />
+        {(session.rules.game ?? 'classic') === 'classic' && (
+          <TeamsToggle
+            on={session.rules.teams !== null}
+            onChange={(on) => {
+              const rules = {
+                ...session.rules,
+                teams: on ? defaultTeams(session.seats.length) : null,
+              };
+              session.setRules(rules);
+              saveSetup({ ...loadSetup(), ...rules });
+            }}
+          />
+        )}
         <ul className="seats">
           {lobby.seats.map((s, i) => (
             <SeatRow
@@ -486,7 +489,11 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
               you={0}
               bots={bots}
               onSet={(v) => session.setSeat(i, v)}
-              team={session.rules.teams ? (session.rules.teams[i] ?? i % 2) : undefined}
+              team={
+                (session.rules.game ?? 'classic') === 'classic' && session.rules.teams
+                  ? (session.rules.teams[i] ?? i % 2)
+                  : undefined
+              }
               onTeam={(t) => session.setTeam(i, t)}
               tank={lobby.setup.tanks[i] ?? 'auto'}
               onTank={s.kind === 'guest' ? undefined : (t) => session.setTank(i, t)}
@@ -797,7 +804,13 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
             {lobby.setup.size} map · {lobby.setup.rounds} round{lobby.setup.rounds > 1 ? 's' : ''} ·{' '}
             {lobby.setup.turnTimer ? `${lobby.setup.turnTimer} s turns` : 'no turn timer'} ·{' '}
             {lobby.setup.scenery}
-            {lobby.setup.teams ? ' · teams' : ''}
+            {lobby.setup.game === 'points'
+              ? ' · points draft'
+              : lobby.setup.game === 'coop'
+                ? ' · co-op waves'
+                : lobby.setup.teams
+                  ? ' · teams'
+                  : ''}
           </p>
         </section>
       )}

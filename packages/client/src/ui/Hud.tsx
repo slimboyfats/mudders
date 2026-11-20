@@ -6,6 +6,7 @@ import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
 import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { Draft } from './Draft';
 import { Scoreboard, Shop } from './Shop';
 import { CHILL_POWER } from '@mudders/sim';
 import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
@@ -397,7 +398,7 @@ export function Hud({
                   </span>
                 )}
                 <span className="pscore" aria-label="score">
-                  ★{p.score}
+                  ★{hud.game === 'points' ? p.score + p.roundPoints : p.score}
                 </span>
                 {hud.volley && hud.phase === 'aim' && p.alive && (
                   <span
@@ -413,9 +414,15 @@ export function Hud({
           })}
         </div>
         <div className="hud-center">
-          <span className="badge" aria-label="Round">
-            R{Math.min(hud.round, hud.rounds)}/{hud.rounds}
+          <span className="badge" aria-label={hud.game === 'coop' ? 'Wave' : 'Round'}>
+            {hud.game === 'coop' ? 'Wave ' : 'R'}
+            {Math.min(hud.round, hud.rounds)}/{hud.rounds}
           </span>
+          {hud.game === 'points' && t && (hud.phase === 'aim' || hud.phase === 'resolve') && (
+            <span className="badge" aria-label="Shots left" data-testid="shots-left">
+              {shotsLeft(t)} shot{shotsLeft(t) === 1 ? '' : 's'}
+            </span>
+          )}
           {hud.twist && <span className="badge twist">{hud.twist}</span>}
           {hud.volley && hud.phase === 'aim' && <VolleyBadge hud={hud} />}
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
@@ -570,11 +577,21 @@ export function Hud({
       )}
 
       {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
+      {hud.phase === 'draft' && <Draft hud={hud} controls={controls} send={sendAs} />}
 
       {hud.phase === 'over' && !ownEnd && (
         <div className="round-over match-over" role="dialog">
           <h2>
-            {hud.teams && hud.winnerTeam >= 0 ? (
+            {hud.wave ? (
+              hud.wave.won >= hud.rounds ? (
+                <>All {hud.rounds} waves held!</>
+              ) : (
+                <>
+                  Overrun on wave {hud.wave.won + 1}
+                  <small> {hud.wave.won} held</small>
+                </>
+              )
+            ) : hud.teams && hud.winnerTeam >= 0 ? (
               <>Team {teamName(hud.winnerTeam)} wins the match</>
             ) : hud.winner >= 0 ? (
               <>
@@ -739,4 +756,9 @@ export function Hud({
       </div>
     </>
   );
+}
+
+/** Shots a tank has left in a points match: one per weapon it drafted and hasn't fired yet. */
+function shotsLeft(t: { inventory: readonly { count: number }[] }): number {
+  return t.inventory.reduce((n, w) => n + Math.max(0, w.count), 0);
 }

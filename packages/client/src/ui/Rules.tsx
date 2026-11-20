@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GAME_KINDS, type GameKind } from '@mudders/shared';
 import { RULE_SETS, matchingRuleSet, shareLink } from '../game/rule-sets';
 import {
   PRESETS,
@@ -10,6 +11,7 @@ import {
   SUDDEN_DEATH_DEFAULT,
   SUDDEN_DEATH_TURNS,
   estimateMinutes,
+  GAMES,
   type MapSize,
   type MatchSetup,
   type Preset,
@@ -29,6 +31,9 @@ export function Rules({ value, onChange, players = 2 }: Props) {
   const preset = (Object.keys(PRESETS) as Preset[]).find(
     (k) => PRESETS[k].rounds === value.rounds && PRESETS[k].turnTimer === value.turnTimer,
   );
+  const game: GameKind = value.game ?? 'classic';
+  // a points match has no shop, cash, crates or sudden death; co-op has no bounty
+  const shop = game !== 'points';
   const set = matchingRuleSet(value);
   const [shared, setShared] = useState('');
   const share = () => {
@@ -51,6 +56,34 @@ export function Rules({ value, onChange, players = 2 }: Props) {
   };
   return (
     <section className="rules" aria-label="Rules">
+      <div className="seg game" role="radiogroup" aria-label="Game" data-testid="game">
+        {GAME_KINDS.map((k) => (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={game === k}
+            className={game === k ? 'on' : ''}
+            data-testid={`game-${k}`}
+            // a points match is one draft by default, co-op five waves
+            onClick={() =>
+              onChange(
+                k === game
+                  ? {}
+                  : k === 'points'
+                    ? { game: k, rounds: 1 }
+                    : k === 'coop'
+                      ? { game: k, rounds: 5 }
+                      : { game: k, rounds: 3 },
+              )
+            }
+          >
+            {GAMES[k].name}
+          </button>
+        ))}
+      </div>
+      <p className="estimate game-about" data-testid="game-about">
+        {GAMES[game].about}
+      </p>
       <div className="seg rule-sets" role="radiogroup" aria-label="Rule set">
         {RULE_SETS.map((r) => (
           <button
@@ -95,7 +128,7 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         with {players} players
       </p>
       <label>
-        Rounds
+        {game === 'coop' ? 'Waves' : game === 'points' ? 'Drafts' : 'Rounds'}
         <select value={value.rounds} onChange={(e) => onChange({ rounds: Number(e.target.value) })}>
           {[1, 2, 3, 4, 5, 7, 10, 15, 20].map((r) => (
             <option key={r}>{r}</option>
@@ -116,19 +149,21 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           ))}
         </select>
       </label>
-      <label>
-        Shop time
-        <select
-          value={value.shopTimer ?? SHOP_TIMER_DEFAULT}
-          onChange={(e) => onChange({ shopTimer: Number(e.target.value) })}
-        >
-          {SHOP_TIMER_STEPS.map((s) => (
-            <option key={s} value={s}>
-              {s} s
-            </option>
-          ))}
-        </select>
-      </label>
+      {shop && (
+        <label>
+          Shop time
+          <select
+            value={value.shopTimer ?? SHOP_TIMER_DEFAULT}
+            onChange={(e) => onChange({ shopTimer: Number(e.target.value) })}
+          >
+            {SHOP_TIMER_STEPS.map((s) => (
+              <option key={s} value={s}>
+                {s} s
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label>
         Map
         <select value={value.size} onChange={(e) => onChange({ size: e.target.value as MapSize })}>
@@ -180,19 +215,23 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="random">Random each round</option>
         </select>
       </label>
-      <label>
-        Starting cash
-        <select
-          value={value.startingCash}
-          onChange={(e) => onChange({ startingCash: Number(e.target.value) })}
-        >
-          {STARTING_CASH_STEPS.map((c) => (
-            <option key={c} value={c}>
-              {c.toLocaleString('en')}
-            </option>
-          ))}
-        </select>
-      </label>
+      {shop && (
+        <>
+          <label>
+            Starting cash
+            <select
+              value={value.startingCash}
+              onChange={(e) => onChange({ startingCash: Number(e.target.value) })}
+            >
+              {STARTING_CASH_STEPS.map((c) => (
+                <option key={c} value={c}>
+                  {c.toLocaleString('en')}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
       <label>
         Turns
         <select
@@ -214,36 +253,6 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         </select>
       </label>
       <label>
-        Shop deals
-        <select
-          value={value.deals ? 'on' : 'off'}
-          onChange={(e) => onChange({ deals: e.target.value === 'on' })}
-        >
-          <option value="off">Off</option>
-          <option value="on">On (sales and sold out)</option>
-        </select>
-      </label>
-      <label>
-        Random arsenal
-        <select
-          value={value.arsenal ? 'on' : 'off'}
-          onChange={(e) => onChange({ arsenal: e.target.value === 'on' })}
-        >
-          <option value="off">Off</option>
-          <option value="on">On (free weapons each round)</option>
-        </select>
-      </label>
-      <label>
-        Bounty &amp; comeback
-        <select
-          value={value.bounty ? 'on' : 'off'}
-          onChange={(e) => onChange({ bounty: e.target.value === 'on' })}
-        >
-          <option value="off">Off</option>
-          <option value="on">On (leader worth more, cash for those behind)</option>
-        </select>
-      </label>
-      <label>
         Last-shot ghost
         <select
           value={value.ghost === false ? 'off' : 'on'}
@@ -253,51 +262,89 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           <option value="off">Off</option>
         </select>
       </label>
-      <label>
-        Supply drops
-        <select
-          value={value.drops ?? 'off'}
-          onChange={(e) => onChange({ drops: e.target.value as MatchSetup['drops'] })}
-        >
-          <option value="off">Off</option>
-          <option value="rare">Rare</option>
-          <option value="normal">Normal</option>
-          <option value="often">Often</option>
-        </select>
-      </label>
-      <label>
-        Cash per round
-        <select
-          value={value.roundBonus ?? 0}
-          onChange={(e) => onChange({ roundBonus: Number(e.target.value) })}
-        >
-          {ROUND_BONUS_STEPS.map((c) => (
-            <option key={c} value={c}>
-              {c === 0 ? 'Off' : `+${c.toLocaleString('en')}`}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Sudden death
-        <select
-          value={value.suddenDeath ? String(value.suddenDeathFrom ?? SUDDEN_DEATH_DEFAULT) : 'off'}
-          onChange={(e) =>
-            onChange(
-              e.target.value === 'off'
-                ? { suddenDeath: false }
-                : { suddenDeath: true, suddenDeathFrom: Number(e.target.value) },
-            )
-          }
-        >
-          <option value="off">Off</option>
-          {SUDDEN_DEATH_TURNS.map((t) => (
-            <option key={t} value={t}>
-              From turn {t}
-            </option>
-          ))}
-        </select>
-      </label>
+      {shop && (
+        <>
+          <label>
+            Shop deals
+            <select
+              value={value.deals ? 'on' : 'off'}
+              onChange={(e) => onChange({ deals: e.target.value === 'on' })}
+            >
+              <option value="off">Off</option>
+              <option value="on">On (sales and sold out)</option>
+            </select>
+          </label>
+          <label>
+            Random arsenal
+            <select
+              value={value.arsenal ? 'on' : 'off'}
+              onChange={(e) => onChange({ arsenal: e.target.value === 'on' })}
+            >
+              <option value="off">Off</option>
+              <option value="on">On (free weapons each round)</option>
+            </select>
+          </label>
+          {game === 'classic' && (
+            <label>
+              Bounty &amp; comeback
+              <select
+                value={value.bounty ? 'on' : 'off'}
+                onChange={(e) => onChange({ bounty: e.target.value === 'on' })}
+              >
+                <option value="off">Off</option>
+                <option value="on">On (leader worth more, cash for those behind)</option>
+              </select>
+            </label>
+          )}
+          <label>
+            Supply drops
+            <select
+              value={value.drops ?? 'off'}
+              onChange={(e) => onChange({ drops: e.target.value as MatchSetup['drops'] })}
+            >
+              <option value="off">Off</option>
+              <option value="rare">Rare</option>
+              <option value="normal">Normal</option>
+              <option value="often">Often</option>
+            </select>
+          </label>
+          <label>
+            Cash per round
+            <select
+              value={value.roundBonus ?? 0}
+              onChange={(e) => onChange({ roundBonus: Number(e.target.value) })}
+            >
+              {ROUND_BONUS_STEPS.map((c) => (
+                <option key={c} value={c}>
+                  {c === 0 ? 'Off' : `+${c.toLocaleString('en')}`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Sudden death
+            <select
+              value={
+                value.suddenDeath ? String(value.suddenDeathFrom ?? SUDDEN_DEATH_DEFAULT) : 'off'
+              }
+              onChange={(e) =>
+                onChange(
+                  e.target.value === 'off'
+                    ? { suddenDeath: false }
+                    : { suddenDeath: true, suddenDeathFrom: Number(e.target.value) },
+                )
+              }
+            >
+              <option value="off">Off</option>
+              {SUDDEN_DEATH_TURNS.map((t) => (
+                <option key={t} value={t}>
+                  From turn {t}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
     </section>
   );
 }

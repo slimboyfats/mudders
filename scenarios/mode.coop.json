@@ -1,0 +1,34 @@
+{
+  "id": "mode.coop",
+  "schemaVersion": 1,
+  "description": "Co-op wave 1: two tanks on one team against an Easy bot at 60% health.",
+  "subject": "mode.coop",
+  "mode": "mode.coop",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 110
+    },
+    {
+      "x": 300
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 2, 1],
+  "wind": 0,
+  "inputs": [],
+  "capture": {
+    "maxTicks": 2400,
+    "untilSettled": true,
+    "extraTicks": 45
+  },
+  "teams": [0, 0, 1],
+  "bots": ["ai.cyborg", "ai.shooter", "ai.cyborg"]
+}

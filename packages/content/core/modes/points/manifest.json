@@ -1,0 +1,29 @@
+{
+  "id": "mode.points",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Points draft",
+    "description": "A points match: before each round the players take turns drafting from one random pool of weapons, ten each with two players, then fire exactly what they picked, one shot per weapon. Nobody is knocked out: a destroyed tank comes back with full health at the end of the turn and loses 50 points. Most points wins: damage dealt, 50 per kill, minus self-damage. No shop, no crates, no sudden death.",
+    "since": "core@0.99.0"
+  },
+  "extends": "mode.classic",
+  "rounds": 1,
+  "turnCap": 10,
+  "loadout": [],
+  "suddenDeath": null,
+  "drops": null,
+  "draft": {
+    "picks": 10,
+    "pickTimer": 15
+  },
+  "respawn": {
+    "penalty": 50
+  },
+  "scoring": {
+    "damage": 1,
+    "kill": 50,
+    "selfDamage": 1,
+    "survival": 0,
+    "roundWin": 0
+  }
+}

@@ -6083,6 +6083,63 @@ button.hold {
   grid-row: span 1;
 }
 
+/* ── Game kinds (points draft, co-op waves) ── */
+.seg.game button {
+  min-height: 44px;
+  font-weight: 700;
+}
+
+.rules .game-about {
+  opacity: 0.9;
+}
+
+.draft .draft-next {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.draft .draft-next .swatch {
+  width: 10px;
+  height: 10px;
+}
+
+.draft .draft-hands .arsenal {
+  box-shadow: inset 3px 0 0 var(--pc, #888);
+}
+
+.draft .card.taken-card {
+  opacity: 0.5;
+}
+
+.draft .taken {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--pc, #888);
+  color: var(--fg);
+  font-weight: 700;
+}
+
+/* the draft on a landscape phone: no filter rail, the pool gets the full width */
+@media (max-height: 460px) and (min-aspect-ratio: 1/1) {
+  .shop.draft {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'head'
+      'cards';
+  }
+  .shop.draft .shop-foot {
+    display: none;
+  }
+  .shop.draft .draft-hands .arsenal {
+    margin-left: 10px;
+  }
+}
+
 /* ── Small UI wins: last-shot ghost marks, weapon favourites, rule sets, tutorial ── */
 
 /* last-shot ghost: where the last shot's power and angle were, a pale notch */

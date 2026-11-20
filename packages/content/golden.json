@@ -1,5 +1,5 @@
 {
-  "contentHash": "3b3f9728ca47a9d8",
+  "contentHash": "cd039abfdb1527ea",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -852,6 +852,14 @@
     "mode.classic": {
       "ticks": 852,
       "hash": "b12e18f553cdda44"
+    },
+    "mode.coop": {
+      "ticks": 2400,
+      "hash": "546ee5dce16bf6ab"
+    },
+    "mode.points": {
+      "ticks": 46,
+      "hash": "e97210d049b0de7e"
     },
     "mode.teams": {
       "ticks": 2400,

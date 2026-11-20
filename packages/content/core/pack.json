@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.98.0",
+  "version": "0.99.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -213,6 +213,8 @@
     "material.wet-moss",
     "material.wood",
     "mode.classic",
+    "mode.coop",
+    "mode.points",
     "mode.teams",
     "prop.apartments",
     "prop.birch",
