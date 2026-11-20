@@ -35,6 +35,8 @@ export const InputSchema = z.discriminatedUnion('type', [
   }),
   /** Shop (§3.2): buy `packs` packs of drive fuel at the mode's fuel price. */
   z.strictObject({ type: z.literal('buyFuel'), packs: z.number().int().min(1).max(99) }),
+  /** Weapon draft (points match): take the weapon in `slot` of the draft pool on your pick. */
+  z.strictObject({ type: z.literal('pick'), slot: z.number().int().min(0).max(255) }),
   /** Shop: done shopping. The next round starts when every human is ready or the timer runs out. */
   z.strictObject({ type: z.literal('ready') }),
   /**

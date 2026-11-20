@@ -918,6 +918,44 @@ export const ModeSchema = z.looseObject({
       muddy: { fuel: 50 },
       burning: { damage: 5 },
     }),
+  /**
+   * Weapon draft (points match, kernel 0.62.0): before every round the match draws a pool of
+   * `picks` weapons per player from what the shop sells (only weapons that deal damage), and the
+   * players take turns picking from it, snake order, `pickTimer` seconds a pick. Each tank then
+   * holds exactly what it picked, one shot each; the round lasts `picks` turns per player. No shop.
+   */
+  draft: z
+    .strictObject({
+      picks: z.number().int().min(1).max(20),
+      pickTimer: z.number().min(1).max(120),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * Respawn (points match): a destroyed tank comes back with full health at the end of the turn,
+   * where it fell (or on fresh ground if it fell out of the map), and loses `penalty` points.
+   * Deaths never end a round; the round's winner is the best scorer.
+   */
+  respawn: z
+    .strictObject({ penalty: z.number().int().min(0).max(1000) })
+    .nullable()
+    .default(null),
+  /**
+   * Waves (co-op): team `team` must win every round; a lost round ends the match. Every other
+   * team's tanks play round r at bot skill `skill[r]` and `health[r]` percent health (the last
+   * entry repeats, health growing by `healthStep` a round past the list), and get `cash` × (r + 1)
+   * before each shop.
+   */
+  waves: z
+    .strictObject({
+      team: z.number().int().min(0).max(7).default(0),
+      skill: z.array(z.number().int().min(0).max(3)).min(1),
+      health: z.array(z.number().int().min(10).max(1000)).min(1),
+      healthStep: z.number().int().min(0).max(200).default(0),
+      cash: z.number().int().min(0).max(1_000_000).default(0),
+    })
+    .nullable()
+    .default(null),
   /** Points per round (§3.5): per hp dealt, per kill, per hp of self-damage (subtracted), bonuses. */
   scoring: z
     .strictObject({

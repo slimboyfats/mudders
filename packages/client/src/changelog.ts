@@ -18,6 +18,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    title: 'Two new kinds of match: Points draft and Co-op waves',
+    pack: 'core@0.98.0',
+    items: [
+      'Points draft (pick it at the top of the rules, locally and in the online lobby): before the round everyone takes turns picking from one random pool of weapons, ten each with two players, in snake order (1 2 2 1 1 2…). Then you fire exactly what you picked, one shot per weapon. Nobody is knocked out: a destroyed tank comes back with full health at the end of the turn and loses 50 points. Damage dealt scores, 50 per kill, self-damage counts against you, and most points wins. No shop, no crates, no sudden death. Bots draft too, and the strongest weapon left is picked for you if your pick timer runs out',
+      'Co-op waves: every human is on one team against the AI players, wave after wave, with the shop in between. The first wave is Easy bots at 60% health; every wave after that the bots play a step better (Normal, Hard, Ace), have more health and bring a bigger war chest to the shop. Lose a wave and the match is over; hold them all to win. Made for two friends online against the bots',
+    ],
+  },
+  {
     date: '2026-11-18',
     title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [
