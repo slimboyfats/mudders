@@ -18,6 +18,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    title: 'Cover counts: ground between you and a blast soaks it up',
+    items: [
+      'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
+    ],
+  },
+  {
     date: '2026-11-18',
     title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [

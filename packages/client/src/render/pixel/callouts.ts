@@ -25,9 +25,10 @@ export const OWN_GOAL = 15;
 export const SNIPE_CELLS = 500;
 
 export type CalloutKind =
-  'close' | 'direct' | 'own' | 'kill' | 'snipe' | 'double' | 'triple' | 'multi';
+  'cover' | 'close' | 'direct' | 'own' | 'kill' | 'snipe' | 'double' | 'triple' | 'multi';
 
 const WORDS: Record<CalloutKind, string> = {
+  cover: 'COVER',
   close: 'CLOSE CALL',
   direct: 'DIRECT HIT',
   own: 'OWN GOAL',
@@ -40,6 +41,7 @@ const WORDS: Record<CalloutKind, string> = {
 
 /** Higher wins when two callouts want the same tank. */
 const RANK: Record<CalloutKind, number> = {
+  cover: 0,
   close: 1,
   direct: 2,
   own: 2,
@@ -51,6 +53,7 @@ const RANK: Record<CalloutKind, number> = {
 };
 
 const COLOR: Record<CalloutKind, number> = {
+  cover: 0xb8c4d0,
   close: 0x7ad8ff,
   direct: 0xffe14a,
   own: 0xff9a3a,
@@ -172,6 +175,13 @@ export class CalloutTracker {
           this.say(e, kind, s.tick);
         }
       }
+    }
+
+    // ground between a blast and a tank soaked up part of it (the sim's `cover` event)
+    for (const ev of s.effectEvents) {
+      if (ev.type !== 'cover') continue;
+      const t = this.tankOf(s, ev.params.player ?? -1);
+      if (t?.alive) this.say(t, 'cover', s.tick);
     }
 
     // follow the tanks (a number rides a falling tank down), then drop what has faded
