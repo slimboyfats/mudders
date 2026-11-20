@@ -1,0 +1,12 @@
+{
+  "id": "gen.bare-hills",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bare hills",
+    "description": "The hills exactly as they are, with nothing standing on them and no map events: no pylons, water towers, fuel tanks or dams. Not in the map list; solo challenges and tests use it so a set piece keeps the ground it was built on.",
+    "since": "core@0.100.0"
+  },
+  "extends": "gen.hills",
+  "props": [],
+  "events": []
+}

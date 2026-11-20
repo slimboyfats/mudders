@@ -1,0 +1,37 @@
+{
+  "id": "material.burning-fuel",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Burning fuel",
+    "description": "Fuel on fire. It runs and burns like burning oil, lights the fuel beside it, and now and then a pocket of it bursts in a small fiery blast that cracks open whatever holds it.",
+    "since": "core@0.100.0",
+    "color": "#ff7a1a"
+  },
+  "extends": "material.burning-oil",
+  "cell": 141,
+  "decay": {
+    "into": "air",
+    "ticks": 50
+  },
+  "detonate": {
+    "explosion": {
+      "use": "explosion.standard",
+      "radius": 11,
+      "damage": 18,
+      "damageType": "heat",
+      "effects": {
+        "burst": {
+          "count": 16,
+          "style": 14
+        },
+        "flash": {
+          "strength": 0.5
+        },
+        "shake": {
+          "strength": 0.8
+        }
+      }
+    },
+    "chance": 0.035
+  }
+}

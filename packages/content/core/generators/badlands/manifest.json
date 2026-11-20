@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Badlands",
-    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head. Gunpowder seams run under the slopes and a magma pocket or two lies deep down. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
+    "description": "Rolling hills studded with stone arches, overhanging ledges, outcrops jutting from the slopes and boulders. Arches and ledges often stand over a tank's spawn, so it starts with a roof over its head. Gunpowder seams run under the slopes and a magma pocket or two lies deep down. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa. A powder store stands somewhere on the slopes, and sometimes a fuel tank.",
     "since": "core@0.5.0"
   },
   "extends": "gen.hills",
@@ -34,6 +34,21 @@
       "prop": "prop.girder",
       "count": [0, 1],
       "cluster": false
+    },
+    {
+      "prop": "prop.powder-store",
+      "count": [1, 1],
+      "cluster": false
+    },
+    {
+      "prop": "prop.fuel-tank",
+      "count": [0, 1],
+      "cluster": true
+    },
+    {
+      "prop": "prop.fuel-barrels",
+      "count": [1, 2],
+      "cluster": true
     }
   ],
   "seams": [3, 5],

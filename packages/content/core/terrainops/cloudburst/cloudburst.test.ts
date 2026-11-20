@@ -5,7 +5,7 @@ const rain = (events: string[]) =>
   makeWorld({
     seed: 7,
     players: 2,
-    map: { generator: 'gen.hills', width: 800, height: 400 },
+    map: { generator: 'gen.bare-hills', width: 800, height: 400 },
     rules: { turnTimer: 0, suddenDeath: false, mapEvents: true },
     perRound: [{ twist: 'Cloudburst', weather: 'weather.rain', events }],
   });

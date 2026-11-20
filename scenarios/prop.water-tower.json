@@ -1,0 +1,120 @@
+{
+  "id": "prop.water-tower",
+  "schemaVersion": 1,
+  "description": "A baby missile holes a water tower and the water jets out; a second missile into the legs brings the tower down in a flood.",
+  "subject": "prop.water-tower",
+  "mode": "mode.classic",
+  "seed": 3,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "weapon.missile": 5,
+        "weapon.baby-missile": 5,
+        "weapon.heavy-shockwave": 2
+      }
+    },
+    {
+      "x": 700,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "props": [
+    {
+      "prop": "prop.water-tower",
+      "x": 450
+    }
+  ],
+  "rules": {
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 35,
+        "power": 525
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.tracer"
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 95,
+        "power": 150
+      }
+    },
+    {
+      "t": 0,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 35,
+        "power": 495
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 3000,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
