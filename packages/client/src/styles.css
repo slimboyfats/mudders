@@ -6065,3 +6065,196 @@ button.hold {
 .shop .cards > .shop-empty {
   grid-row: span 1;
 }
+
+/* ── Small UI wins: last-shot ghost marks, weapon favourites, rule sets, tutorial ── */
+
+/* last-shot ghost: where the last shot's power and angle were, a pale notch */
+.scrub-meter-last {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: #f4f8ff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.55);
+}
+
+.dial-last {
+  stroke: #f4f8ff;
+  stroke-width: 2;
+  stroke-linecap: butt;
+}
+
+.ruler .tick.last {
+  height: 30px;
+  width: 2px;
+  margin-left: -1px;
+  background: repeating-linear-gradient(180deg, #f4f8ff 0 3px, transparent 3px 6px);
+}
+
+.ruler .tick.last .tick-n {
+  bottom: auto;
+  top: 0;
+  left: 4px;
+  transform: none;
+  color: #f4f8ff;
+}
+
+.check-note {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* weapon list: a star on each tile; favourites first, a gap after them */
+.weapon-cell {
+  position: relative;
+  display: grid;
+}
+
+.weapon-cell.split {
+  grid-column-start: 1;
+}
+
+.weapon-cell > .weapon-tile {
+  padding-right: 34px;
+}
+
+.weapon-star {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: #b8c6e0;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.weapon-star[aria-pressed='true'] {
+  color: #ffd84a;
+}
+
+.weapon-pop-head {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.weapon-swap {
+  min-height: 32px;
+  padding: 2px 10px;
+  font-size: 0.8rem;
+}
+
+.weapon-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #3ce0ff;
+  background: rgb(6 14 40 / 0.92);
+}
+
+.weapon-info p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.weapon-info-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.weapon-info-head .wname {
+  font-weight: 650;
+}
+
+.weapon-info-head .wcat {
+  text-transform: capitalize;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.weapon-info .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.weapon-info .row button {
+  min-height: 36px;
+}
+
+/* rule sets: one tap sets every rule; wraps on a phone */
+.seg.rule-sets {
+  flex-wrap: wrap;
+}
+
+.seg.rule-sets button {
+  flex: 1 1 8em;
+  min-height: 44px;
+}
+
+.rules .rule-set-about {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  opacity: 1;
+  color: var(--muted);
+}
+
+.rule-set-about button.link {
+  min-height: 32px;
+  padding: 0 4px;
+  color: #9fd8ff;
+  text-decoration: underline;
+}
+
+.share-note {
+  color: #9ff07c;
+}
+
+.setup .notice {
+  color: #9ff07c;
+}
+
+/* tutorial: the step card; over the shop it sits at the bottom, above the shop's own panel */
+.tutorial-card.over-shop {
+  position: fixed;
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom) + 10px);
+  z-index: 30;
+  /* taps go through to the shop under it */
+  pointer-events: none;
+}
+
+.tutorial-count {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.title .menu .tutorial-tile.fresh {
+  border-color: #ffd84a;
+  box-shadow:
+    0 0 0 1px #ffd84a,
+    0 0 14px rgb(255 216 74 / 0.35);
+}
+
+/* the tutorial card sits just above the controls, over the ground, so the tanks and the
+   shell's arc through the sky stay in view */
+.coach-card.tutorial-card:not(.over-shop, .coach-final) {
+  top: auto;
+  bottom: calc(var(--hud-bottom, 90px) + 8px);
+  width: min(420px, calc(100% - 24px));
+}
