@@ -190,6 +190,12 @@ export interface MatchRules {
    */
   shells?: boolean | undefined;
   /**
+   * Wind with shape (kernel 0.67.0): the wind a shell feels grows with its height over the ground
+   * and all but dies in the lee of high ground (`World.windAt`), and thrown earth drifts downwind.
+   * Off unless set, so scenarios and tests keep their results.
+   */
+  windShape?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -776,6 +782,15 @@ export class World implements SimApi {
   private readonly birdsOn: boolean;
   /** Match rule `shells`, read by flight behaviours (`SimApi.shellPhysics`). */
   readonly shellPhysics: boolean;
+  /**
+   * Match rule `windShape`: per column, the row of the wind's shelter line for a wind blowing
+   * right (`windLineR`) and left (`windLineL`), rebuilt from the skyline at every turn start.
+   */
+  private readonly windShapeOn: boolean;
+  private windLineR: Int16Array = new Int16Array(0);
+  private windLineL: Int16Array = new Int16Array(0);
+  private windSurf: Int32Array = new Int32Array(0);
+  private windBuilt = false;
   /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
   private readonly coverOn: boolean;
   private readonly coverWeight = new Uint8Array(256);
@@ -997,6 +1012,7 @@ export class World implements SimApi {
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
     this.shellPhysics = rules.shells === true;
+    this.windShapeOn = rules.windShape === true;
     this.coverOn = rules.cover === true;
     if (this.coverOn) {
       // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
@@ -1972,7 +1988,12 @@ export class World implements SimApi {
     if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
     probe?.(4);
-    this.debris.step(this.grid, this.gravity, this.mats);
+    this.debris.step(
+      this.grid,
+      this.gravity,
+      this.mats,
+      this.windShapeOn ? Math.trunc(this.wind / WIND_DEBRIS) : 0,
+    );
     if (this.chunks.any) this.chunks.step(this.grid, this.mats, this.gravity, this.debris, this);
     probe?.(5);
     const settling = this.grid.settling;
@@ -2723,6 +2744,56 @@ export class World implements SimApi {
     } else if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
     t.angle = Math.max(0, Math.min(180, Math.round(shot.angle)));
     t.power = Math.max(0, Math.min(1000, Math.round(shot.power)));
+  }
+
+  /**
+   * Wind with shape (`rules.windShape`): the shelter line of each column, once for a wind blowing
+   * right and once for one blowing left. Walking downwind, the line sits on the skyline and from
+   * every crest falls one row in `WIND_LEE_RUN` columns, so behind a ridge it hangs in the air
+   * over the lee slope until the ground comes up to meet it. Built at turn start from the
+   * skyline as it stands and left alone all turn, so every peer and the aim predictor read the
+   * same wind whatever the shot digs up.
+   */
+  private buildWindLines(): void {
+    const g = this.grid;
+    const W = g.width;
+    if (this.windSurf.length !== W) {
+      this.windSurf = new Int32Array(W);
+      this.windLineR = new Int16Array(W);
+      this.windLineL = new Int16Array(W);
+    }
+    const surf = this.windSurf;
+    g.surfaces(surf);
+    let b = surf[0]! * WIND_LEE_RUN;
+    for (let x = 0; x < W; x++) {
+      b = Math.min(surf[x]! * WIND_LEE_RUN, b + 1);
+      this.windLineR[x] = Math.trunc(b / WIND_LEE_RUN);
+    }
+    b = surf[W - 1]! * WIND_LEE_RUN;
+    for (let x = W - 1; x >= 0; x--) {
+      b = Math.min(surf[x]! * WIND_LEE_RUN, b + 1);
+      this.windLineL[x] = Math.trunc(b / WIND_LEE_RUN);
+    }
+    this.windBuilt = true;
+  }
+
+  /**
+   * The wind a shell feels in cell (x, y) (`SimApi.windAt`). With `rules.windShape`: on the
+   * shelter line it is half the turn's wind (`WIND_LOW`/256) and grows by 3/256 for every two
+   * rows above, up to half as much again (`WIND_HIGH`/256) from about 170 rows up; under the
+   * line, in the lee, it falls to an eighth (`WIND_LEE`/256) within eight rows. Without the rule, or before the first turn, plain `wind`.
+   */
+  windAt(x: number, y: number): number {
+    const wind = this.wind;
+    if (!this.windShapeOn || !this.windBuilt || wind === 0) return wind;
+    const line = wind > 0 ? this.windLineR : this.windLineL;
+    const cx = x < 0 ? 0 : x >= line.length ? line.length - 1 : x;
+    const up = line[cx]! - y;
+    const k =
+      up >= 0
+        ? Math.min(WIND_HIGH, WIND_LOW + ((up * WIND_RISE) >> 1))
+        : Math.max(WIND_LEE, WIND_LOW + up * WIND_DROP);
+    return Math.trunc((wind * k) / 256);
   }
 
   /**
@@ -5241,6 +5312,7 @@ export class World implements SimApi {
     if (this.turn > 0) this.driftTemperature();
     this.shooter = -1;
     for (const u of this.tanks) u.slid = 0;
+    if (this.windShapeOn) this.buildWindLines();
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
     this.weatherB?.onTurnStart?.(this, this.weatherParams);
@@ -6253,6 +6325,18 @@ export class World implements SimApi {
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
 const DT_HEAT = damageTypeIndex('heat');
 const DT_BLAST = damageTypeIndex('blast');
+
+/** Wind with shape: a crest's wind shadow falls one row in this many columns. */
+const WIND_LEE_RUN = 3;
+/** Share of the wind (×256) on the shelter line, at most high up, at least in the lee. */
+const WIND_LOW = 128;
+const WIND_HIGH = 384;
+const WIND_LEE = 32;
+/** Share gained per two rows over the shelter line and lost per row under it (×256). */
+const WIND_RISE = 3;
+const WIND_DROP = 12;
+/** Thrown earth feels this fraction of the wind. */
+const WIND_DEBRIS = 4;
 
 /** Blast cover: tanks tracked per blast, the free cells, and the least a covered tank takes (%). */
 const COVER_TANKS = 16;

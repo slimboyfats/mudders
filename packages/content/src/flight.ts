@@ -19,7 +19,10 @@ export function ballisticStep(
   gravityScale: number,
   windScale: number,
 ): void {
-  p.vx += Math.trunc((api.wind * toFixed(windScale)) / FP);
+  // the wind where the shell is: plain `api.wind` unless the match rule `windShape` is on
+  p.vx += Math.trunc(
+    (api.windAt(Math.floor(p.x / FP), Math.floor(p.y / FP)) * toFixed(windScale)) / FP,
+  );
   p.vy += Math.trunc((api.gravity * toFixed(gravityScale)) / FP);
   // weather drag (rain, snow): a share of the speed lost every tick; none in clear skies, and
   // none for what the air doesn't touch (beams ignore wind)

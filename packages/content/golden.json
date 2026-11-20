@@ -1,5 +1,5 @@
 {
-  "contentHash": "cd039abfdb1527ea",
+  "contentHash": "da3dbe7911e2b1ce",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1064,6 +1064,10 @@
     "showcase.wildlife": {
       "ticks": 900,
       "hash": "6cbbe436e4d13063"
+    },
+    "showcase.wind-shape": {
+      "ticks": 732,
+      "hash": "1d27f732485bc89e"
     },
     "structure.ice-shelf": {
       "ticks": 459,

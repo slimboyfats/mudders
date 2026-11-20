@@ -77,7 +77,8 @@ real-life physics in pixel art, a living world, and speed on a phone.
 6. **Weapon mods** (§4.1): a few add-ons (split, bounce, fuse, "carries the next shell") that
    work on most shells. The largest gain in depth per item added. L, kernel and content.
 7. **Wind with shape** (§8.3): stronger higher up, calm in the lee of a mountain, and it moves
-   falling sand, snow, embers and lake waves. M, kernel.
+   falling sand, snow, embers and lake waves. M, kernel. _Shells and thrown earth built 2026-11-20 as
+   the match rule `windShape`, see `REQUIREMENTS.md` §3.4; embers, fire and lake waves are not._
 8. **Sound in space and music that follows the match** (§7.1, §7.2): pan by position, far blasts
    arrive late and dull, music layers come in as the round tightens. M, client only.
 9. **Tanks that show damage and sit on the slope** (§8.4): tilt with the ground, broken tracks,

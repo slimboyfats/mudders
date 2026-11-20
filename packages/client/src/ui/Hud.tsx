@@ -47,6 +47,7 @@ function Wind({
   gusty,
   weather,
   was,
+  lee,
 }: {
   wind: number;
   base: number;
@@ -55,6 +56,8 @@ function Wind({
   weather: string;
   /** This player's wind on their previous turn, or null on their first. */
   was: number | null;
+  /** The tank whose turn it is stands in the lee of high ground. */
+  lee: boolean;
 }) {
   const clamp = (v: number) => (max > 0 ? Math.max(-1, Math.min(1, v / max)) : 0);
   const k = clamp(wind);
@@ -72,12 +75,14 @@ function Wind({
     <div
       className={`wind${changed ? ' changed' : ''}`}
       aria-label={`${weather ? `${weather}, ` : ''}${gusty ? 'gusty wind' : 'wind'} ${n} ${dir}${
-        w === null ? '' : `, your last turn ${wn} ${w > 0 ? 'right' : w < 0 ? 'left' : 'calm'}`
-      }`}
+        lee ? ', you are sheltered from it' : ''
+      }${w === null ? '' : `, your last turn ${wn} ${w > 0 ? 'right' : w < 0 ? 'left' : 'calm'}`}`}
       data-testid="wind"
     >
       {weather && <span className="weather">{weather}</span>}
-      <span className="label">{gusty ? 'Gusts' : 'Wind'}</span>
+      <span className="label" title={lee ? 'High ground shelters you from the wind' : undefined}>
+        {lee ? 'Lee' : gusty ? 'Gusts' : 'Wind'}
+      </span>
       <span className="wind-bar">
         <span
           className={`wind-fill ${k < 0 ? 'to-left' : 'to-right'}`}
@@ -434,6 +439,7 @@ export function Hud({
             gusty={hud.gusty}
             weather={hud.weather}
             was={was}
+            lee={hud.lee}
           />
           <Temperature temp={hud.temperature} />
           {timer >= 0 &&
