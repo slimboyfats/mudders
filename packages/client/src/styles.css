@@ -737,6 +737,22 @@ button.primary,
   opacity: 0.45;
 }
 
+/* weapon mods (§4.1): fitted for the next shell, shown lit while on */
+.weapons .mod-btn {
+  border-color: #8a6ad0;
+  background: #221a33;
+}
+
+.weapons .mod-btn.fitted {
+  border-color: #ffd23f;
+  box-shadow: inset 0 0 0 2px #ffd23f;
+  background: #3a2e10;
+}
+
+.weapons .mod-btn.fitted .count {
+  color: #ffe58a;
+}
+
 .gear-chip {
   display: flex;
   flex-direction: column;

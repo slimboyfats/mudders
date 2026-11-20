@@ -82,6 +82,8 @@ export interface ProjectileView {
   /** Sub-pixel map coordinates. */
   x: number;
   y: number;
+  /** Ticks left on a Fuse Mod's fuse (§4.1); absent without one. */
+  fuse?: number;
 }
 
 /** A lingering zone (§4a): gas cloud, acid haze or resonance field. */
