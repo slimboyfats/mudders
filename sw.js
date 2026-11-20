@@ -1,7 +1,7 @@
 /* Mudders service worker (§8: PWA install, offline local play). Generated at build time by the
  * `pwa` plugin in vite.config.ts, which fills in VERSION and PRECACHE. Plain JS: it runs as-is. */
-const VERSION = '02e9348b0a05';
-const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","docs/","assets/ChallengePlay-DS1N9otr.js","assets/Challenges-D-GT9TaT.js","assets/Changelog-Clmzc9So.js","assets/MatchView-BGafOrqJ.js","assets/Online-BvRc0hoZ.js","assets/Play-DDRw6NEM.js","assets/Sandbox-Djqtfasy.js","assets/Setup-Ba38gscB.js","assets/Teams-CntJDheH.js","assets/TrainingPlay-11weNdei.js","assets/battle-C98AQSKG.mod","assets/categories-aQ0FYqsp.js","assets/changelog-BFwHncKM.js","assets/docs-CgJQbDvp.js","assets/docs-D3fHi9AW.css","assets/engine-DcX6UfoQ.js","assets/main-0hXu2X4K.js","assets/main-ydZf_out.css","assets/module-BImwpPm9.js","assets/pixel-BvrPnDZJ.js","assets/rubik-arabic-wght-normal-CGnJ-sf6.woff2","assets/rubik-cyrillic-ext-wght-normal-BjodpZir.woff2","assets/rubik-cyrillic-wght-normal-DveCct9I.woff2","assets/rubik-hebrew-wght-normal-BIkpbuMU.woff2","assets/rubik-latin-ext-wght-normal-OacczzuJ.woff2","assets/rubik-latin-wght-normal-CnQIisVs.woff2","assets/russo-one-latin-400-normal-BfOuQF9V.woff2","assets/russo-one-latin-400-normal-CosRecV9.woff","assets/sim-warmup-6EFH-jBy.js","assets/snapshot-DJ3WWjcv.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
+const VERSION = 'd205a8e6d014';
+const PRECACHE = ["./","manifest.webmanifest","icons/icon-192.png","icons/icon-512.png","icons/favicon-32.png","icons/apple-touch-icon.png","docs/","assets/ChallengePlay-CqpQ2lxt.js","assets/Challenges-CaiDklxs.js","assets/Changelog-S4O4U7EY.js","assets/MatchView-zHFM3TxB.js","assets/Online-COHdBDkd.js","assets/Play-lBbHCFQj.js","assets/Sandbox-CpohjAqE.js","assets/Setup-CqLeJwhI.js","assets/Teams-PasH3mLd.js","assets/TrainingPlay-4IJKScxb.js","assets/TutorialPlay--NElcX4A.js","assets/battle-C98AQSKG.mod","assets/categories-bXX84sW3.js","assets/challenges-BPAB47Fp.js","assets/docs-4m-yF6hv.js","assets/docs-D3fHi9AW.css","assets/engine-DSBZZgVT.js","assets/jsx-runtime-CXhAhTRs.js","assets/main-BKLB2BIh.js","assets/main-IpjEryB_.css","assets/module-BImwpPm9.js","assets/pixel-Il2oK-Y3.js","assets/rubik-arabic-wght-normal-CGnJ-sf6.woff2","assets/rubik-cyrillic-ext-wght-normal-BjodpZir.woff2","assets/rubik-cyrillic-wght-normal-DveCct9I.woff2","assets/rubik-hebrew-wght-normal-BIkpbuMU.woff2","assets/rubik-latin-ext-wght-normal-OacczzuJ.woff2","assets/rubik-latin-wght-normal-CnQIisVs.woff2","assets/russo-one-latin-400-normal-BfOuQF9V.woff2","assets/russo-one-latin-400-normal-CosRecV9.woff","assets/sim-warmup-BYUGH8gz.js","assets/sim-worker-RHjdVqtX.js","assets/snapshot-DJ3WWjcv.js","assets/title-D3QcMLaq.mod","audio/chiptune3.worklet.js","audio/libopenmpt.worklet.js"];
 const CACHE = `mudders-${VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -65,5 +65,16 @@ self.addEventListener('fetch', (event) => {
           return res;
         }),
     ),
+  );
+});
+
+// your-turn notification (Settings): a tap brings the game's tab to the front
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const tab = list.find((c) => c.url.startsWith(self.registration.scope));
+      return tab ? tab.focus() : self.clients.openWindow(self.registration.scope);
+    }),
   );
 });
