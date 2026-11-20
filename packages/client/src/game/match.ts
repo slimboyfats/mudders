@@ -183,12 +183,26 @@ export interface TankView {
   readonly team: number;
   /** Index of the bot playing this tank, or -1 for a human. */
   readonly bot: number;
+  readonly angle: number;
+  readonly power: number;
+  /** Index of the weapon held (`WorldView.weaponId` names it). */
+  readonly weapon: number;
+}
+
+/** A shell in flight, as the last-shot ghost follows it (fixed-point position). */
+export interface ShellView {
+  readonly id: number;
+  readonly alive: boolean;
+  readonly owner: number;
+  readonly x: number;
+  readonly y: number;
 }
 
 /**
  * The little of a World the match view reads directly (everything else comes through snapshots
  * and the HUD state). A `World` fits it as it is; a match whose sim runs in the worker keeps a
- * copy that the worker refreshes after every message.
+ * copy that the worker sends with every tick and after every message. While a snapshot listener
+ * runs, it is the world of that snapshot's tick on either thread.
  */
 export interface WorldView {
   readonly tick: number;
@@ -197,7 +211,10 @@ export interface WorldView {
   readonly turn: number;
   readonly activePlayer: number;
   readonly tanks: readonly TankView[];
+  readonly projectiles: readonly ShellView[];
   readonly grid: { readonly width: number; readonly height: number };
+  /** `weapon.*` id of a weapon index. */
+  weaponId(index: number): string;
 }
 
 /** What the sim tells the performance recorder about the time since it was last asked. */

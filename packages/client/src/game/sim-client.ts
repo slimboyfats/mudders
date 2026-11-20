@@ -2,7 +2,14 @@ import type { Input, PeerMessage, PeerStart, RenderSnapshot } from '@mudders/sha
 import type { ResolvedContent, WorldOptions } from '@mudders/sim';
 import type { Link } from '../net/link';
 import type { StartInfo } from '../net/lockstep';
-import { MAX_STEPS, STEP_MS, type GameMatch, type HudState, type SimPerf } from './match';
+import {
+  MAX_STEPS,
+  STEP_MS,
+  type GameMatch,
+  type HudState,
+  type SimPerf,
+  type WorldView,
+} from './match';
 import {
   SnapshotMirror,
   type FromSim,
@@ -41,14 +48,19 @@ export const WORKER_BUDGET_MS = STEP_MS;
 /** How long a match nobody shows any more is kept before the worker frees it. */
 const RELEASE_MS = 3000;
 
-const NO_WORLD: RemoteView = {
+/** A view as the page hands it out: the worker's, with the weapon names from the page's content. */
+export type RemoteWorld = RemoteView & WorldView;
+
+const NO_WORLD: RemoteWorld = {
   tick: 0,
   phase: 'shop',
   round: 0,
   turn: 0,
   activePlayer: -1,
   tanks: [],
+  projectiles: [],
   grid: { width: 0, height: 0 },
+  weaponId: () => '',
 };
 
 export class SimClient {
@@ -97,7 +109,10 @@ export function mergeNet(a: string, b: string): string {
 
 /** A match whose sim runs in the worker. */
 export class RemoteMatch implements GameMatch {
-  world: RemoteView = NO_WORLD;
+  world: RemoteWorld = NO_WORLD;
+  /** The newest view the worker sent (`world` steps through the ticks' own while they drain). */
+  private latest: RemoteWorld = NO_WORLD;
+  private readonly weaponIds: string[];
   ready = false;
   shed = 0;
   /** The worker could not build the match ('' = fine). */
@@ -128,7 +143,14 @@ export class RemoteMatch implements GameMatch {
     protected readonly kind: MatchSpec['kind'],
     spec: MatchSpec,
   ) {
+    this.weaponIds = content.list('weapon').map((w) => w.id);
     this.id = client.open(this, spec);
+  }
+
+  private readonly weaponId = (index: number): string => this.weaponIds[index] ?? '';
+
+  private worldOf(view: RemoteView): RemoteWorld {
+    return Object.assign(view, { weaponId: this.weaponId });
   }
 
   whenReady(fn: () => void): () => void {
@@ -170,8 +192,11 @@ export class RemoteMatch implements GameMatch {
     for (const p of packets) {
       const s = this.mirror.apply(p);
       this.spent.push(p.buf);
+      // listeners see the world of the tick they are shown, as they do on the page's thread
+      this.world = this.worldOf(p.view);
       for (const l of this.listeners) l(s);
     }
+    this.world = this.latest;
   }
 
   private pump(): void {
@@ -262,7 +287,7 @@ export class RemoteMatch implements GameMatch {
         this.inbox.push(m.packet);
         return;
       case 'state': {
-        this.world = m.view;
+        this.world = this.latest = this.worldOf(m.view);
         this.shed = m.shed;
         if (m.hud) this.hudState = m.hud;
         if (m.perf) {
@@ -387,6 +412,7 @@ export class RemoteGuestMatch extends RemoteMatch {
   you: number;
   rebuilds = 0;
   lag = 0;
+  startInfo: StartInfo;
 
   constructor(
     client: SimClient,
@@ -396,9 +422,14 @@ export class RemoteGuestMatch extends RemoteMatch {
   ) {
     super(client, content, 'guest', { kind: 'guest', start });
     this.you = start.you;
+    this.startInfo = { seed: start.seed, setup: start.setup, mode: start.mode };
   }
 
   handle(msg: PeerMessage): void {
+    // a start mid-match is a rebuild from the host's log, with the setup it carries
+    if (msg.type === 'start') {
+      this.startInfo = { seed: msg.seed, setup: msg.setup, mode: msg.mode };
+    }
     this.client.post({ t: 'fromHost', id: this.id, msg });
   }
 

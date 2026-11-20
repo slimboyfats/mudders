@@ -55,6 +55,8 @@ export interface GuestGame extends GameMatch {
   readonly rebuilds: number;
   /** Ticks the host has permitted that this guest has not simulated yet. */
   readonly lag: number;
+  /** The setup this match was started from. */
+  readonly startInfo: StartInfo;
   send: (msg: PeerMessage) => void;
   handle(msg: PeerMessage): void;
   /** The link came back: returns the `haveTick` for the join message. */

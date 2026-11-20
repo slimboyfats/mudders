@@ -1,4 +1,5 @@
-import { FP, type World } from '@mudders/sim';
+import { FP } from '@mudders/sim';
+import type { WorldView } from './match';
 
 /** One player's last shot: the aim it left with and the path of its first shell. */
 export interface GhostShot {
@@ -29,7 +30,7 @@ export class ShotGhost {
   private shooter = -1;
   private mapRound = -1;
 
-  observe(w: World): void {
+  observe(w: WorldView): void {
     if (w.round !== this.mapRound) {
       if (this.mapRound >= 0) this.clearPaths();
       this.mapRound = w.round;

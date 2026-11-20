@@ -4,7 +4,7 @@ import type { NetSetup, PeerMessage, RenderSnapshot } from '@mudders/shared';
 import type { ResolvedContent, WorldOptions } from '@mudders/sim';
 import { linkPair } from '../net/link';
 import { HASH_EVERY, HostMatch, type StartInfo } from '../net/lockstep';
-import { LocalMatch, STEP_MS } from './match';
+import { LocalMatch, STEP_MS, type WorldView } from './match';
 import {
   RemoteGuestMatch,
   RemoteHostMatch,
@@ -14,7 +14,7 @@ import {
   type SimPort,
 } from './sim-client';
 import { SimHost } from './sim-host';
-import { BufferPool, SnapshotMirror, encodeTick } from './sim-wire';
+import { BufferPool, SnapshotMirror, encodeTick, type RemoteView } from './sim-wire';
 
 let content: ResolvedContent;
 beforeAll(() => {
@@ -84,6 +84,33 @@ function digest(s: RenderSnapshot): string {
   ]);
 }
 
+/** The world a snapshot listener can read beside its snapshot (the last-shot ghost does). */
+function seen(w: WorldView): string {
+  return JSON.stringify([
+    w.tick,
+    w.phase,
+    w.round,
+    w.turn,
+    w.activePlayer,
+    w.tanks.map((t) => [
+      t.x,
+      t.y,
+      t.w,
+      t.alive,
+      t.health,
+      t.maxHealth,
+      t.team,
+      t.bot,
+      t.angle,
+      t.power,
+      w.weaponId(t.weapon),
+    ]),
+    w.projectiles.map((p) => [p.id, p.alive, p.owner, p.x, p.y]),
+    w.grid.width,
+    w.grid.height,
+  ]);
+}
+
 const botMatch: WorldOptions = {
   seed: 11,
   mode: 'mode.classic',
@@ -109,7 +136,7 @@ describe('a match in the sim worker', () => {
       const TICKS = 1500;
       const here = new LocalMatch(content, botMatch);
       const want: string[] = [];
-      here.subscribe((s) => want.push(digest(s)));
+      here.subscribe((s) => want.push(digest(s) + seen(here.world)));
       for (let i = 0; i < TICKS; i++) here.stepOnce();
 
       const t = thread();
@@ -118,7 +145,7 @@ describe('a match in the sim worker', () => {
       t.flush();
       expect(there.ready).toBe(true);
       const got: string[] = [];
-      there.subscribe((s) => got.push(digest(s)));
+      there.subscribe((s) => got.push(digest(s) + seen(there.world)));
       for (let i = 0; i < TICKS; i++) {
         there.advance(STEP_MS);
         t.flush();
@@ -172,6 +199,17 @@ describe('a match in the sim worker', () => {
   });
 });
 
+const NO_VIEW: RemoteView = {
+  tick: 0,
+  phase: 'shop',
+  round: 0,
+  turn: 0,
+  activePlayer: -1,
+  tanks: [],
+  projectiles: [],
+  grid: { width: 0, height: 0 },
+};
+
 describe('snapshot patches', () => {
   it('use a returned buffer again', () => {
     const pool = new BufferPool();
@@ -180,7 +218,7 @@ describe('snapshot patches', () => {
     let bufs = 0;
     let last: ArrayBuffer | null = null;
     m.subscribe((s) => {
-      const p = encodeTick(s, pool);
+      const p = encodeTick(s, pool, NO_VIEW);
       if (p.buf !== last) bufs++;
       last = p.buf;
       mirror.apply(p);

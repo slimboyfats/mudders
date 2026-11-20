@@ -129,7 +129,7 @@ export class SimHost {
     }
     // every snapshot goes to the page as it is made; the first is the whole map
     const off = match.subscribe((s) => {
-      const packet = encodeTick(s, this.pool);
+      const packet = encodeTick(s, this.pool, viewOf(match));
       this.post({ t: 'tick', id, packet }, [packet.buf]);
     });
     const e: Entry = { match, hudKey: '', timing: false, seenBefore: 0, off };
@@ -167,29 +167,7 @@ export class SimHost {
     extra: Pick<Extract<FromSim, { t: 'state' }>, 'ack' | 'ready'> = {},
   ): void {
     const match = e.match;
-    const w = match.world;
-    const view: RemoteView = {
-      tick: w.tick,
-      phase: w.phase,
-      round: w.round,
-      turn: w.turn,
-      activePlayer: w.activePlayer,
-      tanks: w.tanks.map((t) => ({
-        x: t.x,
-        y: t.y,
-        w: t.w,
-        alive: t.alive,
-        health: t.health,
-        maxHealth: t.maxHealth,
-        team: t.team,
-        bot: t.bot,
-      })),
-      grid: { width: w.grid.width, height: w.grid.height },
-      ...(match instanceof GuestMatch
-        ? { you: match.you, lag: match.lag, rebuilds: match.rebuilds }
-        : {}),
-      ...(match instanceof HostMatch ? { desyncs: match.desyncs } : {}),
-    };
+    const view = viewOf(match);
     const hud = match.hud();
     const key = hudKey(hud);
     const changed = key !== e.hudKey;
@@ -204,4 +182,41 @@ export class SimHost {
       ...extra,
     });
   }
+}
+
+/** The world's loose ends as the page's match view reads them. */
+function viewOf(match: SimMatch): RemoteView {
+  const w = match.world;
+  return {
+    tick: w.tick,
+    phase: w.phase,
+    round: w.round,
+    turn: w.turn,
+    activePlayer: w.activePlayer,
+    tanks: w.tanks.map((t) => ({
+      x: t.x,
+      y: t.y,
+      w: t.w,
+      alive: t.alive,
+      health: t.health,
+      maxHealth: t.maxHealth,
+      team: t.team,
+      bot: t.bot,
+      angle: t.angle,
+      power: t.power,
+      weapon: t.weapon,
+    })),
+    projectiles: w.projectiles.map((p) => ({
+      id: p.id,
+      alive: p.alive,
+      owner: p.owner,
+      x: p.x,
+      y: p.y,
+    })),
+    grid: { width: w.grid.width, height: w.grid.height },
+    ...(match instanceof GuestMatch
+      ? { you: match.you, lag: match.lag, rebuilds: match.rebuilds }
+      : {}),
+    ...(match instanceof HostMatch ? { desyncs: match.desyncs } : {}),
+  };
 }

@@ -48,6 +48,8 @@ export interface TickPacket {
   theme: string;
   weather?: RenderSnapshot['weather'];
   processes?: Partial<ProcessCounts> | undefined;
+  /** The world's loose ends at this tick (what `match.world` is while listeners see the tick). */
+  view: RemoteView;
   /**
    * Debris x, y, vx as Int32 (count each), then bytes: per dirty rect its terrain rows, coating
    * rows and (with `hasShade`) shade rows; the gas rect's rows; debris material and shade.
@@ -55,8 +57,11 @@ export interface TickPacket {
   buf: ArrayBuffer;
 }
 
-/** The match view's copy of the world's loose ends, with the online figures of its side. */
-export interface RemoteView extends WorldView {
+/**
+ * The match view's copy of the world's loose ends, with the online figures of its side. On the
+ * wire it has no `weaponId`; the page adds that from its own content.
+ */
+export interface RemoteView extends Omit<WorldView, 'weaponId'> {
   /** Guest: own player, ticks behind the host's permit, rebuilds from the host's log. */
   you?: number;
   lag?: number;
@@ -188,7 +193,7 @@ function copyIn(dst: Uint8Array, width: number, r: Rect, src: Uint8Array, at: nu
 }
 
 /** Pack a snapshot for the page (worker side). The packet's `buf` is to be transferred. */
-export function encodeTick(s: RenderSnapshot, pool: BufferPool): TickPacket {
+export function encodeTick(s: RenderSnapshot, pool: BufferPool, view: RemoteView): TickPacket {
   const { width, height } = s;
   const rects: Rect[] = [];
   let cells = 0;
@@ -248,6 +253,7 @@ export function encodeTick(s: RenderSnapshot, pool: BufferPool): TickPacket {
     theme: s.theme,
     weather: s.weather,
     processes: s.processes,
+    view,
     buf,
   };
 }

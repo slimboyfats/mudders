@@ -444,9 +444,10 @@ nothing of it, and a match gives the same hashes on either thread.
   the worker is busy the page saves the time up (at most `MAX_STEPS` ticks) and hands it over when
   the worker answers. The worker's frame budget is a whole tick (`WORKER_BUDGET_MS`), not the 10 ms
   a frame on the page gets.
-- **What the page still reads.** `match.world` on a remote match is a small view (tick, phase,
-  active player, tank positions and health) the worker refreshes with every answer; the HUD state
-  comes over only when its change key changes. The performance recorder's sim figures are taken in
+- **What the page still reads.** `match.world` on a remote match is a small view (`WorldView`:
+  tick, phase, active player, tanks, shells in flight) that comes with every tick packet and every
+  answer, so a snapshot listener reads the world of its own tick on either thread (the last-shot
+  ghost does). The HUD state comes over only when its change key changes. The performance recorder's sim figures are taken in
   the worker and merged on the page.
 - **A guest's reconnect.** `resumeFrom()` must answer at once, so it gives the last tick the page
   heard of; the worker may be a few ticks further. The host then re-sends inputs the guest has
