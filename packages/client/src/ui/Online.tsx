@@ -84,6 +84,7 @@ function rulesOf(): LobbyRules {
     deals: s.deals ?? false,
     arsenal: s.arsenal ?? false,
     bounty: s.bounty ?? false,
+    ghost: s.ghost ?? true,
     teams: s.teams,
   };
 }
@@ -245,10 +246,12 @@ interface NetGameProps {
   banner: React.ReactNode;
   /** Extra hooks for the headless network test. */
   debug?: Record<string, () => unknown>;
+  /** Last-shot ghost (host rule). */
+  ghost: boolean;
 }
 
 /** The match view for an online player: only their own tank takes input. */
-function NetGame({ match, me, settings, onExit, banner, debug }: NetGameProps) {
+function NetGame({ match, me, settings, onExit, banner, debug, ghost }: NetGameProps) {
   useEffect(() => {
     // read by the headless network test (play:net); harmless otherwise
     Object.assign(window, {
@@ -271,6 +274,7 @@ function NetGame({ match, me, settings, onExit, banner, debug }: NetGameProps) {
       controls={(p) => p === me}
       onExit={onExit}
       banner={banner}
+      ghost={ghost}
     />
   );
 }
@@ -397,6 +401,7 @@ export function HostGame({ mode, settings, onExit }: HostProps) {
         settings={settings}
         onExit={onExit}
         debug={hostDebug}
+        ghost={session.setup.ghost !== false}
         banner={
           <div className="net-banner" data-testid="net-banner">
             <span>Hosting{code ? ` · ${code}` : ''}</span>
@@ -695,6 +700,7 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
         settings={settings}
         onExit={onExit}
         debug={guestDebug}
+        ghost={session.match.startInfo.setup.ghost !== false}
         banner={
           <div className={`net-banner${reconnecting ? ' lost' : ''}`} data-testid="net-banner">
             {reconnecting ? (

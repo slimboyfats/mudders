@@ -131,29 +131,12 @@ export class TrainingOverlay implements FrameOverlay {
   }
 
   private drawPaths(g: CanvasRenderingContext2D, project: (p: Vec2) => Vec2, cell: number): void {
-    // a hard square per dot, a little bigger than a map cell: pixel look, no smooth line
-    const size = Math.max(2, Math.round(Math.min(4, cell * 1.5)));
     const n = this.paths.length;
     for (let i = 0; i < n; i++) {
       const path = this.paths[i];
-      if (!path || path.length < 2) continue;
-      g.fillStyle = PATH_STYLE[n - 1 - i] ?? PATH_STYLE[PATH_STYLE.length - 1] ?? '#ffd84a';
-      for (let k = 0; k + 1 < path.length; k += 2 * DOT_EVERY) {
-        const s = project({ x: (path[k] ?? 0) + 0.5, y: (path[k + 1] ?? 0) + 0.5 });
-        g.fillRect(Math.round(s.x - size / 2), Math.round(s.y - size / 2), size, size);
-      }
-      // where it came down: a small cross
-      const s = project({
-        x: (path[path.length - 2] ?? 0) + 0.5,
-        y: (path[path.length - 1] ?? 0) + 0.5,
-      });
-      const a = size + 2;
-      const x = Math.round(s.x);
-      const y = Math.round(s.y);
-      for (let d = -a; d <= a; d++) {
-        g.fillRect(x + d - 1, y + d - 1, 2, 2);
-        g.fillRect(x + d - 1, y - d - 1, 2, 2);
-      }
+      if (!path) continue;
+      const style = PATH_STYLE[n - 1 - i] ?? PATH_STYLE[PATH_STYLE.length - 1] ?? '#ffd84a';
+      drawShotPath(g, project, cell, path, style);
     }
   }
 
@@ -161,5 +144,36 @@ export class TrainingOverlay implements FrameOverlay {
     this.canvas?.remove();
     this.canvas = null;
     this.key = '';
+  }
+}
+
+/**
+ * A shell's path as hard square dots, a little bigger than a map cell (pixel look, no smooth
+ * line), with a small cross where it came down. `path` is flat map-cell x, y pairs.
+ */
+export function drawShotPath(
+  g: CanvasRenderingContext2D,
+  project: (p: Vec2) => Vec2,
+  cell: number,
+  path: readonly number[],
+  style: string,
+): void {
+  if (path.length < 2) return;
+  const size = Math.max(2, Math.round(Math.min(4, cell * 1.5)));
+  g.fillStyle = style;
+  for (let k = 0; k + 1 < path.length; k += 2 * DOT_EVERY) {
+    const s = project({ x: (path[k] ?? 0) + 0.5, y: (path[k + 1] ?? 0) + 0.5 });
+    g.fillRect(Math.round(s.x - size / 2), Math.round(s.y - size / 2), size, size);
+  }
+  const s = project({
+    x: (path[path.length - 2] ?? 0) + 0.5,
+    y: (path[path.length - 1] ?? 0) + 0.5,
+  });
+  const a = size + 2;
+  const x = Math.round(s.x);
+  const y = Math.round(s.y);
+  for (let d = -a; d <= a; d++) {
+    g.fillRect(x + d - 1, y + d - 1, 2, 2);
+    g.fillRect(x + d - 1, y - d - 1, 2, 2);
   }
 }

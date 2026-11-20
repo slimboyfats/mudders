@@ -19,6 +19,7 @@ export default defineFlight<Params>({
   version: 3,
   params,
   maxTicks: (p) => p.maxTicks,
+  modable: true,
   step(api, proj, p) {
     ballisticStep(api, proj, p.gravityScale, p.windScale);
   },

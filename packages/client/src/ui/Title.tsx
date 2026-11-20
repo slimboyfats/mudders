@@ -3,6 +3,7 @@ import { PROTOCOL_VERSION } from '@mudders/shared';
 import { hasUnseen } from '../changelog';
 import { CHALLENGES, loadProgress, totalStars } from '../game/challenges';
 import { SIGNAL_URL } from '../config';
+import { tutorialDone } from '../game/tutorial';
 import { installState, promptInstall, subscribeInstall } from '../pwa';
 
 type LobbyStatus = 'checking' | 'online' | 'offline';
@@ -20,6 +21,22 @@ export function Title({ onPlay }: Props) {
   const [webgl2] = useState(hasWebGL2);
   const [unseen] = useState(hasUnseen);
   const [stars] = useState(() => totalStars(loadProgress()));
+  const [learnt] = useState(tutorialDone);
+  const tutorial = (
+    <a
+      className={`secondary tile solo-tile tutorial-tile${learnt ? '' : ' fresh'}`}
+      href="#tutorial"
+      data-testid="tutorial"
+    >
+      <span className="tile-icon" aria-hidden="true">
+        ?
+      </span>
+      <span>
+        {learnt ? 'How to play' : 'New here? How to play'}
+        <small>A one-minute guided match</small>
+      </span>
+    </a>
+  );
   const install = useSyncExternalStore(subscribeInstall, installState);
 
   useEffect(() => {
@@ -49,6 +66,7 @@ export function Title({ onPlay }: Props) {
         </ul>
       </div>
       <div className="menu">
+        {!learnt && tutorial}
         <button className="primary play" disabled={!webgl2} onClick={onPlay}>
           <span className="play-icon" aria-hidden="true">
             ▶
@@ -78,6 +96,7 @@ export function Title({ onPlay }: Props) {
             <small>Target practice with a coach</small>
           </span>
         </a>
+        {learnt && tutorial}
         <div className="menu-group" role="group" aria-label="Online">
           <span className="menu-label">Online</span>
           <div className="menu-tiles">

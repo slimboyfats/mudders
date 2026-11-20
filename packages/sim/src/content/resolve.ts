@@ -302,6 +302,10 @@ export function resolveContent(source: ContentSource): ResolvedContent {
       const evs = (item as ManifestByType['gen']).events ?? [];
       evs.forEach((ev, i) => checkBehaviour(ev, `${id}.events.${i}`, 'terrainop'));
     }
+    if (type === 'gear') {
+      const f = (item as ManifestByType['gear']).mod?.flight;
+      if (f) checkBehaviour(f, `${id}.mod.flight`, 'flight');
+    }
     if (type === 'weapon') {
       const w = item as ManifestByType['weapon'];
       checkBehaviour(w.flight, `${id}.flight`, 'flight');

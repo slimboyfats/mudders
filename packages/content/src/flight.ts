@@ -133,7 +133,7 @@ function softDepth(api: SimApi, m: number): number {
 }
 
 /**
- * Contact for plain shells while the match rule `shells` is on (kernel 0.63.0); `data[0]` counts
+ * Contact for plain shells while the match rule `shells` is on (kernel 0.64.0); `data[0]` counts
  * the glances and skips so far and `data[1]` says what this contact did. It only moves the shell,
  * as the aim predictor runs it too (bots plan their skips and glances); what shows is left to
  * `shellContacted`. By the cell hit:

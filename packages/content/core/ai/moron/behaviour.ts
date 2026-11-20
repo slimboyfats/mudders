@@ -25,7 +25,7 @@ const params = z.strictObject({
 export default defineAi<z.infer<typeof params>>({
   kind: 'ai',
   id: 'ai.moron',
-  version: 4,
+  version: 5,
   params,
   move(api) {
     if (!api.rng.chance(1, 2)) return me(api).x;
@@ -69,8 +69,10 @@ export default defineAi<z.infer<typeof params>>({
       out.push({ item: chute.index, packs: 1, gear: true });
       money -= chute.price;
     }
-    if (api.gear.length > 0 && api.rng.chance(1, 3)) {
-      const g = api.gear[api.rng.int(api.gear.length)]!;
+    // weapon mods (§4.1) are no use to it: it never fits them
+    const gear = api.gear.filter((g) => g.deploy !== 'mod');
+    if (gear.length > 0 && api.rng.chance(1, 3)) {
+      const g = gear[api.rng.int(gear.length)]!;
       if (g.price * 2 <= money) {
         out.push({ item: g.index, packs: 1, gear: true });
         money -= g.price;

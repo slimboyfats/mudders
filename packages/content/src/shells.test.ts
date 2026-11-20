@@ -3,7 +3,7 @@ import type { World } from '@mudders/sim';
 import { flatWorld, flatten, launchAt } from './testing';
 
 /**
- * Shells and materials (`rules.shells`, kernel 0.63.0, `shellContact`): a plain shell glances off
+ * Shells and materials (`rules.shells`, kernel 0.64.0, `shellContact`): a plain shell glances off
  * hard ground on a flat hit, skips on water when fast and flat, and buries itself in soft ground.
  */
 

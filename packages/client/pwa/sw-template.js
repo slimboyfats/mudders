@@ -67,3 +67,14 @@ self.addEventListener('fetch', (event) => {
     ),
   );
 });
+
+// your-turn notification (Settings): a tap brings the game's tab to the front
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const tab = list.find((c) => c.url.startsWith(self.registration.scope));
+      return tab ? tab.focus() : self.clients.openWindow(self.registration.scope);
+    }),
+  );
+});

@@ -20,6 +20,7 @@
       "damageType": "kinetic"
     }
   ],
+  "mods": false,
   "shop": {
     "price": 6000,
     "pack": 1,

@@ -28,6 +28,7 @@ export function Play({ setup, settings, onExit }: Props) {
       controls={(p) => humans[p] ?? false}
       onExit={onExit}
       onRematch={() => setGame((g) => g + 1)}
+      ghost={setup.ghost !== false}
     />
   );
 }

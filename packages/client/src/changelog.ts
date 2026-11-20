@@ -19,13 +19,23 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
-    title: 'Cover counts, and shells that care what they hit',
+    title:
+      'Weapon mods, cover counts, shells that care what they hit, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+    pack: 'core@0.98.0',
     items: [
+      'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
+      'Split Mod: the shell leaves the barrel as three, in a fan 6° apart. Bouncy Mod: it bounces off the ground three times before it goes off, or at once on a tank. Fuse Mod: it skips along and settles instead of going off on the ground, with a red light blinking faster and faster, and blows four seconds after firing wherever it is; a tank still sets it off at once',
+      'Bots do not use mods yet',
       'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
       'Shells care what they hit. A fast shell that comes in flat glances off rock, steel, concrete and ice in a shower of sparks, once, and comes down further on; a square hit goes off as before',
       'A fast, flat shot skips across water like a flat stone, up to twice, throwing up drops. A steep one still goes off on the surface',
       'Soft ground swallows shells: a shell digs into snow, ash, sand and mud before it goes off (deepest in snow), so the crater is deeper and, with cover, the blast is muffled. Bots know all three and plan their bank shots',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
+      'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
+      'Last-shot ghost (a new rules setting, on by default, locally and in the online lobby): while you aim, the path of your previous shell shows as faint dots over the map with a cross where it came down, and the Angle and Power pills carry a pale mark at the values you fired with. Each player only sees their own',
+      'Your turn: the phone gives a short buzz when your turn starts, when you fire and when you are hit (Android; switch it off in Settings). If the game is in the background when your turn comes, the tab title flashes, and with "Notify me when it\'s my turn" on in Settings you also get a notification',
+      'Rule sets: one tap above the rules sets them all. Classic, Chaos (twists, deals, free weapons, crates, a new map each round), Sniper duel, Mud bath and Quick phone match. "Share these rules" copies a link that opens the setup screen with the same rules on another device',
+      'Weapon list: tap the ☆ on a weapon to make it a favourite; favourites sit first in the list. "Back to …" at the top swaps back to the weapon you had before, and holding a weapon (or right-clicking it) opens a card with what it does',
     ],
   },
   {

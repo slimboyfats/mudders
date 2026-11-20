@@ -70,7 +70,7 @@ export interface SimApi extends EffectSink {
   /** Air temperature now, whole °C (§3.4). Scale with `tempHeat`/`tempChill` from shared. */
   readonly temperature: number;
   /**
-   * Match rule `shells` (kernel 0.63.0): plain shells answer to what they hit (glance off hard
+   * Match rule `shells` (kernel 0.64.0): plain shells answer to what they hit (glance off hard
    * ground, skip on water, bury themselves in soft ground). Flight behaviours read it in `contact`.
    */
   readonly shellPhysics: boolean;
@@ -190,6 +190,8 @@ export interface Projectile {
   alive: boolean;
   /** Behaviour-owned integers (bounce counters, homing target…), hashed with the state. */
   data: number[];
+  /** Weapon mod fitted when it was fired (index into `World.gear`); absent on plain shells. */
+  mod?: number;
 }
 
 /**
@@ -236,6 +238,13 @@ export interface FlightBehaviour<P = unknown> extends BehaviourBase<P> {
    * contact's side effects go (effect events, cells knocked loose). `res` is what `contact` said.
    */
   contacted?(api: SimApi, p: Projectile, params: P, hit: FlightHit, res: ContactResult): void;
+  /**
+   * A plain arc that weapon mods (§4.1, `gear` with `deploy: "mod"`) may change: split into a fan,
+   * take over its hits with another flight's `contact`, or set it off on a fuse. Only flights whose
+   * own `contact`, if any, can be left out without loss say yes (`flight.ballistic`: a modded shell
+   * with a contact of its mod's skips the shell physics, and their `Projectile.data` never mix).
+   */
+  readonly modable?: boolean;
 }
 
 // ── terrain ops ─────────────────────────────────────────────────────────────────────────────
@@ -370,7 +379,7 @@ export interface AiGearView {
   /** Index to return from `AiBehaviour.gear`. */
   readonly index: number;
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   /** Shield points it raises my shield to, and health it restores. */
   readonly shield: number;
   readonly heal: number;
@@ -487,7 +496,7 @@ export interface AiShopApi {
 export interface AiShopGear {
   readonly index: number;
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   readonly shield: number;
   readonly heal: number;
   readonly price: number;
