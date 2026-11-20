@@ -185,7 +185,6 @@ export default defineTerrainOp<Params>({
       if (gy > maxY) maxY = gy;
     }
     g.markDirty(minX, top, maxX, maxY);
-    api.emit('dam', x, level, best.width >> 1, { cells: best.cells });
     return null;
   },
 });

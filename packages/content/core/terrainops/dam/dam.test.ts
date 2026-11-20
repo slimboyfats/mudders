@@ -1,6 +1,6 @@
 import type { World } from '@mudders/sim';
 import { describe, expect, it } from 'vitest';
-import { countCells, effectsOf, makeWorld } from '../../../src/testing';
+import { countCells, makeWorld } from '../../../src/testing';
 
 const hills = (mapEvents: boolean, seed = 17): World =>
   makeWorld({
@@ -11,6 +11,22 @@ const hills = (mapEvents: boolean, seed = 17): World =>
     wind: 0,
     rules: { turnTimer: 0, suddenDeath: false, mapEvents },
   });
+
+/** Where the dam stands: its middle column and its top row (no dam: null). */
+function damOf(w: World): { x: number; y: number } | null {
+  const g = w.grid;
+  const concrete = w.mats.cellOf('material.concrete');
+  let n = 0;
+  let sx = 0;
+  let top = g.height;
+  for (let i = 0; i < g.material.length; i++) {
+    if (g.material[i] !== concrete) continue;
+    n++;
+    sx += i % g.width;
+    top = Math.min(top, Math.floor(i / g.width));
+  }
+  return n > 0 ? { x: Math.round(sx / n), y: top } : null;
+}
 
 /** Water cells on each side of column x. */
 function waterSides(w: World, x: number): [number, number] {
@@ -29,9 +45,8 @@ function waterSides(w: World, x: number): [number, number] {
 describe('terrainop.dam', () => {
   it('builds a concrete dam with a still lake behind it, clear of the tanks', () => {
     const w = hills(true);
-    const dam = effectsOf(w, 'dam');
-    expect(dam).toHaveLength(1);
-    const d = dam[0]!;
+    const d = damOf(w)!;
+    expect(d).not.toBeNull();
     for (const t of w.tanks) expect(Math.abs(t.x - d.x)).toBeGreaterThan(24);
     expect(countCells(w, 'material.concrete')).toBeGreaterThan(150);
     const water = countCells(w, 'material.water');
@@ -42,13 +57,13 @@ describe('terrainop.dam', () => {
 
   it('stays off without the rule, so other matches keep their results', () => {
     const w = hills(false);
-    expect(effectsOf(w, 'dam')).toHaveLength(0);
+    expect(damOf(w)).toBeNull();
     expect(countCells(w, 'material.water')).toBe(0);
   });
 
   it('lets the lake out downstream when a blast breaks the wall', () => {
     const w = hills(true);
-    const d = effectsOf(w, 'dam')[0]!;
+    const d = damOf(w)!;
     const before = waterSides(w, d.x);
     const lakeLeft = before[0] > before[1];
     const g = w.grid;
@@ -59,7 +74,7 @@ describe('terrainop.dam', () => {
       weapon: w.weaponByIndex('weapon.missile'),
       owner: 0,
       x: cx * 65536,
-      y: (d.y + 10) * 65536,
+      y: (d.y + 14) * 65536,
       vx: 0,
       vy: 65536,
       age: 10,
