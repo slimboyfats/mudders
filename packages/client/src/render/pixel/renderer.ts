@@ -100,6 +100,7 @@ import { CloudWake, type CloudSky } from './cloud-wake';
 import { type KickTank, MuzzleKick } from './muzzle';
 import { BlastSkirts, type SkirtGround } from './skirt';
 import { SteamFx } from './steam';
+import { damageLevel, damagePuff, damageTint } from './damage';
 import { type FlinchTank, TankFlinch } from './flinch';
 import {
   SWAY_REACH,
@@ -2502,6 +2503,35 @@ export class PixelRenderer implements Renderer {
         }
       }
     }
+    // smoke off hurt tanks: thin and grey when battered, thick and black with sparks when crippled
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || !e.alive) continue;
+      const puff = damagePuff(damageLevel(e), e.player, this.fxTick);
+      if (!puff) continue;
+      const py = this.tankY(e) - 6;
+      this.particles.add({
+        x: e.x + puff.dx,
+        y: py,
+        vx: 0,
+        vy: -0.25,
+        life: puff.life,
+        size: puff.size,
+        color: puff.color,
+        kind: PKind.Smoke,
+      });
+      if (puff.spark) {
+        this.particles.add({
+          x: e.x + puff.dx,
+          y: py + 2,
+          vx: puff.dx * 0.08,
+          vy: -0.5,
+          life: 14,
+          size: 1,
+          color: 0xffc040,
+          kind: PKind.Spark,
+        });
+      }
+    }
     // smoke from wrecks
     if (this.fxTick % 9 === 0) {
       for (const e of this.entities) {
@@ -3410,12 +3440,18 @@ export class PixelRenderer implements Renderer {
       const shieldOn = e.shield > 0;
       // stains (§4b): wet, oiled, muddy, burning tint the hull cell by cell
       const stains = e.alive ? stainBits(e) : 0;
+      // damage shows (tanks with weight): scorched plates, and a broken track when crippled
+      const hurt = damageLevel(e);
       for (let r = 0; r < sh; r++) {
         const row = rows[r]!;
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
           let rgb = spriteColor(code, col, shieldOn);
+          if (hurt !== 0) {
+            rgb = damageTint(rgb, c, r, sw, sh, hurt, e.player);
+            if (rgb < 0) continue;
+          }
           if (stains !== 0) rgb = stainTint(rgb, c, r, sh, stains, t);
           b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(rgb, lit));
         }

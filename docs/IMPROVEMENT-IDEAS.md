@@ -82,7 +82,10 @@ real-life physics in pixel art, a living world, and speed on a phone.
 8. **Sound in space and music that follows the match** (§7.1, §7.2): pan by position, far blasts
    arrive late and dull, music layers come in as the round tightens. M, client only.
 9. **Tanks that show damage and sit on the slope** (§8.4): tilt with the ground, broken tracks,
-   bent barrel, fuel leak. M, kernel and renderer.
+   bent barrel, fuel leak. M, kernel and renderer. _Built 2026-11-20 as the match rule `tankDamage`:
+   damage shows at half and a quarter health, a crippled tank has a broken track and leaks oil, see
+   `REQUIREMENTS.md` §3.4. The hull already leaned with the ground in the renderer. Not built: bent
+   barrel, aim relative to the hull, sliding on ice, tipping over._
 10. **Sim off the main thread** (§9.1). The step that would most help the phone logs: a long
     tick no longer drops a frame. L, client only, no rule change.
 11. **Points match with a weapon draft, and co-op against bot waves** (§3.3, §3.4). Two modes

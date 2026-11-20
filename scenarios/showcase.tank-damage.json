@@ -1,0 +1,118 @@
+{
+  "id": "showcase.tank-damage",
+  "schemaVersion": 1,
+  "description": "Tanks with weight: P2 starts battered (35 of 100 health: scorched plates, thin smoke). P1's Baby Missile knocks it under a quarter: it is crippled, a track breaks and its fuel tank spills oil. On its turn it drives half as far as a whole tank and leaves an oil trail, then P1 sets the trail alight with an Incendiary.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 300
+    },
+    {
+      "x": 520,
+      "health": 35
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "cover": true,
+    "shells": true,
+    "windShape": true,
+    "tankDamage": true,
+    "suddenDeath": false,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 414
+      }
+    },
+    {
+      "t": 60,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 240,
+      "player": 1,
+      "action": {
+        "type": "drive",
+        "dir": 1
+      }
+    },
+    {
+      "t": 330,
+      "player": 1,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.baby-missile"
+      }
+    },
+    {
+      "t": 330,
+      "player": 1,
+      "action": {
+        "type": "aim",
+        "angle": 120,
+        "power": 300
+      }
+    },
+    {
+      "t": 330,
+      "player": 1,
+      "action": {
+        "type": "fire"
+      }
+    },
+    {
+      "t": 540,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.incendiary"
+      }
+    },
+    {
+      "t": 540,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 60,
+        "power": 420
+      }
+    },
+    {
+      "t": 540,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1100,
+    "untilSettled": true,
+    "extraTicks": 120
+  }
+}

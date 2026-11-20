@@ -470,6 +470,7 @@ export function toWorldOptions(s0: SetupLike, seed: number): WorldOptions {
     shells: true,
     // wind grows with height and dies in the lee of high ground; thrown earth drifts downwind
     windShape: true,
+    tankDamage: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),

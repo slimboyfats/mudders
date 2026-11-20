@@ -196,6 +196,14 @@ export interface MatchRules {
    */
   windShape?: boolean | undefined;
   /**
+   * Tanks with weight (kernel 0.68.0): a tank at or under the mode's `wounds.at` percent of its
+   * health is crippled. Its tracks are broken (it drives `wounds.drive` percent of its cells a
+   * turn) and its fuel tank leaks: `wounds.spill` cells of `wounds.leak` run out beside it when
+   * it is crippled, and one more for every third cell it drives. Off by default: scenarios,
+   * challenges and old replays keep their results; the client sets it for every match.
+   */
+  tankDamage?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -787,6 +795,9 @@ export class World implements SimApi {
    * right (`windLineR`) and left (`windLineL`), rebuilt from the skyline at every turn start.
    */
   private readonly windShapeOn: boolean;
+  /** Match rule `tankDamage`, and the cell a crippled tank leaks (-1 = none). */
+  private readonly woundsOn: boolean;
+  private readonly leakCell: number;
   private windLineR: Int16Array = new Int16Array(0);
   private windLineL: Int16Array = new Int16Array(0);
   private windSurf: Int32Array = new Int32Array(0);
@@ -1013,6 +1024,7 @@ export class World implements SimApi {
     this.birdsOn = rules.birds === true;
     this.shellPhysics = rules.shells === true;
     this.windShapeOn = rules.windShape === true;
+    this.woundsOn = rules.tankDamage === true;
     this.coverOn = rules.cover === true;
     if (this.coverOn) {
       // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
@@ -1122,6 +1134,8 @@ export class World implements SimApi {
     this.dropCell = dr ? this.mats.cellOf(dr.debris) : 0;
     const sf = mode.stains.burning.fire;
     this.stainFire = sf === undefined || sf === 'air' ? -1 : this.mats.cellOf(sf);
+    const lk = mode.wounds.leak;
+    this.leakCell = lk === undefined || lk === 'air' ? -1 : this.mats.cellOf(lk);
     for (const l of dr?.loot ?? []) {
       let item = -1;
       if (l.kind === 'weapon' || l.kind === 'gear') {
@@ -2242,6 +2256,8 @@ export class World implements SimApi {
     let cells = Math.trunc((this.mode.drive.cells * t.type.drive) / 100);
     // rusted tracks (Thunderstorm) grind along slower
     if (t.rust > 0) cells = Math.trunc((cells * t.rustDrive) / 1000);
+    // broken tracks (`rules.tankDamage`)
+    if (this.crippled(t)) cells = Math.trunc((cells * this.mode.wounds.drive) / 100);
     // cold engines (§3.4): up to 30% fewer cells a turn at the coldest
     return Math.trunc((cells * (1000 - Math.trunc((tempChill(this.temperature) * 3) / 10))) / 1000);
   }
@@ -2346,6 +2362,8 @@ export class World implements SimApi {
       }
     }
     t.driveLeft = Math.max(0, t.driveLeft - cost - drag);
+    // a holed fuel tank leaves a trail behind the tank
+    if (t.driveLeft % 3 === 0 && this.crippled(t)) this.leak(t, 1, dir);
     for (let i = 0; i <= drag; i++) [t.fuel, t.fuelBurn] = this.burnFuel(t, t.fuel, t.fuelBurn);
     if (t.driveLeft <= 0 || t.fuel <= 0 || !t.alive) t.driving = 0;
     this.emit('drive', t.x, t.y, t.half, { dir, left: t.driveLeft });
@@ -4639,7 +4657,14 @@ export class World implements SimApi {
       }
     }
     const applied = Math.min(dmg, t.health);
+    const whole = !this.crippled(t);
     t.health -= applied;
+    if (whole && t.health > 0 && this.crippled(t)) {
+      // tracks broken, fuel tank holed: what is left of this turn's drive shrinks with it
+      t.driveLeft = Math.trunc((t.driveLeft * this.mode.wounds.drive) / 100);
+      this.emit('crippled', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+      this.leak(t, this.mode.wounds.spill, 0);
+    }
     const src = by >= 0 ? this.tanks[by] : undefined;
     // hitting a teammate scores like hitting yourself (free-for-all: only yourself)
     const friendly = src !== undefined && src.team === t.team;
@@ -4660,6 +4685,39 @@ export class World implements SimApi {
   }
 
   // ── tanks ───────────────────────────────────────────────────────────────────────────────
+
+  /** Is this tank crippled (`rules.tankDamage`): alive at or under `wounds.at` percent health? */
+  crippled(t: Tank): boolean {
+    return (
+      this.woundsOn && t.alive && t.health * 100 <= Math.max(1, t.maxHealth) * this.mode.wounds.at
+    );
+  }
+
+  /**
+   * A crippled tank's fuel runs out: up to `n` cells of the mode's `wounds.leak` into the open
+   * cells beside its hull, in the row its treads stand in, walking outward. `dir` 0 spills on both
+   * sides in turn; driving (`dir` ±1) drips only behind the tank.
+   */
+  private leak(t: Tank, n: number, dir: -1 | 0 | 1): void {
+    const cell = this.leakCell;
+    const g = this.grid;
+    const y = t.y - 1;
+    if (cell < 0 || n <= 0 || y < 0 || y >= g.height) return;
+    let left = n;
+    for (let k = 0; k < 6 && left > 0; k++) {
+      for (let s = 0; s < 2 && left > 0; s++) {
+        if (dir !== 0 && (s === 0) !== dir > 0) continue;
+        const x = s === 0 ? t.x - t.half - 1 - k : t.x + t.half + k;
+        if (x < 0 || x >= g.width) continue;
+        const i = y * g.width + x;
+        if (g.material[i] !== 0) continue;
+        g.material[i] = cell;
+        g.cellState[i] = 0;
+        g.markDirty(x, y, x, y);
+        left--;
+      }
+    }
+  }
 
   /**
    * Worst contact damage of any cell in or directly under each tank's footprint (§4b), divided by

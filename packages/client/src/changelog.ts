@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
     title:
-      'Points draft, co-op waves, volley mode, weapon mods, cover counts, shells that care what they hit, wind with shape, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+      'Points draft, co-op waves, volley mode, weapon mods, cover counts, shells that care what they hit, wind with shape, tanks that show their damage, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
     pack: 'core@0.98.0 – 0.99.0',
     items: [
       'Points draft (pick it at the top of the rules, locally and in the online lobby): before the round everyone takes turns picking from one random pool of weapons, ten each with two players, in snake order (1 2 2 1 1 2…). Then you fire exactly what you picked, one shot per weapon. Nobody is knocked out: a destroyed tank comes back with full health at the end of the turn and loses 50 points. Damage dealt scores, 50 per kill, self-damage counts against you, and most points wins. No shop, no crates, no sudden death. Bots draft too, and the strongest weapon left is picked for you if your pick timer runs out',
@@ -34,6 +34,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'A fast, flat shot skips across water like a flat stone, up to twice, throwing up drops. A steep one still goes off on the surface',
       'Soft ground swallows shells: a shell digs into snow, ash, sand and mud before it goes off (deepest in snow), so the crater is deeper and, with cover, the blast is muffled. Bots know all three and plan their bank shots',
       'Wind has a shape now. It blows half as hard along the ground and half as hard again high up, so a flat shot barely drifts and a high lob is carried a long way. In the lee of a ridge or a wall the air is almost still until the shell climbs out of the wind shadow. When your tank stands in the lee, the wind readout says Lee. Bots aim with the same wind',
+      'Tanks show their damage. At half health the plates are scorched and thin grey smoke rises from the engine. At a quarter the tank is crippled: a track breaks, so it drives half as far a turn, and the fuel tank is holed, so oil runs out beside it and drips behind it as it drives. Oil burns, and an oiled tank takes more from fire, so a crippled tank should keep away from flames and off its own trail',
       'Earth thrown up by a blast drifts downwind on its way back down',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
       'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
