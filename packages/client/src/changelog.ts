@@ -19,9 +19,12 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
-    title: 'Cover counts: ground between you and a blast soaks it up',
+    title: 'Cover counts, and shells that care what they hit',
     items: [
       'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shells care what they hit. A fast shell that comes in flat glances off rock, steel, concrete and ice in a shower of sparks, once, and comes down further on; a square hit goes off as before',
+      'A fast, flat shot skips across water like a flat stone, up to twice, throwing up drops. A steep one still goes off on the surface',
+      'Soft ground swallows shells: a shell digs into snow, ash, sand and mud before it goes off (deepest in snow), so the crater is deeper and, with cover, the blast is muffled. Bots know all three and plan their bank shots',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
     ],
   },

@@ -70,6 +70,11 @@ export interface SimApi extends EffectSink {
   /** Air temperature now, whole °C (§3.4). Scale with `tempHeat`/`tempChill` from shared. */
   readonly temperature: number;
   /**
+   * Match rule `shells` (kernel 0.63.0): plain shells answer to what they hit (glance off hard
+   * ground, skip on water, bury themselves in soft ground). Flight behaviours read it in `contact`.
+   */
+  readonly shellPhysics: boolean;
+  /**
    * Knock a cell loose as a sim debris particle (fixed-point position and velocity). The cell is
    * cleared from the grid and becomes terrain again where the particle lands. Returns false (and
    * leaves the cell alone) if the debris pool is full.
@@ -226,6 +231,11 @@ export interface FlightBehaviour<P = unknown> extends BehaviourBase<P> {
   step(api: SimApi, p: Projectile, params: P): FlightSignal;
   /** Called on a hit; without it every hit is an `impact`. */
   contact?(api: SimApi, p: Projectile, params: P, hit: FlightHit): ContactResult;
+  /**
+   * Called right after `contact` on a real shot, never by the aim predictor, so this is where a
+   * contact's side effects go (effect events, cells knocked loose). `res` is what `contact` said.
+   */
+  contacted?(api: SimApi, p: Projectile, params: P, hit: FlightHit, res: ContactResult): void;
 }
 
 // ── terrain ops ─────────────────────────────────────────────────────────────────────────────

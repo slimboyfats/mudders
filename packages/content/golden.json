@@ -1,5 +1,5 @@
 {
-  "contentHash": "8e7efa61a822b5b0",
+  "contentHash": "afb4d501a37a674b",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -992,6 +992,10 @@
     "showcase.sandstorm": {
       "ticks": 241,
       "hash": "cb04607f91b834a8"
+    },
+    "showcase.shell-skip": {
+      "ticks": 426,
+      "hash": "2aa7fe9420e2060d"
     },
     "showcase.slowmo-finisher": {
       "ticks": 230,

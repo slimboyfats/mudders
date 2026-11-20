@@ -1,0 +1,58 @@
+{
+  "id": "showcase.shell-skip",
+  "schemaVersion": 1,
+  "description": "Shells and materials: P1 fires a Missile almost level across the lake. It skips off the water like a flat stone, throwing up drops, and goes off on the far shore beside P2.",
+  "mode": "mode.classic",
+  "seed": 42,
+  "players": 2,
+  "map": {
+    "generator": "gen.lakeland",
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 405
+    },
+    {
+      "x": 625
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "cover": true,
+    "shells": true
+  },
+  "inputs": [
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 4,
+        "power": 600
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 700,
+    "untilSettled": true,
+    "extraTicks": 120
+  }
+}

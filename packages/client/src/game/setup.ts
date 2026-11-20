@@ -388,6 +388,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     mapEvents: true,
     // ground between a blast and a tank soaks up part of it; a shut-in blast reaches further
     cover: true,
+    // plain shells glance off rock, skip on water and bury themselves in snow, sand and mud
+    shells: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),
