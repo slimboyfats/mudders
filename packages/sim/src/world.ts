@@ -176,6 +176,13 @@ export interface MatchRules {
    */
   mapEvents?: boolean | undefined;
   /**
+   * Blast cover (kernel 0.63.0): solid ground between a blast and a tank soaks up part of its
+   * damage and shove, and a blast shut in by ground on nearly every side reaches further along
+   * whatever opening it has. See `World.coverKeep`. Off unless set, so scenarios and tests keep
+   * their results.
+   */
+  cover?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -374,6 +381,11 @@ export interface Tank extends TankHandle {
   gear: number[];
   /** A parachute opened during the current fall: it drifts down and lands unhurt. */
   chute: boolean;
+  /**
+   * Weapon mod fitted for the next shot (§4.1), index into `World.gear`, or -1. It stays on until a
+   * shot that takes mods uses it up, or the owner takes it off. Hashed only while fitted.
+   */
+  mod: number;
   angle: number;
   power: number;
   weapon: number;
@@ -493,6 +505,8 @@ interface RtExplosion {
   scope: number;
   /** Reach of the pressure front in cells (0 = none), see `blowOff`. */
   pressure: number;
+  /** Ground between this blast and a tank cuts its damage while `rules.cover`. */
+  cover: boolean;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -680,6 +694,8 @@ interface RtWeapon {
   /** Goes off when its shooter presses fire again in flight. */
   onCommand: boolean;
   onTimer: number;
+  /** Takes weapon mods (§4.1): a plain arc that goes off on the ground. */
+  modable: boolean;
   impacts: RtImpact[];
   pulse: RtImpact[];
   price: number;
@@ -692,10 +708,18 @@ interface RtWeapon {
 /** A `gear.*` item as the kernel uses it (§5.1). */
 export interface RtGear {
   readonly id: string;
-  readonly deploy: 'manual' | 'fall';
+  readonly deploy: 'manual' | 'fall' | 'mod';
   readonly shield: number;
   readonly heal: number;
   readonly fallSpeed: number;
+  /** Weapon mod (§4.1, `deploy: "mod"`): shells in the fan and degrees between them. */
+  readonly split: number;
+  readonly spread: number;
+  /** Weapon mod: ticks after firing it goes off wherever it is (0 = no fuse). */
+  readonly fuse: number;
+  /** Weapon mod: a flight whose `contact` takes over the shell's hits, or null. */
+  readonly modFlight: FlightBehaviour | null;
+  readonly modParams: unknown;
   readonly price: number;
   readonly pack: number;
   readonly max: number;
@@ -736,6 +760,10 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
+  private readonly coverOn: boolean;
+  private readonly coverWeight = new Uint8Array(256);
+  private readonly coverPct = new Uint8Array(COVER_TANKS);
   /**
    * Op sites of each map's events (`gen.events`) by generator id, started each round on that map
    * while `rules.mapEvents`. Looked up by key only, never iterated.
@@ -950,6 +978,15 @@ export class World implements SimApi {
 
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
+    this.coverOn = rules.cover === true;
+    if (this.coverOn) {
+      // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
+      // nothing for air, gas and liquids (a blast goes through water)
+      for (let m = 1; m < 256; m++) {
+        const k = this.mats.settle[m]!;
+        this.coverWeight[m] = k === SETTLE_FLOW || k === SETTLE_GAS ? 0 : this.mats.density[m]!;
+      }
+    }
     this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
     this.turnCap = Math.max(1, rules.turnCap ?? mode.turnCap);
     this.turnTimerTicks = Math.round((rules.turnTimer ?? mode.turnTimer) * TICK_RATE);
@@ -983,6 +1020,13 @@ export class World implements SimApi {
         onApex: named.includes('onApex'),
         onCommand: named.includes('onCommand'),
         onTimer,
+        modable:
+          w.mods &&
+          flight.modable === true &&
+          named.includes('onSolid') &&
+          !named.includes('onApex') &&
+          !named.includes('onCommand') &&
+          onTimer === 0,
         impacts: w.impact.map((imp) => this.bindImpact(imp, w.id)),
         pulse: w.pulse.map((imp) => this.bindImpact(imp, w.id)),
         price: w.shop.price,
@@ -994,12 +1038,19 @@ export class World implements SimApi {
     }
     for (const g of content.list('gear')) {
       this.gearIndex[g.id] = this.gear.length;
+      const mf = g.mod?.flight;
+      const modFlight = mf ? content.behaviours.getKind(mf.behaviour, 'flight') : null;
       this.gear.push({
         id: g.id,
         deploy: g.deploy,
         shield: g.shield,
         heal: g.heal,
         fallSpeed: g.fallSpeed,
+        split: g.mod?.split ?? 1,
+        spread: g.mod?.spread ?? 0,
+        fuse: g.mod?.fuse ?? 0,
+        modFlight,
+        modParams: mf && modFlight ? modFlight.params.parse(behaviourParams(mf)) : null,
         price: g.shop.price,
         pack: g.shop.pack,
         max: g.shop.max,
@@ -1237,6 +1288,7 @@ export class World implements SimApi {
               : 0))) /
           100,
       ),
+      cover: e.cover ?? (e.damageType === 'blast' || e.damageType === 'heat'),
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -1319,6 +1371,7 @@ export class World implements SimApi {
         shieldMax: 0,
         gear,
         chute: false,
+        mod: -1,
         angle: 90,
         power: START_POWER,
         weapon: loadout[0] ? this.weaponIndex[loadout[0].weapon]! : 0,
@@ -2012,9 +2065,17 @@ export class World implements SimApi {
     }
   }
 
+  /** Whether a weapon takes weapon mods (§4.1): a plain arc that goes off on the ground. */
+  weaponModable(id: string): boolean {
+    const w = Object.hasOwn(this.weaponIndex, id) ? this.weaponIndex[id] : undefined;
+    return w !== undefined && this.weapons[w]!.modable;
+  }
+
   /** Whether switching on gear `g` now would change anything for this tank. */
   gearUseful(t: Tank, g: number): boolean {
     const gear = this.gear[g];
+    // a mod is a bolt-on part, not electrics: it fits (or comes off) whenever the tank has one
+    if (gear?.deploy === 'mod') return t.alive && ((t.gear[g] ?? 0) > 0 || t.mod === g);
     // a jammed tank's electrics are dead: no shield, no battery until it wears off
     if (!gear || gear.deploy !== 'manual' || !t.alive || t.jam > 0) return false;
     return (gear.shield > 0 && t.shield < gear.shield) || (gear.heal > 0 && t.health < t.maxHealth);
@@ -2023,10 +2084,17 @@ export class World implements SimApi {
   /**
    * Switch on a piece of gear while aiming (§5.1); it doesn't use up the turn. A shield raises the
    * tank's shield to the gear's points, a battery restores health up to the round-start health.
+   * A weapon mod (§4.1) is fitted for the next shot instead, and nothing is used up until that
+   * shot; pressing it again takes it off, and another mod replaces it.
    * Returns false (changing nothing) when the tank has none or it would do nothing.
    */
   useGear(t: Tank, g: number): boolean {
     if (this.phase !== 'aim' || t.player !== this.activePlayer) return false;
+    if (this.gear[g]?.deploy === 'mod' && this.gearUseful(t, g)) {
+      t.mod = t.mod === g ? -1 : g;
+      this.emit('modFit', t.x, t.y - t.h, t.half + 2, { player: t.player, on: t.mod >= 0 ? 1 : 0 });
+      return true;
+    }
     if ((t.gear[g] ?? 0) <= 0 || !this.gearUseful(t, g)) return false;
     const gear = this.gear[g]!;
     t.gear[g]!--;
@@ -2278,24 +2346,42 @@ export class World implements SimApi {
       power = Math.max(0, power + this.rng.range(-pw, pw));
       this.emit('rustWobble', t.x, t.y - t.h, t.half, { player: t.player });
     }
-    const c = cosDeci(a);
-    const s = sinDeci(a);
     const speed = this.muzzleSpeed(t, power);
-    const x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
-    const y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
-    this.projectiles.push({
-      id: this.nextProjectileId++,
-      weapon: fired,
-      // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
-      owner: this.controller === t.player ? t.player : this.controller,
-      x,
-      y,
-      vx: Math.trunc((speed * c) / FP),
-      vy: -Math.trunc((speed * s) / FP),
-      age: 0,
-      alive: true,
-      data: [],
-    });
+    // a fitted weapon mod (§4.1) goes on this shell if the weapon takes mods, and is used up
+    const m = t.mod;
+    const mod = m >= 0 && this.weapons[fired]!.modable && (t.gear[m] ?? 0) > 0 ? m : -1;
+    if (mod >= 0) {
+      t.gear[mod]!--;
+      if (t.gear[mod] === 0) t.mod = -1;
+      this.emit('modFire', t.x, t.y - t.h, t.half + 2, { player: t.player, gear: mod });
+    }
+    const split = mod >= 0 ? this.gear[mod]!.split : 1;
+    const spread = mod >= 0 ? this.gear[mod]!.spread * 10 : 0;
+    // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
+    const owner = this.controller === t.player ? t.player : this.controller;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < split; i++) {
+      // the fan is centred on the aim, `spread` degrees between shells, in tenths
+      const ai = a + ((2 * i - (split - 1)) * spread) / 2;
+      const c = cosDeci(ai);
+      const s = sinDeci(ai);
+      x = t.x * FP + FP / 2 + Math.trunc((BARREL * c) / FP);
+      y = (t.y - t.h) * FP - Math.trunc((BARREL * s) / FP);
+      this.projectiles.push({
+        id: this.nextProjectileId++,
+        weapon: fired,
+        owner,
+        x,
+        y,
+        vx: Math.trunc((speed * c) / FP),
+        vy: -Math.trunc((speed * s) / FP),
+        age: 0,
+        alive: true,
+        data: [],
+        ...(mod >= 0 ? { mod } : {}),
+      });
+    }
     t.lastShotAngle = t.angle;
     t.lastShotPower = t.power;
     this.shooter = t.player;
@@ -2462,7 +2548,8 @@ export class World implements SimApi {
       shield: g.shield,
       heal: g.heal,
       count: t.gear[i] ?? 0,
-      useful: this.gearUseful(t, i),
+      // bots leave weapon mods alone for now (§4.1): their aim can't foresee a split or a bounce
+      useful: g.deploy !== 'mod' && this.gearUseful(t, i),
     }));
   }
 
@@ -2485,7 +2572,7 @@ export class World implements SimApi {
     if (bot.b.gear) {
       // gear first (a shield up before the shot), each use validated like a human's
       for (const g of bot.b.gear(this.aiApi(t), bot.params)) {
-        if (Number.isInteger(g)) this.useGear(t, g);
+        if (Number.isInteger(g) && this.gear[g]?.deploy !== 'mod') this.useGear(t, g);
       }
     }
     const shot = bot.b.aim(this.aiApi(t), bot.params);
@@ -2774,7 +2861,10 @@ export class World implements SimApi {
       }
 
       if (sig !== 'skip' && this.trace(px, py, p, w)) {
-        const res: ContactResult = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+        const mg = p.mod === undefined ? null : this.gear[p.mod]!;
+        const res: ContactResult = mg?.modFlight?.contact
+          ? this.modContact(p, mg, hit)
+          : (w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact');
         if (res === 'impact') {
           this.impact(p, hit.x, hit.y);
           continue;
@@ -2791,6 +2881,12 @@ export class World implements SimApi {
         this.impactHere(p);
       } else if (w.onTimer > 0 && p.age >= w.onTimer) {
         this.impactHere(p);
+      } else if (
+        p.mod !== undefined &&
+        this.gear[p.mod]!.fuse > 0 &&
+        p.age >= this.gear[p.mod]!.fuse
+      ) {
+        this.impactHere(p);
       } else if (p.age >= w.maxTicks || p.y < -4 * H * FP || p.y >= (H + 8) * FP) {
         p.alive = false;
       }
@@ -2798,6 +2894,31 @@ export class World implements SimApi {
     if (this.projectiles.some((p) => !p.alive)) {
       this.projectiles = this.projectiles.filter((p) => p.alive);
     }
+  }
+
+  /**
+   * A modded shell's hit (§4.1): the mod's flight decides, e.g. a bounce. A rebound is told to the
+   * renderer; on a fuse the ground never sets it off, only a tank or the fuse does.
+   */
+  private modContact(p: Projectile, mg: RtGear, hit: FlightHit): ContactResult {
+    const vx = p.vx;
+    const vy = p.vy;
+    let res = mg.modFlight!.contact!(this, p, mg.modParams, hit);
+    if (res === 'impact' && mg.fuse > 0 && hit.tank < 0) {
+      // out of bounces or speed on a fuse: it comes to rest here and waits
+      p.x = hit.freeX * FP + (FP >> 1);
+      p.y = hit.freeY * FP + (FP >> 1);
+      p.vx = 0;
+      p.vy = 0;
+      res = 'continue';
+    }
+    if (res === 'pulse') {
+      // a plain shell has no pulse of its own: the bounce is just a bounce
+      const sp = Math.abs(vx) + Math.abs(vy);
+      this.emit('modBounce', hit.freeX, hit.freeY, 2, { hard: Math.min(9, sp >> FP_SHIFT) });
+      return 'continue';
+    }
+    return res;
   }
 
   /** Scratch hit record filled by `trace`. */
@@ -3752,6 +3873,16 @@ export class World implements SimApi {
   /** `byWeapon` false for a tank's death blast, which the killer's tank type doesn't scale. */
   private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
+    // cover is read off the ground as the blast finds it, before its own crater opens it up
+    const covered = this.coverOn && e.cover && (e.damage > 0 || e.push > 0);
+    let confined = 0;
+    if (covered) {
+      confined = this.confined(x, y, e.radius) ? e.radius >> 1 : 0;
+      for (let k = 0; k < this.tanks.length && k < COVER_TANKS; k++) {
+        const t = this.tanks[k]!;
+        this.coverPct[k] = t.alive ? this.coverKeep(x, y, t, e.radius, confined) : 100;
+      }
+    }
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     if (
@@ -3779,18 +3910,24 @@ export class World implements SimApi {
       }
       this.emit('scoped', x, y, e.radius, { player: owner });
     }
-    for (const t of this.tanks) {
+    for (let ti = 0; ti < this.tanks.length; ti++) {
+      const t = this.tanks[ti]!;
       if (!t.alive) continue;
       const dx = t.x - x;
       const cy = t.y - (t.h >> 1);
       const dy = cy - y;
       const d = isqrt(dx * dx + dy * dy);
-      const reach = e.radius + t.half;
+      // what the ground lets through to this tank, in percent; a shut-in blast reaches further
+      // down a clear line
+      const keep = covered && ti < COVER_TANKS ? this.coverPct[ti]! : 100;
+      const reach = e.radius + t.half + (keep === 100 ? confined : 0);
       if (d >= reach) continue;
       // sheltered behind (or under) thick rock: the blast doesn't reach it
       if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, cy)) continue;
+      if (keep < 100) this.emit('cover', t.x, cy, t.half, { player: t.player, keep });
       if (e.damage > 0) {
-        const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        const full = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        const base = keep === 100 ? full : Math.trunc((full * keep) / 100);
         const dmg = this.tempScaled(Math.trunc(base * scale), e.dt);
         const hit = byWeapon ? this.ownerScaled(dmg, owner) : dmg;
         this.damageTank(t, this.stainScaled(t, hit, e.dt), owner);
@@ -3863,7 +4000,7 @@ export class World implements SimApi {
       }
       // a glued tank holds fast: blasts don't shove it
       if (e.push > 0 && dx !== 0 && t.glue === 0) {
-        const shove = Math.trunc((e.push * (reach - d)) / reach);
+        const shove = Math.trunc((e.push * (reach - d) * keep) / (reach * 100));
         t.x = Math.max(
           t.half,
           Math.min(this.grid.width - t.half - 1, t.x + (dx > 0 ? shove : -shove)),
@@ -3893,6 +4030,80 @@ export class World implements SimApi {
       const reach = Math.max(e.radius + (e.radius >> 1), e.pressure, e.push > 0 ? e.radius * 2 : 0);
       this.drops.blast(this.dropWorld, x, y, e.radius, reach, Math.trunc(e.damage * scale));
     }
+  }
+
+  /**
+   * Blast cover (`rules.cover`): how much of a blast at (x, y) gets through to tank `t`, in
+   * percent. Three lines are walked from the blast to the tank (its middle and its two top
+   * corners) and the clearest one counts, so a tank that shows over a wall is hit in full. Each
+   * solid cell on a line soaks up its weight (`coverWeight`: dirt 1, rock 2, snow under a half).
+   * The first `COVER_FREE` cells and an eighth of the radius are free, as a blast tears through
+   * thin ground, and from there the damage falls to `COVER_FLOOR` percent over a third of a radius of
+   * dirt. A tank past the blast's reach (stretched by `extra` for a shut-in blast) gets 100.
+   */
+  private coverKeep(x: number, y: number, t: Tank, radius: number, extra: number): number {
+    const cy = t.y - (t.h >> 1);
+    const dx = t.x - x;
+    const dy = cy - y;
+    const far = radius + extra + t.half;
+    if (dx * dx + dy * dy >= far * far) return 100;
+    const top = t.y - t.h;
+    let w = this.coverLine(x, y, t.x, cy);
+    if (w > 0) w = Math.min(w, this.coverLine(x, y, t.x - t.half, top));
+    if (w > 0) w = Math.min(w, this.coverLine(x, y, t.x + t.half, top));
+    const free = (COVER_FREE + (radius >> 3)) * 100;
+    if (w <= free) return 100;
+    const span = Math.max(4, Math.trunc(radius / 3)) * 100;
+    const over = Math.min(span, w - free);
+    return 100 - Math.trunc(((100 - COVER_FLOOR) * over) / span);
+  }
+
+  /** Weight of the solid cells on the line from (x0, y0) to (x1, y1), in hundredths of a dirt cell. */
+  private coverLine(x0: number, y0: number, x1: number, y1: number): number {
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    const weight = this.coverWeight;
+    const dx = Math.abs(x1 - x0);
+    const dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    let x = x0;
+    let y = y0;
+    let sum = 0;
+    for (;;) {
+      if (y >= 0 && y < H && x >= 0 && x < W) sum += weight[mat[y * W + x]!]!;
+      if (x === x1 && y === y1) return sum;
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }
+
+  /**
+   * Is a blast at (x, y) shut in? Sixteen lines go out one radius from it; a line is open when
+   * less than a third of it is solid. With `CONFINED_OPEN` or fewer open (a tunnel, a small cave,
+   * the bottom of a shaft) the blast has nowhere to spread and drives down what opening there is.
+   * A blast on open ground has its whole upper half open and never counts.
+   */
+  private confined(x: number, y: number, radius: number): boolean {
+    if (radius < 8) return false;
+    const limit = Math.trunc((radius * 100) / 3);
+    let open = 0;
+    for (let k = 0; k < 16; k++) {
+      const ex = x + Math.trunc((COVER_DIRS[k * 2]! * radius) / 16);
+      const ey = y + Math.trunc((COVER_DIRS[k * 2 + 1]! * radius) / 16);
+      if (this.coverLine(x, y, ex, ey) < limit && ++open > CONFINED_OPEN) return false;
+    }
+    return true;
   }
 
   /**
@@ -5570,12 +5781,14 @@ export class World implements SimApi {
       });
     }
     for (const p of this.projectiles) {
+      const fuse = p.mod === undefined ? 0 : this.gear[p.mod]!.fuse;
       entities.push({
         kind: 'projectile',
         id: p.id,
         weapon: this.weaponId(p.weapon),
         x: p.x / FP,
         y: p.y / FP,
+        ...(fuse > 0 ? { fuse: Math.max(0, fuse - p.age) } : {}),
       });
     }
     for (const z of this.zones) {
@@ -5772,6 +5985,8 @@ export class World implements SimApi {
       // mark and scope (Spotter Flare): likewise only while set
       if (t.mark > 0) h.num(t.mark).num(t.markBy).num(t.markBonus);
       if (t.scope > 0) h.num(t.scope);
+      // weapon mod (kernel 0.63.0): likewise only while fitted
+      if (t.mod >= 0) h.num(t.mod ^ 0x6d6f);
       // stains (kernel 0.56.0): likewise only while stained
       if (t.wet > 0 || t.oiled > 0 || t.muddy > 0 || t.burning > 0) {
         h.num(t.wet).num(t.oiled).num(t.muddy).num(t.burning);
@@ -5781,6 +5996,7 @@ export class World implements SimApi {
     for (const p of this.projectiles) {
       h.num(p.id).num(p.weapon).num(p.owner).num(p.x).num(p.y).num(p.vx).num(p.vy).num(p.age);
       for (const v of p.data) h.num(v);
+      if (p.mod !== undefined) h.num(p.mod ^ 0x6d6f);
     }
     // pressure fronts (kernel 0.33.0): only hashed while one runs, so other ticks keep their hashes
     if (this.fronts.length > 0) {
@@ -5858,6 +6074,18 @@ export class World implements SimApi {
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
 const DT_HEAT = damageTypeIndex('heat');
 const DT_BLAST = damageTypeIndex('blast');
+
+/** Blast cover: tanks tracked per blast, the free cells, and the least a covered tank takes (%). */
+const COVER_TANKS = 16;
+const COVER_FREE = 1;
+const COVER_FLOOR = 30;
+/** A blast with this many or fewer of its sixteen lines open is shut in. */
+const CONFINED_OPEN = 4;
+/** Sixteen directions round the compass, in sixteenths (no trigonometry in the sim). */
+const COVER_DIRS = new Int8Array([
+  16, 0, 15, 6, 11, 11, 6, 15, 0, 16, -6, 15, -11, 11, -15, 6, -16, 0, -15, -6, -11, -11, -6, -15,
+  0, -16, 6, -15, 11, -11, 15, -6,
+]);
 const DT_COLD = damageTypeIndex('cold');
 const DT_SHOCK = damageTypeIndex('shock');
 

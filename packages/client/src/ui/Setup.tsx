@@ -25,12 +25,14 @@ interface Props {
   setSetup: (s: MatchSetup) => void;
   onStart: () => void;
   onBack: () => void;
+  /** A one-line note on top (rules from a shared link). */
+  notice?: string;
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 
 /** Local match setup (§8): player slots (human or AI), rounds, timers, map and rules. */
-export function Setup({ setup, setSetup, onStart, onBack }: Props) {
+export function Setup({ setup, setSetup, onStart, onBack, notice }: Props) {
   const bots = useMemo(
     () =>
       loadContent()
@@ -80,6 +82,11 @@ export function Setup({ setup, setSetup, onStart, onBack }: Props) {
   return (
     <main className="setup local">
       <h2>Local game</h2>
+      {notice && (
+        <p className="hint notice" role="status" data-testid="setup-notice">
+          {notice}
+        </p>
+      )}
       <section className="slots" aria-label="Players">
         {game === 'classic' && (
           <TeamsToggle

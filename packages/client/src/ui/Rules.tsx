@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { GAME_KINDS, type GameKind } from '@mudders/shared';
+import { RULE_SETS, matchingRuleSet, shareLink } from '../game/rule-sets';
 import {
   PRESETS,
   PRESET_NAMES,
@@ -32,6 +34,26 @@ export function Rules({ value, onChange, players = 2 }: Props) {
   const game: GameKind = value.game ?? 'classic';
   // a points match has no shop, cash, crates or sudden death; co-op has no bounty
   const shop = game !== 'points';
+  const set = matchingRuleSet(value);
+  const [shared, setShared] = useState('');
+  const share = () => {
+    const url = shareLink(value, `${location.origin}${location.pathname}`);
+    const done = (msg: string) => {
+      setShared(msg);
+      window.setTimeout(() => setShared(''), 4000);
+    };
+    if (typeof navigator.share === 'function' && matchMedia('(pointer: coarse)').matches) {
+      navigator
+        .share({ title: 'Mudders rules', text: `Mudders rules: ${set?.name ?? 'custom'}`, url })
+        .then(() => done('Shared'))
+        .catch(() => undefined);
+      return;
+    }
+    navigator.clipboard
+      ?.writeText(url)
+      .then(() => done('Link copied'))
+      .catch(() => done(url));
+  };
   return (
     <section className="rules" aria-label="Rules">
       <div className="seg game" role="radiogroup" aria-label="Game" data-testid="game">
@@ -61,6 +83,29 @@ export function Rules({ value, onChange, players = 2 }: Props) {
       </div>
       <p className="estimate game-about" data-testid="game-about">
         {GAMES[game].about}
+      </p>
+      <div className="seg rule-sets" role="radiogroup" aria-label="Rule set">
+        {RULE_SETS.map((r) => (
+          <button
+            key={r.id}
+            role="radio"
+            aria-checked={set?.id === r.id}
+            className={set?.id === r.id ? 'on' : ''}
+            onClick={() => onChange({ ...r.rules })}
+            data-testid={`ruleset-${r.id}`}
+          >
+            {r.name}
+          </button>
+        ))}
+      </div>
+      <p className="estimate rule-set-about" data-testid="ruleset-about">
+        <span>{set ? set.about : 'Custom rules'}</span>
+        <button className="link" onClick={share} data-testid="share-rules">
+          Share these rules
+        </button>
+        <span role="status" className="share-note">
+          {shared}
+        </span>
       </p>
       <div className="seg" role="radiogroup" aria-label="Match length">
         {(Object.keys(PRESETS) as Preset[]).map((k) => (
@@ -194,6 +239,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         >
           <option value="off">Off</option>
           <option value="on">On (about every other round)</option>
+        </select>
+      </label>
+      <label>
+        Last-shot ghost
+        <select
+          value={value.ghost === false ? 'off' : 'on'}
+          onChange={(e) => onChange({ ghost: e.target.value === 'on' })}
+        >
+          <option value="on">On (your last shell's path while you aim)</option>
+          <option value="off">Off</option>
         </select>
       </label>
       {shop && (

@@ -39,6 +39,14 @@ export class ScenarioDriver {
       props: scenario.props,
       dropAt: scenario.drops,
     });
+    for (const wall of scenario.walls ?? []) {
+      const g = this.world.grid;
+      const cell = this.world.mats.cellOf(wall.material);
+      for (let x = wall.x; x < Math.min(g.width, wall.x + wall.width); x++) {
+        const top = g.surfaceY(x);
+        for (let y = Math.max(0, top - wall.height); y < top; y++) g.set(x, y, cell);
+      }
+    }
     this.queue = [...scenario.inputs].sort((a, b) => a.t - b.t);
   }
 

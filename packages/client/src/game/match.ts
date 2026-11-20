@@ -50,6 +50,8 @@ export interface HudTank {
   inventory: { id: string; name: string; count: number; category: string; isNew: boolean }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
   gear: HudGear[];
+  /** Whether the held weapon takes weapon mods (§4.1). */
+  modFits: boolean;
   /** AI personality name, or '' for a human. */
   bot: string;
   money: number;
@@ -91,9 +93,11 @@ export interface HudGear {
   id: string;
   name: string;
   label: string;
-  deploy: 'manual' | 'fall';
+  deploy: 'manual' | 'fall' | 'mod';
   count: number;
   useful: boolean;
+  /** A weapon mod fitted for the next shot (§4.1). */
+  fitted: boolean;
 }
 
 export interface ShopItem {
@@ -222,7 +226,12 @@ export abstract class SimMatch implements SnapshotStream {
         id: g.id,
         name: g.meta.name,
         description: g.meta.description,
-        category: g.deploy === 'fall' ? 'gear · automatic' : 'gear',
+        category:
+          g.deploy === 'fall'
+            ? 'gear · automatic'
+            : g.deploy === 'mod'
+              ? 'gear · weapon mod'
+              : 'gear',
         price: g.shop.price,
         pack: g.shop.pack,
         gear: { max: g.shop.max },
@@ -464,7 +473,9 @@ export abstract class SimMatch implements SnapshotStream {
           deploy: g.deploy,
           count: t.gear[i] ?? 0,
           useful: w.gearUseful(t, i),
+          fitted: t.mod === i,
         })),
+        modFits: w.weaponModable(w.weaponId(t.weapon)),
       })),
     };
   }

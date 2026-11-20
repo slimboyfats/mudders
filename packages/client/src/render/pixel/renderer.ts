@@ -2128,6 +2128,38 @@ export class PixelRenderer implements Renderer {
    * column of black smoke, with sparks shed backwards. Waiting (hidden) meteors and the jump to
    * their entry point are skipped.
    */
+  /**
+   * A Fuse Mod shell's fuse (§4.1): a red pixel blinks on it, faster as the fuse burns down, with a
+   * white flash and a spark in the last second.
+   */
+  private fuseBlink(x: number, y: number, left: number): void {
+    const period = left > 120 ? 20 : left > 60 ? 10 : 5;
+    if (left % period !== 0) return;
+    const last = left <= 60;
+    this.particles.add({
+      x,
+      y: y - 1.5,
+      vx: 0,
+      vy: 0,
+      life: last ? 3 : 5,
+      size: 1,
+      color: last ? 0xffffff : 0xff3020,
+      kind: PKind.Spark,
+    });
+    if (last) {
+      this.particles.add({
+        x,
+        y: y - 2.5,
+        vx: left % 10 === 0 ? 0.4 : -0.4,
+        vy: -0.6,
+        life: 6,
+        size: 1,
+        color: 0xff3020,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
   private stepMeteors(shells: Readonly<Record<string, ShellLook>>): void {
     const live = this.meteorLive;
     live.clear();
@@ -2294,6 +2326,7 @@ export class PixelRenderer implements Renderer {
         }
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
+        if (e.fuse !== undefined) this.fuseBlink(e.x, e.y, e.fuse);
         const look = shells[e.weapon]?.shell;
         const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
         if (look === 'mud') {

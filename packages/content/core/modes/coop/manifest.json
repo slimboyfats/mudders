@@ -4,7 +4,7 @@
   "meta": {
     "name": "Co-op waves",
     "description": "Everyone with a person behind it fights on one team against waves of bots. Each round is a wave: the bots come back stronger every time (Easy at 60% health first, then Normal, Hard and Ace, with more health and a bigger war chest for the shop each wave). Losing a wave ends the match; hold every wave to win. The shop opens between waves.",
-    "since": "core@0.98.0"
+    "since": "core@0.99.0"
   },
   "extends": "mode.teams",
   "rounds": 5,

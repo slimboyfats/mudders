@@ -1,0 +1,25 @@
+{
+  "id": "gear.mod-bouncy",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Bouncy Mod",
+    "description": "A weapon mod. Fit it while aiming and your next plain shell bounces off the ground three times before it goes off, or at once on a tank. Used up by that shot; press again to take it off.",
+    "since": "core@0.98.0"
+  },
+  "deploy": "mod",
+  "mod": {
+    "flight": {
+      "use": "flight.ricochet",
+      "bounces": 3,
+      "restitution": 0.7,
+      "friction": 0.9,
+      "minSpeed": 0.5
+    }
+  },
+  "shop": {
+    "price": 1500,
+    "pack": 2,
+    "max": 9
+  },
+  "label": "Bouncy"
+}

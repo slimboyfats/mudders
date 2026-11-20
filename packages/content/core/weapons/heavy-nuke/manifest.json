@@ -26,6 +26,7 @@
       }
     }
   ],
+  "mods": false,
   "shop": {
     "price": 25000,
     "pack": 1,

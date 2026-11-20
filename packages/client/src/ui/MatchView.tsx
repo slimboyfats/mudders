@@ -18,6 +18,8 @@ import {
 import { BUILD_ID } from '../config';
 import type { Settings } from '../game/settings';
 import { holdSimWarmup } from '../game/sim-warmup';
+import { ShotGhost } from '../game/shot-ghost';
+import { TurnSignals } from '../game/turn-signals';
 import { SlowMo } from '../game/slowmo';
 import { loadRenderer, type Renderer, type Vec2 } from '../render';
 import { HitStop } from '../render/impact';
@@ -27,6 +29,7 @@ import { PerfMeter, PerfOverlay, saveText, type PerfLog, type PerfStats } from '
 import { Hud } from './Hud';
 import { PlayerMarkers, measureInsets, type MarkerTank } from './markers';
 import type { FrameOverlay } from './training-overlay';
+import { GhostOverlay } from './ghost-overlay';
 
 interface Props {
   match: SimMatch;
@@ -43,6 +46,11 @@ interface Props {
   ownEnd?: boolean;
   /** Drawn over the map every frame (training: tank grid, shot paths). */
   overlay?: FrameOverlay;
+  /**
+   * Last-shot ghost (a host rule): your previous shell's path over the map while you aim, and
+   * marks on the angle and power pills at the values you fired with.
+   */
+  ghost?: boolean;
 }
 
 interface Drag {
@@ -76,6 +84,7 @@ export function MatchView({
   banner,
   ownEnd,
   overlay,
+  ghost = false,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -86,6 +95,40 @@ export function MatchView({
     overlayRef.current = overlay;
   }, [overlay]);
   const rendererRef = useRef<Renderer | null>(null);
+  const controlsRef = useRef(controls);
+  useEffect(() => {
+    controlsRef.current = controls;
+  }, [controls]);
+  // last-shot ghost: the path over the map (frame loop) and the aim marks on the pills (state,
+  // set once per shot)
+  const ghostRef = useRef<GhostOverlay | null>(null);
+  const [lastAims, setLastAims] = useState<readonly ({ angle: number; power: number } | null)[]>(
+    [],
+  );
+  useEffect(() => {
+    if (!ghost) return;
+    const shots = new ShotGhost();
+    const ov = new GhostOverlay(shots, (p) => controlsRef.current(p));
+    ghostRef.current = ov;
+    shots.onShot = (p, shot) =>
+      setLastAims((a) => {
+        const next = a.slice();
+        next[p] = { angle: shot.angle, power: shot.power };
+        return next;
+      });
+    const off = match.subscribe(() => shots.observe(match.world));
+    return () => {
+      off();
+      shots.onShot = null;
+      ov.dispose();
+      ghostRef.current = null;
+    };
+  }, [match, ghost]);
+  const describe = useMemo(() => {
+    const text = new Map<string, string>();
+    for (const w of match.content.list('weapon')) text.set(w.id, w.meta.description);
+    return (id: string) => text.get(id) ?? '';
+  }, [match]);
   const hudStore = useMemo(() => new HudStore(match), [match]);
   const hud = useSyncExternalStore(hudStore.subscribe, hudStore.get);
   const refreshHud = hudStore.refresh;
@@ -242,9 +285,44 @@ export function MatchView({
     };
   }, [match]);
   const myTurn = hud.phase === 'aim' && hud.activePlayer >= 0 && controls(hud.controller);
+  // your-turn signals: buzz, tab title flash, notification in the background (Settings)
+  const signalsRef = useRef<TurnSignals | null>(null);
   useEffect(() => {
-    if (myTurn) sfx('audio.turn');
+    const sig = new TurnSignals();
+    signalsRef.current = sig;
+    return () => {
+      sig.dispose();
+      signalsRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    const sig = signalsRef.current;
+    if (!sig) return;
+    sig.vibrate = settings.vibrate;
+    sig.notify = settings.turnNotify;
+  }, [settings.vibrate, settings.turnNotify]);
+  useEffect(() => {
+    if (!myTurn) return;
+    sfx('audio.turn');
+    signalsRef.current?.turn();
   }, [myTurn, hud.activePlayer, hud.turn]);
+  // a short buzz as your shell leaves, a longer one when your tank takes damage
+  const seen = useRef({ phase: hud.phase, mine: false, health: [] as number[] });
+  useEffect(() => {
+    const s = seen.current;
+    const sig = signalsRef.current;
+    if (s.phase === 'aim' && hud.phase === 'resolve' && s.mine) sig?.fired();
+    s.phase = hud.phase;
+    s.mine = myTurn;
+    let lost = 0;
+    for (const t of hud.tanks) {
+      const was = s.health[t.player];
+      if (was !== undefined && t.health < was && t.bot === '' && controls(t.player))
+        lost += was - t.health;
+      s.health[t.player] = t.health;
+    }
+    if (lost > 0 && hud.phase !== 'shop') sig?.hit(lost);
+  }, [hud, myTurn, controls]);
   // the opening shop (before round 1) has no round to celebrate
   const roundOver = (hud.phase === 'shop' && hud.results.length > 0) || hud.phase === 'over';
   useEffect(() => {
@@ -475,6 +553,8 @@ export function MatchView({
       const ov = overlayRef.current;
       const host = overlayHostRef.current;
       if (ov && host) ov.frame(host, (q) => r.project(q), match.world);
+      const gh = ghostRef.current;
+      if (gh && host) gh.frame(host, (q) => r.project(q), match.world);
       // the recorder closes the frame last, so the HUD and marker work above counts as "other"
       if (recFrame) {
         recFrame();
@@ -870,6 +950,8 @@ export function MatchView({
         renderer={rendererRef}
         ownEnd={ownEnd ?? false}
         awards={awards}
+        lastAim={lastAims[hud.activePlayer] ?? null}
+        describe={describe}
         {...(onExit ? { onExit } : {})}
         {...(onRematch ? { onRematch } : {})}
       />

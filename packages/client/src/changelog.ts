@@ -19,11 +19,22 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
-    title: 'Two new kinds of match: Points draft and Co-op waves',
-    pack: 'core@0.98.0',
+    title:
+      'Points draft, co-op waves, weapon mods, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+    pack: 'core@0.98.0 – 0.99.0',
     items: [
       'Points draft (pick it at the top of the rules, locally and in the online lobby): before the round everyone takes turns picking from one random pool of weapons, ten each with two players, in snake order (1 2 2 1 1 2…). Then you fire exactly what you picked, one shot per weapon. Nobody is knocked out: a destroyed tank comes back with full health at the end of the turn and loses 50 points. Damage dealt scores, 50 per kill, self-damage counts against you, and most points wins. No shop, no crates, no sudden death. Bots draft too, and the strongest weapon left is picked for you if your pick timer runs out',
       'Co-op waves: every human is on one team against the AI players, wave after wave, with the shop in between. The first wave is Easy bots at 60% health; every wave after that the bots play a step better (Normal, Hard, Ace), have more health and bring a bigger war chest to the shop. Lose a wave and the match is over; hold them all to win. Made for two friends online against the bots',
+      'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
+      'Split Mod: the shell leaves the barrel as three, in a fan 6° apart. Bouncy Mod: it bounces off the ground three times before it goes off, or at once on a tank. Fuse Mod: it skips along and settles instead of going off on the ground, with a red light blinking faster and faster, and blows four seconds after firing wherever it is; a tank still sets it off at once',
+      'Bots do not use mods yet',
+      'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
+      'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
+      'Last-shot ghost (a new rules setting, on by default, locally and in the online lobby): while you aim, the path of your previous shell shows as faint dots over the map with a cross where it came down, and the Angle and Power pills carry a pale mark at the values you fired with. Each player only sees their own',
+      'Your turn: the phone gives a short buzz when your turn starts, when you fire and when you are hit (Android; switch it off in Settings). If the game is in the background when your turn comes, the tab title flashes, and with "Notify me when it\'s my turn" on in Settings you also get a notification',
+      'Rule sets: one tap above the rules sets them all. Classic, Chaos (twists, deals, free weapons, crates, a new map each round), Sniper duel, Mud bath and Quick phone match. "Share these rules" copies a link that opens the setup screen with the same rules on another device',
+      'Weapon list: tap the ☆ on a weapon to make it a favourite; favourites sit first in the list. "Back to …" at the top swaps back to the weapon you had before, and holding a weapon (or right-clicking it) opens a card with what it does',
     ],
   },
   {
