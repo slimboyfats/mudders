@@ -20,9 +20,12 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
     title:
-      'Map objects that react, points draft, co-op waves, volley mode, weapon mods, cover counts, shells that care what they hit, wind with shape, tanks that show their damage, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
-    pack: 'core@0.98.0 – 0.100.0',
+      'Sound in space, live 16-bit battle music, map objects that react, points draft, co-op waves, volley mode, weapon mods, cover counts, shells that care what they hit, wind with shape, tanks that show their damage, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+    pack: 'core@0.98.0 – 0.101.0',
     items: [
+      'Sound in space: blasts, shots and every other effect sound pan left or right with where they happen on screen. Off screen they arrive a moment late, quieter and duller, the further away the more, so you can hear a fight going on over the hill',
+      'New battle music in a 16-bit console style, played live as you play: strings, fingered bass, harp and a flute lead with echo. Timpani, snare and a driving bass come in once a tank is badly hurt or the last two of a bigger match face off, and kicks, brass stabs, racing strings and choir join when a tank is near death or sudden death starts. They fade back out in the shop and when the danger passes',
+      'Music stings, on the beat: a falling brass call when a tank is destroyed, a harp sweep when only two tanks are left, and a low brass growl when sudden death begins. The music dips under each one',
       'Fuel tanks: a steel tank full of fuel on two concrete saddles. A hit holes the shell where it lands and the fuel pours out and runs downhill. The vapour under its roof goes off the moment a hole lets air in: one huge fireball that tears the tank open, throws burning fuel high into the air and flings two drums that burst like fireworks. The fuel left behind lights and keeps popping as it burns, in a river of fire. In the City, on the hills and sometimes on the Badlands',
       'Fuel barrels: a stack of three steel drums of fuel under pressure. Break one open and it bursts in a fireball and shoots up into the sky like a rocket, then blows apart at the top in a firework of burning stars and fuel that rains down and sets the ground alight. The blast opens the next drum, so the stack goes up one after another. In the City, on the Badlands, in the Village and on the hills',
       'Water towers: a steel tank of water high up on four legs. Hole the tank and the water jets out of the hole; knock the legs out and the tower comes down and dumps its load in a wave. In the Village, by the lakes, in the City and on the hills',

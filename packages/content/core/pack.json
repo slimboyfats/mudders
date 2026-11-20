@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.100.0",
+  "version": "0.101.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -79,6 +79,9 @@
     "audio.sinkhole",
     "audio.snowfall",
     "audio.splash",
+    "audio.sting-duel",
+    "audio.sting-kill",
+    "audio.sting-sudden-death",
     "audio.supernova-blast",
     "audio.supernova-charge",
     "audio.swallow",

@@ -1,0 +1,19 @@
+{
+  "id": "audio.sting-duel",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Final duel sting",
+    "description": "The last two of a bigger match face off: a harp sweep up the A minor scale into a held string and choir chord, over a growing timpani roll.",
+    "since": "core@0.101.0"
+  },
+  "bus": "music",
+  "licence": {
+    "spdx": "CC0-1.0",
+    "author": "Mudders contributors",
+    "source": "Score in packages/client/src/audio/snes/songs.ts, played live by the client's SNES-style sequencer with instruments synthesised in code"
+  },
+  "gap": 2,
+  "live": {
+    "song": "sting-duel"
+  }
+}

@@ -24,6 +24,8 @@ interface AudioApi {
   patch(voices: SynthVoice[], radius: number, radiusRef: number): Promise<number[][]>;
   module(bytes: number[], seconds: number): Promise<number[][]>;
   soundscape(seconds: number): Promise<number[][]>;
+  live(song: string, plan: [number, number][], stings: [number, string][]): Promise<number[][]>;
+  spatial(voices: SynthVoice[], radiusRef: number): Promise<number[][]>;
 }
 
 function wav(channels: number[][]): Buffer {
@@ -136,6 +138,43 @@ export async function main(): Promise<number> {
     const gap = new Array<number>(Math.round(RATE * 0.35)).fill(0);
     const log: string[] = [];
     for (const a of content.list('audio')) {
+      if (a.live) {
+        // live SNES-style music: a song building through its layers with the stings over it, or
+        // a sting on its own
+        const song = a.live.song;
+        const isSong = a.bus === 'music' && !song.startsWith('sting-');
+        const plan: [number, number][] = isSong
+          ? [
+              [20, 0],
+              [20, 1],
+              [24, 2],
+              [12, 0],
+            ]
+          : [[3, 0]];
+        const stings: [number, string][] = isSong
+          ? [
+              [19, 'sting-duel'],
+              [33, 'sting-kill'],
+              [40, 'sting-sudden-death'],
+            ]
+          : [];
+        const ch = await page.evaluate(
+          ([n, p, st]) =>
+            (window as unknown as { __muddersAudio: AudioApi }).__muddersAudio.live(n, p, st),
+          [song, plan, stings] as const,
+        );
+        const level = rms(ch);
+        if (level < 0.01) problems.push(`${a.id}: live song ${song} rendered silent`);
+        const w = resolve(tmp, `${a.id}-live.wav`);
+        writeFileSync(w, wav(ch));
+        const out = resolve(outDir, `${a.id}-live.mp3`);
+        mp3(w, out);
+        log.push(
+          isSong
+            ? `${a.id}: live, calm 0-20 s, layer 1 20-40 s, layer 2 40-64 s, calm after; duel sting 19 s, kill 33 s, sudden death 40 s; rms ${level.toFixed(3)} → ${out}`
+            : `${a.id}: live sting, rms ${level.toFixed(3)} → ${out}`,
+        );
+      }
       if (a.synth) {
         const radius = a.synth.radiusRef > 0 ? a.synth.radiusRef : 0;
         const ch = await page.evaluate(
@@ -192,6 +231,25 @@ export async function main(): Promise<number> {
       mp3(w, out);
       log.push(
         `soundscape: burning, boiling, flowing, gassing, quenching, all; rms ${level.toFixed(3)} → ${out}`,
+      );
+    }
+    // sound in space: one blast across the screen left to right, then further off screen
+    {
+      const boom = content.get('audio', 'audio.boom').synth!;
+      const ch = await page.evaluate(
+        ([v, r]) =>
+          (window as unknown as { __muddersAudio: AudioApi }).__muddersAudio.spatial(v, r),
+        [boom.voices, boom.radiusRef] as const,
+      );
+      const left = rms([ch[0]!]);
+      const right = rms([ch[1]!]);
+      if (left < 0.005 || right < 0.005) problems.push('spatial: silent');
+      const w = resolve(tmp, 'spatial.wav');
+      writeFileSync(w, wav(ch));
+      const out = resolve(outDir, 'spatial.mp3');
+      mp3(w, out);
+      log.push(
+        `spatial: audio.boom at screen left, centre, right, then 1, 2.5 and 4.5 view half-widths off to the right → ${out}`,
       );
     }
     const reelWav = resolve(tmp, 'sfx-reel.wav');

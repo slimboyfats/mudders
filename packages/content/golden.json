@@ -1,5 +1,5 @@
 {
-  "contentHash": "9b2b24d38d12321d",
+  "contentHash": "15544f2257f5b20f",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -298,6 +298,18 @@
       "hash": "7011ba9452a79bbb"
     },
     "audio.splash": {
+      "ticks": 162,
+      "hash": "0b22da6842a94a0a"
+    },
+    "audio.sting-duel": {
+      "ticks": 162,
+      "hash": "0b22da6842a94a0a"
+    },
+    "audio.sting-kill": {
+      "ticks": 162,
+      "hash": "0b22da6842a94a0a"
+    },
+    "audio.sting-sudden-death": {
       "ticks": 162,
       "hash": "0b22da6842a94a0a"
     },
