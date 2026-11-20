@@ -35,6 +35,7 @@
     "muddy": { "fuel": 50 },
     "burning": { "damage": 5, "fire": "material.fire" }
   },
+  "wounds": { "at": 25, "drive": 50, "spill": 6, "leak": "material.oil" },
   "map": {
     "generator": "gen.hills",
     "width": 1200,

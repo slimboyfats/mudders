@@ -1,5 +1,5 @@
 {
-  "contentHash": "da3dbe7911e2b1ce",
+  "contentHash": "3c4c6c00cc33cca3",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -1032,6 +1032,10 @@
     "showcase.supply-drops": {
       "ticks": 929,
       "hash": "aa727b79122d60e7"
+    },
+    "showcase.tank-damage": {
+      "ticks": 781,
+      "hash": "333b4c000a0f2831"
     },
     "showcase.tank-drive": {
       "ticks": 855,
