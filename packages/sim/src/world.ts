@@ -190,6 +190,12 @@ export interface MatchRules {
    */
   shells?: boolean | undefined;
   /**
+   * Wind with shape (kernel 0.67.0): the wind a shell feels grows with its height over the ground
+   * and all but dies in the lee of high ground (`World.windAt`), and thrown earth drifts downwind.
+   * Off unless set, so scenarios and tests keep their results.
+   */
+  windShape?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -206,6 +212,13 @@ export interface MatchRules {
    * player behind the leader gets `COMEBACK_PCT` of the gap in points as cash. Off unless set.
    */
   bounty?: boolean | undefined;
+  /**
+   * Volley (kernel 0.66.0): every living tank aims during the same turn timer, each locks in with
+   * fire, and all shells leave together on one tick once everyone has locked in (or time is up).
+   * A volley counts as one turn for every tank: own-turn counters (frost, glue, stains, rust) wear
+   * down for all of them at its end, and `turnCap` counts volleys. Off unless set.
+   */
+  volley?: boolean | undefined;
 }
 
 /** Bounty: extra cash per point of damage to the leader, in percent of the mode's money per point. */
@@ -769,6 +782,15 @@ export class World implements SimApi {
   private readonly birdsOn: boolean;
   /** Match rule `shells`, read by flight behaviours (`SimApi.shellPhysics`). */
   readonly shellPhysics: boolean;
+  /**
+   * Match rule `windShape`: per column, the row of the wind's shelter line for a wind blowing
+   * right (`windLineR`) and left (`windLineL`), rebuilt from the skyline at every turn start.
+   */
+  private readonly windShapeOn: boolean;
+  private windLineR: Int16Array = new Int16Array(0);
+  private windLineL: Int16Array = new Int16Array(0);
+  private windSurf: Int32Array = new Int32Array(0);
+  private windBuilt = false;
   /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
   private readonly coverOn: boolean;
   private readonly coverWeight = new Uint8Array(256);
@@ -861,6 +883,8 @@ export class World implements SimApi {
   readonly rounds: number;
   /** Turns per player before the round ends; a weapon draft sets it to the picks per player. */
   turnCap: number;
+  /** Volley turns (`MatchRules.volley`): everyone aims at once, all shells fly together. */
+  readonly volley: boolean;
   readonly turnTimerTicks: number;
   readonly shopTimerTicks: number;
   readonly windType: WindType;
@@ -988,6 +1012,7 @@ export class World implements SimApi {
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
     this.shellPhysics = rules.shells === true;
+    this.windShapeOn = rules.windShape === true;
     this.coverOn = rules.cover === true;
     if (this.coverOn) {
       // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
@@ -999,6 +1024,7 @@ export class World implements SimApi {
     }
     this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
     this.turnCap = Math.max(1, rules.turnCap ?? mode.turnCap);
+    this.volley = rules.volley === true;
     this.turnTimerTicks = Math.round((rules.turnTimer ?? mode.turnTimer) * TICK_RATE);
     this.shopTimerTicks = Math.max(1, Math.round((rules.shopTimer ?? mode.shopTimer) * TICK_RATE));
     this.windType = rules.windType ?? mode.wind.type;
@@ -1330,6 +1356,14 @@ export class World implements SimApi {
     t.bot = next;
     t.driving = 0;
     t.botGoal = -1;
+    if (this.volley) {
+      // a bot that takes over a tank still aiming plans its shot at once and locks it in
+      if (this.phase === 'aim' && next >= 0 && t.alive && !t.ready) {
+        this.botAim(t, next);
+        this.lock(t);
+      } else if (this.phase === 'shop' && next >= 0 && !t.ready) this.botShop(t);
+      return;
+    }
     if (this.phase === 'aim' && t.player === this.controller) {
       this.botWait = next >= 0 ? BOT_THINK_TICKS : 0;
       this.timer = next >= 0 ? 0 : this.turnTimerTicks;
@@ -1668,7 +1702,41 @@ export class World implements SimApi {
   // ── public API ──────────────────────────────────────────────────────────────────────────
 
   get activePlayer(): number {
-    return this.order[this.turnPos] ?? -1;
+    // a volley has no one tank whose turn it is: every living tank aims at once
+    return this.volley ? -1 : (this.order[this.turnPos] ?? -1);
+  }
+
+  /**
+   * True when `p`'s own turn is the one playing (or ending) now: the active tank's, or every
+   * tank's in a volley. Own-turn counters set during it get one more turn, as this one is used up.
+   */
+  private ownTurn(p: number): boolean {
+    return this.volley || p === this.activePlayer;
+  }
+
+  /** `ownTurn` while the shot resolves: the counters set now are worn by this turn's end. */
+  private ending(p: number): boolean {
+    return this.phase === 'resolve' && this.ownTurn(p);
+  }
+
+  /** Tanks whose own turn ends with this one: the active tank, or every tank in a volley. */
+  private turnTanks(): readonly Tank[] {
+    if (this.volley) return this.tanks;
+    const t = this.tanks[this.activePlayer];
+    return t ? [t] : [];
+  }
+
+  /**
+   * A tank whose Telepathy caster holds the link (caster alive, not itself). In a volley it sits
+   * the turn out: its caster has their own tank to aim.
+   */
+  private linked(t: Tank): boolean {
+    return t.mind > 0 && t.mindBy >= 0 && t.mindBy !== t.player && !!this.tanks[t.mindBy]?.alive;
+  }
+
+  /** Turns that make one lap of the order: one per tank, or one volley. */
+  private get lap(): number {
+    return this.volley ? 1 : Math.max(1, this.tanks.length);
   }
 
   /**
@@ -1680,17 +1748,19 @@ export class World implements SimApi {
    * Player who pressed fire again this tick to set off their shells in flight (`onCommand`), or
    * -1. Set by an input and cleared once the shells have moved, so it is never part of the state.
    */
-  private command = -1;
+  private command = 0;
 
   /**
    * The player who may press fire now to set off a shell in flight (`onCommand` trigger), or -1:
    * the controller while one of their such shells is in the air.
    */
-  commandable(): number {
+  commandable(player?: number): number {
     if (this.phase !== 'resolve') return -1;
-    const c = this.controller;
+    // in a volley any player may set off their own shells; `player` asks for one of them
+    const c = this.volley ? (player ?? -1) : this.controller;
     for (const p of this.projectiles) {
-      if (p.alive && p.owner === c && this.weapons[p.weapon]?.onCommand) return c;
+      if (!p.alive || !this.weapons[p.weapon]?.onCommand) continue;
+      if (p.owner === c || (this.volley && player === undefined && p.owner >= 0)) return p.owner;
     }
     return -1;
   }
@@ -1710,7 +1780,7 @@ export class World implements SimApi {
   /** True when sudden death rules apply this turn (§3.1). */
   get suddenDeathActive(): boolean {
     const sd = this.suddenDeath;
-    return sd !== null && Math.floor(this.turn / Math.max(1, this.tanks.length)) >= sd.fromTurn - 1;
+    return sd !== null && Math.floor(this.turn / this.lap) >= sd.fromTurn - 1;
   }
 
   /** What the gas layer adds to the renderer's process meter (fire crackle, gas hiss, sizzle). */
@@ -1908,7 +1978,7 @@ export class World implements SimApi {
 
     this.stepProjectiles();
     probe?.(3);
-    this.command = -1;
+    this.command = 0;
     if (this.birdsOn) {
       // the wind carries the birds a little (a quarter cell a tick in a strong wind)
       const drift = Math.max(-(FP >> 1), Math.min(FP >> 1, this.wind * 25));
@@ -1918,7 +1988,12 @@ export class World implements SimApi {
     if (this.fronts.length > 0) this.stepPressure();
     this.stepClouds();
     probe?.(4);
-    this.debris.step(this.grid, this.gravity, this.mats);
+    this.debris.step(
+      this.grid,
+      this.gravity,
+      this.mats,
+      this.windShapeOn ? Math.trunc(this.wind / WIND_DEBRIS) : 0,
+    );
     if (this.chunks.any) this.chunks.step(this.grid, this.mats, this.gravity, this.debris, this);
     probe?.(5);
     const settling = this.grid.settling;
@@ -1966,8 +2041,8 @@ export class World implements SimApi {
         this.contactDone = true;
         this.applyContact();
         this.applyZones();
-        this.applyRust();
-        this.applyBurning();
+        for (const t of this.turnTanks()) this.applyRust(t);
+        for (const t of this.turnTanks()) this.applyBurning(t);
         this.armMines();
       }
       if (this.done) {
@@ -1990,6 +2065,7 @@ export class World implements SimApi {
   holding(): string {
     const out: string[] = [];
     if (this.phase === 'aim') {
+      if (this.volley) return 'players aiming';
       const t = this.tanks[this.activePlayer];
       return t && t.bot >= 0 ? 'bot thinking' : 'player aiming';
     }
@@ -2036,7 +2112,16 @@ export class World implements SimApi {
     }
     // fire again while the shot flies: shells that go off on command do (Cloud Whale)
     if (input.type === 'fire' && this.phase === 'resolve') {
-      if (player === this.controller && t.bot < 0 && this.commandable() >= 0) this.command = player;
+      if (t.bot < 0 && player < 31 && this.commandable(player) === player) {
+        this.command |= 1 << player;
+      }
+      return;
+    }
+    if (this.volley) {
+      // everyone aims at once: each player steers their own tank until they lock in with fire
+      if (this.phase !== 'aim' || t.bot >= 0 || !t.alive || t.ready) return;
+      if (input.type === 'fire') this.lock(t);
+      else this.steer(t, input);
       return;
     }
     if (this.phase !== 'aim' || player !== this.controller || t.bot >= 0) return;
@@ -2099,7 +2184,8 @@ export class World implements SimApi {
    * Returns false (changing nothing) when the tank has none or it would do nothing.
    */
   useGear(t: Tank, g: number): boolean {
-    if (this.phase !== 'aim' || t.player !== this.activePlayer) return false;
+    if (this.phase !== 'aim') return false;
+    if (this.volley ? !t.alive || t.ready : t.player !== this.activePlayer) return false;
     if (this.gear[g]?.deploy === 'mod' && this.gearUseful(t, g)) {
       t.mod = t.mod === g ? -1 : g;
       this.emit('modFit', t.x, t.y - t.h, t.half + 2, { player: t.player, on: t.mod >= 0 ? 1 : 0 });
@@ -2338,8 +2424,42 @@ export class World implements SimApi {
   }
 
   private fire(t: Tank): void {
+    // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
+    if (!this.launch1(t, this.controller === t.player ? t.player : this.controller)) return;
+    this.shooter = t.player;
+    this.phase = 'resolve';
+    this.timer = 0;
+  }
+
+  /** Volley: lock a tank's aim in; it fires with the others once all have locked in. */
+  private lock(t: Tank): void {
+    if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
+    t.ready = true;
+    t.driving = 0;
+  }
+
+  /** Volley: every living tank fires on this tick, in player order, then the shells resolve. */
+  private fireVolley(): void {
+    for (const t of this.tanks) {
+      if (t.alive && !this.linked(t)) {
+        if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
+        this.launch1(t, t.player);
+      }
+    }
+    for (const t of this.tanks) {
+      t.ready = false;
+      t.driving = 0;
+    }
+    this.shooter = -1;
+    this.phase = 'resolve';
+    this.timer = 0;
+    this.botWait = 0;
+  }
+
+  /** Put the tank's shell in the air for `owner`; false if it has nothing to fire. */
+  private launch1(t: Tank, owner: number): boolean {
     const inv = t.inventory[t.weapon] ?? 0;
-    if (inv === 0) return;
+    if (inv === 0) return false;
     if (inv > 0) t.inventory[t.weapon] = inv - 1;
     // the last one is gone: hold the next weapon the tank still has, so the HUD never shows a
     // weapon it can't fire (the shell below keeps the weapon it was fired with)
@@ -2367,8 +2487,6 @@ export class World implements SimApi {
     }
     const split = mod >= 0 ? this.gear[mod]!.split : 1;
     const spread = mod >= 0 ? this.gear[mod]!.spread * 10 : 0;
-    // a mind-controlled tank's shell is its caster's (kill credit, own-team rules)
-    const owner = this.controller === t.player ? t.player : this.controller;
     let x = 0;
     let y = 0;
     for (let i = 0; i < split; i++) {
@@ -2394,14 +2512,12 @@ export class World implements SimApi {
     }
     t.lastShotAngle = t.angle;
     t.lastShotPower = t.power;
-    this.shooter = t.player;
-    this.phase = 'resolve';
-    this.timer = 0;
     this.emit('muzzle', Math.floor(x / FP), Math.floor(y / FP), 3, {
       angle: t.angle,
       weapon: fired,
     });
     if (this.birdsOn) this.birds.startle(Math.floor(x / FP), Math.floor(y / FP), 40);
+    return true;
   }
 
   /** Launch speed (fixed-point) for `power` 0–1000 from this tank's muzzle. */
@@ -2413,6 +2529,10 @@ export class World implements SimApi {
   // ── turn timer and bots ─────────────────────────────────────────────────────────────────
 
   private stepAim(): void {
+    if (this.volley) {
+      this.stepVolley();
+      return;
+    }
     const t = this.tanks[this.activePlayer];
     if (!t?.alive) {
       // Died before shooting (burnt out in the sudden-death zone at the start of its turn): pass.
@@ -2443,6 +2563,39 @@ export class World implements SimApi {
       if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
       this.fire(t);
     }
+  }
+
+  /**
+   * Volley aiming: everyone drives and aims at once. Bots share one think countdown (held while
+   * any of them is still driving or falling), so they all move, aim and lock in on the same ticks,
+   * each without knowing what the others aimed. The shells leave once every tank has locked in, or
+   * when the timer runs out (who hasn't locked in fires as aimed).
+   */
+  private stepVolley(): void {
+    let moving = false;
+    for (const t of this.tanks) {
+      if (!t.alive || t.ready) continue;
+      if (t.driving !== 0 && !t.falling && this.tick % this.driveTicks(t) === 0) {
+        this.driveStep(t);
+        if (t.bot >= 0 && t.x === t.botGoal) t.driving = 0;
+      }
+      if (t.bot >= 0 && (t.driving !== 0 || t.falling)) moving = true;
+    }
+    if (!moving && this.botWait > 0) {
+      const at = --this.botWait;
+      for (const t of this.tanks) {
+        if (!t.alive || t.ready || t.bot < 0) continue;
+        if (at === BOT_MOVE_TICK) this.botMove(t, t.bot);
+        if (at === BOT_THINK_TICKS >> 1) this.botAim(t, t.bot);
+        if (at <= 0) this.lock(t);
+      }
+    }
+    if (this.timer > 0 && --this.timer === 0) {
+      // out of time: everyone still aiming fires as they are (§3.3)
+      for (const t of this.tanks) if (t.alive && !t.ready) this.lock(t);
+    }
+    for (const t of this.tanks) if (t.alive && !t.ready) return;
+    this.fireVolley();
   }
 
   /** The bot's view of the match on its turn (§3.7). */
@@ -2591,6 +2744,56 @@ export class World implements SimApi {
     } else if (t.inventory[t.weapon] === 0) t.weapon = this.firstWeapon(t);
     t.angle = Math.max(0, Math.min(180, Math.round(shot.angle)));
     t.power = Math.max(0, Math.min(1000, Math.round(shot.power)));
+  }
+
+  /**
+   * Wind with shape (`rules.windShape`): the shelter line of each column, once for a wind blowing
+   * right and once for one blowing left. Walking downwind, the line sits on the skyline and from
+   * every crest falls one row in `WIND_LEE_RUN` columns, so behind a ridge it hangs in the air
+   * over the lee slope until the ground comes up to meet it. Built at turn start from the
+   * skyline as it stands and left alone all turn, so every peer and the aim predictor read the
+   * same wind whatever the shot digs up.
+   */
+  private buildWindLines(): void {
+    const g = this.grid;
+    const W = g.width;
+    if (this.windSurf.length !== W) {
+      this.windSurf = new Int32Array(W);
+      this.windLineR = new Int16Array(W);
+      this.windLineL = new Int16Array(W);
+    }
+    const surf = this.windSurf;
+    g.surfaces(surf);
+    let b = surf[0]! * WIND_LEE_RUN;
+    for (let x = 0; x < W; x++) {
+      b = Math.min(surf[x]! * WIND_LEE_RUN, b + 1);
+      this.windLineR[x] = Math.trunc(b / WIND_LEE_RUN);
+    }
+    b = surf[W - 1]! * WIND_LEE_RUN;
+    for (let x = W - 1; x >= 0; x--) {
+      b = Math.min(surf[x]! * WIND_LEE_RUN, b + 1);
+      this.windLineL[x] = Math.trunc(b / WIND_LEE_RUN);
+    }
+    this.windBuilt = true;
+  }
+
+  /**
+   * The wind a shell feels in cell (x, y) (`SimApi.windAt`). With `rules.windShape`: on the
+   * shelter line it is half the turn's wind (`WIND_LOW`/256) and grows by 3/256 for every two
+   * rows above, up to half as much again (`WIND_HIGH`/256) from about 170 rows up; under the
+   * line, in the lee, it falls to an eighth (`WIND_LEE`/256) within eight rows. Without the rule, or before the first turn, plain `wind`.
+   */
+  windAt(x: number, y: number): number {
+    const wind = this.wind;
+    if (!this.windShapeOn || !this.windBuilt || wind === 0) return wind;
+    const line = wind > 0 ? this.windLineR : this.windLineL;
+    const cx = x < 0 ? 0 : x >= line.length ? line.length - 1 : x;
+    const up = line[cx]! - y;
+    const k =
+      up >= 0
+        ? Math.min(WIND_HIGH, WIND_LOW + ((up * WIND_RISE) >> 1))
+        : Math.max(WIND_LEE, WIND_LOW + up * WIND_DROP);
+    return Math.trunc((wind * k) / 256);
   }
 
   /**
@@ -2780,7 +2983,8 @@ export class World implements SimApi {
   }
 
   interrupt(owner: number): void {
-    if (this.phase !== 'aim') return;
+    // a volley's aiming goes on: the blast plays out around the others while they aim
+    if (this.phase !== 'aim' || this.volley) return;
     const t = this.tanks[this.activePlayer];
     if (t) t.driving = 0;
     this.phase = 'resolve';
@@ -2891,7 +3095,7 @@ export class World implements SimApi {
       }
       if (w.onApex && pvy < 0 && p.vy >= 0) {
         this.impactHere(p);
-      } else if (w.onCommand && this.command >= 0 && p.owner === this.command) {
+      } else if (w.onCommand && p.owner >= 0 && p.owner < 31 && (this.command >> p.owner) & 1) {
         this.impactHere(p);
       } else if (w.onTimer > 0 && p.age >= w.onTimer) {
         this.impactHere(p);
@@ -3749,8 +3953,7 @@ export class World implements SimApi {
   /** Rust a tank under a rusting zone: refresh its turns (never stack) and take the zone's worst. */
   private rustTank(t: Tank, z: Zone): void {
     // the active tank's own turn is ending now, so it gets one more to keep the full count
-    const turns =
-      z.rustTurns + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+    const turns = z.rustTurns + (this.ending(t.player) ? 1 : 0);
     const fresh = t.rust === 0;
     t.rustBy = z.owner;
     if (fresh) {
@@ -3767,9 +3970,8 @@ export class World implements SimApi {
   }
 
   /** End of a rusted tank's own turn: the rust eats a little more of it, then wears down a turn. */
-  private applyRust(): void {
-    const t = this.tanks[this.activePlayer];
-    if (!t || t.rust <= 0) return;
+  private applyRust(t: Tank): void {
+    if (t.rust <= 0) return;
     t.rust--;
     if (!t.alive) return;
     if (t.rustDamage > 0) {
@@ -3914,7 +4116,7 @@ export class World implements SimApi {
     }
     const scale = this.suddenDeathActive ? this.suddenDeath!.damageScale : 1;
     const shooter = owner >= 0 ? this.tanks[owner] : undefined;
-    const mine = shooter !== undefined && owner === this.activePlayer && this.phase === 'resolve';
+    const mine = shooter !== undefined && this.ending(owner);
     if (e.scope > 0 && shooter) {
       // the flare lights the field for the shooter's whole team: a full aim preview next turn
       for (const u of this.tanks) {
@@ -3950,15 +4152,13 @@ export class World implements SimApi {
         // frosted for its next own turns; a tank that frosts itself keeps it past this turn too;
         // in hard frost (§3.4) it stays frosted a turn longer
         const turns =
-          e.chill +
-          (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0) +
-          (tempChill(this.temperature) >= 500 ? 1 : 0);
+          e.chill + (this.ending(t.player) ? 1 : 0) + (tempChill(this.temperature) >= 500 ? 1 : 0);
         if (turns > t.chill) t.chill = turns;
         this.emit('frosted', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
       }
       if (e.glue > 0) {
         // glued for its next own turns; a tank that glues itself stays stuck past this turn too
-        const turns = e.glue + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        const turns = e.glue + (this.ending(t.player) ? 1 : 0);
         if (turns > t.glue) t.glue = turns;
         t.driving = 0;
         this.emit('glued', t.x, t.y, t.half, { player: t.player });
@@ -3968,8 +4168,7 @@ export class World implements SimApi {
         // tank of the caster's own team
         const caster = this.tanks[owner];
         if (caster?.alive && caster.team !== t.team) {
-          const turns =
-            e.mind + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+          const turns = e.mind + (this.ending(t.player) ? 1 : 0);
           if (turns > t.mind || t.mindBy !== owner) t.mind = turns;
           t.mindBy = owner;
           this.emit('mindLink', t.x, t.y - (t.h >> 1), t.half, { player: t.player, by: owner });
@@ -4007,7 +4206,7 @@ export class World implements SimApi {
       }
       if (e.jam > 0) {
         // jammed for its next own turns; a tank that jams itself stays jammed past this turn too
-        const turns = e.jam + (t.player === this.activePlayer && this.phase === 'resolve' ? 1 : 0);
+        const turns = e.jam + (this.ending(t.player) ? 1 : 0);
         if (turns > t.jam) t.jam = turns;
         t.driving = 0;
         this.emit('jammed', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
@@ -4529,7 +4728,7 @@ export class World implements SimApi {
         }
       }
       if (wet + oiled + muddy + burning === 0) continue;
-      this.stain(t, wet, oiled, muddy, burning, t.player === this.activePlayer ? 1 : 0);
+      this.stain(t, wet, oiled, muddy, burning, this.ownTurn(t.player) ? 1 : 0);
     }
   }
 
@@ -4602,9 +4801,8 @@ export class World implements SimApi {
    * and hot air make it worse), credited to whoever last hit it, and sets `burning.fire` in the
    * open cells just beside its treads, where the flames can catch the ground.
    */
-  private applyBurning(): void {
-    const t = this.tanks[this.activePlayer];
-    if (!t || !t.alive || t.burning <= 0) return;
+  private applyBurning(t: Tank): void {
+    if (!t.alive || t.burning <= 0) return;
     const g = this.grid;
     const fire = this.stainFire;
     // the row the hull sits in, just above the ground row `t.y`
@@ -5114,11 +5312,16 @@ export class World implements SimApi {
     if (this.turn > 0) this.driftTemperature();
     this.shooter = -1;
     for (const u of this.tanks) u.slid = 0;
+    if (this.windShapeOn) this.buildWindLines();
     this.phase = 'aim';
     this.modeB.onTurnStart(this.modeApi, this.modeParams);
     this.weatherB?.onTurnStart?.(this, this.weatherParams);
     if (this.suddenDeathActive) this.growZone();
     if (this.dropsOn) this.turnDrop();
+    if (this.volley) {
+      this.beginVolley();
+      return;
+    }
     const t = this.tanks[this.activePlayer];
     if (t?.alive && this.suddenDeath && this.inDeathZone(t)) {
       // the wasteland eats at a tank that starts its turn inside it; no one gets the credit
@@ -5146,6 +5349,30 @@ export class World implements SimApi {
     }
   }
 
+  /** The start of a volley: every living tank gets its turn's drive, then all aim at once. */
+  private beginVolley(): void {
+    let bots = false;
+    let humans = false;
+    for (const t of this.tanks) {
+      t.ready = false;
+      t.driving = 0;
+      t.botGoal = -1;
+      if (!t.alive) continue;
+      if (this.suddenDeath && this.inDeathZone(t)) {
+        // the wasteland eats at every tank that starts the volley inside it
+        this.emit('zoneBurn', t.x, t.y - (t.h >> 1), t.half, { player: t.player });
+        this.damageTank(t, this.suddenDeath.zoneDamage, -1, true);
+      }
+      t.driveLeft = t.glue > 0 || t.jam > 0 ? 0 : this.driveCells(t);
+      // a mind-linked tank sits the volley out, held by its caster
+      if (this.linked(t)) t.ready = true;
+      else if (t.bot >= 0) bots = true;
+      else humans = true;
+    }
+    this.botWait = bots ? BOT_THINK_TICKS : 0;
+    this.timer = humans ? this.turnTimerTicks : 0;
+  }
+
   /**
    * Sudden death (§3.1): the death zone at each map edge grows by `edgeCells` columns. The terrain
    * stays; the zone is a no-go strip that burns any tank starting its turn inside it. A strip of
@@ -5166,11 +5393,11 @@ export class World implements SimApi {
     return t.x - t.half < this.edge || t.x + t.half > this.grid.width - this.edge;
   }
 
-  private endTurn(): void {
-    const active = this.tanks[this.activePlayer];
-    if (active && active.chill > 0) active.chill--;
-    if (active) this.wearStains(active);
-    if (active && active.mind > 0) {
+  /** End of a tank's own turn, before the turn counter moves on: its counters wear down. */
+  private endOwnTurn(active: Tank): void {
+    if (active.chill > 0) active.chill--;
+    this.wearStains(active);
+    if (active.mind > 0) {
       active.mind--;
       if (active.mind === 0) {
         if (active.alive) {
@@ -5182,27 +5409,27 @@ export class World implements SimApi {
         active.mindBy = -1;
       }
     }
-    if (active && active.glue > 0) {
+    if (active.glue > 0) {
       active.glue--;
       // the glue gives: a little tear of goo as it lets go
       if (active.glue === 0 && active.alive) {
         this.emit('unglued', active.x, active.y, active.half, { player: active.player });
       }
     }
-    this.turn++;
-    turnDecay(this.grid, this.mats);
-    if (active) {
-      for (const u of this.tanks) {
-        if (u.mark <= 0 || u.markBy !== active.player) continue;
-        u.mark--;
-        if (u.mark === 0) {
-          u.markBy = -1;
-          if (u.alive) this.emit('unmarked', u.x, u.y - (u.h >> 1), u.half, { player: u.player });
-        }
+  }
+
+  /** End of a tank's own turn, after the turn counter: marks it set, its scope and jam wear down. */
+  private endOwnTurnLate(active: Tank): void {
+    for (const u of this.tanks) {
+      if (u.mark <= 0 || u.markBy !== active.player) continue;
+      u.mark--;
+      if (u.mark === 0) {
+        u.markBy = -1;
+        if (u.alive) this.emit('unmarked', u.x, u.y - (u.h >> 1), u.half, { player: u.player });
       }
-      if (active.scope > 0) active.scope--;
     }
-    if (active && active.jam > 0) {
+    if (active.scope > 0) active.scope--;
+    if (active.jam > 0) {
       active.jam--;
       if (active.jam === 0 && active.alive) {
         this.emit('unjammed', active.x, active.y - (active.h >> 1), active.half, {
@@ -5210,12 +5437,21 @@ export class World implements SimApi {
         });
       }
     }
+  }
+
+  private endTurn(): void {
+    // the tanks whose own turn this was: the active one, or all of them after a volley
+    const ended = this.turnTanks();
+    for (const active of ended) this.endOwnTurn(active);
+    this.turn++;
+    turnDecay(this.grid, this.mats);
+    for (const active of ended) this.endOwnTurnLate(active);
     if (this.mode.respawn) this.respawnTanks();
-    if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.tanks.length) {
+    if (this.teamsAlive() <= 1 || this.turn >= this.turnCap * this.lap) {
       this.endRound();
       return;
     }
-    for (let i = 0; i < this.order.length; i++) {
+    for (let i = 0; !this.volley && i < this.order.length; i++) {
       this.turnPos = (this.turnPos + 1) % this.order.length;
       if (this.tanks[this.order[this.turnPos]!]?.alive) break;
     }
@@ -5791,6 +6027,7 @@ export class World implements SimApi {
         ...(t.muddy > 0 ? { muddy: t.muddy } : {}),
         ...(t.burning > 0 ? { burning: t.burning } : {}),
         active: this.phase === 'aim' && t.player === this.activePlayer,
+        ...(this.volley && this.phase === 'aim' && t.alive ? { volley: !t.ready } : {}),
         ...(t.bot >= 0 ? { bot: this.botIds[t.bot] ?? '' } : {}),
       });
     }
@@ -6088,6 +6325,18 @@ export class World implements SimApi {
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
 const DT_HEAT = damageTypeIndex('heat');
 const DT_BLAST = damageTypeIndex('blast');
+
+/** Wind with shape: a crest's wind shadow falls one row in this many columns. */
+const WIND_LEE_RUN = 3;
+/** Share of the wind (×256) on the shelter line, at most high up, at least in the lee. */
+const WIND_LOW = 128;
+const WIND_HIGH = 384;
+const WIND_LEE = 32;
+/** Share gained per two rows over the shelter line and lost per row under it (×256). */
+const WIND_RISE = 3;
+const WIND_DROP = 12;
+/** Thrown earth feels this fraction of the wind. */
+const WIND_DEBRIS = 4;
 
 /** Blast cover: tanks tracked per blast, the free cells, and the least a covered tank takes (%). */
 const COVER_TANKS = 16;

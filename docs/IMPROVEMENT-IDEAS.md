@@ -77,7 +77,8 @@ real-life physics in pixel art, a living world, and speed on a phone.
 6. **Weapon mods** (§4.1): a few add-ons (split, bounce, fuse, "carries the next shell") that
    work on most shells. The largest gain in depth per item added. L, kernel and content.
 7. **Wind with shape** (§8.3): stronger higher up, calm in the lee of a mountain, and it moves
-   falling sand, snow, embers and lake waves. M, kernel.
+   falling sand, snow, embers and lake waves. M, kernel. _Shells and thrown earth built 2026-11-20 as
+   the match rule `windShape`, see `REQUIREMENTS.md` §3.4; embers, fire and lake waves are not._
 8. **Sound in space and music that follows the match** (§7.1, §7.2): pan by position, far blasts
    arrive late and dull, music layers come in as the round tightens. M, client only.
 9. **Tanks that show damage and sit on the slope** (§8.4): tilt with the ground, broken tracks,
@@ -312,6 +313,8 @@ All chiptune, synthesised or tracker (§8b).
    dirty rectangles. A 40 ms tick then costs the picture nothing, and the phone logs show long
    ticks as the main remaining stutter. Lockstep is unchanged. Shared memory needs headers that
    GitHub Pages does not send, so start with transferred buffers. _L, client. No rule change._
+   **Built** (ARCHITECTURE §5.2): local and online matches; challenges, training and the
+   sandbox still run on the page.
 2. **Sun and shadow.** The time of day already moves across rounds. Cast a hard, dithered shadow
    from the skyline by the sun's angle (a 1D skyline texture and a short march in the terrain
    shader), long at dawn and dusk. Big blasts light the ground for a moment in hard bands.

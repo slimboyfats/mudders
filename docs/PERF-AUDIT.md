@@ -601,3 +601,41 @@ same rows of air over the land, and whichever came first paid for bringing them 
 Settling 0.50 to 0.40 and 0.36 to 0.27 ms a tick on two seeds, same hashes, golden unchanged.
 A test steps a rainy Village through a shot and checks every row above `skyLow` each tick.
 Not measured on a phone.
+
+## The sim in a worker (2026-11-20)
+
+Local and online matches now run their World in a Web Worker (ARCHITECTURE §5.2). The phone logs
+kept showing two things this answers: single long ticks (a big blast landing, rock falling, a
+bot's first plan) that froze the picture for the length of the tick, and frames whose sim plus
+renderer step plus draw came to more than one refresh although each part was small.
+
+What it costs: a tick's snapshot crosses as a patch of the changed rows. On a rainy 1600x800
+Village with four bots (node, 4 000 ticks) that is 95 KB a tick on average and 1.5 MB at worst;
+packing takes 0.02 ms a tick in the worker and unpacking 0.03 ms on the page (1 ms at worst).
+The picture is one frame behind the controls.
+
+What it buys, measured in headless Chromium with the WebGL draw calls stubbed (so this is the
+page's JS only) on the same match, 45 s, two runs each:
+
+- At full desktop speed the sim is about 1 ms a tick, and the page's thread goes from 160 to
+  148 ms of work a second. No frame was late either way.
+- With the processor slowed six times (`Emulation.setCPUThrottlingRate`), frames over 25 ms go
+  from 287 to 394 of about 2 300 down to 225 to 268. The page's thread stays near 750 ms a
+  second: on this scene the renderer's own per-tick work is most of it, and that has not moved.
+
+So in a steady scene the gain is the sim's share of the frame and no more; the long single ticks
+are where it shows, and those are not in this measurement. Not measured on a phone.
+
+Reading a log from a worker match: the header says `sim thread: worker`. The `sim` column is the
+worker's own time for the ticks that came back that frame (it no longer adds to the frame's
+length), unpacking counts under `other`, and "sim by part" is timed in the worker. A long tick
+now shows as a frame with 0 ticks followed by one with 2, not as a long frame.
+
+Checking in the cloud: `PLAY_NET_DRAW=off pnpm play:net` runs the online test with the draw calls
+stubbed. On 2026-11-20 the container's software GPU drew about one frame a second with two
+pages open, and the test failed on `main` as well ("turns did not come round"); with drawing
+off all five runs pass in about three minutes, sims in workers on both sides, 0 desyncs.
+`PLAY_NET_SIM=page` runs the same with the sims on the page.
+
+Left: solo challenges, training and the sandbox still run on the page (they read the World
+directly). The renderer's per-tick step is now the larger part of the page's work.

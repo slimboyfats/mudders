@@ -1,4 +1,4 @@
-import type { World } from '@mudders/sim';
+import type { WorldView } from '../game/match';
 import type { Vec2 } from '../render';
 import type { ShotGhost } from '../game/shot-ghost';
 import { drawShotPath, type FrameOverlay } from './training-overlay';
@@ -18,8 +18,12 @@ export class GhostOverlay implements FrameOverlay {
     private readonly mine: (player: number) => boolean,
   ) {}
 
-  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: World): void {
-    const p = world.activePlayer;
+  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: WorldView): void {
+    // in a volley: this device's first tank still aiming
+    const p = world.volley
+      ? (world.tanks.find((t) => t.alive && !t.ready && t.bot < 0 && this.mine(t.player))?.player ??
+        -1)
+      : world.activePlayer;
     const shot = world.phase === 'aim' && this.mine(p) ? this.ghost.shots[p] : null;
     const path = shot && shot.path.length >= 4 ? shot.path : null;
     let c = this.canvas;

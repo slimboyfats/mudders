@@ -124,7 +124,8 @@ export function Rules({ value, onChange, players = 2 }: Props) {
         ))}
       </div>
       <p className="estimate" data-testid="estimate">
-        About {estimateMinutes(value.rounds, value.turnTimer, players)} min with {players} players
+        About {estimateMinutes(value.rounds, value.turnTimer, players, value.volley ?? false)} min
+        with {players} players
       </p>
       <label>
         {game === 'coop' ? 'Waves' : game === 'points' ? 'Drafts' : 'Rounds'}
@@ -231,6 +232,16 @@ export function Rules({ value, onChange, players = 2 }: Props) {
           </label>
         </>
       )}
+      <label>
+        Turns
+        <select
+          value={value.volley ? 'volley' : 'order'}
+          onChange={(e) => onChange({ volley: e.target.value === 'volley' })}
+        >
+          <option value="order">One at a time</option>
+          <option value="volley">Volley (all fire at once)</option>
+        </select>
+      </label>
       <label>
         Round twists
         <select

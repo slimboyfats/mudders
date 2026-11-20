@@ -176,6 +176,14 @@ button.primary,
   overflow: visible;
 }
 
+.match-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: #dfe9f5;
+  font-size: 1.1rem;
+}
+
 .error {
   position: absolute;
   inset: auto 8px 8px;
@@ -1194,6 +1202,23 @@ button.link {
 .badge.sudden {
   background: #8a1c12;
   color: #ffe0c8;
+  font-weight: 700;
+}
+
+/* volley: locked in (✓) or still aiming (…) */
+.player .pready {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.player .pready.on {
+  color: #8af58a;
+}
+
+.badge.volley {
+  background: #123f6a;
+  color: #cfe8ff;
   font-weight: 700;
 }
 
