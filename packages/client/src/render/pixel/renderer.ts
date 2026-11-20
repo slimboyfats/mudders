@@ -3450,7 +3450,8 @@ export class PixelRenderer implements Renderer {
         b.rect(x - 8, top - 7, 16, 1, 0x000000, 0.55);
         if (sp > 0) b.rect(x - 8, top - 7, Math.max(1, Math.round(16 * sp)), 1, SHIELD_RGB);
       }
-      if (e.active) {
+      // the one aiming, or in a volley every tank still aiming (locked-in tanks lose the marker)
+      if (e.active || e.volley === true) {
         const bob = Math.sin(t * 0.12) * 1.2;
         b.push(x + 0.5, top - 10 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
         b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);

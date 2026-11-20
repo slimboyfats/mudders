@@ -33,6 +33,7 @@ const BASE: RuleSetRules = {
   arsenal: false,
   bounty: true,
   ghost: true,
+  volley: false,
 };
 
 /**

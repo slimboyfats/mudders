@@ -110,6 +110,8 @@ export const ScenarioSchema = z.strictObject({
       shells: z.boolean().optional(),
       /** Bounty on the match leader and comeback cash for players behind (off unless set). */
       bounty: z.boolean().optional(),
+      /** Volley turns: everyone aims at once, all shells fly together (off unless set). */
+      volley: z.boolean().optional(),
     })
     .optional(),
   /**

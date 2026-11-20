@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -239,6 +239,8 @@ export const NetSetupSchema = z.object({
   arsenal: z.boolean().optional(),
   /** Bounty on the leader + comeback cash (protocol 18); unset = off. */
   bounty: z.boolean().optional(),
+  /** Volley turns (protocol 23): everyone aims at once and all shells fly together; unset = off. */
+  volley: z.boolean().optional(),
   /**
    * Last-shot ghost: each player sees their previous shell's path while aiming. Client-side only
    * (the sim never reads it); older hosts don't send it, which means on.
