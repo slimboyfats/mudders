@@ -173,6 +173,13 @@ export interface MatchRules {
    */
   mapEvents?: boolean | undefined;
   /**
+   * Blast cover (kernel 0.62.0): solid ground between a blast and a tank soaks up part of its
+   * damage and shove, and a blast shut in by ground on nearly every side reaches further along
+   * whatever opening it has. See `World.coverKeep`. Off unless set, so scenarios and tests keep
+   * their results.
+   */
+  cover?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -190,7 +197,7 @@ export interface MatchRules {
    */
   bounty?: boolean | undefined;
   /**
-   * Volley (kernel 0.62.0): every living tank aims during the same turn timer, each locks in with
+   * Volley (kernel 0.63.0): every living tank aims during the same turn timer, each locks in with
    * fire, and all shells leave together on one tick once everyone has locked in (or time is up).
    * A volley counts as one turn for every tank: own-turn counters (frost, glue, stains, rust) wear
    * down for all of them at its end, and `turnCap` counts volleys. Off unless set.
@@ -495,6 +502,8 @@ interface RtExplosion {
   scope: number;
   /** Reach of the pressure front in cells (0 = none), see `blowOff`. */
   pressure: number;
+  /** Ground between this blast and a tank cuts its damage while `rules.cover`. */
+  cover: boolean;
   op: number;
   effects: [string, Record<string, number>][];
 }
@@ -738,6 +747,10 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
+  private readonly coverOn: boolean;
+  private readonly coverWeight = new Uint8Array(256);
+  private readonly coverPct = new Uint8Array(COVER_TANKS);
   /**
    * Op sites of each map's events (`gen.events`) by generator id, started each round on that map
    * while `rules.mapEvents`. Looked up by key only, never iterated.
@@ -945,6 +958,15 @@ export class World implements SimApi {
 
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
+    this.coverOn = rules.cover === true;
+    if (this.coverOn) {
+      // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
+      // nothing for air, gas and liquids (a blast goes through water)
+      for (let m = 1; m < 256; m++) {
+        const k = this.mats.settle[m]!;
+        this.coverWeight[m] = k === SETTLE_FLOW || k === SETTLE_GAS ? 0 : this.mats.density[m]!;
+      }
+    }
     this.rounds = Math.max(1, rules.rounds ?? mode.rounds);
     this.turnCap = Math.max(1, rules.turnCap ?? mode.turnCap);
     this.volley = rules.volley === true;
@@ -1229,6 +1251,7 @@ export class World implements SimApi {
               : 0))) /
           100,
       ),
+      cover: e.cover ?? (e.damageType === 'blast' || e.damageType === 'heat'),
       op: e.terrainOp ? this.bindOp(e.terrainOp) : -1,
       effects: keys.map((k) => [k, { ...e.effects[k] }]),
     };
@@ -3849,6 +3872,16 @@ export class World implements SimApi {
   /** `byWeapon` false for a tank's death blast, which the killer's tank type doesn't scale. */
   private explode(e0: RtExplosion, x: number, y: number, owner: number, byWeapon = true): void {
     const e = this.resonate(e0, x, y);
+    // cover is read off the ground as the blast finds it, before its own crater opens it up
+    const covered = this.coverOn && e.cover && (e.damage > 0 || e.push > 0);
+    let confined = 0;
+    if (covered) {
+      confined = this.confined(x, y, e.radius) ? e.radius >> 1 : 0;
+      for (let k = 0; k < this.tanks.length && k < COVER_TANKS; k++) {
+        const t = this.tanks[k]!;
+        this.coverPct[k] = t.alive ? this.coverKeep(x, y, t, e.radius, confined) : 100;
+      }
+    }
     if (e.op >= 0) this.startOp(e.op, x, y, e.radius, e.damageType, owner);
     if (this.mats.anyIgnite) this.ignite(x, y, e.radius, e.dt);
     if (
@@ -3876,18 +3909,24 @@ export class World implements SimApi {
       }
       this.emit('scoped', x, y, e.radius, { player: owner });
     }
-    for (const t of this.tanks) {
+    for (let ti = 0; ti < this.tanks.length; ti++) {
+      const t = this.tanks[ti]!;
       if (!t.alive) continue;
       const dx = t.x - x;
       const cy = t.y - (t.h >> 1);
       const dy = cy - y;
       const d = isqrt(dx * dx + dy * dy);
-      const reach = e.radius + t.half;
+      // what the ground lets through to this tank, in percent; a shut-in blast reaches further
+      // down a clear line
+      const keep = covered && ti < COVER_TANKS ? this.coverPct[ti]! : 100;
+      const reach = e.radius + t.half + (keep === 100 ? confined : 0);
       if (d >= reach) continue;
       // sheltered behind (or under) thick rock: the blast doesn't reach it
       if (this.groups.any && this.groups.shelters(this.grid, x, y, t.x, cy)) continue;
+      if (keep < 100) this.emit('cover', t.x, cy, t.half, { player: t.player, keep });
       if (e.damage > 0) {
-        const base = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        const full = e.linear ? Math.trunc((e.damage * (reach - d)) / reach) : e.damage;
+        const base = keep === 100 ? full : Math.trunc((full * keep) / 100);
         const dmg = this.tempScaled(Math.trunc(base * scale), e.dt);
         const hit = byWeapon ? this.ownerScaled(dmg, owner) : dmg;
         this.damageTank(t, this.stainScaled(t, hit, e.dt), owner);
@@ -3957,7 +3996,7 @@ export class World implements SimApi {
       }
       // a glued tank holds fast: blasts don't shove it
       if (e.push > 0 && dx !== 0 && t.glue === 0) {
-        const shove = Math.trunc((e.push * (reach - d)) / reach);
+        const shove = Math.trunc((e.push * (reach - d) * keep) / (reach * 100));
         t.x = Math.max(
           t.half,
           Math.min(this.grid.width - t.half - 1, t.x + (dx > 0 ? shove : -shove)),
@@ -3987,6 +4026,80 @@ export class World implements SimApi {
       const reach = Math.max(e.radius + (e.radius >> 1), e.pressure, e.push > 0 ? e.radius * 2 : 0);
       this.drops.blast(this.dropWorld, x, y, e.radius, reach, Math.trunc(e.damage * scale));
     }
+  }
+
+  /**
+   * Blast cover (`rules.cover`): how much of a blast at (x, y) gets through to tank `t`, in
+   * percent. Three lines are walked from the blast to the tank (its middle and its two top
+   * corners) and the clearest one counts, so a tank that shows over a wall is hit in full. Each
+   * solid cell on a line soaks up its weight (`coverWeight`: dirt 1, rock 2, snow under a half).
+   * The first `COVER_FREE` cells and an eighth of the radius are free, as a blast tears through
+   * thin ground, and from there the damage falls to `COVER_FLOOR` percent over a third of a radius of
+   * dirt. A tank past the blast's reach (stretched by `extra` for a shut-in blast) gets 100.
+   */
+  private coverKeep(x: number, y: number, t: Tank, radius: number, extra: number): number {
+    const cy = t.y - (t.h >> 1);
+    const dx = t.x - x;
+    const dy = cy - y;
+    const far = radius + extra + t.half;
+    if (dx * dx + dy * dy >= far * far) return 100;
+    const top = t.y - t.h;
+    let w = this.coverLine(x, y, t.x, cy);
+    if (w > 0) w = Math.min(w, this.coverLine(x, y, t.x - t.half, top));
+    if (w > 0) w = Math.min(w, this.coverLine(x, y, t.x + t.half, top));
+    const free = (COVER_FREE + (radius >> 3)) * 100;
+    if (w <= free) return 100;
+    const span = Math.max(4, Math.trunc(radius / 3)) * 100;
+    const over = Math.min(span, w - free);
+    return 100 - Math.trunc(((100 - COVER_FLOOR) * over) / span);
+  }
+
+  /** Weight of the solid cells on the line from (x0, y0) to (x1, y1), in hundredths of a dirt cell. */
+  private coverLine(x0: number, y0: number, x1: number, y1: number): number {
+    const g = this.grid;
+    const W = g.width;
+    const H = g.height;
+    const mat = g.material;
+    const weight = this.coverWeight;
+    const dx = Math.abs(x1 - x0);
+    const dy = -Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    let x = x0;
+    let y = y0;
+    let sum = 0;
+    for (;;) {
+      if (y >= 0 && y < H && x >= 0 && x < W) sum += weight[mat[y * W + x]!]!;
+      if (x === x1 && y === y1) return sum;
+      const e2 = 2 * err;
+      if (e2 >= dy) {
+        err += dy;
+        x += sx;
+      }
+      if (e2 <= dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }
+
+  /**
+   * Is a blast at (x, y) shut in? Sixteen lines go out one radius from it; a line is open when
+   * less than a third of it is solid. With `CONFINED_OPEN` or fewer open (a tunnel, a small cave,
+   * the bottom of a shaft) the blast has nowhere to spread and drives down what opening there is.
+   * A blast on open ground has its whole upper half open and never counts.
+   */
+  private confined(x: number, y: number, radius: number): boolean {
+    if (radius < 8) return false;
+    const limit = Math.trunc((radius * 100) / 3);
+    let open = 0;
+    for (let k = 0; k < 16; k++) {
+      const ex = x + Math.trunc((COVER_DIRS[k * 2]! * radius) / 16);
+      const ey = y + Math.trunc((COVER_DIRS[k * 2 + 1]! * radius) / 16);
+      if (this.coverLine(x, y, ex, ey) < limit && ++open > CONFINED_OPEN) return false;
+    }
+    return true;
   }
 
   /**
@@ -5743,6 +5856,18 @@ export class World implements SimApi {
 /** Puff centres in cells, flattened x, y, from fixed-point x, y, vx, vy records. */
 const DT_HEAT = damageTypeIndex('heat');
 const DT_BLAST = damageTypeIndex('blast');
+
+/** Blast cover: tanks tracked per blast, the free cells, and the least a covered tank takes (%). */
+const COVER_TANKS = 16;
+const COVER_FREE = 1;
+const COVER_FLOOR = 30;
+/** A blast with this many or fewer of its sixteen lines open is shut in. */
+const CONFINED_OPEN = 4;
+/** Sixteen directions round the compass, in sixteenths (no trigonometry in the sim). */
+const COVER_DIRS = new Int8Array([
+  16, 0, 15, 6, 11, 11, 6, 15, 0, 16, -6, 15, -11, 11, -15, 6, -16, 0, -15, -6, -11, -11, -6, -15,
+  0, -16, 6, -15, 11, -11, 15, -6,
+]);
 const DT_COLD = damageTypeIndex('cold');
 const DT_SHOCK = damageTypeIndex('shock');
 

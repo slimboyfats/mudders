@@ -1,5 +1,5 @@
 {
-  "contentHash": "8e7efa61a822b5b0",
+  "contentHash": "44329e6d4799eb4c",
   "scenarios": {
     "ai.cyborg": {
       "ticks": 675,
@@ -916,6 +916,10 @@
     "shockwave.fling": {
       "ticks": 293,
       "hash": "53c70149d83a6451"
+    },
+    "showcase.blast-cover": {
+      "ticks": 513,
+      "hash": "bfe7e211bd21818b"
     },
     "showcase.blast-swirls": {
       "ticks": 619,

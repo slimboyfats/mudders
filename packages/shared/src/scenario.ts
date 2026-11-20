@@ -42,6 +42,20 @@ export const ScenarioSchema = z.strictObject({
     .optional(),
   /** Props placed at fixed columns (showcases), on top of whatever the generator places. */
   props: z.array(z.strictObject({ prop: ContentIdSchema, x: z.number().int().min(0) })).optional(),
+  /**
+   * Walls raised on the ground at fixed columns (showcases): `width` columns from `x`, each
+   * `height` cells of `material` on top of whatever the generator put there.
+   */
+  walls: z
+    .array(
+      z.strictObject({
+        x: z.number().int().min(0),
+        width: z.number().int().min(1).max(64),
+        height: z.number().int().min(1).max(128),
+        material: ContentIdSchema,
+      }),
+    )
+    .optional(),
   /** Force the turn order instead of the mode's (e.g. so player 0 shoots first). */
   turnOrder: z.array(z.number().int().min(0)).optional(),
   /** Force wind (cells/tick²) for the whole scenario. */
@@ -90,6 +104,8 @@ export const ScenarioSchema = z.strictObject({
       drops: z.enum(['off', 'rare', 'normal', 'often']).optional(),
       /** The map's own events (volcano on Badlands, avalanches on Glacier; off unless set). */
       mapEvents: z.boolean().optional(),
+      /** Ground between a blast and a tank cuts its damage (off unless set). */
+      cover: z.boolean().optional(),
       /** Bounty on the match leader and comeback cash for players behind (off unless set). */
       bounty: z.boolean().optional(),
       /** Volley turns: everyone aims at once, all shells fly together (off unless set). */

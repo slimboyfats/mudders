@@ -395,6 +395,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     birds: true,
     // the map's own events: Badlands' volcano, Glacier's avalanches
     mapEvents: true,
+    // ground between a blast and a tank soaks up part of it; a shut-in blast reaches further
+    cover: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),

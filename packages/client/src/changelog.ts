@@ -19,9 +19,11 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
-    title: 'Volley mode: everyone fires at once',
+    title: 'Volley mode, and cover counts: ground between you and a blast soaks it up',
     items: [
       'Volley (a new rules setting, Turns: One at a time or Volley, locally and in the online lobby): every tank aims during the same turn timer, and FIRE locks your shot in. Once everyone has locked in, or the timer runs out, all shells leave on the same tick and land together, so a round takes about as long as one lap of turns used to. The HUD shows Volley 2/3 and a ✓ in each chip that has locked in; tanks still aiming keep their marker. Bots plan without seeing anyone else’s shot. Each shell still scores for its own tank, and a volley counts as one turn for everyone (frost, glue and stains wear off for all, the turn cap counts volleys). A mind-linked tank sits the volley out',
+      'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
     ],
   },
   {
