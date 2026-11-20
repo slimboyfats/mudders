@@ -108,6 +108,8 @@ export interface HudState {
   /** The turn's wind without the gust (what bots aim with). */
   windBase: number;
   windMax: number;
+  /** The tank whose turn it is stands in the lee of high ground: its shell starts in dead air. */
+  lee: boolean;
   /** Gusty wind: the wind keeps changing during the turn. */
   gusty: boolean;
   /** Weather label ("Rain", "Snow"), or '' in clear skies. */
@@ -315,6 +317,7 @@ export abstract class SimMatch implements SnapshotStream {
       wind: hudWind(w.wind, w.mode.wind.max),
       windBase: hudWind(w.windBase, w.mode.wind.max),
       windMax: w.mode.wind.max,
+      lee: inLee(w),
       gusty: w.windType === 'gusty',
       weather: w.weather?.label ?? '',
       twist:
@@ -475,9 +478,16 @@ function hudWind(fixed: number, max: number): number {
   return max > 0 ? (Math.round((v / max) * 40) / 40) * max : v;
 }
 
+/** Does the tank whose turn it is feel less than half the wind at its muzzle (`windShape`)? */
+function inLee(w: World): boolean {
+  const t = w.tanks[w.activePlayer];
+  if (!t?.alive || w.phase !== 'aim' || w.windBase === 0) return false;
+  return Math.abs(w.windAt(t.x, t.y - t.h)) * 2 < Math.abs(w.wind);
+}
+
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.lee ? 1 : 0}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;

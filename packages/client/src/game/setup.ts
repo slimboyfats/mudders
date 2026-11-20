@@ -397,6 +397,8 @@ export function toWorldOptions(s: SetupLike, seed: number): WorldOptions {
     cover: true,
     // plain shells glance off rock, skip on water and bury themselves in snow, sand and mud
     shells: true,
+    // wind grows with height and dies in the lee of high ground; thrown earth drifts downwind
+    windShape: true,
     ...(s.drops && s.drops !== 'off' ? { drops: s.drops } : {}),
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),
