@@ -14,6 +14,7 @@ import {
 import { KERNEL_VERSION, type ResolvedContent } from '@mudders/sim';
 import type { Link } from './link';
 import { GuestMatch, HostMatch } from './lockstep';
+import { toWorldOptions } from '../game/setup';
 
 /** How often each side pings, and how long silence lasts before a link is declared dead. */
 export const PING_MS = 1000;
@@ -368,7 +369,7 @@ export class HostSession {
   start(seed: number, modeOverride?: string): HostMatch {
     if (this.match) return this.match;
     const setup = this.setup;
-    const mode = modeOverride ?? (setup.teams ? 'mode.teams' : 'mode.classic');
+    const mode = modeOverride ?? toWorldOptions(setup, seed).mode;
     let p = 0;
     this.playerOf = this.seats.map((s) => (s.kind === 'open' ? -1 : p++));
     this.match = new HostMatch(this.content, { seed, setup, mode }, this.playerOf[0]!);
