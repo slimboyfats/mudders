@@ -28,6 +28,10 @@ interface Props {
   ownEnd?: boolean;
   /** End-of-match awards (Best shot, Most dirt moved...), shown on the match-over card. */
   awards?: readonly Award[];
+  /** Last-shot ghost: the aim the active player fired with last, or null. */
+  lastAim?: { angle: number; power: number } | null | undefined;
+  /** A weapon's description, for the weapon list's info card. */
+  describe?: ((id: string) => string) | undefined;
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -335,6 +339,8 @@ export function Hud({
   onRematch,
   ownEnd,
   awards = [],
+  lastAim = null,
+  describe,
 }: Props) {
   const t = hud.tanks[hud.activePlayer];
   const [menu, setMenu] = useState(false);
@@ -617,6 +623,7 @@ export function Hud({
             invert
             minor={5}
             major={45}
+            last={canAim ? lastAim?.angle : undefined}
             disabled={!canAim}
             onChange={(v) => t && aim(v, t.power)}
           />
@@ -630,6 +637,7 @@ export function Hud({
             minor={25}
             major={100}
             {...(t && t.chill > 0 ? { cap: CHILL_POWER } : {})}
+            last={canAim ? lastAim?.power : undefined}
             disabled={!canAim}
             onChange={(v) => t && aim(t.angle, v)}
           />
@@ -704,6 +712,8 @@ export function Hud({
           inventory={t?.inventory ?? []}
           selected={t?.weapon ?? ''}
           disabled={!canAim}
+          owner={hud.activePlayer}
+          describe={describe}
           onSelect={(weapon) => send({ type: 'selectWeapon', weapon })}
         />
         {hud.command >= 0 && controls(hud.command) ? (

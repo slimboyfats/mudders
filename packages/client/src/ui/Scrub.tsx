@@ -17,6 +17,8 @@ interface Props {
   major: number;
   /** Lower ceiling shown on the gauge (frost caps power). */
   cap?: number;
+  /** The value of your last shot (last-shot ghost), marked on the gauge and the ruler. */
+  last?: number | undefined;
   disabled: boolean;
   onChange: (v: number) => void;
 }
@@ -30,12 +32,22 @@ function buzz() {
 }
 
 /** Tiny barrel dial for the angle pill: 0° right, 90° up, 180° left. */
-function Dial({ angle }: { angle: number }) {
+function Dial({ angle, last }: { angle: number; last?: number | undefined }) {
   const r = 11;
   const a = (angle * Math.PI) / 180;
+  const l = last === undefined ? 0 : (last * Math.PI) / 180;
   return (
     <svg className="scrub-dial" viewBox="-14 -14 28 16" aria-hidden="true">
       <path d={`M ${-r} 0 A ${r} ${r} 0 0 1 ${r} 0`} className="dial-arc" />
+      {last !== undefined && (
+        <line
+          x1={Math.cos(l) * (r - 4)}
+          y1={-Math.sin(l) * (r - 4)}
+          x2={Math.cos(l) * (r + 2)}
+          y2={-Math.sin(l) * (r + 2)}
+          className="dial-last"
+        />
+      )}
       <line x1={0} y1={0} x2={Math.cos(a) * r} y2={-Math.sin(a) * r} className="dial-needle" />
       <circle cx={0} cy={0} r={2} className="dial-hub" />
     </svg>
@@ -49,7 +61,7 @@ function Dial({ angle }: { angle: number }) {
  */
 export function Scrub(props: Props) {
   const { kind, label, value, unit = '', spec, step, big, invert = false, disabled } = props;
-  const { minor, major, cap, onChange } = props;
+  const { minor, major, cap, last, onChange } = props;
   const dir = invert ? -1 : 1;
   const [drag, setDrag] = useState<{ fine: boolean; moved: boolean } | null>(null);
   // the value this control last sent, shown while the match catches up (null: show `value`)
@@ -195,7 +207,7 @@ export function Scrub(props: Props) {
         aria-valuemin={spec.min}
         aria-valuemax={spec.max}
         aria-valuenow={shown}
-        aria-valuetext={`${shown}${unit}`}
+        aria-valuetext={`${shown}${unit}${last !== undefined ? `, last shot ${last}${unit}` : ''}`}
         aria-disabled={disabled}
         data-testid={`aim-${kind}`}
         onPointerDown={onDown}
@@ -212,12 +224,19 @@ export function Scrub(props: Props) {
           {unit}
         </span>
         {kind === 'angle' ? (
-          <Dial angle={shown} />
+          <Dial angle={shown} last={last} />
         ) : (
           <span className="scrub-meter" aria-hidden="true">
             <span className="scrub-meter-fill" style={{ width: `${frac * 100}%` }} />
             {cap !== undefined && cap < spec.max && (
               <span className="scrub-meter-cap" style={{ left: `${(cap / range) * 100}%` }} />
+            )}
+            {last !== undefined && (
+              <span
+                className="scrub-meter-last"
+                style={{ left: `${((last - spec.min) / range) * 100}%` }}
+                data-testid="power-last"
+              />
             )}
           </span>
         )}
@@ -241,6 +260,11 @@ export function Scrub(props: Props) {
               className="ruler-strip"
               style={{ transform: `translateX(${RULER_W / 2 - dir * shown * ppu}px)` }}
             >
+              {last !== undefined && (
+                <span className="tick last" style={{ left: dir * last * ppu }}>
+                  <span className="tick-n">last</span>
+                </span>
+              )}
               {ticks.map((v) => (
                 <span
                   key={v}

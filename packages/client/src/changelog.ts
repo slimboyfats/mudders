@@ -19,7 +19,8 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
-    title: 'Weapon mods, volley mode, and cover: ground between you and a blast soaks it up',
+    title:
+      'Weapon mods, volley mode, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
     pack: 'core@0.98.0',
     items: [
       'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
@@ -28,6 +29,11 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Volley (a new rules setting, Turns: One at a time or Volley, locally and in the online lobby): every tank aims during the same turn timer, and FIRE locks your shot in. Once everyone has locked in, or the timer runs out, all shells leave on the same tick and land together, so a round takes about as long as one lap of turns used to. The HUD shows Volley 2/3 and a ✓ in each chip that has locked in; tanks still aiming keep their marker. Bots plan without seeing anyone else’s shot. Each shell still scores for its own tank, and a volley counts as one turn for everyone (frost, glue and stains wear off for all, the turn cap counts volleys). A mind-linked tank sits the volley out',
       'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
+      'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
+      'Last-shot ghost (a new rules setting, on by default, locally and in the online lobby): while you aim, the path of your previous shell shows as faint dots over the map with a cross where it came down, and the Angle and Power pills carry a pale mark at the values you fired with. Each player only sees their own',
+      'Your turn: the phone gives a short buzz when your turn starts, when you fire and when you are hit (Android; switch it off in Settings). If the game is in the background when your turn comes, the tab title flashes, and with "Notify me when it\'s my turn" on in Settings you also get a notification',
+      'Rule sets: one tap above the rules sets them all. Classic, Chaos (twists, deals, free weapons, crates, a new map each round), Sniper duel, Mud bath and Quick phone match. "Share these rules" copies a link that opens the setup screen with the same rules on another device',
+      'Weapon list: tap the ☆ on a weapon to make it a favourite; favourites sit first in the list. "Back to …" at the top swaps back to the weapon you had before, and holding a weapon (or right-clicking it) opens a card with what it does',
     ],
   },
   {

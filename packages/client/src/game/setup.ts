@@ -200,6 +200,12 @@ export interface MatchSetup {
   /** Volley turns: everyone aims during the same timer, then all shells fly together; unset = off. */
   volley?: boolean | undefined;
   /**
+   * Last-shot ghost: while you aim, your previous shell's path shows faintly over the map and the
+   * angle and power pills mark the values you fired with. An aid, so a host rule; presentation
+   * only, never sent to the sim. Unset (older saves, hosts) = on.
+   */
+  ghost?: boolean | undefined;
+  /**
    * Team play (milestone 7): team per slot (0–3, shown as A–D), or null for a free-for-all.
    * Indexed like `slots`; off slots keep their team for when they come back.
    */
@@ -274,6 +280,7 @@ export function defaultSetup(): MatchSetup {
     deals: false,
     arsenal: false,
     bounty: true,
+    ghost: true,
     teams: null,
     tanks: Array.from({ length: MAX_PLAYERS }, () => 'auto'),
     skills: Array.from({ length: MAX_PLAYERS }, () => 'normal'),

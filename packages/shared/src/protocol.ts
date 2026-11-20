@@ -234,6 +234,11 @@ export const NetSetupSchema = z.object({
   bounty: z.boolean().optional(),
   /** Volley turns (protocol 22): everyone aims at once and all shells fly together; unset = off. */
   volley: z.boolean().optional(),
+  /**
+   * Last-shot ghost: each player sees their previous shell's path while aiming. Client-side only
+   * (the sim never reads it); older hosts don't send it, which means on.
+   */
+  ghost: z.boolean().optional(),
   /** Team per seat (milestone 7), or null for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(3)).max(8).nullable(),
   /** Tank type per seat (§3.2): a `tank.*` id, "random", or "auto" (a bot's favourite, else the default). */
