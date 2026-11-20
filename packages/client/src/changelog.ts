@@ -18,6 +18,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    date: '2026-11-20',
+    title: 'Volley mode: everyone fires at once',
+    items: [
+      'Volley (a new rules setting, Turns: One at a time or Volley, locally and in the online lobby): every tank aims during the same turn timer, and FIRE locks your shot in. Once everyone has locked in, or the timer runs out, all shells leave on the same tick and land together, so a round takes about as long as one lap of turns used to. The HUD shows Volley 2/3 and a ✓ in each chip that has locked in; tanks still aiming keep their marker. Bots plan without seeing anyone else’s shot. Each shell still scores for its own tank, and a volley counts as one turn for everyone (frost, glue and stains wear off for all, the turn cap counts volleys). A mind-linked tank sits the volley out',
+    ],
+  },
+  {
     date: '2026-11-18',
     title: 'Training mode with a shot coach, weapon previews and search in the shop',
     items: [

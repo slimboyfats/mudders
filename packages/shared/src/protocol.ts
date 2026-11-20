@@ -7,7 +7,7 @@ import { InputSchema, TimedInputSchema } from './input';
  * Version of the lobby/signalling and peer protocol. Bump on any breaking change to a message
  * shape; peers and the signalling server refuse a mismatched version (§2c.4).
  */
-export const PROTOCOL_VERSION = 20;
+export const PROTOCOL_VERSION = 21;
 
 /** Private room codes (§6.5): 6 characters from an alphabet without look-alikes (0/O, 1/I/L). */
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -232,6 +232,8 @@ export const NetSetupSchema = z.object({
   arsenal: z.boolean().optional(),
   /** Bounty on the leader + comeback cash (protocol 18); unset = off. */
   bounty: z.boolean().optional(),
+  /** Volley turns (protocol 21): everyone aims at once and all shells fly together; unset = off. */
+  volley: z.boolean().optional(),
   /** Team per seat (milestone 7), or null for a free-for-all. */
   teams: z.array(z.number().int().min(0).max(3)).max(8).nullable(),
   /** Tank type per seat (§3.2): a `tank.*` id, "random", or "auto" (a bot's favourite, else the default). */

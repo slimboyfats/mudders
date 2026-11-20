@@ -84,6 +84,7 @@ function rulesOf(): LobbyRules {
     deals: s.deals ?? false,
     arsenal: s.arsenal ?? false,
     bounty: s.bounty ?? false,
+    volley: s.volley ?? false,
     teams: s.teams,
   };
 }
