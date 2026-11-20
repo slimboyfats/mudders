@@ -183,6 +183,13 @@ export interface MatchRules {
    */
   cover?: boolean | undefined;
   /**
+   * Shells and materials (kernel 0.64.0): a plain shell glances off rock, steel and ice on a flat
+   * hit, skips on water when fast and flat, and buries itself in snow, sand and mud before it goes
+   * off (`shellContact` in the content flights). Off unless set, so scenarios and tests keep their
+   * results.
+   */
+  shells?: boolean | undefined;
+  /**
    * Shop deals (kernel 0.52.0): every shop puts `SALE_COUNT` weapons at half price and sells
    * `SOLD_OUT_COUNT` out, drawn from the match RNG. Unset = every weapon at its usual price.
    */
@@ -760,6 +767,8 @@ export class World implements SimApi {
   /** Swallows (see `birds.ts`); only stepped and hashed while `birdsOn`. */
   readonly birds = new Flocks();
   private readonly birdsOn: boolean;
+  /** Match rule `shells`, read by flight behaviours (`SimApi.shellPhysics`). */
+  readonly shellPhysics: boolean;
   /** Blast cover (`rules.cover`): per-material weight and this blast's percent kept per tank. */
   private readonly coverOn: boolean;
   private readonly coverWeight = new Uint8Array(256);
@@ -978,6 +987,7 @@ export class World implements SimApi {
 
     const rules = options.rules ?? {};
     this.birdsOn = rules.birds === true;
+    this.shellPhysics = rules.shells === true;
     this.coverOn = rules.cover === true;
     if (this.coverOn) {
       // what a cell soaks up of a blast, by weight: rock twice dirt, snow less than half, and
@@ -2862,9 +2872,13 @@ export class World implements SimApi {
 
       if (sig !== 'skip' && this.trace(px, py, p, w)) {
         const mg = p.mod === undefined ? null : this.gear[p.mod]!;
-        const res: ContactResult = mg?.modFlight?.contact
-          ? this.modContact(p, mg, hit)
-          : (w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact');
+        let res: ContactResult;
+        if (mg?.modFlight?.contact) {
+          res = this.modContact(p, mg, hit);
+        } else {
+          res = w.flight.contact?.(this, p, w.flightParams, hit) ?? 'impact';
+          w.flight.contacted?.(this, p, w.flightParams, hit, res);
+        }
         if (res === 'impact') {
           this.impact(p, hit.x, hit.y);
           continue;

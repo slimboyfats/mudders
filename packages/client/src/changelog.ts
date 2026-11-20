@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
     title:
-      'Points draft, co-op waves, weapon mods, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+      'Points draft, co-op waves, weapon mods, cover counts, shells that care what they hit, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
     pack: 'core@0.98.0 – 0.99.0',
     items: [
       'Points draft (pick it at the top of the rules, locally and in the online lobby): before the round everyone takes turns picking from one random pool of weapons, ten each with two players, in snake order (1 2 2 1 1 2…). Then you fire exactly what you picked, one shot per weapon. Nobody is knocked out: a destroyed tank comes back with full health at the end of the turn and loses 50 points. Damage dealt scores, 50 per kill, self-damage counts against you, and most points wins. No shop, no crates, no sudden death. Bots draft too, and the strongest weapon left is picked for you if your pick timer runs out',
@@ -29,6 +29,9 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Split Mod: the shell leaves the barrel as three, in a fan 6° apart. Bouncy Mod: it bounces off the ground three times before it goes off, or at once on a tank. Fuse Mod: it skips along and settles instead of going off on the ground, with a red light blinking faster and faster, and blows four seconds after firing wherever it is; a tank still sets it off at once',
       'Bots do not use mods yet',
       'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shells care what they hit. A fast shell that comes in flat glances off rock, steel, concrete and ice in a shower of sparks, once, and comes down further on; a square hit goes off as before',
+      'A fast, flat shot skips across water like a flat stone, up to twice, throwing up drops. A steep one still goes off on the surface',
+      'Soft ground swallows shells: a shell digs into snow, ash, sand and mud before it goes off (deepest in snow), so the crater is deeper and, with cover, the blast is muffled. Bots know all three and plan their bank shots',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
       'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
       'Last-shot ghost (a new rules setting, on by default, locally and in the online lobby): while you aim, the path of your previous shell shows as faint dots over the map with a cross where it came down, and the Angle and Power pills carry a pale mark at the values you fired with. Each player only sees their own',
