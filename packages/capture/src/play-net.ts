@@ -39,6 +39,8 @@ interface NetDebug {
   me: number;
   tick: () => number;
   hash: () => string;
+  /** Where this side's sim runs: 'worker' or 'page'. */
+  thread: () => string;
   phase: () => string;
   active: () => number;
   bots: () => number[];
@@ -310,7 +312,7 @@ async function runOne(
       if (process.env.PLAY_NET_DEBUG) console.error(`[${run} ${name}] ${m.text()}`);
     });
     // first-run state: a small, quick map so the test is fast
-    await p.addInitScript(() => {
+    await p.addInitScript((simOnPage) => {
       // about:blank (the `public` run's guest walking away) has no storage
       if (location.protocol === 'about:') return;
       if (!localStorage.getItem('mudders.setup.v1')) {
@@ -321,9 +323,31 @@ async function runOne(
       }
       // two pages share one software-rendered GPU: the lowest effects tier keeps frames quick
       if (!localStorage.getItem('mudders.settings.v1')) {
-        localStorage.setItem('mudders.settings.v1', JSON.stringify({ quality: 'low' }));
+        localStorage.setItem(
+          'mudders.settings.v1',
+          JSON.stringify({ quality: 'low', simWorker: !simOnPage }),
+        );
       }
-    });
+    }, process.env.PLAY_NET_SIM === 'page');
+    // PLAY_NET_DRAW=off: nothing is drawn (the WebGL draw calls do nothing), for a machine whose
+    // software GPU manages a frame a second. Everything but the picture is still the real thing.
+    if (process.env.PLAY_NET_DRAW === 'off') {
+      await p.addInitScript(() => {
+        const gl = WebGL2RenderingContext.prototype as unknown as Record<string, unknown>;
+        for (const k of [
+          'drawArrays',
+          'drawElements',
+          'drawArraysInstanced',
+          'drawElementsInstanced',
+          'drawRangeElements',
+          'clear',
+          'readPixels',
+          'blitFramebuffer',
+        ]) {
+          gl[k] = () => {};
+        }
+      });
+    }
     return p;
   };
   const shot = async (p: Page, step: string) => {
@@ -515,7 +539,8 @@ async function runOne(
       throw new Error(`${run}: guest is ${hostTick - guestTick} ticks behind (lag ${lag})`);
     }
     if (errors.length) throw new Error(`${run}: page errors: ${errors.join('; ')}`);
-    return `${run}: ok in ${((Date.now() - t0) / 1000).toFixed(1)} s · host tick ${hostTick}, guest ${guestTick} · 0 desyncs`;
+    const sims = `${await dbg<string>(host, 'thread')}/${await dbg<string>(guest, 'thread')}`;
+    return `${run}: ok in ${((Date.now() - t0) / 1000).toFixed(1)} s · host tick ${hostTick}, guest ${guestTick} · 0 desyncs · sim on ${sims}`;
   } catch (e) {
     for (const [i, c] of contexts.entries()) {
       const p = c.pages()[0];
@@ -530,9 +555,18 @@ async function runOne(
             typeof n[k] === 'function' ? (n[k] as () => unknown)() : n[k];
           return JSON.stringify(
             Object.fromEntries(
-              ['me', 'tick', 'phase', 'active', 'alive', 'bots', 'status', 'path', 'lag'].map(
-                (k) => [k, call(k)],
-              ),
+              [
+                'me',
+                'tick',
+                'thread',
+                'phase',
+                'active',
+                'alive',
+                'bots',
+                'status',
+                'path',
+                'lag',
+              ].map((k) => [k, call(k)]),
             ),
           );
         })

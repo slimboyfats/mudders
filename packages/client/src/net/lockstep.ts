@@ -1,6 +1,6 @@
 import type { Input, NetSetup, PeerMessage, PeerStart, TimedInput } from '@mudders/shared';
 import { World, type ResolvedContent } from '@mudders/sim';
-import { MAX_STEPS, SimMatch, STEP_MS } from '../game/match';
+import { MAX_STEPS, SimMatch, STEP_MS, type GameMatch } from '../game/match';
 import { toWorldOptions } from '../game/setup';
 import type { Link } from './link';
 
@@ -39,8 +39,32 @@ export function netWorldOptions(start: StartInfo) {
   return { ...toWorldOptions(start.setup, start.seed), mode: start.mode };
 }
 
+/** The host's match as its session uses it: `HostMatch` here, or the same in the sim worker. */
+export interface HostGame extends GameMatch {
+  /** Resyncs sent because a guest's hash disagreed. */
+  readonly desyncs: number;
+  submit(player: number, action: Input): void;
+  attach(player: number, link: Link, haveTick: number): void;
+  detach(player: number): void;
+  handle(player: number, msg: PeerMessage): void;
+}
+
+/** A guest's match as its session uses it: `GuestMatch` here, or the same in the sim worker. */
+export interface GuestGame extends GameMatch {
+  readonly you: number;
+  readonly rebuilds: number;
+  /** Ticks the host has permitted that this guest has not simulated yet. */
+  readonly lag: number;
+  /** The setup this match was started from. */
+  readonly startInfo: StartInfo;
+  send: (msg: PeerMessage) => void;
+  handle(msg: PeerMessage): void;
+  /** The link came back: returns the `haveTick` for the join message. */
+  resumeFrom(): number;
+}
+
 /** The host's side: runs the authoritative world and feeds every guest. */
-export class HostMatch extends SimMatch {
+export class HostMatch extends SimMatch implements HostGame {
   readonly log: TimedInput[] = [];
   /** Resyncs sent because a guest's hash disagreed. */
   desyncs = 0;
@@ -176,7 +200,7 @@ export class HostMatch extends SimMatch {
 }
 
 /** A guest's side: simulates only what the host has permitted, with the host's inputs. */
-export class GuestMatch extends SimMatch {
+export class GuestMatch extends SimMatch implements GuestGame {
   you: number;
   upTo: number;
   /** Times the world was rebuilt from the host's log (desync or rejoin after a reload). */

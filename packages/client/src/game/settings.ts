@@ -32,6 +32,11 @@ export interface Settings {
   uiScale: number;
   /** Show the sim/render frame-time overlay (§9: budget checks on real devices). */
   perfHud: boolean;
+  /**
+   * Run the game's simulation in a worker, beside the drawing (local and online matches). Off
+   * runs it on the page's own thread, as before; the results are the same either way.
+   */
+  simWorker: boolean;
 }
 
 const KEY = 'mudders.settings.v1';
@@ -56,6 +61,7 @@ function defaults(): Settings {
     muted: false,
     uiScale: 1,
     perfHud: false,
+    simWorker: true,
   };
 }
 
