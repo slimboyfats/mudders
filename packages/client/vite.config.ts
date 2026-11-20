@@ -126,6 +126,8 @@ export default defineConfig(({ command }) => ({
     // the player field manual (/docs/) is a second page built from the same content packs
     rollupOptions: { input: { main: 'index.html', docs: 'docs/index.html' } },
   },
+  // the sim worker (`src/game/sim-worker.ts`) is a module worker
+  worker: { format: 'es' },
   server: { port: 5173, host: true, proxy: signalProxy },
   preview: { host: true, proxy: signalProxy },
 }));

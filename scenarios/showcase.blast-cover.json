@@ -1,0 +1,67 @@
+{
+  "id": "showcase.blast-cover",
+  "schemaVersion": 1,
+  "description": "Blast cover: P1's Missile lands between two tanks about the same distance away. The one behind a rock wall takes a fraction of the hit and COVER pops up over it; the one in the open takes it in full.",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 3,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150
+    },
+    {
+      "x": 562
+    },
+    {
+      "x": 601
+    }
+  ],
+  "walls": [
+    {
+      "x": 571,
+      "width": 6,
+      "height": 26,
+      "material": "material.rock"
+    }
+  ],
+  "turnOrder": [0, 1, 2],
+  "wind": 0,
+  "rules": {
+    "cover": true
+  },
+  "inputs": [
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 78,
+        "power": 922
+      }
+    },
+    {
+      "t": 40,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 900,
+    "untilSettled": true,
+    "extraTicks": 150
+  }
+}

@@ -4,7 +4,7 @@
   "meta": {
     "name": "Burning keg powder",
     "description": "Keg powder burning fast. It lights the powder beside it and bursts far more often than loose gunpowder, so a lit store goes off as a chain of blasts.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#ffd040"
   },
   "extends": "material.lit-gunpowder",

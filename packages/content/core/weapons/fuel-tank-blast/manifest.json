@@ -5,7 +5,7 @@
     "name": "Fuel tank blast",
     "description": "A fuel tank's vapour going off: one huge fireball that tears the tank apart and flings globs of burning fuel and fiery stars high into the air.",
     "category": "submunition",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "flight": {
     "use": "flight.ballistic"

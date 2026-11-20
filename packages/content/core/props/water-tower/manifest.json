@@ -4,7 +4,7 @@
   "meta": {
     "name": "Water Tower",
     "description": "A steel water tank with a cone roof, high up on four splayed legs. A hit on the tank punches a hole and the water jets out of it; knock the legs out and the whole tower comes down, dumping its load in a wave that floods the ground below.",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "shape": [
     "           RRRR           ",

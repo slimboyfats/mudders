@@ -4,7 +4,7 @@
   "meta": {
     "name": "Transformer",
     "description": "The live core of a power pylon's transformer, sealed in a steel box. Once a hit breaks the box open, or the pylon comes down, the core shorts out in a flash and dumps its charge into the steel and the lines: every tank touching metal or water joined to them is shocked.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#3c8a9a"
   },
   "cell": 142,

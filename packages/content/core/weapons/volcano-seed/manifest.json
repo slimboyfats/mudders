@@ -50,6 +50,7 @@
       }
     }
   ],
+  "mods": false,
   "shop": {
     "price": 8000,
     "pack": 2,

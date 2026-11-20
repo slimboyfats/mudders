@@ -4,7 +4,7 @@
   "meta": {
     "name": "Powder Store",
     "description": "A squat brick bunker stacked with kegs of blasting powder. Its walls shrug off a few hits, but any blast, fire or heat that reaches inside lights the powder: the kegs go off together in a ragged burst of blasts that tears the bunker apart and throws its bricks about.",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "shape": [
     "RRRRRRRRRRRRRRRRRRRRRRRRRRRR",

@@ -5,7 +5,7 @@
     "name": "Fuel barrel burst",
     "description": "A fuel barrel going off: a rolling fireball where it stood, and the burning drum shot up into the sky.",
     "category": "submunition",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "flight": {
     "use": "flight.ballistic"

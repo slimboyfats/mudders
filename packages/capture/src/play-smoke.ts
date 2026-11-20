@@ -217,7 +217,7 @@ export async function runPlaySmoke(): Promise<PlaySmokeResult> {
       const weaponBtn = page.getByTestId('weapon-button');
       const weaponBefore = await weaponBtn.locator('.wname').textContent();
       await weaponBtn.click();
-      const tiles = page.locator('[data-testid=weapon-pop] [role=option]');
+      const tiles = page.locator('[data-testid=weapon-pop] [data-weapon]');
       await tiles.first().waitFor({ timeout: 2000 });
       await shot('2c-weapon-picker');
       const other = tiles.filter({ hasNot: page.locator('xpath=self::*[@aria-selected="true"]') });

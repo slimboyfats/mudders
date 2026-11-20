@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel",
     "description": "Fuel from a fuel tank: a dark liquid that runs like oil and coats what it touches, but far quicker to catch. Any blast or heat that reaches it lights it, and burning fuel spreads through the rest of the pool and goes off in fiery pops.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#3a2c22"
   },
   "extends": "material.oil",

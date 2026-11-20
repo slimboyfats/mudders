@@ -4,7 +4,7 @@
   "meta": {
     "name": "Barrel fuel",
     "description": "Fuel sealed under pressure in a steel drum. It sits still while the drum holds, but the moment a hit breaks the drum open it goes off: the drum bursts in a fireball and shoots up into the air like a rocket, then blows apart in a shower of burning stars and fuel.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#4a3424"
   },
   "cell": 145,

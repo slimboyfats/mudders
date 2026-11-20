@@ -81,6 +81,7 @@
       "damageType": "heat"
     }
   ],
+  "mods": false,
   "shop": {
     "price": 14000,
     "pack": 1,

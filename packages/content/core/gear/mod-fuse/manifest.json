@@ -1,0 +1,26 @@
+{
+  "id": "gear.mod-fuse",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuse Mod",
+    "description": "A weapon mod. Fit it while aiming and your next plain shell skips and settles instead of going off on the ground, then blows four seconds after firing, wherever it is. A tank still sets it off at once. Used up by that shot.",
+    "since": "core@0.98.0"
+  },
+  "deploy": "mod",
+  "mod": {
+    "flight": {
+      "use": "flight.ricochet",
+      "bounces": 8,
+      "restitution": 0.45,
+      "friction": 0.75,
+      "minSpeed": 0.7
+    },
+    "fuse": 240
+  },
+  "shop": {
+    "price": 1500,
+    "pack": 2,
+    "max": 9
+  },
+  "label": "Fuse"
+}

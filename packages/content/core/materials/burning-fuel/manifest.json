@@ -4,7 +4,7 @@
   "meta": {
     "name": "Burning fuel",
     "description": "Fuel on fire. It runs and burns like burning oil, lights the fuel beside it, and now and then a pocket of it bursts in a small fiery blast that cracks open whatever holds it.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#ff7a1a"
   },
   "extends": "material.burning-oil",

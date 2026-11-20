@@ -4,7 +4,7 @@
   "meta": {
     "name": "Drum steel",
     "description": "Thin sheet steel rolled into fuel drums. It conducts like any steel, but a blast nearby tears it open easily.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#7a6a5a"
   },
   "extends": "material.steel",

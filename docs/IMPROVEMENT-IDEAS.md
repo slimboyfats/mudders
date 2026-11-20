@@ -61,7 +61,8 @@ says so.
 Ranked by how much each changes the feel of a match for its cost, with Joel's goals in mind:
 real-life physics in pixel art, a living world, and speed on a phone.
 
-1. **Cover counts: blasts are blocked by solid ground** (§8.1). Today damage is by distance only,
+1. **Cover counts: blasts are blocked by solid ground** (§8.1). _Built 2026-11-20 as the match
+   rule `cover`, see `REQUIREMENTS.md` §3.5._ Today damage is by distance only,
    so a tank behind a rock wall is hurt the same as one in the open. Real blasts are not like
    that, and this one rule gives every wall, trench and dirt weapon a defensive use. M, kernel.
 2. **Things on the map that react** (§3.9): fuel tanks, water towers, power pylons, powder
@@ -71,15 +72,20 @@ real-life physics in pixel art, a living world, and speed on a phone.
 4. **Instant replay and "shot of the match"** (§6.1). The spec already asks for it and
    determinism makes it nearly free. M, client only.
 5. **Shells that care what they hit** (§8.2): ricochet off rock and steel at flat angles, skip on
-   water, bury into mud and snow before going off. M, kernel.
+   water, bury into mud and snow before going off. M, kernel. _Built 2026-11-20 as the match rule
+   `shells`, see `REQUIREMENTS.md` §3.4._
 6. **Weapon mods** (§4.1): a few add-ons (split, bounce, fuse, "carries the next shell") that
    work on most shells. The largest gain in depth per item added. L, kernel and content.
 7. **Wind with shape** (§8.3): stronger higher up, calm in the lee of a mountain, and it moves
-   falling sand, snow, embers and lake waves. M, kernel.
+   falling sand, snow, embers and lake waves. M, kernel. _Shells and thrown earth built 2026-11-20 as
+   the match rule `windShape`, see `REQUIREMENTS.md` §3.4; embers, fire and lake waves are not._
 8. **Sound in space and music that follows the match** (§7.1, §7.2): pan by position, far blasts
    arrive late and dull, music layers come in as the round tightens. M, client only.
 9. **Tanks that show damage and sit on the slope** (§8.4): tilt with the ground, broken tracks,
-   bent barrel, fuel leak. M, kernel and renderer.
+   bent barrel, fuel leak. M, kernel and renderer. _Built 2026-11-20 as the match rule `tankDamage`:
+   damage shows at half and a quarter health, a crippled tank has a broken track and leaks oil, see
+   `REQUIREMENTS.md` §3.4. The hull already leaned with the ground in the renderer. Not built: bent
+   barrel, aim relative to the hull, sliding on ice, tipping over._
 10. **Sim off the main thread** (§9.1). The step that would most help the phone logs: a long
     tick no longer drops a frame. L, client only, no rule change.
 11. **Points match with a weapon draft, and co-op against bot waves** (§3.3, §3.4). Two modes
@@ -118,8 +124,9 @@ as the first kernel change.
    shell each turn against the rest; or a marked hill where standing on it at turn end scores.
    Both are modes on top of what exists. _S to M each, content._
 7. **Wall rules.** Bounce, wrap round, or open sides, per match or as a round twist ("Rubber
-   walls"). In the spec (§3.4) and in the 1991 game, not in the code today. Bots aim through the
-   sim's own integrator, so bank shots off a wall come cheaply for Trickshot. _S to M, kernel._
+   walls"). The kernel already has them per mode (`mode.walls`: wrap, bounce, absorb, concrete);
+   what is missing is a setup choice and a twist. Bots aim through the sim's own integrator, so
+   bank shots off a wall come cheaply for Trickshot. _S, client + a rule override._
 8. **Retreat time.** After firing you may drive on your leftover fuel for three seconds (Worms).
    Makes close shots less of a suicide and gives fuel a second use. _S, kernel._
 9. **Reactive map objects.** See top pick 2. Working list: fuel tank (spills oil, burns), water
@@ -309,6 +316,8 @@ All chiptune, synthesised or tracker (§8b).
    dirty rectangles. A 40 ms tick then costs the picture nothing, and the phone logs show long
    ticks as the main remaining stutter. Lockstep is unchanged. Shared memory needs headers that
    GitHub Pages does not send, so start with transferred buffers. _L, client. No rule change._
+   **Built** (ARCHITECTURE §5.2): local and online matches; challenges, training and the
+   sandbox still run on the page.
 2. **Sun and shadow.** The time of day already moves across rounds. Cast a hard, dithered shadow
    from the skyline by the sun's angle (a 1D skyline texture and a short march in the terrain
    shader), long at dawn and dusk. Big blasts light the ground for a moment in hard bands.

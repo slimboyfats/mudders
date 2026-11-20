@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel Barrels",
     "description": "A stack of three steel drums of fuel under pressure. Break one open and it bursts in a fireball and shoots up into the sky like a rocket, then blows apart at the top in a firework of burning stars and fuel that rains down and sets the ground alight. The blast breaks the next drum open, so the stack goes up one after another.",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "shape": [
     "     SSSS     ",

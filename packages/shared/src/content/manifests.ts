@@ -497,6 +497,12 @@ const explosionBody = {
    * else 0 (none).
    */
   pressure: z.number().int().min(0).max(1000).optional(),
+  /**
+   * Whether solid ground between the blast and a tank soaks up part of its damage and shove while
+   * the match rule `cover` is on. Unset = yes for blast and heat explosions, no for the rest (a
+   * quake, a gravity well or a bolt is not stopped by a wall).
+   */
+  cover: z.boolean().optional(),
   /** Knocks the shields of tanks in range down to nothing, however strong. */
   strip: z.boolean().default(false),
   /** Destroys up to this many spare batteries (gear that heals) carried by each tank in range. */
@@ -714,6 +720,11 @@ export const WeaponSchema = z.strictObject({
    * laser's cut, a water cannon's stream). Most weapons have none.
    */
   pulse: z.array(ImpactSchema).default([]),
+  /**
+   * Whether weapon mods (§4.1) may change it, when its flight is a plain arc that goes off on the
+   * ground. `false` for the one-of-a-kind and the heaviest shells (three Supernovas at once).
+   */
+  mods: z.boolean().default(true),
   shop: z.strictObject({
     price: z.number().int().min(0),
     pack: z.number().int().min(1),
@@ -918,6 +929,58 @@ export const ModeSchema = z.looseObject({
       muddy: { fuel: 50 },
       burning: { damage: 5 },
     }),
+  /**
+   * Crippled tanks (match rule `tankDamage`, kernel 0.68.0): at or under `at` percent of its
+   * health a tank's tracks are broken, so it drives `drive` percent of its cells a turn, and its
+   * fuel tank is holed: `spill` cells of `leak` run out beside it at once and one more for every
+   * third cell it drives. No `leak`: nothing runs out.
+   */
+  wounds: z
+    .strictObject({
+      at: z.number().int().min(1).max(99),
+      drive: z.number().int().min(0).max(100),
+      spill: z.number().int().min(0).max(12),
+      leak: MaterialRefSchema.optional(),
+    })
+    .default({ at: 25, drive: 50, spill: 6 }),
+  /**
+   * Weapon draft (points match, kernel 0.62.0): before every round the match draws a pool of
+   * `picks` weapons per player from what the shop sells (only weapons that deal damage), and the
+   * players take turns picking from it, snake order, `pickTimer` seconds a pick. Each tank then
+   * holds exactly what it picked, one shot each; the round lasts `picks` turns per player. No shop.
+   */
+  draft: z
+    .strictObject({
+      picks: z.number().int().min(1).max(20),
+      pickTimer: z.number().min(1).max(120),
+    })
+    .nullable()
+    .default(null),
+  /**
+   * Respawn (points match): a destroyed tank comes back with full health at the end of the turn,
+   * where it fell (or on fresh ground if it fell out of the map), and loses `penalty` points.
+   * Deaths never end a round; the round's winner is the best scorer.
+   */
+  respawn: z
+    .strictObject({ penalty: z.number().int().min(0).max(1000) })
+    .nullable()
+    .default(null),
+  /**
+   * Waves (co-op): team `team` must win every round; a lost round ends the match. Every other
+   * team's tanks play round r at bot skill `skill[r]` and `health[r]` percent health (the last
+   * entry repeats, health growing by `healthStep` a round past the list), and get `cash` × (r + 1)
+   * before each shop.
+   */
+  waves: z
+    .strictObject({
+      team: z.number().int().min(0).max(7).default(0),
+      skill: z.array(z.number().int().min(0).max(3)).min(1),
+      health: z.array(z.number().int().min(10).max(1000)).min(1),
+      healthStep: z.number().int().min(0).max(200).default(0),
+      cash: z.number().int().min(0).max(1_000_000).default(0),
+    })
+    .nullable()
+    .default(null),
   /** Points per round (§3.5): per hp dealt, per kill, per hp of self-damage (subtracted), bonuses. */
   scoring: z
     .strictObject({
@@ -1018,22 +1081,45 @@ export type TankManifest = z.infer<typeof TankSchema>;
  *   health. It can't be used when it would change nothing.
  * - `deploy: "fall"`: opens by itself when a fall would hurt; the tank drifts down at `fallSpeed`
  *   cells per tick and lands unhurt (falling out of the map is still fatal).
+ * - `deploy: "mod"` (§4.1 weapon mods): the owner fits it while aiming and it changes the next shell
+ *   fired, if that weapon takes mods (a plain arcing shell that goes off on the ground); one is used
+ *   up per shot. Pressing it again takes it off. See `mod`.
  */
-export const GearSchema = z.strictObject({
-  ...base,
-  deploy: z.enum(['manual', 'fall']),
-  shield: z.number().int().min(0).max(400).default(0),
-  heal: z.number().int().min(0).max(400).default(0),
-  fallSpeed: z.number().int().min(1).max(8).default(1),
-  shop: z.strictObject({
-    price: z.number().int().min(1),
-    pack: z.number().int().min(1).max(20),
-    /** Most a tank may carry. */
-    max: z.number().int().min(1).max(99).default(9),
-  }),
-  /** Short label for the in-match button (renderer/UI only). */
-  label: z.string().min(1).max(12),
+export const GearModSchema = z.strictObject({
+  /** Shells fired at once, in a fan `spread` degrees apart (1 = just the one). */
+  split: z.number().int().min(1).max(5).default(1),
+  spread: z.number().int().min(0).max(30).default(0),
+  /**
+   * A flight whose `contact` hook takes over the shell's hits (its own flight still moves it), e.g.
+   * `{ "use": "flight.ricochet" }` to bounce.
+   */
+  flight: EmbeddedFlightSchema.optional(),
+  /** Goes off this many ticks after firing wherever it is; 0 = no fuse. */
+  fuse: z.number().int().min(0).max(1200).default(0),
 });
+export type GearMod = z.infer<typeof GearModSchema>;
+
+export const GearSchema = z
+  .strictObject({
+    ...base,
+    deploy: z.enum(['manual', 'fall', 'mod']),
+    shield: z.number().int().min(0).max(400).default(0),
+    heal: z.number().int().min(0).max(400).default(0),
+    fallSpeed: z.number().int().min(1).max(8).default(1),
+    mod: GearModSchema.optional(),
+    shop: z.strictObject({
+      price: z.number().int().min(1),
+      pack: z.number().int().min(1).max(20),
+      /** Most a tank may carry. */
+      max: z.number().int().min(1).max(99).default(9),
+    }),
+    /** Short label for the in-match button (renderer/UI only). */
+    label: z.string().min(1).max(12),
+  })
+  .refine((g) => (g.deploy === 'mod') === (g.mod !== undefined), {
+    message: '`mod` goes with `deploy: "mod"`, and only there',
+    path: ['mod'],
+  });
 export type GearManifest = z.infer<typeof GearSchema>;
 
 // ── prop ────────────────────────────────────────────────────────────────────────────────────

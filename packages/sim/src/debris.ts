@@ -72,7 +72,7 @@ export class DebrisPool {
    * that would enter a solid cell or the floor lands in the last free cell it passed (or the
    * nearest air above it); one that leaves the map sideways is lost.
    */
-  step(grid: Grid, gravity: number, mats?: MaterialTable): void {
+  step(grid: Grid, gravity: number, mats?: MaterialTable, wind = 0): void {
     const W = grid.width;
     const H = grid.height;
     const m = grid.material;
@@ -85,7 +85,9 @@ export class DebrisPool {
       const y0 = this.y[i]!;
       const vy = this.vy[i]! + gravity;
       this.vy[i] = vy;
-      const dx = this.vx[i]!;
+      // drifting downwind while it flies (`rules.windShape`; 0 otherwise)
+      const dx = this.vx[i]! + wind;
+      if (wind !== 0) this.vx[i] = dx;
       // whole numbers throughout (gravity too): a shift floors like `Math.floor(v / FP)` and
       // `| 0` truncates like `Math.trunc`, without the float division
       const ax = dx < 0 ? -dx : dx;

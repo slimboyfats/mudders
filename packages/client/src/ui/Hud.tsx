@@ -6,6 +6,7 @@ import type { HudState } from '../game/match';
 import type { Renderer } from '../render';
 import { teamName } from '../game/setup';
 import { PLAYER_COLORS } from '../render/pixel/theme';
+import { Draft } from './Draft';
 import { Scoreboard, Shop } from './Shop';
 import { CHILL_POWER } from '@mudders/sim';
 import { ANGLE_SCRUB, POWER_SCRUB } from '../game/scrub';
@@ -28,6 +29,10 @@ interface Props {
   ownEnd?: boolean;
   /** End-of-match awards (Best shot, Most dirt moved...), shown on the match-over card. */
   awards?: readonly Award[];
+  /** Last-shot ghost: the aim the active player fired with last, or null. */
+  lastAim?: { angle: number; power: number } | null | undefined;
+  /** A weapon's description, for the weapon list's info card. */
+  describe?: ((id: string) => string) | undefined;
 }
 
 const css = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -42,6 +47,7 @@ function Wind({
   gusty,
   weather,
   was,
+  lee,
 }: {
   wind: number;
   base: number;
@@ -50,6 +56,8 @@ function Wind({
   weather: string;
   /** This player's wind on their previous turn, or null on their first. */
   was: number | null;
+  /** The tank whose turn it is stands in the lee of high ground. */
+  lee: boolean;
 }) {
   const clamp = (v: number) => (max > 0 ? Math.max(-1, Math.min(1, v / max)) : 0);
   const k = clamp(wind);
@@ -67,12 +75,14 @@ function Wind({
     <div
       className={`wind${changed ? ' changed' : ''}`}
       aria-label={`${weather ? `${weather}, ` : ''}${gusty ? 'gusty wind' : 'wind'} ${n} ${dir}${
-        w === null ? '' : `, your last turn ${wn} ${w > 0 ? 'right' : w < 0 ? 'left' : 'calm'}`
-      }`}
+        lee ? ', you are sheltered from it' : ''
+      }${w === null ? '' : `, your last turn ${wn} ${w > 0 ? 'right' : w < 0 ? 'left' : 'calm'}`}`}
       data-testid="wind"
     >
       {weather && <span className="weather">{weather}</span>}
-      <span className="label">{gusty ? 'Gusts' : 'Wind'}</span>
+      <span className="label" title={lee ? 'High ground shelters you from the wind' : undefined}>
+        {lee ? 'Lee' : gusty ? 'Gusts' : 'Wind'}
+      </span>
       <span className="wind-bar">
         <span
           className={`wind-fill ${k < 0 ? 'to-left' : 'to-right'}`}
@@ -244,8 +254,25 @@ function useTurnTimer(hud: HudState): number {
   return Math.max(len, s);
 }
 
+/** Volley aiming: how many living tanks have locked in their shot. */
+function VolleyBadge({ hud }: { hud: HudState }) {
+  let alive = 0;
+  let ready = 0;
+  for (const t of hud.tanks) {
+    if (!t.alive) continue;
+    alive++;
+    if (t.ready) ready++;
+  }
+  return (
+    <span className="badge volley" aria-label={`Volley: ${ready} of ${alive} locked in`}>
+      Volley {ready}/{alive}
+    </span>
+  );
+}
+
 /** Who is at the controls this turn: a bot, the player, or a Telepathy caster (mind link). */
 function bannerSub(hud: HudState, bot: string): string {
+  if (hud.volley) return 'Volley: aim, then fire to lock in';
   const c = hud.controller;
   if (c >= 0 && c !== hud.activePlayer) {
     const by = hud.tanks[c]?.bot;
@@ -318,6 +345,8 @@ export function Hud({
   onRematch,
   ownEnd,
   awards = [],
+  lastAim = null,
+  describe,
 }: Props) {
   const t = hud.tanks[hud.activePlayer];
   const [menu, setMenu] = useState(false);
@@ -374,18 +403,33 @@ export function Hud({
                   </span>
                 )}
                 <span className="pscore" aria-label="score">
-                  ★{p.score}
+                  ★{hud.game === 'points' ? p.score + p.roundPoints : p.score}
                 </span>
+                {hud.volley && hud.phase === 'aim' && p.alive && (
+                  <span
+                    className={`pready${p.ready ? ' on' : ''}`}
+                    aria-label={p.ready ? 'locked in' : 'aiming'}
+                  >
+                    {p.ready ? '✓' : '…'}
+                  </span>
+                )}
                 {p.alive && <Stains tank={p} />}
               </div>
             );
           })}
         </div>
         <div className="hud-center">
-          <span className="badge" aria-label="Round">
-            R{Math.min(hud.round, hud.rounds)}/{hud.rounds}
+          <span className="badge" aria-label={hud.game === 'coop' ? 'Wave' : 'Round'}>
+            {hud.game === 'coop' ? 'Wave ' : 'R'}
+            {Math.min(hud.round, hud.rounds)}/{hud.rounds}
           </span>
+          {hud.game === 'points' && t && (hud.phase === 'aim' || hud.phase === 'resolve') && (
+            <span className="badge" aria-label="Shots left" data-testid="shots-left">
+              {shotsLeft(t)} shot{shotsLeft(t) === 1 ? '' : 's'}
+            </span>
+          )}
           {hud.twist && <span className="badge twist">{hud.twist}</span>}
+          {hud.volley && hud.phase === 'aim' && <VolleyBadge hud={hud} />}
           {hud.suddenDeath && <span className="badge sudden">Sudden death</span>}
           <Wind
             key={turnKey}
@@ -395,6 +439,7 @@ export function Hud({
             gusty={hud.gusty}
             weather={hud.weather}
             was={was}
+            lee={hud.lee}
           />
           <Temperature temp={hud.temperature} />
           {timer >= 0 &&
@@ -538,11 +583,21 @@ export function Hud({
       )}
 
       {hud.phase === 'shop' && <Shop hud={hud} controls={controls} send={sendAs} />}
+      {hud.phase === 'draft' && <Draft hud={hud} controls={controls} send={sendAs} />}
 
       {hud.phase === 'over' && !ownEnd && (
         <div className="round-over match-over" role="dialog">
           <h2>
-            {hud.teams && hud.winnerTeam >= 0 ? (
+            {hud.wave ? (
+              hud.wave.won >= hud.rounds ? (
+                <>All {hud.rounds} waves held!</>
+              ) : (
+                <>
+                  Overrun on wave {hud.wave.won + 1}
+                  <small> {hud.wave.won} held</small>
+                </>
+              )
+            ) : hud.teams && hud.winnerTeam >= 0 ? (
               <>Team {teamName(hud.winnerTeam)} wins the match</>
             ) : hud.winner >= 0 ? (
               <>
@@ -591,6 +646,7 @@ export function Hud({
             invert
             minor={5}
             major={45}
+            last={canAim ? lastAim?.angle : undefined}
             disabled={!canAim}
             onChange={(v) => t && aim(v, t.power)}
           />
@@ -604,6 +660,7 @@ export function Hud({
             minor={25}
             major={100}
             {...(t && t.chill > 0 ? { cap: CHILL_POWER } : {})}
+            last={canAim ? lastAim?.power : undefined}
             disabled={!canAim}
             onChange={(v) => t && aim(t.angle, v)}
           />
@@ -628,7 +685,29 @@ export function Hud({
           {t?.gear
             .filter((g) => g.count > 0)
             .map((g) =>
-              g.deploy === 'manual' ? (
+              g.deploy === 'mod' ? (
+                <button
+                  key={g.id}
+                  className={`gear-btn mod-btn${g.fitted ? ' fitted' : ''}`}
+                  disabled={!canAim}
+                  aria-pressed={g.fitted}
+                  onClick={() => send({ type: 'useGear', gear: g.id })}
+                  aria-label={`${g.fitted ? 'Take off' : 'Fit'} ${g.name} (${g.count} left)${
+                    g.fitted && !t.modFits ? ": this weapon doesn't take mods" : ''
+                  }`}
+                  title={
+                    g.fitted && !t.modFits
+                      ? "This weapon doesn't take mods: it stays fitted for the next shell that does"
+                      : `${g.name}: changes your next shell`
+                  }
+                  data-testid={`gear-${g.id}`}
+                >
+                  <span className="wname">{g.label}</span>
+                  <span className="count">
+                    {g.fitted ? (t.modFits ? 'on' : 'on · no fit') : 'mod'} · {g.count}
+                  </span>
+                </button>
+              ) : g.deploy === 'manual' ? (
                 <button
                   key={g.id}
                   className="gear-btn"
@@ -656,6 +735,8 @@ export function Hud({
           inventory={t?.inventory ?? []}
           selected={t?.weapon ?? ''}
           disabled={!canAim}
+          owner={hud.activePlayer}
+          describe={describe}
           onSelect={(weapon) => send({ type: 'selectWeapon', weapon })}
         />
         {hud.command >= 0 && controls(hud.command) ? (
@@ -673,11 +754,17 @@ export function Hud({
             disabled={!canAim}
             onClick={() => send({ type: 'fire' })}
             data-testid="fire"
+            {...(hud.volley ? { title: 'Lock in your shot: all shells fly together' } : {})}
           >
-            FIRE
+            {hud.volley && hud.phase === 'aim' && !canAim ? 'LOCKED' : 'FIRE'}
           </button>
         )}
       </div>
     </>
   );
+}
+
+/** Shots a tank has left in a points match: one per weapon it drafted and hasn't fired yet. */
+function shotsLeft(t: { inventory: readonly { count: number }[] }): number {
+  return t.inventory.reduce((n, w) => n + Math.max(0, w.count), 0);
 }

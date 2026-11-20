@@ -4,7 +4,7 @@
   "meta": {
     "name": "Fuel Tank",
     "description": "A steel fuel tank on two concrete saddles, full of fuel with a pocket of vapour under its roof. A hit punches a hole where it lands and the fuel pours out and runs downhill; any blast or heat that reaches the fuel lights it and the fire runs through the whole load. Once air gets to the vapour, through a hole in the roof or as the fuel drains or burns away, the tank goes up in one huge fireball that flings burning fuel and blazing drums high into the air.",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "shape": [
     "   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS   ",

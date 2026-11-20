@@ -2,6 +2,7 @@ import type { Input, RenderSnapshot } from '@mudders/shared';
 import {
   DEAL_OUT,
   DEAL_SALE,
+  STEP_PARTS,
   TICK_RATE,
   World,
   type ResolvedContent,
@@ -50,6 +51,8 @@ export interface HudTank {
   inventory: { id: string; name: string; count: number; category: string; isNew: boolean }[];
   /** Gear carried (§5.1), with whether switching it on now would do anything. */
   gear: HudGear[];
+  /** Whether the held weapon takes weapon mods (§4.1). */
+  modFits: boolean;
   /** AI personality name, or '' for a human. */
   bot: string;
   money: number;
@@ -57,15 +60,45 @@ export interface HudTank {
   ready: boolean;
   /** Cash for destroying this tank while it carries the leader's bounty; 0 = no bounty. */
   bounty: number;
+  /** Points match: times destroyed and brought back this round. */
+  deaths: number;
+  /** Points this round so far (damage, kills, self-damage, deaths), before the round's bonuses. */
+  roundPoints: number;
 }
+
+/** One weapon in a points match's draft pool. */
+export interface DraftSlot {
+  slot: number;
+  /** Player who took it, or -1 while it is free. */
+  by: number;
+  item: ShopItem;
+}
+
+/** The weapon draft of a points match, while it runs. */
+export interface HudDraft {
+  /** Player whose pick it is. */
+  drafter: number;
+  /** Picks each player makes; picks made so far, of `total`. */
+  picks: number;
+  pos: number;
+  total: number;
+  /** Who picks next, the current pick first. */
+  next: number[];
+  pool: DraftSlot[];
+}
+
+/** Kind of match, from the mode: classic, points (draft + respawn) or co-op waves. */
+export type HudGame = 'classic' | 'points' | 'coop';
 
 export interface HudGear {
   id: string;
   name: string;
   label: string;
-  deploy: 'manual' | 'fall';
+  deploy: 'manual' | 'fall' | 'mod';
   count: number;
   useful: boolean;
+  /** A weapon mod fitted for the next shot (§4.1). */
+  fitted: boolean;
 }
 
 export interface ShopItem {
@@ -88,7 +121,12 @@ export interface ShopItem {
 }
 
 export interface HudState {
-  phase: 'aim' | 'resolve' | 'shop' | 'over';
+  phase: 'aim' | 'resolve' | 'shop' | 'draft' | 'over';
+  game: HudGame;
+  /** Points match: the draft while it runs, else null. */
+  draft: HudDraft | null;
+  /** Co-op: waves held so far and the defending team, else null. */
+  wave: { won: number; team: number } | null;
   activePlayer: number;
   /** Player steering the active tank: itself, or its Telepathy caster while mind-linked. */
   controller: number;
@@ -104,6 +142,8 @@ export interface HudState {
   /** The turn's wind without the gust (what bots aim with). */
   windBase: number;
   windMax: number;
+  /** The tank whose turn it is stands in the lee of high ground: its shell starts in dead air. */
+  lee: boolean;
   /** Gusty wind: the wind keeps changing during the turn. */
   gusty: boolean;
   /** Weather label ("Rain", "Snow"), or '' in clear skies. */
@@ -127,10 +167,177 @@ export interface HudState {
    * Player who may press fire now to set off their shell in flight (Cloud Whale), or -1.
    */
   command: number;
+  /**
+   * Volley turns: everyone aims at once (`activePlayer` and `controller` are -1 in the sim; the
+   * match view puts this device's seat that still aims in their place, see `volleyView`).
+   */
+  volley: boolean;
+  /** Volley: bit per player who may set off their own shell in flight now (Cloud Whale). */
+  commanders: number;
   /** A supply crate someone just took (shown for a few seconds), or null. */
   pickup: { player: number; text: string; tick: number } | null;
   /** A map event the players should hear about (volcano rumbling, avalanche), or null. */
   alert: { text: string; tick: number } | null;
+}
+
+/** What the frame loop reads of a tank between snapshots. */
+export interface TankView {
+  readonly x: number;
+  readonly y: number;
+  /** Width in cells. */
+  readonly w: number;
+  readonly alive: boolean;
+  readonly health: number;
+  readonly maxHealth: number;
+  readonly team: number;
+  /** Index of the bot playing this tank, or -1 for a human. */
+  readonly bot: number;
+  readonly player: number;
+  /** Shop: done shopping. Volley: shot locked in. */
+  readonly ready: boolean;
+  readonly angle: number;
+  readonly power: number;
+  /** Index of the weapon held (`WorldView.weaponId` names it). */
+  readonly weapon: number;
+}
+
+/** A shell in flight, as the last-shot ghost follows it (fixed-point position). */
+export interface ShellView {
+  readonly id: number;
+  readonly alive: boolean;
+  readonly owner: number;
+  readonly x: number;
+  readonly y: number;
+}
+
+/**
+ * The little of a World the match view reads directly (everything else comes through snapshots
+ * and the HUD state). A `World` fits it as it is; a match whose sim runs in the worker keeps a
+ * copy that the worker sends with every tick and after every message. While a snapshot listener
+ * runs, it is the world of that snapshot's tick on either thread.
+ */
+export interface WorldView {
+  readonly tick: number;
+  readonly phase: HudState['phase'];
+  readonly round: number;
+  readonly turn: number;
+  readonly activePlayer: number;
+  /** Volley mode: everyone aims at once. */
+  readonly volley: boolean;
+  readonly tanks: readonly TankView[];
+  readonly projectiles: readonly ShellView[];
+  readonly grid: { readonly width: number; readonly height: number };
+  /** `weapon.*` id of a weapon index. */
+  weaponId(index: number): string;
+}
+
+/** What the sim tells the performance recorder about the time since it was last asked. */
+export interface SimPerf {
+  projectiles: number;
+  debris: number;
+  /** Cells in the settle and reaction regions. */
+  settle: number;
+  react: number;
+  /** The map, the weather and a twist, in words. */
+  note: string;
+  /** What the turn is waiting on ('' = nothing). */
+  holding: string;
+  /** Sim ms by part of the tick (`STEP_PARTS` order). */
+  parts: number[];
+  /** The longest tick, in ms and in words ('' = none timed). */
+  worstMs: number;
+  worstTick: string;
+  /** Online: this side's standing with the other ('' = local). */
+  net: string;
+}
+
+/**
+ * A match as the UI sees it. `SimMatch` runs its World on this thread; `RemoteMatch`
+ * (`sim-client.ts`) is the same match running in the sim worker.
+ */
+export interface GameMatch extends SnapshotStream {
+  readonly content: ResolvedContent;
+  readonly world: WorldView;
+  /** False until the first map has arrived (a worker match builds its world off this thread). */
+  readonly ready: boolean;
+  /** Calls `fn` once the match is ready (at once when it already is); returns a way to cancel. */
+  whenReady(fn: () => void): () => void;
+  /** Frames that ran out of sim budget. */
+  shed: number;
+  input(player: number, input: Input): void;
+  /** Advance by wall-clock `dtMs`; returns render time in ticks (tick + fraction). */
+  advance(dtMs: number): number;
+  limitFrame(ms: number): void;
+  /** Time the sim by part of the tick (for the performance recorder), or stop. */
+  timeParts(on: boolean): void;
+  /** The recorder's figures since the last call. */
+  takePerf(): SimPerf;
+  net(): string;
+  hud(): HudState;
+  /** Sim ms spent so far, where the sim runs off this thread (so the frame loop can't time it). */
+  simMs?(): number;
+  /** The match is over for this page: free what it holds elsewhere. */
+  dispose?(): void;
+}
+
+/**
+ * Times the parts of a tick through the kernel's `World.probe` hook: ms per part, and the longest
+ * tick with the part that took most of it.
+ */
+export class PartTimer {
+  private ms = new Array<number>(STEP_PARTS.length).fill(0);
+  private probeAt = 0;
+  private tickAt = 0;
+  private top = 0;
+  private topMs = 0;
+  private worstMs = 0;
+  private worst = '';
+
+  readonly probe = (part: number): void => {
+    const n = performance.now();
+    if (part < 0) {
+      this.tickAt = n;
+      this.topMs = -1;
+    } else {
+      const d = n - this.probeAt;
+      this.ms[part] = (this.ms[part] ?? 0) + d;
+      if (d > this.topMs) {
+        this.topMs = d;
+        this.top = part;
+      }
+      // the shop's only part, or the last one: the tick is over
+      if ((part === 0 || part === STEP_PARTS.length - 1) && n - this.tickAt > this.worstMs) {
+        this.worstMs = n - this.tickAt;
+        this.worst = `${this.worstMs.toFixed(1)} ms of which ${STEP_PARTS[this.top] ?? ''} ${this.topMs.toFixed(1)}`;
+      }
+    }
+    this.probeAt = n;
+  };
+
+  /** Figures since the last call. */
+  take(): Pick<SimPerf, 'parts' | 'worstMs' | 'worstTick'> {
+    const out = { parts: this.ms, worstMs: this.worstMs, worstTick: this.worst };
+    this.ms = new Array<number>(STEP_PARTS.length).fill(0);
+    this.worstMs = 0;
+    this.worst = '';
+    return out;
+  }
+}
+
+/** The recorder's gauges, read off a World. */
+export function worldPerf(
+  w: World,
+): Pick<SimPerf, 'projectiles' | 'debris' | 'settle' | 'react' | 'note' | 'holding'> {
+  const g = w.grid;
+  const twist = w.options.perRound?.[w.round % w.options.perRound.length]?.twist;
+  return {
+    projectiles: w.projectiles.length,
+    debris: w.debris.count,
+    settle: g.settling ? (g.settleMaxX - g.settleMinX + 1) * (g.settleMaxY + 1) : 0,
+    react: g.reacting ? (g.reactMaxX - g.reactMinX + 1) * (g.reactMaxY - g.reactMinY + 1) : 0,
+    note: [w.generator, w.weather?.id ?? 'clear', twist ?? ''].filter(Boolean).join(' '),
+    holding: w.holding(),
+  };
 }
 
 /** Ticks a pickup stays in the HUD. */
@@ -142,7 +349,7 @@ const PICKUP_TICKS = 180;
  * inputs reach the sim and how wall-clock time turns into ticks: `LocalMatch` (hot-seat) here,
  * `HostMatch`/`GuestMatch` in `net/` (§6.3 lockstep).
  */
-export abstract class SimMatch implements SnapshotStream {
+export abstract class SimMatch implements GameMatch {
   world: World;
   protected listeners: ((s: RenderSnapshot) => void)[] = [];
   private readonly names: Record<string, string> = {};
@@ -189,13 +396,25 @@ export abstract class SimMatch implements SnapshotStream {
         id: g.id,
         name: g.meta.name,
         description: g.meta.description,
-        category: g.deploy === 'fall' ? 'gear · automatic' : 'gear',
+        category:
+          g.deploy === 'fall'
+            ? 'gear · automatic'
+            : g.deploy === 'mod'
+              ? 'gear · weapon mod'
+              : 'gear',
         price: g.shop.price,
         pack: g.shop.pack,
         gear: { max: g.shop.max },
       });
     }
     this.gearItems.sort((a, b) => a.price - b.price || (a.id < b.id ? -1 : 1));
+  }
+
+  readonly ready = true;
+
+  whenReady(fn: () => void): () => void {
+    fn();
+    return () => {};
   }
 
   subscribe(fn: (s: RenderSnapshot) => void): () => void {
@@ -226,7 +445,13 @@ export abstract class SimMatch implements SnapshotStream {
     // a match that changes map or sky between rounds says where this round is played
     const w = this.world;
     const news = w.options.perRound !== undefined || w.arsenal.length > 0 || w.bountyPlayer >= 0;
-    if (news && w.phase !== 'shop' && w.phase !== 'over' && w.round !== this.shown) {
+    if (
+      news &&
+      w.phase !== 'shop' &&
+      w.phase !== 'draft' &&
+      w.phase !== 'over' &&
+      w.round !== this.shown
+    ) {
       this.shown = w.round;
       const free = w.arsenal.map((i) => this.names[w.weaponId(i)] ?? w.weaponId(i));
       this.alert = { text: roundLine(w, free), tick: s.tick };
@@ -259,6 +484,33 @@ export abstract class SimMatch implements SnapshotStream {
     return { player: p.player, text, tick: p.tick };
   }
 
+  /** The draft as the HUD shows it: the pool in shop order, who took what, who picks next. */
+  private draftOf(w: World): HudDraft {
+    return {
+      drafter: w.drafter,
+      picks: w.draftPicks,
+      pos: w.draftPos,
+      total: w.draftOrder.length,
+      next: w.draftOrder.slice(w.draftPos, w.draftPos + 8),
+      pool: w.draftPool.map((wi, slot) => {
+        const id = w.weaponId(wi);
+        const known = this.shopItems.find((i) => i.index === wi);
+        return {
+          slot,
+          by: w.draftBy[slot] ?? -1,
+          item: known ?? {
+            id,
+            name: this.names[id] ?? id,
+            description: '',
+            category: this.categories[id] ?? '',
+            price: 0,
+            pack: 1,
+          },
+        };
+      }),
+    };
+  }
+
   /** An input from this device for `player`. */
   abstract input(player: number, input: Input): void;
 
@@ -279,11 +531,19 @@ export abstract class SimMatch implements SnapshotStream {
   }
 
   protected partProbe: ((part: number) => void) | null = null;
+  private timer: PartTimer | null = null;
 
-  /** Time the sim by part of the tick (the kernel's `World.probe`), or stop with null. */
-  timeParts(probe: ((part: number) => void) | null): void {
-    this.partProbe = probe;
-    this.world.probe = probe;
+  /** Time the sim by part of the tick (the kernel's `World.probe`), or stop. */
+  timeParts(on: boolean): void {
+    if (on === (this.timer !== null)) return;
+    this.timer = on ? new PartTimer() : null;
+    this.partProbe = this.timer?.probe ?? null;
+    this.world.probe = this.partProbe;
+  }
+
+  takePerf(): SimPerf {
+    const t = this.timer?.take() ?? { parts: [], worstMs: 0, worstTick: '' };
+    return { ...worldPerf(this.world), ...t, net: this.net() };
   }
 
   /** Online: this side's standing with the other, for the performance log ('' = local). */
@@ -294,18 +554,23 @@ export abstract class SimMatch implements SnapshotStream {
   hud(): HudState {
     const w = this.world;
     const last = w.results[w.results.length - 1];
+    const wv = w.mode.waves;
     return {
       phase: w.phase,
+      game: w.mode.draft ? 'points' : wv ? 'coop' : 'classic',
+      draft: w.phase === 'draft' ? this.draftOf(w) : null,
+      wave: wv ? { won: w.wavesWon, team: wv.team } : null,
       activePlayer: w.activePlayer,
       controller: w.controller,
       turn: w.turn,
       round: w.phase === 'shop' || w.phase === 'over' ? w.round : w.round + 1,
       rounds: w.rounds,
       seconds: w.timer > 0 ? Math.ceil(w.timer / TICK_RATE) : -1,
-      suddenDeath: w.phase !== 'shop' && w.suddenDeathActive,
+      suddenDeath: w.phase !== 'shop' && w.phase !== 'draft' && w.suddenDeathActive,
       wind: hudWind(w.wind, w.mode.wind.max),
       windBase: hudWind(w.windBase, w.mode.wind.max),
       windMax: w.mode.wind.max,
+      lee: inLee(w),
       gusty: w.windType === 'gusty',
       weather: w.weather?.label ?? '',
       twist:
@@ -324,7 +589,9 @@ export abstract class SimMatch implements SnapshotStream {
       results: w.results,
       pickup: this.pickupOf(w),
       alert: this.alert && w.tick - this.alert.tick <= PICKUP_TICKS ? this.alert : null,
-      command: w.commandable(),
+      command: w.volley ? -1 : w.commandable(),
+      volley: w.volley,
+      commanders: w.volley ? commanders(w) : 0,
       shop: [
         ...this.gearItems,
         ...this.shopItems.map((i) => {
@@ -346,6 +613,14 @@ export abstract class SimMatch implements SnapshotStream {
         money: t.money,
         score: t.score,
         ready: t.ready,
+        deaths: t.deaths,
+        roundPoints:
+          w.phase === 'aim' || w.phase === 'resolve'
+            ? Math.trunc(t.damageDealt * w.mode.scoring.damage) +
+              t.kills * w.mode.scoring.kill -
+              Math.trunc(t.selfDamage * w.mode.scoring.selfDamage) -
+              t.deaths * (w.mode.respawn?.penalty ?? 0)
+            : 0,
         bounty:
           t.player === w.bountyPlayer && w.phase !== 'shop' && w.phase !== 'over'
             ? w.bountyValue()
@@ -386,7 +661,9 @@ export abstract class SimMatch implements SnapshotStream {
           deploy: g.deploy,
           count: t.gear[i] ?? 0,
           useful: w.gearUseful(t, i),
+          fitted: t.mod === i,
         })),
+        modFits: w.weaponModable(w.weaponId(t.weapon)),
       })),
     };
   }
@@ -458,18 +735,59 @@ export function alertText(type: string, params: Readonly<Record<string, number>>
   return '';
 }
 
+/** Volley: a bit per player who has a shell in flight they can set off now. */
+function commanders(w: World): number {
+  let m = 0;
+  for (let p = 0; p < w.tanks.length && p < 31; p++) if (w.commandable(p) === p) m |= 1 << p;
+  return m;
+}
+
+/**
+ * The HUD as one device sees a volley: its first seat that still aims (a living human seat it
+ * controls that hasn't locked in) stands in for the active player, so the aim controls, the aim
+ * guide and the turn call work as on its own turn. -1 once all its seats have locked in. Fire
+ * again (Cloud Whale) goes to its first seat with a shell to set off. Turn order: unchanged.
+ */
+export function volleyView(h: HudState, controls: (player: number) => boolean): HudState {
+  if (!h.volley) return h;
+  let seat = -1;
+  if (h.phase === 'aim') {
+    for (const t of h.tanks) {
+      if (t.alive && !t.ready && t.bot === '' && controls(t.player)) {
+        seat = t.player;
+        break;
+      }
+    }
+  }
+  let command = -1;
+  for (const t of h.tanks) {
+    if (t.player < 31 && (h.commanders >> t.player) & 1 && controls(t.player)) {
+      command = t.player;
+      break;
+    }
+  }
+  return { ...h, activePlayer: seat, controller: seat, command };
+}
+
 /** Fixed-point wind in HUD units, rounded to 1/40 of the maximum. */
 function hudWind(fixed: number, max: number): number {
   const v = fixed / 65536;
   return max > 0 ? (Math.round((v / max) * 40) / 40) * max : v;
 }
 
+/** Does the tank whose turn it is feel less than half the wind at its muzzle (`windShape`)? */
+function inLee(w: World): boolean {
+  const t = w.tanks[w.activePlayer];
+  if (!t?.alive || w.phase !== 'aim' || w.windBase === 0) return false;
+  return Math.abs(w.windAt(t.x, t.y - t.h)) * 2 < Math.abs(w.wind);
+}
+
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.commanders}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.lee ? 1 : 0}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}|${h.draft ? `${h.draft.pos}:${h.draft.drafter}` : ''}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
-    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0}`;
+    k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0},${t.deaths},${t.roundPoints}`;
     for (const i of t.inventory) k += `,${i.count}`;
     for (const g of t.gear) k += `;${g.count}${g.useful ? 'u' : ''}`;
   }
@@ -482,7 +800,7 @@ export class HudStore {
   private key: string;
   private readonly subs = new Set<() => void>();
 
-  constructor(private readonly match: SimMatch) {
+  constructor(private readonly match: GameMatch) {
     this.state = match.hud();
     this.key = hudKey(this.state);
   }
@@ -496,6 +814,8 @@ export class HudStore {
 
   refresh = (): void => {
     const s = this.match.hud();
+    // a worker match hands out the same state until the worker sends a new one
+    if (s === this.state) return;
     const k = hudKey(s);
     if (k === this.key) return;
     this.state = s;

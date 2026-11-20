@@ -4,7 +4,7 @@
   "meta": {
     "name": "Keg powder",
     "description": "Fine blasting powder packed into kegs in a powder store. Like gunpowder it lights from any blast, fire or heat that reaches it, but once lit far more of it bursts, so a store full of kegs goes off in a rolling chain of blasts.",
-    "since": "core@0.98.0",
+    "since": "core@0.100.0",
     "color": "#34303a"
   },
   "extends": "material.gunpowder",

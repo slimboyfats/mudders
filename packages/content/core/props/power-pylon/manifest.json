@@ -4,7 +4,7 @@
   "meta": {
     "name": "Power Pylons",
     "description": "Two steel lattice pylons with power lines slung between them and a transformer box low on one leg. Lightning on the steel shocks any tank touching it as usual. Break the transformer box open, or bring the pylon down, and it shorts out in a blue-white flash, dumping its charge through every pylon, line and puddle joined to it. A cut line drops to the ground still joined to the steel.",
-    "since": "core@0.98.0"
+    "since": "core@0.100.0"
   },
   "shape": [
     "       S                                                            Z       ",

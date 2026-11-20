@@ -1968,6 +1968,15 @@ export class EffectSystem {
       case 'bumpFly':
         this.stars(e, 2, 0.4);
         break;
+      case 'modBounce':
+        // a modded shell skips off the ground (§4.1): clods of the local dirt and a few sparks
+        this.dirtPop(e, 4 + (e.params.hard ?? 0) * 2);
+        this.stars(e, 3 + (e.params.hard ?? 0), 0.8);
+        this.kick(0.3 + (e.params.hard ?? 0) * 0.15, e.tick);
+        break;
+      case 'modFire':
+        this.stars(e, 8, 1.1);
+        break;
       case 'bumpBounce':
         this.stars(e, 14, 1.4);
         this.ripples.push({

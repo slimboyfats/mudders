@@ -18,6 +18,10 @@ export interface Settings {
    * always drawn once it moves in for sudden death.
    */
   walls: boolean;
+  /** Buzz the phone when your turn starts, when you fire and when you are hit (Android). */
+  vibrate: boolean;
+  /** A system notification when your turn starts while the game is in the background. */
+  turnNotify: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -28,6 +32,11 @@ export interface Settings {
   uiScale: number;
   /** Show the sim/render frame-time overlay (§9: budget checks on real devices). */
   perfHud: boolean;
+  /**
+   * Run the game's simulation in a worker, beside the drawing (local and online matches). Off
+   * runs it on the page's own thread, as before; the results are the same either way.
+   */
+  simWorker: boolean;
 }
 
 const KEY = 'mudders.settings.v1';
@@ -44,12 +53,15 @@ function defaults(): Settings {
     dayNight: true,
     chatter: true,
     walls: true,
+    vibrate: true,
+    turnNotify: false,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,
     muted: false,
     uiScale: 1,
     perfHud: false,
+    simWorker: true,
   };
 }
 

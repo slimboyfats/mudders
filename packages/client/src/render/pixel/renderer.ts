@@ -100,6 +100,7 @@ import { CloudWake, type CloudSky } from './cloud-wake';
 import { type KickTank, MuzzleKick } from './muzzle';
 import { BlastSkirts, type SkirtGround } from './skirt';
 import { SteamFx } from './steam';
+import { damageLevel, damagePuff, damageTint } from './damage';
 import { type FlinchTank, TankFlinch } from './flinch';
 import {
   SWAY_REACH,
@@ -2128,6 +2129,38 @@ export class PixelRenderer implements Renderer {
    * column of black smoke, with sparks shed backwards. Waiting (hidden) meteors and the jump to
    * their entry point are skipped.
    */
+  /**
+   * A Fuse Mod shell's fuse (§4.1): a red pixel blinks on it, faster as the fuse burns down, with a
+   * white flash and a spark in the last second.
+   */
+  private fuseBlink(x: number, y: number, left: number): void {
+    const period = left > 120 ? 20 : left > 60 ? 10 : 5;
+    if (left % period !== 0) return;
+    const last = left <= 60;
+    this.particles.add({
+      x,
+      y: y - 1.5,
+      vx: 0,
+      vy: 0,
+      life: last ? 3 : 5,
+      size: 1,
+      color: last ? 0xffffff : 0xff3020,
+      kind: PKind.Spark,
+    });
+    if (last) {
+      this.particles.add({
+        x,
+        y: y - 2.5,
+        vx: left % 10 === 0 ? 0.4 : -0.4,
+        vy: -0.6,
+        life: 6,
+        size: 1,
+        color: 0xff3020,
+        kind: PKind.Spark,
+      });
+    }
+  }
+
   private stepMeteors(shells: Readonly<Record<string, ShellLook>>): void {
     const live = this.meteorLive;
     live.clear();
@@ -2294,6 +2327,7 @@ export class PixelRenderer implements Renderer {
         }
       for (const e of this.entities) {
         if (e.kind !== 'projectile') continue;
+        if (e.fuse !== undefined) this.fuseBlink(e.x, e.y, e.fuse);
         const look = shells[e.weapon]?.shell;
         const r = Math.imul(this.fxTick + 1, 2654435761) ^ Math.imul(e.id + 1, 40503);
         if (look === 'mud') {
@@ -2467,6 +2501,35 @@ export class PixelRenderer implements Renderer {
             kind: PKind.Spark,
           });
         }
+      }
+    }
+    // smoke off hurt tanks: thin and grey when battered, thick and black with sparks when crippled
+    for (const e of this.entities) {
+      if (e.kind !== 'tank' || !e.alive) continue;
+      const puff = damagePuff(damageLevel(e), e.player, this.fxTick);
+      if (!puff) continue;
+      const py = this.tankY(e) - 6;
+      this.particles.add({
+        x: e.x + puff.dx,
+        y: py,
+        vx: 0,
+        vy: -0.25,
+        life: puff.life,
+        size: puff.size,
+        color: puff.color,
+        kind: PKind.Smoke,
+      });
+      if (puff.spark) {
+        this.particles.add({
+          x: e.x + puff.dx,
+          y: py + 2,
+          vx: puff.dx * 0.08,
+          vy: -0.5,
+          life: 14,
+          size: 1,
+          color: 0xffc040,
+          kind: PKind.Spark,
+        });
       }
     }
     // smoke from wrecks
@@ -3377,12 +3440,18 @@ export class PixelRenderer implements Renderer {
       const shieldOn = e.shield > 0;
       // stains (§4b): wet, oiled, muddy, burning tint the hull cell by cell
       const stains = e.alive ? stainBits(e) : 0;
+      // damage shows (tanks with weight): scorched plates, and a broken track when crippled
+      const hurt = damageLevel(e);
       for (let r = 0; r < sh; r++) {
         const row = rows[r]!;
         for (let c = 0; c < sw; c++) {
           const code = row.charCodeAt(c);
           if (code === 46) continue; // '.'
           let rgb = spriteColor(code, col, shieldOn);
+          if (hurt !== 0) {
+            rgb = damageTint(rgb, c, r, sw, sh, hurt, e.player);
+            if (rgb < 0) continue;
+          }
           if (stains !== 0) rgb = stainTint(rgb, c, r, sh, stains, t);
           b.rect(x0 + c, y0 + r + lean(c), 1, 1, litColor(rgb, lit));
         }
@@ -3417,7 +3486,8 @@ export class PixelRenderer implements Renderer {
         b.rect(x - 8, top - 7, 16, 1, 0x000000, 0.55);
         if (sp > 0) b.rect(x - 8, top - 7, Math.max(1, Math.round(16 * sp)), 1, SHIELD_RGB);
       }
-      if (e.active) {
+      // the one aiming, or in a volley every tank still aiming (locked-in tanks lose the marker)
+      if (e.active || e.volley === true) {
         const bob = Math.sin(t * 0.12) * 1.2;
         b.push(x + 0.5, top - 10 + bob, 3.2, 3.2, col, 1, Shape.Rect, Math.PI / 4);
         b.push(x + 0.5, top - 10 + bob, 1.4, 1.4, 0xffffff, 0.9, Shape.Rect, Math.PI / 4);

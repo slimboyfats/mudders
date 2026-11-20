@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.98.0",
+  "version": "0.100.0",
   "schemaVersion": 1,
   "description": "The base game.",
   "items": [
@@ -130,6 +130,9 @@
     "flight.v3",
     "gear.battery",
     "gear.heavy-shield",
+    "gear.mod-bouncy",
+    "gear.mod-fuse",
+    "gear.mod-split",
     "gear.parachute",
     "gear.shield",
     "gen.badlands",
@@ -218,6 +221,8 @@
     "material.wet-moss",
     "material.wood",
     "mode.classic",
+    "mode.coop",
+    "mode.points",
     "mode.teams",
     "prop.apartments",
     "prop.birch",

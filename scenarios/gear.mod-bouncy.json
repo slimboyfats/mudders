@@ -1,0 +1,70 @@
+{
+  "id": "gear.mod-bouncy",
+  "schemaVersion": 1,
+  "description": "P1 fits a Bouncy Mod and fires a Missile short: it bounces three times along the ground into P2 and goes off.",
+  "subject": "gear.mod-bouncy",
+  "mode": "mode.classic",
+  "seed": 7,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400
+  },
+  "tanks": [
+    {
+      "x": 150,
+      "inventory": {
+        "gear.mod-bouncy": 1,
+        "weapon.missile": 5
+      }
+    },
+    {
+      "x": 620
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "turnTimer": 0,
+    "suddenDeath": false
+  },
+  "inputs": [
+    {
+      "t": 20,
+      "player": 0,
+      "action": {
+        "type": "useGear",
+        "gear": "gear.mod-bouncy"
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 45,
+        "power": 410
+      }
+    },
+    {
+      "t": 30,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 1200,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}
