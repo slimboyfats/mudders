@@ -106,6 +106,8 @@ export const ScenarioSchema = z.strictObject({
       mapEvents: z.boolean().optional(),
       /** Ground between a blast and a tank cuts its damage (off unless set). */
       cover: z.boolean().optional(),
+      /** Plain shells glance off hard ground, skip on water and bury in soft ground (off unless set). */
+      shells: z.boolean().optional(),
       /** Bounty on the match leader and comeback cash for players behind (off unless set). */
       bounty: z.boolean().optional(),
       /** Volley turns: everyone aims at once, all shells fly together (off unless set). */

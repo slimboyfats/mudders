@@ -20,7 +20,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     date: '2026-11-20',
     title:
-      'Weapon mods, volley mode, cover counts, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
+      'Weapon mods, volley mode, cover counts, shells that care what they hit, last-shot ghost, your-turn buzz, rule sets, weapon favourites and a tutorial',
     pack: 'core@0.98.0',
     items: [
       'Weapon mods, new in the shop under gear: bolt-on parts that change your next shell. Fit one with its button while aiming (it lights up and does not use your turn), press again to take it off. It is used up by the next shell that takes mods: shells that fly a plain arc and go off on the ground, such as the Missile, the Nuke, and the dirt shells. Rollers, diggers, MIRVs, beams and the like keep it fitted for later',
@@ -28,6 +28,9 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
       'Bots do not use mods yet',
       'Volley (a new rules setting, Turns: One at a time or Volley, locally and in the online lobby): every tank aims during the same turn timer, and FIRE locks your shot in. Once everyone has locked in, or the timer runs out, all shells leave on the same tick and land together, so a round takes about as long as one lap of turns used to. The HUD shows Volley 2/3 and a ✓ in each chip that has locked in; tanks still aiming keep their marker. Bots plan without seeing anyone else’s shot. Each shell still scores for its own tank, and a volley counts as one turn for everyone (frost, glue and stains wear off for all, the turn cap counts volleys). A mind-linked tank sits the volley out',
       'Cover counts: solid ground between a blast and a tank now soaks up part of the damage and the shove. The thicker and heavier the cover, the more it stops: rock counts twice as much as dirt, snow less than half, water nothing. Behind enough of it a tank takes as little as a third of the hit, and COVER pops up over it. A tank that shows over the top of a wall is still hit in full, and big blasts tear through thin walls',
+      'Shells care what they hit. A fast shell that comes in flat glances off rock, steel, concrete and ice in a shower of sparks, once, and comes down further on; a square hit goes off as before',
+      'A fast, flat shot skips across water like a flat stone, up to twice, throwing up drops. A steep one still goes off on the surface',
+      'Soft ground swallows shells: a shell digs into snow, ash, sand and mud before it goes off (deepest in snow), so the crater is deeper and, with cover, the blast is muffled. Bots know all three and plan their bank shots',
       'Shut-in blasts: a shell that goes off in a tunnel, a small cave or the bottom of a shaft has nowhere to spread, so it reaches half as far again along whatever opening it has',
       'How to play (on the start screen): a one-minute guided match against a still target. A card walks you through the shop, aiming with the Angle and Power pills, the wind, firing, driving and knocking the target out, and moves on as you do each one. New players see it first on the start screen',
       'Last-shot ghost (a new rules setting, on by default, locally and in the online lobby): while you aim, the path of your previous shell shows as faint dots over the map with a cross where it came down, and the Angle and Power pills carry a pale mark at the values you fired with. Each player only sees their own',

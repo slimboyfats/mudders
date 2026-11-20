@@ -72,7 +72,8 @@ real-life physics in pixel art, a living world, and speed on a phone.
 4. **Instant replay and "shot of the match"** (§6.1). The spec already asks for it and
    determinism makes it nearly free. M, client only.
 5. **Shells that care what they hit** (§8.2): ricochet off rock and steel at flat angles, skip on
-   water, bury into mud and snow before going off. M, kernel.
+   water, bury into mud and snow before going off. M, kernel. _Built 2026-11-20 as the match rule
+   `shells`, see `REQUIREMENTS.md` §3.4._
 6. **Weapon mods** (§4.1): a few add-ons (split, bounce, fuse, "carries the next shell") that
    work on most shells. The largest gain in depth per item added. L, kernel and content.
 7. **Wind with shape** (§8.3): stronger higher up, calm in the lee of a mountain, and it moves
