@@ -61,7 +61,8 @@ says so.
 Ranked by how much each changes the feel of a match for its cost, with Joel's goals in mind:
 real-life physics in pixel art, a living world, and speed on a phone.
 
-1. **Cover counts: blasts are blocked by solid ground** (§8.1). Today damage is by distance only,
+1. **Cover counts: blasts are blocked by solid ground** (§8.1). _Built 2026-11-20 as the match
+   rule `cover`, see `REQUIREMENTS.md` §3.5._ Today damage is by distance only,
    so a tank behind a rock wall is hurt the same as one in the open. Real blasts are not like
    that, and this one rule gives every wall, trench and dirt weapon a defensive use. M, kernel.
 2. **Things on the map that react** (§3.9): fuel tanks, water towers, power pylons, powder
