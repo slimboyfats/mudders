@@ -1,0 +1,66 @@
+{
+  "id": "terrainop.dam",
+  "schemaVersion": 1,
+  "description": "Hills with map events on: a concrete dam holds a lake in a valley. A missile cracks the wall below the water line and the lake bursts out through the hole and floods downhill.",
+  "subject": "terrainop.dam",
+  "mode": "mode.classic",
+  "seed": 17,
+  "players": 2,
+  "map": {
+    "width": 800,
+    "height": 400,
+    "generator": "gen.hills"
+  },
+  "tanks": [
+    {
+      "x": 100,
+      "inventory": {
+        "weapon.missile": 5,
+        "weapon.baby-nuke": 2
+      }
+    },
+    {
+      "x": 700,
+      "inventory": {
+        "weapon.tracer": 5
+      }
+    }
+  ],
+  "turnOrder": [0, 1],
+  "wind": 0,
+  "rules": {
+    "mapEvents": true,
+    "turnTimer": 0
+  },
+  "inputs": [
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "selectWeapon",
+        "weapon": "weapon.missile"
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "aim",
+        "angle": 75,
+        "power": 960
+      }
+    },
+    {
+      "t": 0,
+      "player": 0,
+      "action": {
+        "type": "fire"
+      }
+    }
+  ],
+  "capture": {
+    "maxTicks": 3000,
+    "untilSettled": true,
+    "extraTicks": 60
+  }
+}

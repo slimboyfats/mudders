@@ -1,0 +1,126 @@
+{
+  "id": "prop.power-pylon",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Power Pylons",
+    "description": "Two steel lattice pylons with power lines slung between them and a transformer box low on one leg. Lightning on the steel shocks any tank touching it as usual. Break the transformer box open, or bring the pylon down, and it shorts out in a blue-white flash, dumping its charge through every pylon, line and puddle joined to it. A cut line drops to the ground still joined to the steel.",
+    "since": "core@0.100.0"
+  },
+  "shape": [
+    "       S                                                            Z       ",
+    "       S                                                            Z       ",
+    "       S                                                            Z       ",
+    "       S                                                            Z       ",
+    "SSSSSSSSSSSSSSS                                              ZZZZZZZZZZZZZZZ",
+    "I     S S     I                                              J     ZZZ     J",
+    "      SSS     WW                                             W     ZZZ      ",
+    "      S S      WWW                                         WWW     ZZZ      ",
+    "     SS SS       WW                                       WW      ZZ ZZ     ",
+    "     SS SS        WWW                                   WWW       Z   Z     ",
+    "     SSSSS          WW                                 WW         ZZZZZ     ",
+    "SSSSSSSSSSSSSSS      WWW                             WWW     ZZZZZZZZZZZZZZZ",
+    "I    S S S    I        WWWW                       WWWW       J    Z Z Z    J",
+    "     SS SS    WW          WWW                   WWW          W    Z Z Z     ",
+    "     SS SS     WWW          WWWWW           WWWWW          WWW    ZZ ZZ     ",
+    "    SS   SS      WWW            WWWWWWWWWWWWW            WWW     ZZ   ZZ    ",
+    "    SSSSSSS        WW                                   WW       ZZZZZZZ    ",
+    "    SS   SS         WWW                               WWW        ZZ   ZZ    ",
+    "    S S S S           WWWW                         WWWW          Z Z Z Z    ",
+    "    S S S S              WWWW                   WWWW             Z  Z  Z    ",
+    "    SS   SS                 WWWWW           WWWWW                ZZ   ZZ    ",
+    "    S     S                     WWWWWWWWWWWWW                    Z     Z    ",
+    "   SSSSSSSSS                                                    ZZZZZZZZZ   ",
+    "   SS     SS                                                    Z Z   Z Z   ",
+    "   S  S S  S                                                    Z  Z Z  Z   ",
+    "   S  S S  S                                                    Z   Z   Z   ",
+    "   S S   S S                                                    Z Z   Z Z   ",
+    "   SS     SS                                                    Z       Z   ",
+    "  SSSSSSSSSSS                                                  ZZZZZZZZZZZ  ",
+    "  S S     S S                                                  Z Z     Z Z  ",
+    "  SHHHHHHHHHS                                                  Z  Z   Z  Z  ",
+    "  HHTTTTTTTHS                                                  Z    Z    Z  ",
+    "  SHTTTTTTTHS                                                  Z  Z   Z  Z  ",
+    "  HHTTTTTTTHS                                                  Z Z     Z Z  ",
+    "  SHTTTTTTTHS                                                  ZZZZZZZZZZZ  ",
+    " SHHTTTTTTTHSS                                                ZZ Z     Z ZZ ",
+    " S HTTTTTTTH S                                                Z    Z Z    Z ",
+    " S HHHHHHHHH S                                                Z     Z     Z ",
+    " S   S   S   S                                                Z   Z   Z   Z ",
+    " S S       S S                                                Z Z       Z Z ",
+    " SSSSSSSSSSSSS                                                ZZZZZZZZZZZZZ ",
+    " S  S     S  S                                                Z  Z     Z  Z ",
+    "SS    S S    SS                                              ZZ    Z Z    ZZ",
+    "S    S   S    S                                              Z    Z   Z    Z",
+    "S  S       S  S                                              Z  Z       Z  Z",
+    "CCSSSSSSSSSSSCC                                              QQZZZZZZZZZZZQQ"
+  ],
+  "legend": {
+    "S": "frame",
+    "I": "insulator",
+    "W": "line",
+    "H": "box",
+    "T": "core",
+    "C": "footing",
+    "Z": "right-frame",
+    "J": "right-insulator",
+    "Q": "right-footing"
+  },
+  "materials": {
+    "frame": "material.steel",
+    "insulator": "material.steel",
+    "line": "material.steel",
+    "box": "material.steel",
+    "core": "material.transformer",
+    "footing": "material.concrete",
+    "right-frame": "material.steel",
+    "right-insulator": "material.steel",
+    "right-footing": "material.concrete"
+  },
+  "groups": [
+    {
+      "name": "left-pylon",
+      "tumble": true,
+      "roles": ["frame", "insulator", "footing"],
+      "integrity": 260,
+      "resistance": {
+        "blast": 1.4,
+        "kinetic": 1.6,
+        "heat": 4
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble"
+      }
+    },
+    {
+      "name": "right-pylon",
+      "tumble": true,
+      "roles": ["right-frame", "right-insulator", "right-footing"],
+      "integrity": 240,
+      "resistance": {
+        "blast": 1.3,
+        "kinetic": 1.6,
+        "heat": 4
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble"
+      }
+    },
+    {
+      "name": "box",
+      "glue": "local",
+      "loosen": 1,
+      "roles": ["box"],
+      "supports": ["left-pylon"]
+    },
+    {
+      "name": "lines",
+      "roles": ["line"],
+      "glue": "local",
+      "loosen": 1
+    }
+  ],
+  "placement": {
+    "maxSlope": 10,
+    "clearance": 30
+  }
+}

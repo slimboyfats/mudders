@@ -3,8 +3,20 @@ import type { TimedInput } from '@mudders/shared';
 import { loadContent } from './index';
 
 /** Helpers for content item tests. */
+
+/**
+ * A test world. Without a generator it plays on the bare hills (the hills with no props or map
+ * events), so a test about one weapon or op isn't moved by a water tower or a fuel tank that the
+ * hills may place.
+ */
 export function makeWorld(opts: Partial<WorldOptions> = {}): World {
-  return new World(loadContent(), { seed: 1, mode: 'mode.classic', players: 2, ...opts });
+  return new World(loadContent(), {
+    seed: 1,
+    mode: 'mode.classic',
+    players: 2,
+    ...opts,
+    map: { generator: 'gen.bare-hills', ...opts.map },
+  });
 }
 
 /** Count cells of a material id (or all solid cells when omitted). */

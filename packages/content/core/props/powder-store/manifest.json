@@ -1,0 +1,79 @@
+{
+  "id": "prop.powder-store",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Powder Store",
+    "description": "A squat brick bunker stacked with kegs of blasting powder. Its walls shrug off a few hits, but any blast, fire or heat that reaches inside lights the powder: the kegs go off together in a ragged burst of blasts that tears the bunker apart and throws its bricks about.",
+    "since": "core@0.100.0"
+  },
+  "shape": [
+    "RRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "RRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    " BB  KKKK  KKKK  KKKK    BB ",
+    " BB KGGGGKKGGGGKKGGGGK   BB ",
+    " BB KGGGGKKGGGGKKGGGGK   BB ",
+    " BB KGGGGKKGGGGKKGGGGK   BB ",
+    " BB KGGGGKKGGGGKKGGGGK   BB ",
+    " BB  KKKK  KKKK  KKKK    BB ",
+    " BBPPPPPPPPPPPPPPPPPPP   DD ",
+    " BB KKKK  KKKK  KKKK     DD ",
+    " BBKGGGGKKGGGGKKGGGGK    DD ",
+    " BBKGGGGKKGGGGKKGGGGK    DD ",
+    " BBKGGGGKKGGGGKKGGGGK    DD ",
+    " BBKGGGGKKGGGGKKGGGGK    DD ",
+    " BBGKKKKG KKKKG KKKKGGG  DD ",
+    " BBBBBBBBBBBBBBBBBBBBBBBBBB ",
+    " BBBBBBBBBBBBBBBBBBBBBBBBBB "
+  ],
+  "legend": {
+    "R": "roof",
+    "B": "wall",
+    "D": "door",
+    "K": "keg",
+    "G": "powder",
+    "P": "shelf"
+  },
+  "materials": {
+    "roof": "material.concrete",
+    "wall": "material.brick",
+    "door": "material.wood",
+    "keg": "material.wood",
+    "powder": "material.keg-powder",
+    "shelf": "material.wood"
+  },
+  "groups": [
+    {
+      "name": "walls",
+      "tumble": true,
+      "roles": ["wall", "roof", "door"],
+      "integrity": 220,
+      "resistance": {
+        "blast": 1.8,
+        "kinetic": 2,
+        "heat": 4
+      },
+      "breakInto": {
+        "material.brick": "material.rubble",
+        "material.cracked-brick": "material.rubble",
+        "material.concrete": "material.rubble",
+        "material.wood": "material.splinter"
+      },
+      "crack": {
+        "material.brick": "material.cracked-brick"
+      }
+    },
+    {
+      "name": "kegs",
+      "roles": ["keg", "shelf"],
+      "integrity": 4,
+      "supports": ["walls"],
+      "breakInto": {
+        "material.wood": "material.splinter"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 5,
+    "clearance": 40
+  }
+}

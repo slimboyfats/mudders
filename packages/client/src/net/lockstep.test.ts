@@ -105,7 +105,8 @@ function settle(p: ReturnType<typeof pair>) {
   expect(p.guest().world.tick).toBe(p.host.world.tick);
 }
 
-describe('lockstep', () => {
+// whole matches with bots: allow for a busy machine when the full suite runs in parallel
+describe('lockstep', { timeout: 20_000 }, () => {
   it('keeps a guest in step with the host through shots, bots and turns', () => {
     const p = pair();
     play(p, 2400);

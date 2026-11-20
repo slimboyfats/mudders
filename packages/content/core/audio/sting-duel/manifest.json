@@ -4,7 +4,7 @@
   "meta": {
     "name": "Final duel sting",
     "description": "The last two of a bigger match face off: a harp sweep up the A minor scale into a held string and choir chord, over a growing timpani roll.",
-    "since": "core@0.100.0"
+    "since": "core@0.101.0"
   },
   "bus": "music",
   "licence": {

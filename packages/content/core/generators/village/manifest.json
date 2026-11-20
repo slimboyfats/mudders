@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "meta": {
     "name": "Village",
-    "description": "Gentler rolling hills with a cluster of brick houses, a scattering of trees and the odd boulder. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa.",
+    "description": "Gentler rolling hills with a cluster of brick houses, a scattering of trees and the odd boulder. About two maps in three also get one big landform: a deep valley, twin peaks, a flat open plain, a cliff wall or a mesa. A water tower or a powder store may stand among the houses. With map events on, a concrete dam may hold back a lake in the deepest valley clear of the tanks.",
     "since": "core@0.4.0"
   },
   "extends": "gen.hills",
@@ -48,6 +48,21 @@
     {
       "prop": "prop.boulder",
       "count": [1, 2],
+      "cluster": false
+    },
+    {
+      "prop": "prop.water-tower",
+      "count": [1, 1],
+      "cluster": false
+    },
+    {
+      "prop": "prop.powder-store",
+      "count": [0, 1],
+      "cluster": false
+    },
+    {
+      "prop": "prop.fuel-barrels",
+      "count": [0, 1],
       "cluster": false
     }
   ],

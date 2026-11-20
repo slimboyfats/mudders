@@ -4,7 +4,7 @@
   "meta": {
     "name": "Kill sting",
     "description": "A tank destroyed: a falling SNES-style brass call in A minor over a timpani roll and a crash, played live on the next beat of the music, which dips under it.",
-    "since": "core@0.100.0"
+    "since": "core@0.101.0"
   },
   "bus": "music",
   "licence": {

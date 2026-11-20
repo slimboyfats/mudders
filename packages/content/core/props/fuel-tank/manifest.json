@@ -1,0 +1,67 @@
+{
+  "id": "prop.fuel-tank",
+  "schemaVersion": 1,
+  "meta": {
+    "name": "Fuel Tank",
+    "description": "A steel fuel tank on two concrete saddles, full of fuel with a pocket of vapour under its roof. A hit punches a hole where it lands and the fuel pours out and runs downhill; any blast or heat that reaches the fuel lights it and the fire runs through the whole load. Once air gets to the vapour, through a hole in the roof or as the fuel drains or burns away, the tank goes up in one huge fireball that flings burning fuel and blazing drums high into the air.",
+    "since": "core@0.100.0"
+  },
+  "shape": [
+    "   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS   ",
+    "  SSVVVVVVVVVVVVVVVVVVVVVVVVVVVVSS  ",
+    " SSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFSS ",
+    "SSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFSS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFS",
+    "SSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFSS",
+    " SSFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFSS ",
+    "  SSFFFFFFFFFFFFFFFFFFFFFFFFFFFFSS  ",
+    "   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS   ",
+    "     CCCCCC              CCCCCC     ",
+    "     CCCCCC              CCCCCC     ",
+    "     CCCCCC              CCCCCC     ",
+    "     CCCCCC              CCCCCC     "
+  ],
+  "legend": {
+    "S": "shell",
+    "F": "fuel",
+    "C": "saddle",
+    "V": "vapour"
+  },
+  "materials": {
+    "shell": "material.steel",
+    "fuel": "material.fuel",
+    "saddle": "material.concrete",
+    "vapour": "material.fuel-vapour"
+  },
+  "groups": [
+    {
+      "name": "shell",
+      "glue": "local",
+      "loosen": 1,
+      "tumble": true,
+      "roles": ["shell"]
+    },
+    {
+      "name": "saddles",
+      "roles": ["saddle"],
+      "integrity": 60,
+      "resistance": {
+        "blast": 2,
+        "kinetic": 2,
+        "heat": 6
+      },
+      "breakInto": {
+        "material.concrete": "material.rubble"
+      }
+    }
+  ],
+  "placement": {
+    "maxSlope": 6,
+    "clearance": 30
+  }
+}
