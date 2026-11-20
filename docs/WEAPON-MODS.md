@@ -1,7 +1,7 @@
 # Weapon mods
 
 Idea §4.1 of `IMPROVEMENT-IDEAS.md`: a few add-ons that work on most shells, so a small number of
-items multiplies the arsenal. Shipped in core@0.98.0, kernel 0.62.0.
+items multiplies the arsenal. Shipped in core@0.98.0, kernel 0.63.0.
 
 ## How they play
 

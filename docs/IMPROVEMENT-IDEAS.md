@@ -61,7 +61,8 @@ says so.
 Ranked by how much each changes the feel of a match for its cost, with Joel's goals in mind:
 real-life physics in pixel art, a living world, and speed on a phone.
 
-1. **Cover counts: blasts are blocked by solid ground** (§8.1). Today damage is by distance only,
+1. **Cover counts: blasts are blocked by solid ground** (§8.1). _Built 2026-11-20 as the match
+   rule `cover`, see `REQUIREMENTS.md` §3.5._ Today damage is by distance only,
    so a tank behind a rock wall is hurt the same as one in the open. Real blasts are not like
    that, and this one rule gives every wall, trench and dirt weapon a defensive use. M, kernel.
 2. **Things on the map that react** (§3.9): fuel tanks, water towers, power pylons, powder
@@ -118,8 +119,9 @@ as the first kernel change.
    shell each turn against the rest; or a marked hill where standing on it at turn end scores.
    Both are modes on top of what exists. _S to M each, content._
 7. **Wall rules.** Bounce, wrap round, or open sides, per match or as a round twist ("Rubber
-   walls"). In the spec (§3.4) and in the 1991 game, not in the code today. Bots aim through the
-   sim's own integrator, so bank shots off a wall come cheaply for Trickshot. _S to M, kernel._
+   walls"). The kernel already has them per mode (`mode.walls`: wrap, bounce, absorb, concrete);
+   what is missing is a setup choice and a twist. Bots aim through the sim's own integrator, so
+   bank shots off a wall come cheaply for Trickshot. _S, client + a rule override._
 8. **Retreat time.** After firing you may drive on your leftover fuel for three seconds (Worms).
    Makes close shots less of a suicide and gives fuel a second use. _S, kernel._
 9. **Reactive map objects.** See top pick 2. Working list: fuel tank (spills oil, burns), water

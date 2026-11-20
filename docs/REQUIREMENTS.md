@@ -236,6 +236,7 @@ Much of the build will be done by coding agents. Text can't communicate whether 
 
 ### 3.5 Damage and scoring
 - Explosions deal damage by distance from centre, falloff curve per weapon.
+- **Blast cover** (match rule `cover`, kernel 0.62.0; the client always sets it, scenarios and old replays leave it off): solid ground between a blast and a tank soaks up part of its damage and shove. Three lines are walked from the blast to the tank (its middle and its two top corners) over the ground as the blast finds it, before its own crater, and the clearest one counts. Each solid cell weighs its material's `density` (dirt 1, rock 2, snow 0.4; liquids and gas nothing). One cell plus an eighth of the radius is free, and from there the damage falls to 30% over a third of a radius of dirt. A blast shut in by ground (4 or fewer of 16 lines open over one radius: a tunnel, a small cave) reaches half a radius further down a clear line. An explosion manifest can set `cover`; unset it is on for blast and heat damage and off for the rest (quakes, gravity, bolts). Renderers get a `cover` event (the COVER callout). Bots do not plan around cover yet.
 - Points: damage dealt, kills, self-damage penalty, survival bonus, round-win bonus. Weights configurable.
 - Money earned is derived from points (plus an "interest" rate option on unspent money, as in the original).
 - Kill attribution tracks the originating shooter through chain reactions (so a kill caused by a neighbour's death explosion from your shot is yours).

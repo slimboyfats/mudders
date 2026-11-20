@@ -497,6 +497,12 @@ const explosionBody = {
    * else 0 (none).
    */
   pressure: z.number().int().min(0).max(1000).optional(),
+  /**
+   * Whether solid ground between the blast and a tank soaks up part of its damage and shove while
+   * the match rule `cover` is on. Unset = yes for blast and heat explosions, no for the rest (a
+   * quake, a gravity well or a bolt is not stopped by a wall).
+   */
+  cover: z.boolean().optional(),
   /** Knocks the shields of tanks in range down to nothing, however strong. */
   strip: z.boolean().default(false),
   /** Destroys up to this many spare batteries (gear that heals) carried by each tank in range. */

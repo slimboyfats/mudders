@@ -10,7 +10,7 @@ interface T {
   active?: boolean;
 }
 
-function snap(tick: number, tanks: T[], turn = 1): RenderSnapshot {
+function snap(tick: number, tanks: T[], turn = 1, covered: number[] = []): RenderSnapshot {
   const entities = tanks.map(
     (t) =>
       ({
@@ -24,7 +24,8 @@ function snap(tick: number, tanks: T[], turn = 1): RenderSnapshot {
         active: t.active ?? false,
       }) as unknown as TankView,
   );
-  return { tick, turn, entities } as unknown as RenderSnapshot;
+  const effectEvents = covered.map((player) => ({ type: 'cover', params: { player, keep: 40 } }));
+  return { tick, turn, entities, effectEvents } as unknown as RenderSnapshot;
 }
 
 /** Player 0 aims at tick 0, fires, and the shot resolves from tick 1. */
@@ -46,6 +47,17 @@ describe('CalloutTracker', () => {
     expect(c.numbers).toHaveLength(1);
     expect(c.numbers[0]!.amount).toBe(-20);
     expect(c.callouts).toHaveLength(0);
+  });
+
+  it('says COVER over a tank the ground sheltered, unless a bigger word is up', () => {
+    const c = new CalloutTracker();
+    aimed(c);
+    c.ingest(snap(1, [{ player: 0 }, { player: 1, health: 90 }, { player: 2 }], 1, [1]));
+    expect(c.callouts.map((k) => k.kind)).toEqual(['cover']);
+    const d = new CalloutTracker();
+    aimed(d);
+    d.ingest(snap(1, [{ player: 0 }, { player: 1, health: 10 }, { player: 2 }], 1, [1]));
+    expect(d.callouts.map((k) => k.kind)).toEqual(['close']);
   });
 
   it('shows repairs as their own green number and drops numbers once faded', () => {
