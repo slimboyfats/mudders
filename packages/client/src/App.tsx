@@ -3,7 +3,8 @@ import { MAX_PLAYERS } from '@mudders/shared';
 import { setAudioSettings } from './audio/bridge';
 import { loadSettings, type Settings as SettingsT } from './game/settings';
 import { challengeById, type Challenge } from './game/challenges';
-import { loadSetup, type MapSize, type MatchSetup } from './game/setup';
+import { decodeRules } from './game/rule-sets';
+import { loadSetup, saveSetup, type MapSize, type MatchSetup } from './game/setup';
 import { Settings } from './ui/Settings';
 import { Title } from './ui/Title';
 
@@ -16,6 +17,9 @@ const ChallengePlay = lazy(() =>
 );
 const TrainingPlay = lazy(() =>
   import('./ui/TrainingPlay').then((m) => ({ default: m.TrainingPlay })),
+);
+const TutorialPlay = lazy(() =>
+  import('./ui/TutorialPlay').then((m) => ({ default: m.TutorialPlay })),
 );
 const Changelog = lazy(() => import('./ui/Changelog').then((m) => ({ default: m.Changelog })));
 const Sandbox = lazy(() => import('./ui/Sandbox').then((m) => ({ default: m.Sandbox })));
@@ -30,6 +34,7 @@ type Route =
   | { name: 'changelog' }
   | { name: 'challenges' }
   | { name: 'training'; seed?: number }
+  | { name: 'tutorial' }
   | { name: 'challenge'; challenge: Challenge }
   | { name: 'play'; quick?: { players: number; size: MapSize } }
   | { name: 'sandbox' }
@@ -45,6 +50,7 @@ function fromHash(): Route {
   if (h.startsWith('#settings')) return { name: 'settings' };
   if (h.startsWith('#changelog')) return { name: 'changelog' };
   if (h === '#challenges') return { name: 'challenges' };
+  if (h === '#tutorial') return { name: 'tutorial' };
   // #training/<seed> draws a set first range (screenshots, tests)
   const tr = /^#training(?:\/(\d+))?$/.exec(h);
   if (tr) return { name: 'training', ...(tr[1] ? { seed: Number(tr[1]) } : {}) };
@@ -84,6 +90,29 @@ export function App() {
   const [route, setRoute] = useState<Route>(fromHash);
   const [settings, setSettings] = useState<SettingsT>(loadSettings);
   const [setup, setSetup] = useState<MatchSetup>(loadSetup);
+  // a shared rules link (#setup/rules/<code>) sets those rules, then the address is tidied up
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    const take = () => {
+      const m = /^#setup\/rules\/([A-Za-z0-9_-]+)$/.exec(location.hash);
+      if (!m?.[1]) return;
+      const rules = decodeRules(m[1]);
+      history.replaceState(null, '', '#setup');
+      if (!rules) {
+        setNotice('That rules link is broken: your own rules are kept.');
+        return;
+      }
+      setSetup((s) => {
+        const next = { ...s, ...rules };
+        saveSetup(next);
+        return next;
+      });
+      setNotice('Rules from a shared link are set. Pick the players and start.');
+    };
+    take();
+    window.addEventListener('hashchange', take);
+    return () => window.removeEventListener('hashchange', take);
+  }, []);
 
   useEffect(() => {
     setAudioSettings({
@@ -132,6 +161,7 @@ export function App() {
           setSetup={setSetup}
           onStart={() => go('#play')}
           onBack={() => go('')}
+          notice={notice}
         />
       )}
       {route.name === 'settings' && (
@@ -143,6 +173,14 @@ export function App() {
       )}
       {route.name === 'training' && (
         <TrainingPlay seed={route.seed} settings={settings} onExit={() => go('')} />
+      )}
+      {route.name === 'tutorial' && (
+        <TutorialPlay
+          settings={settings}
+          onExit={() => go('')}
+          onPlay={() => go('#setup')}
+          onTraining={() => go('#training')}
+        />
       )}
       {route.name === 'challenge' && (
         <ChallengePlay

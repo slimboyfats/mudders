@@ -18,6 +18,10 @@ export interface Settings {
    * always drawn once it moves in for sudden death.
    */
   walls: boolean;
+  /** Buzz the phone when your turn starts, when you fire and when you are hit (Android). */
+  vibrate: boolean;
+  /** A system notification when your turn starts while the game is in the background. */
+  turnNotify: boolean;
   /** `theme.*` id the map is drawn with; cosmetic and per device. */
   theme: string;
   /** Music and sound-effect volume 0–1, and a master mute (§8a: audio is muteable). */
@@ -44,6 +48,8 @@ function defaults(): Settings {
     dayNight: true,
     chatter: true,
     walls: true,
+    vibrate: true,
+    turnNotify: false,
     theme: 'theme.default',
     musicVolume: 0.6,
     sfxVolume: 0.8,
