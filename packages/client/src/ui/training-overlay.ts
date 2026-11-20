@@ -1,4 +1,4 @@
-import type { World } from '@mudders/sim';
+import type { WorldView } from '../game/match';
 import type { Vec2 } from '../render';
 
 /**
@@ -6,7 +6,7 @@ import type { Vec2 } from '../render';
  * (MatchView calls `frame` from its frame loop; nothing goes through React state).
  */
 export interface FrameOverlay {
-  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: World): void;
+  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: WorldView): void;
   dispose(): void;
 }
 
@@ -33,7 +33,7 @@ export class TrainingOverlay implements FrameOverlay {
     this.grid = on;
   }
 
-  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: World): void {
+  frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: WorldView): void {
     const me = world.tanks[0];
     if (!me) return;
     let c = this.canvas;
@@ -72,7 +72,7 @@ export class TrainingOverlay implements FrameOverlay {
   private drawGrid(
     g: CanvasRenderingContext2D,
     project: (p: Vec2) => Vec2,
-    world: World,
+    world: WorldView,
     cell: number,
     w: number,
     h: number,

@@ -2,12 +2,14 @@ import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { loadContent } from '@mudders/content';
 import { MAX_PLAYERS, type BotSkill, type LobbySeat, type RoomInfo } from '@mudders/shared';
 import { LAN_HOSTS, SIGNAL_URL, shareOrigin } from '../config';
-import type { SimMatch } from '../game/match';
+import { SimMatch, type GameMatch } from '../game/match';
+import { RemoteGuestMatch, RemoteHostMatch, RemoteMatch, simThread } from '../game/sim-client';
 import type { Settings } from '../game/settings';
 import { canStart as canStartSetup, defaultTeams, loadSetup, saveSetup } from '../game/setup';
 import type { Link } from '../net/link';
 import { localRegion, roomSummary } from '../net/listing';
 import { directAnswer, directOffer, RoomNet } from '../net/rtc';
+import { GuestMatch, HostMatch, type GuestGame, type HostGame } from '../net/lockstep';
 import {
   GuestSession,
   HostSession,
@@ -15,11 +17,15 @@ import {
   TAKEOVER_MS,
   validTankPick,
   type LobbyRules,
+  type MakeGuest,
+  type MakeHost,
 } from '../net/session';
 import { SignalClient, type SignalStatus } from '../net/signal';
 import { BACKGROUND_CATCHUP_MS, startTicker } from '../net/ticker';
 import { PLAYER_COLORS } from '../render/pixel/theme';
 import { MatchView } from './MatchView';
+import { MatchLoading } from './Play';
+import { useMatchReady } from './match-ready';
 import { Rules } from './Rules';
 import { SkillPick } from './SkillPick';
 import { TankPick, useFavourites, useTanks } from './Tanks';
@@ -240,8 +246,30 @@ function Copyable({ text, label, testid }: { text: string; label: string; testid
   );
 }
 
+/**
+ * Where an online match's sim runs: in the sim worker when it is up and the setting is on, else
+ * on the page. Both sides of a match may choose differently; the results are the same.
+ */
+function makeHost(offThread: boolean): MakeHost<HostGame> {
+  return (content, start, me) => {
+    const thread = offThread ? simThread() : null;
+    return thread
+      ? new RemoteHostMatch(thread, content, start, me)
+      : new HostMatch(content, start, me);
+  };
+}
+
+function makeGuest(offThread: boolean): MakeGuest<GuestGame> {
+  return (content, start, send) => {
+    const thread = offThread ? simThread() : null;
+    return thread
+      ? new RemoteGuestMatch(thread, content, start, send)
+      : new GuestMatch(content, start, send);
+  };
+}
+
 interface NetGameProps {
-  match: SimMatch;
+  match: GameMatch;
   me: number;
   settings: Settings;
   onExit: () => void;
@@ -260,7 +288,14 @@ function NetGame({ match, me, settings, onExit, banner, debug, ghost }: NetGameP
       __muddersNet: {
         me,
         tick: () => match.world.tick,
-        hash: () => match.world.hash(),
+        // in the sim worker the hash comes back as a promise of { tick, hash }
+        hash: () =>
+          match instanceof RemoteMatch
+            ? match.hash()
+            : match instanceof SimMatch
+              ? match.world.hash()
+              : '',
+        thread: () => (match instanceof RemoteMatch ? 'worker' : 'page'),
         phase: () => match.world.phase,
         active: () => match.world.activePlayer,
         bots: () => match.world.tanks.map((t) => t.bot),
@@ -269,6 +304,8 @@ function NetGame({ match, me, settings, onExit, banner, debug, ghost }: NetGameP
       },
     });
   }, [match, me, debug]);
+  const ready = useMatchReady(match);
+  if (!ready) return <MatchLoading />;
   return (
     <MatchView
       match={match}
@@ -292,11 +329,23 @@ interface HostProps {
 /** Host a game: the lobby server (share a room code/link) or direct copy-paste invites. */
 export function HostGame({ mode, settings, onExit }: HostProps) {
   const [name, setName] = useState(loadName);
-  const session = useMemo(() => new HostSession(loadContent(), loadName(), rulesOf()), []);
+  // where the sim runs is settled when the lobby opens
+  const [offThread] = useState(settings.simWorker);
+  const session = useMemo(
+    () =>
+      new HostSession<HostGame>(
+        loadContent(),
+        loadName(),
+        rulesOf(),
+        undefined,
+        makeHost(offThread),
+      ),
+    [offThread],
+  );
   const [signal, setSignal] = useState<SignalClient | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [match, setMatch] = useState<SimMatch | null>(null);
+  const [match, setMatch] = useState<GameMatch | null>(null);
   const bots = useBots();
   useChanges(session);
   useChanges(signal);
@@ -626,7 +675,9 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
   const [name, setName] = useState(loadName);
   const [codeIn, setCodeIn] = useState(initial ?? '');
   const [joinCode, setJoinCode] = useState(mode === 'online' && initial ? initial : '');
-  const [session, setSession] = useState<GuestSession | null>(null);
+  const [session, setSession] = useState<GuestSession<GuestGame> | null>(null);
+  // where the sim runs is settled when the join page opens
+  const [offThread] = useState(settings.simWorker);
   const [signal, setSignal] = useState<SignalClient | null>(null);
   const [error, setError] = useState('');
   useChanges(session);
@@ -636,7 +687,13 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
   useEffect(() => {
     if (mode !== 'online' || !joinCode) return;
     const content = loadContent();
-    const g = new GuestSession(content, loadName(), loadToken(joinCode));
+    const g = new GuestSession<GuestGame>(
+      content,
+      loadName(),
+      loadToken(joinCode),
+      undefined,
+      makeGuest(offThread),
+    );
     const s = new SignalClient(SIGNAL_URL);
     const net = new RoomNet(s, 'guest');
     let host = '';
@@ -686,7 +743,7 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
       net.close();
       s.close();
     };
-  }, [mode, joinCode]);
+  }, [mode, joinCode, offThread]);
 
   const guestDebug = useMemo(
     () => ({
@@ -756,7 +813,13 @@ export function JoinGame({ mode, code: initial, settings, onExit }: JoinProps) {
       {mode === 'direct' && !session && (
         <DirectJoin
           onLink={(l) => {
-            const g = new GuestSession(loadContent(), loadName(), undefined);
+            const g = new GuestSession<GuestGame>(
+              loadContent(),
+              loadName(),
+              undefined,
+              undefined,
+              makeGuest(offThread),
+            );
             g.attach(l);
             setSession(g);
           }}

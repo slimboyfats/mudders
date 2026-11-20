@@ -191,6 +191,14 @@ export function Settings({ settings, setSettings, onBack }: Props) {
           />
           Show performance (frame times, with a Record button that saves a log)
         </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={settings.simWorker}
+            onChange={(e) => update({ ...settings, simWorker: e.target.checked })}
+          />
+          Run the game beside the drawing (smoother on phones; applies from the next match)
+        </label>
       </section>
       <div className="setup-actions">
         <button className="primary" onClick={onBack}>

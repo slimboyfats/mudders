@@ -13,8 +13,21 @@ import {
 } from '@mudders/shared';
 import { KERNEL_VERSION, type ResolvedContent } from '@mudders/sim';
 import type { Link } from './link';
-import { GuestMatch, HostMatch } from './lockstep';
 import { toWorldOptions } from '../game/setup';
+import { GuestMatch, HostMatch, type GuestGame, type HostGame, type StartInfo } from './lockstep';
+
+/** Builds the host's match: on this thread (the default), or in the sim worker. */
+export type MakeHost<M extends HostGame> = (
+  content: ResolvedContent,
+  start: StartInfo,
+  me: number,
+) => M;
+/** Builds a guest's match, likewise. */
+export type MakeGuest<M extends GuestGame> = (
+  content: ResolvedContent,
+  start: PeerStart,
+  send: (msg: PeerMessage) => void,
+) => M;
 
 /** How often each side pings, and how long silence lasts before a link is declared dead. */
 export const PING_MS = 1000;
@@ -87,10 +100,10 @@ export function checkJoin(
  * The host's lobby and match (§6.2 star): seats, settings, the join handshake with the version
  * and content-hash check, pings, and the `HostMatch` once started.
  */
-export class HostSession {
+export class HostSession<M extends HostGame = HostMatch> {
   seats: HostSeat[];
   rules: LobbyRules;
-  match: HostMatch | null = null;
+  match: M | null = null;
   /** How long a dropped human (or a host whose tab is hidden) has before an AI plays; 0 = never. */
   takeoverMs = TAKEOVER_MS;
   /** seat index → player index, fixed at start. */
@@ -105,6 +118,8 @@ export class HostSession {
     name: string,
     rules: LobbyRules,
     private readonly env: SessionEnv = browserEnv,
+    private readonly make: MakeHost<M> = (c, start, me) =>
+      new HostMatch(c, start, me) as HostGame as M,
   ) {
     this.rules = rules;
     this.seats = Array.from({ length: MAX_PLAYERS }, (_, i) =>
@@ -366,13 +381,13 @@ export class HostSession {
   }
 
   /** Start the match: every peer builds the same world from this seed and setup. */
-  start(seed: number, modeOverride?: string): HostMatch {
+  start(seed: number, modeOverride?: string): M {
     if (this.match) return this.match;
     const setup = this.setup;
     const mode = modeOverride ?? toWorldOptions(setup, seed).mode;
     let p = 0;
     this.playerOf = this.seats.map((s) => (s.kind === 'open' ? -1 : p++));
-    this.match = new HostMatch(this.content, { seed, setup, mode }, this.playerOf[0]!);
+    this.match = this.make(this.content, { seed, setup, mode }, this.playerOf[0]!);
     this.seats.forEach((s, i) => {
       if (s.kind === 'guest' && s.link?.open) this.match!.attach(this.playerOf[i]!, s.link, -1);
     });
@@ -392,6 +407,7 @@ export class HostSession {
       s.link?.close();
     }
     for (const l of this.pending) l.close();
+    this.match?.dispose?.();
   }
 }
 
@@ -402,11 +418,11 @@ export type GuestStatus =
  * A guest's view: the join handshake, lobby state, and the `GuestMatch` once the host starts.
  * Survives link replacement (§6.1 mobile reconnect): `attach` a fresh link and it resumes.
  */
-export class GuestSession {
+export class GuestSession<M extends GuestGame = GuestMatch> {
   status: GuestStatus = 'connecting';
   reason = '';
   lobby: PeerLobby | null = null;
-  match: GuestMatch | null = null;
+  match: M | null = null;
   link: Link | null = null;
   rtt = -1;
   /** Fires when the current link dies (the transport should reconnect and `attach` again). */
@@ -422,6 +438,8 @@ export class GuestSession {
     /** Seat token from an earlier session (reload during a match). */
     public token: string | undefined,
     private readonly env: SessionEnv = browserEnv,
+    private readonly make: MakeGuest<M> = (c, start, send) =>
+      new GuestMatch(c, start, send) as GuestGame as M,
   ) {}
 
   subscribe(fn: () => void): () => void {
@@ -502,7 +520,7 @@ export class GuestSession {
     if (this.match) this.match.handle(msg);
     else {
       const link = this.link;
-      this.match = new GuestMatch(this.content, msg, (m) => link?.send(m));
+      this.match = this.make(this.content, msg, (m) => link?.send(m));
       if (link) this.match.send = (m) => link.send(m);
     }
     this.status = 'playing';
@@ -535,5 +553,6 @@ export class GuestSession {
     this.link = null;
     link?.send({ type: 'bye', reason: 'left' });
     link?.close();
+    this.match?.dispose?.();
   }
 }

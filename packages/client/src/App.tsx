@@ -1,3 +1,4 @@
+import { startSimThread } from './game/sim-client';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { MAX_PLAYERS } from '@mudders/shared';
 import { setAudioSettings } from './audio/bridge';
@@ -124,6 +125,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
   }, [settings.uiScale]);
+
+  // the sim worker, up before the first match starts (matches fall back to this thread without it)
+  useEffect(() => {
+    if (settings.simWorker) startSimThread();
+  }, [settings.simWorker]);
 
   useEffect(() => {
     // practice blasts in the background, so the first big one of a match doesn't stutter
