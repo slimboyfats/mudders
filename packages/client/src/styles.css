@@ -1205,6 +1205,23 @@ button.link {
   font-weight: 700;
 }
 
+/* volley: locked in (✓) or still aiming (…) */
+.player .pready {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.player .pready.on {
+  color: #8af58a;
+}
+
+.badge.volley {
+  background: #123f6a;
+  color: #cfe8ff;
+  font-weight: 700;
+}
+
 .player .pscore {
   margin-left: 6px;
   color: var(--muted);

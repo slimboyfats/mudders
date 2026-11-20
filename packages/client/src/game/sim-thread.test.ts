@@ -92,7 +92,10 @@ function seen(w: WorldView): string {
     w.round,
     w.turn,
     w.activePlayer,
+    w.volley,
     w.tanks.map((t) => [
+      t.player,
+      t.ready,
       t.x,
       t.y,
       t.w,
@@ -205,6 +208,7 @@ const NO_VIEW: RemoteView = {
   round: 0,
   turn: 0,
   activePlayer: -1,
+  volley: false,
   tanks: [],
   projectiles: [],
   grid: { width: 0, height: 0 },

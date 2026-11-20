@@ -193,6 +193,7 @@ function viewOf(match: SimMatch): RemoteView {
     round: w.round,
     turn: w.turn,
     activePlayer: w.activePlayer,
+    volley: w.volley,
     tanks: w.tanks.map((t) => ({
       x: t.x,
       y: t.y,
@@ -202,6 +203,8 @@ function viewOf(match: SimMatch): RemoteView {
       maxHealth: t.maxHealth,
       team: t.team,
       bot: t.bot,
+      player: t.player,
+      ready: t.ready,
       angle: t.angle,
       power: t.power,
       weapon: t.weapon,

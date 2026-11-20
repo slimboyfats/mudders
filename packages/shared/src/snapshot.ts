@@ -67,8 +67,10 @@ export interface TankView {
   oiled?: number;
   muddy?: number;
   burning?: number;
-  /** True while this tank's player is aiming. */
+  /** True while this tank's player is aiming (in turn order; never in a volley, see `volley`). */
   active: boolean;
+  /** Volley aiming: true while this tank still aims, false once it has locked in; absent otherwise. */
+  volley?: boolean;
   /** `ai.*` id of the bot driving it; absent for a human (cosmetic: bot chatter). */
   bot?: string;
 }

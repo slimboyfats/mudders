@@ -26,8 +26,10 @@ export class ShotGhost {
   onShot: ((player: number, shot: GhostShot) => void) | null = null;
   private countedTurn = -1;
   private countedRound = -1;
-  private tracing = -1;
-  private shooter = -1;
+  /** Per player: id of the shell whose path is being recorded, or -1. */
+  private tracing: number[] = [];
+  /** Players who fired this turn: the active one, or everyone who fired in a volley. */
+  private shooters: number[] = [];
   private mapRound = -1;
 
   observe(w: WorldView): void {
@@ -36,38 +38,51 @@ export class ShotGhost {
       this.mapRound = w.round;
     }
     if (w.phase !== 'resolve') {
-      this.tracing = -1;
+      this.tracing.length = 0;
       return;
     }
-    const p = w.activePlayer;
-    const tank = w.tanks[p];
-    if (!tank) return;
     if (w.turn !== this.countedTurn || w.round !== this.countedRound) {
+      const shooters: number[] = [];
+      if (w.volley) {
+        for (const t of w.tanks) {
+          if (w.projectiles.some((q) => q.owner === t.player)) shooters.push(t.player);
+        }
+      } else if (w.tanks[w.activePlayer]) shooters.push(w.activePlayer);
+      if (shooters.length === 0) return;
       this.countedTurn = w.turn;
       this.countedRound = w.round;
-      const shot: GhostShot = {
-        angle: tank.angle,
-        power: tank.power,
-        weapon: w.weaponId(tank.weapon),
-        path: [],
-      };
-      this.shots[p] = shot;
-      this.shooter = p;
-      this.tracing = -1;
+      this.shooters = shooters;
+      for (const p of shooters) {
+        const tank = w.tanks[p];
+        if (!tank) continue;
+        const shot: GhostShot = {
+          angle: tank.angle,
+          power: tank.power,
+          weapon: w.weaponId(tank.weapon),
+          path: [],
+        };
+        this.shots[p] = shot;
+        this.tracing[p] = -1;
+        this.onShot?.(p, shot);
+      }
       this.version++;
-      this.onShot?.(p, shot);
     }
-    const shot = this.shots[this.shooter];
+    for (const p of this.shooters) this.trace(w, p);
+  }
+
+  /** Follow player `p`'s first shell of the turn one more tick. */
+  private trace(w: WorldView, p: number): void {
+    const shot = this.shots[p];
     if (!shot) return;
-    if (this.tracing < 0) {
+    if ((this.tracing[p] ?? -1) < 0) {
       if (shot.path.length > 0) return;
-      const q = w.projectiles.find((x) => x.alive && x.owner === this.shooter);
+      const q = w.projectiles.find((x) => x.alive && x.owner === p);
       if (!q) return;
-      this.tracing = q.id;
+      this.tracing[p] = q.id;
     }
-    const q = w.projectiles.find((x) => x.id === this.tracing);
+    const q = w.projectiles.find((x) => x.id === this.tracing[p]);
     if (!q || !q.alive || shot.path.length >= MAX_POINTS) {
-      this.tracing = -1;
+      this.tracing[p] = -1;
       return;
     }
     shot.path.push(Math.floor(q.x / FP), Math.floor(q.y / FP));

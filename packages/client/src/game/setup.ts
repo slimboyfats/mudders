@@ -39,10 +39,17 @@ const BETWEEN_ROUNDS = 20;
  * Rough match length in minutes for the setup screen. A turn takes about half its timer plus the
  * shell's flight (an untimed turn counts as a 20 s timer). A guide, not a promise.
  */
-export function estimateMinutes(rounds: number, turnTimer: number, players: number): number {
+export function estimateMinutes(
+  rounds: number,
+  turnTimer: number,
+  players: number,
+  volley = false,
+): number {
   const turn = (turnTimer > 0 ? turnTimer : 20) * 0.5 + 6;
+  // a volley is one turn for everyone: the slowest aimer plus one flight
+  const turns = volley ? 1.5 : Math.max(2, players);
   // every round opens with the shop, round 1 included
-  const secs = rounds * (Math.max(2, players) * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
+  const secs = rounds * (turns * SHOTS_PER_ROUND * turn + BETWEEN_ROUNDS);
   return Math.max(1, Math.round(secs / 60));
 }
 
@@ -222,6 +229,8 @@ export interface MatchSetup {
    * players behind get a share of the gap as cash each round; unset (older saves, hosts) = off.
    */
   bounty?: boolean | undefined;
+  /** Volley turns: everyone aims during the same timer, then all shells fly together; unset = off. */
+  volley?: boolean | undefined;
   /**
    * Last-shot ghost: while you aim, your previous shell's path shows faintly over the map and the
    * angle and power pills mark the values you fired with. An aid, so a host rule; presentation
@@ -463,6 +472,7 @@ export function toWorldOptions(s0: SetupLike, seed: number): WorldOptions {
     ...(s.deals ? { shopDeals: true } : {}),
     ...(s.arsenal ? { randomArsenal: true } : {}),
     ...(s.bounty ? { bounty: true } : {}),
+    ...(s.volley ? { volley: true } : {}),
   };
   const shuffle = s.scenery === 'shuffle';
   const maps = shuffle ? shuffledMaps(s.rounds, seed) : null;

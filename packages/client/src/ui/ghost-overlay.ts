@@ -19,7 +19,11 @@ export class GhostOverlay implements FrameOverlay {
   ) {}
 
   frame(host: HTMLElement, project: (p: Vec2) => Vec2, world: WorldView): void {
-    const p = world.activePlayer;
+    // in a volley: this device's first tank still aiming
+    const p = world.volley
+      ? (world.tanks.find((t) => t.alive && !t.ready && t.bot < 0 && this.mine(t.player))?.player ??
+        -1)
+      : world.activePlayer;
     const shot = world.phase === 'aim' && this.mine(p) ? this.ghost.shots[p] : null;
     const path = shot && shot.path.length >= 4 ? shot.path : null;
     let c = this.canvas;

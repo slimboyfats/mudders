@@ -165,6 +165,13 @@ export interface HudState {
    * Player who may press fire now to set off their shell in flight (Cloud Whale), or -1.
    */
   command: number;
+  /**
+   * Volley turns: everyone aims at once (`activePlayer` and `controller` are -1 in the sim; the
+   * match view puts this device's seat that still aims in their place, see `volleyView`).
+   */
+  volley: boolean;
+  /** Volley: bit per player who may set off their own shell in flight now (Cloud Whale). */
+  commanders: number;
   /** A supply crate someone just took (shown for a few seconds), or null. */
   pickup: { player: number; text: string; tick: number } | null;
   /** A map event the players should hear about (volcano rumbling, avalanche), or null. */
@@ -183,6 +190,9 @@ export interface TankView {
   readonly team: number;
   /** Index of the bot playing this tank, or -1 for a human. */
   readonly bot: number;
+  readonly player: number;
+  /** Shop: done shopping. Volley: shot locked in. */
+  readonly ready: boolean;
   readonly angle: number;
   readonly power: number;
   /** Index of the weapon held (`WorldView.weaponId` names it). */
@@ -210,6 +220,8 @@ export interface WorldView {
   readonly round: number;
   readonly turn: number;
   readonly activePlayer: number;
+  /** Volley mode: everyone aims at once. */
+  readonly volley: boolean;
   readonly tanks: readonly TankView[];
   readonly projectiles: readonly ShellView[];
   readonly grid: { readonly width: number; readonly height: number };
@@ -574,7 +586,9 @@ export abstract class SimMatch implements GameMatch {
       results: w.results,
       pickup: this.pickupOf(w),
       alert: this.alert && w.tick - this.alert.tick <= PICKUP_TICKS ? this.alert : null,
-      command: w.commandable(),
+      command: w.volley ? -1 : w.commandable(),
+      volley: w.volley,
+      commanders: w.volley ? commanders(w) : 0,
       shop: [
         ...this.gearItems,
         ...this.shopItems.map((i) => {
@@ -718,6 +732,40 @@ export function alertText(type: string, params: Readonly<Record<string, number>>
   return '';
 }
 
+/** Volley: a bit per player who has a shell in flight they can set off now. */
+function commanders(w: World): number {
+  let m = 0;
+  for (let p = 0; p < w.tanks.length && p < 31; p++) if (w.commandable(p) === p) m |= 1 << p;
+  return m;
+}
+
+/**
+ * The HUD as one device sees a volley: its first seat that still aims (a living human seat it
+ * controls that hasn't locked in) stands in for the active player, so the aim controls, the aim
+ * guide and the turn call work as on its own turn. -1 once all its seats have locked in. Fire
+ * again (Cloud Whale) goes to its first seat with a shell to set off. Turn order: unchanged.
+ */
+export function volleyView(h: HudState, controls: (player: number) => boolean): HudState {
+  if (!h.volley) return h;
+  let seat = -1;
+  if (h.phase === 'aim') {
+    for (const t of h.tanks) {
+      if (t.alive && !t.ready && t.bot === '' && controls(t.player)) {
+        seat = t.player;
+        break;
+      }
+    }
+  }
+  let command = -1;
+  for (const t of h.tanks) {
+    if (t.player < 31 && (h.commanders >> t.player) & 1 && controls(t.player)) {
+      command = t.player;
+      break;
+    }
+  }
+  return { ...h, activePlayer: seat, controller: seat, command };
+}
+
 /** Fixed-point wind in HUD units, rounded to 1/40 of the maximum. */
 function hudWind(fixed: number, max: number): number {
   const v = fixed / 65536;
@@ -726,7 +774,7 @@ function hudWind(fixed: number, max: number): number {
 
 /** Cheap change key so the UI re-renders only when something it shows changed. */
 export function hudKey(h: HudState): string {
-  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}|${h.draft ? `${h.draft.pos}:${h.draft.drafter}` : ''}`;
+  let k = `${h.pickup ? `${h.pickup.tick}:${h.pickup.player}` : ''}|${h.alert?.tick ?? ''}|${h.phase}|${h.command}|${h.commanders}|${h.activePlayer}|${h.controller}|${h.turn}|${h.round}|${h.seconds}|${h.suddenDeath ? 1 : 0}|${h.wind}|${h.windBase}|${h.temperature}|${h.weather}|${h.winner}|${h.results.length}|${h.draft ? `${h.draft.pos}:${h.draft.drafter}` : ''}`;
   for (const i of h.shop) k += `,${i.price}`;
   for (const t of h.tanks) {
     k += `|${t.bot}|${t.alive ? 1 : 0},${t.health},${t.shield},${t.driveLeft},${t.driving},${t.fuel},${t.angle},${t.power},${t.weapon},${t.money},${t.score},${t.ready ? 1 : 0},${t.deaths},${t.roundPoints}`;

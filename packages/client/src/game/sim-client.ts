@@ -57,6 +57,7 @@ const NO_WORLD: RemoteWorld = {
   round: 0,
   turn: 0,
   activePlayer: -1,
+  volley: false,
   tanks: [],
   projectiles: [],
   grid: { width: 0, height: 0 },
