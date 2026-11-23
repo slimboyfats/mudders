@@ -213,6 +213,8 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
   const state = grid.cellState;
   const act = mats.active;
   const turns = mats.decayTurns;
+  const pair = mats.pairRule;
+  const gas = grid.gas;
   let aMinX = W;
   let aMaxX = -1;
   let aMinY = grid.height;
@@ -310,8 +312,26 @@ export function reactStep(grid: Grid, mats: MaterialTable, tick: number): void {
       }
       // (water soaking dirt into mud doesn't count either: the other side of a real reaction,
       // lava or fire, is hot)
-      if (fm & ACT_REACT && m !== 0 && react(grid, mats, i, m, SRC_CELL, tick) && !mild(mats, m))
-        hot = true;
+      if (fm & ACT_REACT && m !== 0) {
+        // Nothing beside it that it has a rule with (the shore of a lake against rock or its
+        // own mud, a puddle on clay): the look `react` would take at its four neighbours, without
+        // the call. A neighbour that is air with gas in it counts as that gas.
+        let none = false;
+        if (x > 0 && x < W - 1 && y > 0 && y < H - 1) {
+          const b = m * 256;
+          const l = mat[i - 1]!;
+          const r = mat[i + 1]!;
+          const u = mat[i - W]!;
+          const d = mat[i + W]!;
+          none =
+            (pair[b + l]! | pair[b + r]! | pair[b + u]! | pair[b + d]!) === 0 &&
+            (l !== 0 || pair[b + gas[i - 1]!] === 0) &&
+            (r !== 0 || pair[b + gas[i + 1]!] === 0) &&
+            (u !== 0 || pair[b + gas[i - W]!] === 0) &&
+            (d !== 0 || pair[b + gas[i + W]!] === 0);
+        }
+        if (!none && react(grid, mats, i, m, SRC_CELL, tick) && !mild(mats, m)) hot = true;
+      }
       if (fc & ACT_REACT && c !== 0 && mat[i] !== 0 && react(grid, mats, i, c, SRC_COATING, tick))
         hot = true;
       if (alive) {

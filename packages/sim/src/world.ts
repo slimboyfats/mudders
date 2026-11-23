@@ -4392,6 +4392,13 @@ export class World implements SimApi {
    * off (1 - t²) to nothing at its reach. A cell with enough terrain (or canopy) between it and the blast
    * is sheltered. Torn-off cells leave the map and their prop; renderers get `blowOff` runs.
    */
+  /** For `stepPressure`: materials a front does nothing to, and the grid read by the word. */
+  private readonly frontDull = new Uint8Array(256);
+  private readonly frontCold = new Uint8Array(256);
+  private frontTableOf: MaterialTable | null = null;
+  private frontWordsOf: Uint8Array | null = null;
+  private frontWords: Uint32Array | null = null;
+
   private stepPressure(): void {
     const g = this.grid;
     const W = g.width;
@@ -4401,9 +4408,30 @@ export class World implements SimApi {
     const flash = this.mats.flashChance;
     const flashInto = this.mats.flashInto;
     const fronts = this.fronts;
+    // Most of what a front passes over it does nothing to: air, and ground that neither blows
+    // off nor lights. Four such cells are passed in one look (`dull` = nothing to blow off,
+    // `cold` = nothing to light either), as the cell-by-cell walk would have passed each.
+    const dull = this.frontDull;
+    const cold = this.frontCold;
+    if (this.frontTableOf !== this.mats) {
+      this.frontTableOf = this.mats;
+      for (let m = 0; m < 256; m++) {
+        dull[m] = m === 0 || chance[m] === 0 ? 1 : 0;
+        cold[m] = dull[m] !== 0 && (m === 0 || flash[m] === 0) ? 1 : 0;
+      }
+    }
+    if (this.frontWordsOf !== mat) {
+      this.frontWordsOf = mat;
+      this.frontWords =
+        (W & 3) === 0 && (mat.byteOffset & 3) === 0
+          ? new Uint32Array(mat.buffer, mat.byteOffset, mat.length >> 2)
+          : null;
+    }
+    const words = this.frontWords;
     let keep = 0;
     for (let f = 0; f < fronts.length; f++) {
       const p = fronts[f]!;
+      const quiet = p.heat === 0 ? dull : cold;
       const r0 = p.front;
       const r1 = Math.min(p.reach, r0 + PRESSURE_SPEED);
       p.front = r1;
@@ -4426,6 +4454,25 @@ export class World implements SimApi {
           const end = Math.min(W - 1, b);
           for (let cx = Math.max(0, a); cx <= end + 1; cx++) {
             let hit = 0;
+            if (words !== null && (cx & 3) === 0 && cx + 3 <= end) {
+              const wd = words[(cy * W + cx) >> 2]!;
+              if (
+                wd === 0 ||
+                (quiet[wd & 255]! &
+                  quiet[(wd >>> 8) & 255]! &
+                  quiet[(wd >>> 16) & 255]! &
+                  quiet[wd >>> 24]!) !==
+                  0
+              ) {
+                // (a run of blown-off cells ends at the first cell that is not one)
+                if (run >= 0) {
+                  this.emitBlowOff(p, run, cy, cx - run, runM);
+                  run = -1;
+                }
+                cx += 3;
+                continue;
+              }
+            }
             if (cx <= end) {
               const i = cy * W + cx;
               const m = mat[i]!;
