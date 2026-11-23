@@ -697,3 +697,20 @@ full-size float passes a tick at High (1600x800, 16 pressure rounds) and stays a
 after any puff, so in practice all match. Only its velocity is read (particles ride it).
 Limiting the passes to a box around what moves would not be bit-identical, because pressure
 spreads; it needs A/B clips and a phone to judge.
+
+### The smoke field only where there is smoke (2026-11-23)
+
+The field is cut into tiles (64 map cells at High, 32 fluid cells on the coarser fields). Every
+4 ticks a small pass asks of each tile whether any air in it moves faster than 0.01 cells a tick
+or carries more than 0.02 of dye, and the answer comes back by a fenced, non-blocking read a
+frame or two later (a capture reads it at once, so it replays the same). The passes are drawn
+in at most four scissor boxes around the tiles in use and a ring of one tile; a tile that said
+no three looks in a row is cleared and dropped, and once every tile is gone the field sleeps
+until the next splat (before this it stayed awake 2 400 ticks after any puff). Velocity is now
+RG16F and pressure, divergence and curl R16F, so each pass moves half or a quarter of the bytes.
+
+Not pixel-identical: the plume of a missile shot has the same size and character but swirls
+differently, 0.8% of the sheet's pixels differ, all inside smoke (A/B in
+`/mnt/project-files/pixel-engine-pass/`). SwiftShader as a stand-in for the GPU: the missile
+showcase capture took 452 s against 566 s on `main`, about a fifth less for the whole capture.
+The real gain on a phone at High is not measured.
