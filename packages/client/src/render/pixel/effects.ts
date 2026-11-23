@@ -295,6 +295,12 @@ export interface TerrainProbe {
   color(material: number): number;
   /** Whether grass grows on this cell (the round-start surface, not yet burnt or dug). */
   grass?(x: number, y: number): boolean;
+  /**
+   * The cells themselves, row by row (`material(x, y)` is `cells()[y * width + x]` inside the
+   * map). Ask again on every use: the array changes with the snapshot. For the loops that feel
+   * their way along a line or down a column, where a call per cell was most of the cost.
+   */
+  cells?(): Uint8Array;
   width: number;
   height: number;
 }
@@ -4621,14 +4627,16 @@ export class EffectSystem {
     storm = false,
   ): void {
     const e = { x: Math.round(x), y: Math.max(1, Math.round(y)) };
-    const pts: number[] = [];
+    // The cells go straight into one scratch array kept between bolts: an Ion Cannon makes
+    // thirty of these in one frame, each thousands of cells long when the sky is tall.
+    let n = 0;
     const walk = (x0: number, y0: number, y1: number, drift: number) => {
       let x = x0;
       let y = y0;
       while (y < y1) {
         const seg = Math.min(y1 - y, Math.round(rng.range(3, 9)));
         const nx = x + Math.round(rng.range(-3, 3) + drift);
-        line(x, y, nx, y + seg, pts);
+        n = lineInto(x, y, nx, y + seg, n);
         x = nx;
         y += seg;
       }
@@ -4637,25 +4645,24 @@ export class EffectSystem {
     // aim the main channel so it lands on the target column
     const top = Math.min(e.y - 1, Math.round(from));
     walk(e.x + Math.round(rng.range(storm ? -8 : -18, storm ? 8 : 18)), top, e.y, 0);
-    if (pts.length === 0) return;
-    const fixX = e.x - pts[pts.length - 2]!;
-    for (let i = 0; i < pts.length; i += 2) {
-      const k = (pts[i + 1]! - top) / Math.max(1, e.y - top);
-      pts[i] = pts[i]! + Math.round(fixX * k);
+    if (n === 0) return;
+    const fixX = e.x - linePts[n - 2]!;
+    for (let i = 0; i < n; i += 2) {
+      const k = (linePts[i + 1]! - top) / Math.max(1, e.y - top);
+      linePts[i] = linePts[i]! + Math.round(fixX * k);
     }
-    const main = pts.length;
+    const main = n;
     const branches = 4 + Math.floor(rng.next() * 3);
     for (let b = 0; b < branches; b++) {
       const at = 2 * Math.floor(rng.range(0.1, 0.85) * (main / 2));
-      const bx = pts[at]!;
-      const by = pts[at + 1]!;
+      const bx = linePts[at]!;
+      const by = linePts[at + 1]!;
       const end = walk(bx, by, by + Math.round(rng.range(14, 46)), rng.next() < 0.5 ? -1.6 : 1.6);
       // a sub-branch off some branches
-      if (rng.next() < 0.5)
-        walk(end, pts[pts.length - 1]!, pts[pts.length - 1]! + 10, rng.range(-2, 2));
+      if (rng.next() < 0.5) walk(end, linePts[n - 1]!, linePts[n - 1]! + 10, rng.range(-2, 2));
     }
     this.bolts.push({
-      cells: Int32Array.from(pts),
+      cells: linePts.slice(0, n),
       main,
       start,
       dur,
@@ -5334,14 +5341,11 @@ export class EffectSystem {
   private dustColor(x: number, y: number): number {
     const p = this.probe;
     for (let r = 0; r < 12; r += 2) {
-      for (const [dx, dy] of [
-        [0, r],
-        [r, 0],
-        [-r, 0],
-        [0, -r],
-        [r, r],
-        [-r, r],
-      ] as const) {
+      // below, right, left, above, then the two below-diagonals (no list built per call: every
+      // puff of a big blast asks for its colour)
+      for (let k = 0; k < 6; k++) {
+        const dx = k === 1 || k === 4 ? r : k === 2 || k === 5 ? -r : 0;
+        const dy = k === 0 || k >= 4 ? r : k === 3 ? -r : 0;
         const m = p.material(Math.round(x + dx), Math.round(y + dy));
         if (m !== 0) return p.color(m);
       }
@@ -6387,6 +6391,19 @@ export class EffectSystem {
       Math.min(2600 * more, count + r * r * 0.9 * more) * Math.max(0.3, this.mult),
     );
     const speed = 1 + r / 11;
+    const cells = this.probe.cells?.();
+    const W = this.probe.width;
+    const H = this.probe.height;
+    // Every grain feels its way down to the ground from above the lip, up to 1.8 radii, a row a
+    // step: for a wide blast that was most of a million looks at cells far apart in memory, and
+    // the largest single cost of the frame the blast lands in. Nearly all of them are in the
+    // open sky over the crater, which the skyline of the columns in reach answers at once.
+    const sx0 = Math.max(0, Math.floor(e.x - r * 1.7) - 2);
+    const sx1 = Math.min(W - 1, Math.ceil(e.x + r * 1.7) + 2);
+    const sky = cells && n > 0 ? this.skyline(cells, sx0, sx1) : this.skyRows;
+    // the highest ground in reach (a grain off the side of the map is over no ground at all)
+    let skyTop = H;
+    if (cells && n > 0) for (let x = sx0; x <= sx1; x++) if (sky[x]! < skyTop) skyTop = sky[x]!;
     for (let i = 0; i < n; i++) {
       // which side of the crater, and how far round its rim (0 = lip, 1 = floor)
       const sgn = rng.next() < 0.5 + side * 0.22 ? 1 : -1;
@@ -6397,10 +6414,34 @@ export class EffectSystem {
       let px = e.x + gx * sgn * out + nx * r * 0.6;
       let py = e.y + gy * sgn * out + ny * r * 0.6;
       let m = 0;
-      for (let k = 0; k < r * 1.8 && m === 0; k++) {
-        px -= nx;
-        py -= ny;
-        m = this.probe.material(Math.round(px), Math.round(py));
+      if (cells) {
+        let k = 0;
+        // down through the sky above the highest ground in reach: only the steps are taken
+        // (one by one, so the grain ends up exactly where it did when each step looked)
+        if (ny < 0) {
+          const lim = skyTop - 1;
+          while (k < r * 1.8 && py - ny < lim) {
+            px -= nx;
+            py -= ny;
+            k++;
+          }
+        }
+        for (; k < r * 1.8 && m === 0; k++) {
+          px -= nx;
+          py -= ny;
+          const cx = Math.round(px);
+          const cy = Math.round(py);
+          if (cx < 0 || cy < 0 || cx >= W || cy >= H) continue;
+          // open sky over the column: air, without a look at the map
+          if (cx >= sx0 && cx <= sx1 && cy < sky[cx]!) continue;
+          m = cells[cy * W + cx]!;
+        }
+      } else {
+        for (let k = 0; k < r * 1.8 && m === 0; k++) {
+          px -= nx;
+          py -= ny;
+          m = this.probe.material(Math.round(px), Math.round(py));
+        }
       }
       // only ground makes grains: a blast in the air, or over a hole, throws less
       if (m === 0) continue;
@@ -6422,6 +6463,41 @@ export class EffectSystem {
         kind: PKind.Chunk,
       });
     }
+  }
+
+  /** Scratch for {@link skyline}. */
+  private skyRows = new Int32Array(0);
+
+  /**
+   * The first row that is not air in each of the columns x0..x1 (the map's height where a
+   * column is empty), read a row at a time, and four cells a look where the map allows.
+   */
+  private skyline(cells: Uint8Array, x0: number, x1: number): Int32Array {
+    const W = this.probe.width;
+    const H = this.probe.height;
+    if (this.skyRows.length < W) this.skyRows = new Int32Array(W);
+    const sky = this.skyRows;
+    if (x1 < x0) return sky;
+    sky.fill(H, x0, x1 + 1);
+    const words =
+      cells.byteOffset % 4 === 0 && W % 4 === 0
+        ? new Uint32Array(cells.buffer, cells.byteOffset, cells.length >> 2)
+        : null;
+    let left = x1 - x0 + 1;
+    for (let y = 0; y < H && left > 0; y++) {
+      const row = y * W;
+      for (let x = x0; x <= x1; x++) {
+        if (words && (x & 3) === 0 && x + 3 <= x1 && words[(row + x) >> 2] === 0) {
+          x += 3;
+          continue;
+        }
+        if (sky[x] === H && cells[row + x] !== 0) {
+          sky[x] = y;
+          left--;
+        }
+      }
+    }
+    return sky;
   }
 
   /**
@@ -7038,6 +7114,17 @@ export class EffectSystem {
     if (x < 0 || x >= p.width) return -1;
     const y0 = Math.max(1, Math.round(y - range));
     const y1 = Math.min(p.height - 1, Math.round(y + range));
+    const cells = p.cells?.();
+    if (cells && Number.isInteger(x)) {
+      const W = p.width;
+      let above = cells[(y0 - 1) * W + x]!;
+      for (let yy = y0, i = y0 * W + x; yy <= y1; yy++, i += W) {
+        const c = cells[i]!;
+        if (c !== 0 && above === 0) return yy;
+        above = c;
+      }
+      return -1;
+    }
     for (let yy = y0; yy <= y1; yy++) {
       if (p.material(x, yy) !== 0 && p.material(x, yy - 1) === 0) return yy;
     }
@@ -7379,6 +7466,10 @@ export class EffectSystem {
       const core = Math.max(1, Math.round(s) * 2 - 1);
       // the leader (age 0) has only reached partway down and shows no branches yet
       const leaderEnd = age === 0 ? b.main * 0.7 : Number.POSITIVE_INFINITY;
+      let runX = 0;
+      let runY = 0;
+      let runN = 0;
+      let runBranch = false;
       for (let i = 0; i < c.length; i += 2) {
         const branch = i >= b.main;
         if (i >= leaderEnd) break;
@@ -7391,18 +7482,20 @@ export class EffectSystem {
             0;
           if (((h >>> 8) & 255) / 255 > (age < BOLT_FLICK.length ? 0.75 : 0.35)) continue;
         }
-        const x = c[i]! + 0.5;
-        const y = c[i + 1]! + 0.5;
-        if (branch) {
-          additive.push(x, y, Math.round(3 * s), s > 1.5 ? 2 : 1, 0x4060c0, 0.4 * fade);
-          additive.push(x, y, Math.round(s), 1, 0xb0c8ff, 0.75 * fade);
-        } else {
-          // the main channel: a 3-cell white core inside a 7-cell blue halo
-          additive.push(x, y, Math.round(7 * s), s > 1.5 ? 2 : 1, 0x3050c0, 0.45 * fade);
-          additive.push(x, y, Math.round(3 * s), 1, 0xd0e0ff, 0.9 * fade);
-          additive.push(x, y, core, 1, 0xffffff, fade);
+        // cells straight under one another are drawn as one tall stack (see `boltStack`)
+        const cx = c[i]!;
+        const cy = c[i + 1]!;
+        if (runN > 0 && cx === runX && cy === runY + runN && branch === runBranch) {
+          runN++;
+          continue;
         }
+        if (runN > 0) boltStack(additive, runX, runY, runN, runBranch, s, core, fade);
+        runX = cx;
+        runY = cy;
+        runN = 1;
+        runBranch = branch;
       }
+      if (runN > 0) boltStack(additive, runX, runY, runN, runBranch, s, core, fade);
     }
   }
 
@@ -7604,6 +7697,78 @@ export const ZONE_COLOR = [
 export const RUST = [0x5a2a14, 0x8e4a1e, 0xb8642a, 0xd88a44] as const;
 
 /** Append the cells of a grid line (Bresenham) from (x0,y0) to (x1,y1), excluding the start. */
+/**
+ * `n` cells of a bolt's channel in column `x` from row `y` down, as the lit quads of all of
+ * them at once. A channel runs mostly straight down, two or three cells to a column, and a bolt
+ * from a tall sky is thousands of cells, each of which used to be two or three quads of its own
+ * every frame it shows. The light is additive and flat, so one tall quad lays down exactly what
+ * the stack of one-row quads did. A fat bolt's halo is two rows high per cell, half a row over
+ * each neighbour: the stack of those is one quad over all of them plus one over the rows where
+ * two of them overlap.
+ */
+export function boltStack(
+  additive: QuadBatch,
+  x: number,
+  y: number,
+  n: number,
+  branch: boolean,
+  s: number,
+  core: number,
+  fade: number,
+): void {
+  const px = x + 0.5;
+  const py = y + n / 2;
+  const haloW = Math.round((branch ? 3 : 7) * s);
+  const haloRgb = branch ? 0x4060c0 : 0x3050c0;
+  const haloA = (branch ? 0.4 : 0.45) * fade;
+  if (s > 1.5) {
+    additive.push(px, py, haloW, n + 1, haloRgb, haloA);
+    if (n > 1) additive.push(px, py, haloW, n - 1, haloRgb, haloA);
+  } else additive.push(px, py, haloW, n, haloRgb, haloA);
+  if (branch) additive.push(px, py, Math.round(s), n, 0xb0c8ff, 0.75 * fade);
+  else {
+    // the main channel: a 3-cell white core inside a 7-cell blue halo
+    additive.push(px, py, Math.round(3 * s), n, 0xd0e0ff, 0.9 * fade);
+    additive.push(px, py, core, n, 0xffffff, fade);
+  }
+}
+
+/** Scratch for {@link lineInto}; grows as needed and is never handed out. */
+let linePts = new Int32Array(8192);
+
+/** `line` into `linePts` from index `n` on; returns the new length. */
+function lineInto(x0: number, y0: number, x1: number, y1: number, n: number): number {
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  // a step moves along at least one axis, so the line has at most dx - dy cells
+  const need = n + 2 * (dx - dy);
+  if (need > linePts.length) {
+    const bigger = new Int32Array(Math.max(need, linePts.length * 2));
+    bigger.set(linePts);
+    linePts = bigger;
+  }
+  const out = linePts;
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  let x = x0;
+  let y = y0;
+  while (x !== x1 || y !== y1) {
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y += sy;
+    }
+    out[n++] = x;
+    out[n++] = y;
+  }
+  return n;
+}
+
 function line(x0: number, y0: number, x1: number, y1: number, out: number[]): void {
   const dx = Math.abs(x1 - x0);
   const dy = -Math.abs(y1 - y0);

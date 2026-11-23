@@ -639,3 +639,61 @@ off all five runs pass in about three minutes, sims in workers on both sides, 0 
 
 Left: solo challenges, training and the sandbox still run on the page (they read the World
 directly). The renderer's per-tick step is now the larger part of the page's work.
+
+## Full pass over the pixel engine (2026-11-23)
+
+A go-through of everything the engine does in a tick and a frame, looking for work that can go
+without changing a result or a pixel. With the sim in a worker, the page's thread is the
+renderer's per-tick step, the draw and the GPU, so most of this is in `render/pixel`.
+
+How it was measured. Two harnesses, both a `vite build` SSR bundle (`ssr.noExternal`, not
+minified) run in plain node with `--cpu-prof`:
+
+- Sim: a World with four Ace bots playing every heavy weapon, timed per part through
+  `World.probe`, printing the world hash per seed.
+- Renderer: the real `PixelRenderer` driven by that match against a fake WebGL2 context (a
+  Proxy that answers every call). It times `push` and `draw`, and with `HASH=1` it hashes the
+  whole stream of WebGL calls: names, arguments and the contents of every typed array.
+
+That hash is the proof used here that the picture is kept: if four different matches send the
+same calls with the same data as `main`, the GPU draws the same thing. Copies of the harnesses
+are in the project files under `pixel-engine-pass/harness/`. The GPU's own time cannot be
+measured in the cloud.
+
+Rainy 1600x800 Village, four Ace bots, upright and zoomed far out, High quality, x86:
+
+- Look scan (every 20 ticks): `LookScan` keeps a summary per 64 cells of a row for the terrain
+  and the coating, and rereads only the tiles inside the box that changed since the last scan.
+  Flame cells are collected from the tiles that hold any. 2.3 to about 1.2 ms a scan.
+- Liquid surface rescan: reads along rows with word skips (air, a repeated word, a word with no
+  liquid) down to the lowest changed row, instead of walking each changed column to the bottom.
+- Ion Cannon and Supernova impact frame: thrown-earth grains read the cell array directly and
+  skip the sky above the skyline; a bolt's cells go into one scratch array. About 30 to 20 ms
+  for the frame's effect handlers.
+- Lightning: cells straight under one another are drawn as one tall quad (the blend is
+  additive, so the sum is the same; `bolt-stack.test.ts` checks it half-cell by half-cell).
+  About a third less time drawing bolts.
+- Particle draw shader: a slot that is dead, or does not belong to the pass, leaves the vertex
+  shader before its colour is unpacked. Each of the two passes runs over every slot.
+- `WaterFx.blast` tests the circle before it asks whether the cell is open water.
+- Altogether the per-tick step went from 0.48 to about 0.36 ms and the draw's JS from 0.35 to
+  about 0.28 ms.
+
+Everything but the bolt stacks and the shader early-out gives the identical call stream; those
+two were checked by the unit test and by capture sheets against `main`.
+
+Sim (world hashes and golden unchanged):
+
+- `stepPressure` passes four cells at a time where the word is air or holds only materials
+  the pressure front does nothing to. The effects part of a rainy match: 651 to 490 ms.
+- `reactStep` looks at the four neighbours' pair rules inline before it calls `react`; most
+  cells have none. Reactions on Lakeland: 2 362 to 1 929 ms.
+
+Looked at and left alone: the settle and surface-flow passes are already word-wise, and putting
+whole blocks to sleep would need a wake rule that is exact in every case or lockstep breaks.
+
+Left, and likely the largest GPU cost at High: the smoke field (`fluid.ts`) runs about 22
+full-size float passes a tick at High (1600x800, 16 pressure rounds) and stays awake 2 400 ticks
+after any puff, so in practice all match. Only its velocity is read (particles ride it).
+Limiting the passes to a box around what moves would not be bit-identical, because pressure
+spreads; it needs A/B clips and a phone to judge.

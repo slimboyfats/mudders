@@ -259,6 +259,188 @@ export function scanCells(
   return any;
 }
 
+/** Cells along a row that one look-scan tile covers. */
+const LOOK_TILE = 64;
+
+/**
+ * `scanCells` kept up to date: the flags of every 64 cells of a row are remembered, and after a
+ * change only the tiles its box touches are read again. Between two look scans the cells that
+ * change lie in a strip a few hundred rows high and some hundred columns wide (a crater, the
+ * rain's puddles), an eighth of the map on average, while the scan read all of it: 2 ms on a
+ * desktop and a dropped frame on a phone, three times a second. The answers are the same as
+ * `scanCells` gives for the whole layer, as long as every changed cell is inside a reported box
+ * (the picture depends on that too: only those boxes are uploaded).
+ */
+export class LookScan {
+  private readonly tw: number;
+  /** Flags of each tile, row by row. */
+  private readonly tiles: Uint8Array;
+  /** Whether each tile holds a swaying cell. */
+  private readonly flexTiles: Uint8Array;
+  /** Per column, one more than the lowest swaying row inside the box being read (scratch). */
+  private readonly boxLow: Int32Array;
+  private fresh = true;
+
+  constructor(
+    private readonly w: number,
+    private readonly h: number,
+  ) {
+    this.tw = Math.ceil(w / LOOK_TILE);
+    this.tiles = new Uint8Array(this.tw * h);
+    this.flexTiles = new Uint8Array(this.tw * h);
+    this.boxLow = new Int32Array(w);
+  }
+
+  /** Forget everything: the next `scan` reads the whole layer (new cells, new flags). */
+  reset(): void {
+    this.fresh = true;
+  }
+
+  /**
+   * The flags of the whole layer, after reading again the cells of the inclusive box
+   * (`x1 < x0` = nothing changed). `low` (cleared by the caller only before the first scan, then
+   * left alone) and `rows` are kept as `scanCells` would set them.
+   */
+  scan(
+    cells: Uint8Array,
+    flags: Uint8Array,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    flex?: Uint8Array,
+    low?: Int32Array,
+    rows?: SwayRows,
+  ): number {
+    const w = this.w;
+    const h = this.h;
+    const tw = this.tw;
+    const tiles = this.tiles;
+    const flexTiles = this.flexTiles;
+    if (this.fresh) {
+      this.fresh = false;
+      x0 = 0;
+      y0 = 0;
+      x1 = w - 1;
+      y1 = h - 1;
+      low?.fill(0);
+    }
+    x0 = Math.max(0, x0);
+    y0 = Math.max(0, y0);
+    x1 = Math.min(w - 1, x1);
+    y1 = Math.min(h - 1, y1);
+    if (x1 >= x0 && y1 >= y0) {
+      const t0 = Math.floor(x0 / LOOK_TILE);
+      const t1 = Math.floor(x1 / LOOK_TILE);
+      const c0 = t0 * LOOK_TILE;
+      const c1 = Math.min(w, (t1 + 1) * LOOK_TILE) - 1;
+      const sway = flex !== undefined && low !== undefined;
+      const boxLow = this.boxLow;
+      if (sway) boxLow.fill(0, c0, c1 + 1);
+      const byWord = LITTLE_ENDIAN && cells.byteOffset % 4 === 0 && w % 4 === 0;
+      const words = byWord
+        ? new Uint32Array(cells.buffer, cells.byteOffset, cells.length >> 2)
+        : null;
+      for (let y = y0; y <= y1; y++) {
+        const row = y * w;
+        for (let tx = t0; tx <= t1; tx++) {
+          const a = row + tx * LOOK_TILE;
+          const b = Math.min(row + w, a + LOOK_TILE);
+          let any = 0;
+          let bends = 0;
+          if (words) {
+            let prev = -1;
+            let prevFlex = false;
+            for (let k = a >> 2, e = b >> 2; k < e; k++) {
+              const wd = words[k]!;
+              if (wd === prev && !prevFlex) continue;
+              prev = wd;
+              const m0 = wd & 255;
+              const m1 = (wd >>> 8) & 255;
+              const m2 = (wd >>> 16) & 255;
+              const m3 = wd >>> 24;
+              any |= flags[m0]! | flags[m1]! | flags[m2]! | flags[m3]!;
+              if (!sway) continue;
+              prevFlex = (flex[m0]! | flex[m1]! | flex[m2]! | flex[m3]!) !== 0;
+              if (!prevFlex) continue;
+              bends = 1;
+              const j = k << 2;
+              if (flex[m0] !== 0) boxLow[j - row] = y + 1;
+              if (flex[m1] !== 0) boxLow[j + 1 - row] = y + 1;
+              if (flex[m2] !== 0) boxLow[j + 2 - row] = y + 1;
+              if (flex[m3] !== 0) boxLow[j + 3 - row] = y + 1;
+            }
+          } else {
+            for (let i = a; i < b; i++) {
+              const m = cells[i]!;
+              any |= flags[m]!;
+              if (sway && flex[m] !== 0) {
+                bends = 1;
+                boxLow[i - row] = y + 1;
+              }
+            }
+          }
+          tiles[y * tw + tx] = any;
+          flexTiles[y * tw + tx] = bends;
+        }
+      }
+      if (sway) {
+        for (let x = c0; x <= c1; x++) {
+          const old = low[x]! - 1;
+          // a swaying cell under the box is still the lowest; one found in the box is lower
+          // than any above it
+          if (old > y1) continue;
+          if (boxLow[x] !== 0) low[x] = boxLow[x]!;
+          else if (old >= y0) {
+            // the lowest was in the box and is gone: the next one up, if the column has one
+            let r = y0 - 1;
+            while (r >= 0 && flex[cells[r * w + x]!] === 0) r--;
+            low[x] = r + 1;
+          }
+        }
+      }
+    }
+    let any = 0;
+    for (let i = 0; i < tiles.length; i++) any |= tiles[i]!;
+    if (rows) {
+      let top = -1;
+      let bottom = -1;
+      for (let i = 0; i < flexTiles.length && top < 0; i++) {
+        if (flexTiles[i] !== 0) top = Math.floor(i / tw);
+      }
+      for (let i = flexTiles.length - 1; i >= 0 && bottom < 0; i--) {
+        if (flexTiles[i] !== 0) bottom = Math.floor(i / tw);
+      }
+      rows.top = top;
+      rows.bottom = bottom;
+    }
+    return any;
+  }
+
+  /**
+   * The cells from row 1 down whose flags have `bit` and that have air above them, in reading
+   * order, into `out` (at most `out.length`); returns how many. Only tiles with the bit are read.
+   */
+  open(cells: Uint8Array, flags: Uint8Array, bit: number, out: Int32Array): number {
+    const w = this.w;
+    const tw = this.tw;
+    const tiles = this.tiles;
+    let n = 0;
+    for (let y = 1; y < this.h && n < out.length; y++) {
+      const row = y * w;
+      for (let tx = 0; tx < tw && n < out.length; tx++) {
+        if ((tiles[y * tw + tx]! & bit) === 0) continue;
+        const a = row + tx * LOOK_TILE;
+        const b = Math.min(row + w, a + LOOK_TILE);
+        for (let i = a; i < b && n < out.length; i++) {
+          if ((flags[cells[i]!]! & bit) !== 0 && cells[i - w] === 0) out[n++] = i;
+        }
+      }
+    }
+    return n;
+  }
+}
+
 /** Wind at which trees bend their furthest (the classic mode's top wind). */
 const FULL_WIND = 0.012;
 
