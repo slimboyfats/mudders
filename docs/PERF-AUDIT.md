@@ -714,3 +714,7 @@ differently, 0.8% of the sheet's pixels differ, all inside smoke (A/B in
 `/mnt/project-files/pixel-engine-pass/`). SwiftShader as a stand-in for the GPU: the missile
 showcase capture took 452 s against 566 s on `main`, about a fifth less for the whole capture.
 The real gain on a phone at High is not measured.
+
+Control: with the boxes forced to the whole map the same capture is byte for byte the sheet of
+`main`, so the slimmer textures and the pass plumbing change nothing; the whole difference is the
+air at the boxes' edges. Joel approved the look on 2026-11-23.
