@@ -105,7 +105,7 @@ import { type FlinchTank, TankFlinch } from './flinch';
 import {
   SWAY_REACH,
   SwayBlasts,
-  scanCells,
+  LookScan,
   swayField,
   swayLooks,
   swayWind,
@@ -436,6 +436,14 @@ export class PixelRenderer implements Renderer {
    * a still map skips it: on a wooded map it cost ~17 ms every 20 ticks here.
    */
   private looksStale = true;
+  /** The box of cells that changed since the last look scan (inclusive; empty when x1 < x0). */
+  private lookX0 = 0;
+  private lookY0 = 0;
+  private lookX1 = -1;
+  private lookY1 = -1;
+  /** What the look scan remembers of the terrain and the coating between scans. */
+  private terrainLooks = new LookScan(0, 0);
+  private coatLooks = new LookScan(0, 0);
   private anyHot = false;
   /** This frame's point lights (blasts, fireballs), see lighting.ts. */
   private readonly lights = new Lights();
@@ -923,6 +931,8 @@ export class PixelRenderer implements Renderer {
     this.swayRun = new Int32Array(this.mapHeight);
     this.swayCount = new Int32Array(this.mapWidth);
     this.swayLow = new Int32Array(this.mapWidth);
+    this.terrainLooks = new LookScan(this.mapWidth, this.mapHeight);
+    this.coatLooks = new LookScan(this.mapWidth, this.mapHeight);
     this.swayTop = this.mapHeight;
     this.swayBottom = -1;
     this.swayX0 = 0;
@@ -1103,6 +1113,9 @@ export class PixelRenderer implements Renderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 256, 10, 0, gl.RGBA, gl.UNSIGNED_BYTE, look);
     this.meter?.setLooks(this.lookFlags, this.palette.liquids ?? []);
     this.swayLooks = swayLooks(this.palette.looks ?? []);
+    // other flags: what the look scan remembers was read with the old ones
+    this.terrainLooks.reset();
+    this.coatLooks.reset();
     this.swayX0 = 0;
     this.swayX1 = this.mapWidth - 1;
   }
@@ -1135,6 +1148,7 @@ export class PixelRenderer implements Renderer {
             ? 0
             : this.terrain[y * this.mapWidth + x]!,
         color: (m) => this.palette.materials[m] ?? 0x7a5a3a,
+        cells: () => this.terrain,
         grass: (x, y) => {
           const gm = this.grassMask[y * this.mapWidth + x]!;
           return gm === 1 || gm === 2;
@@ -1195,6 +1209,17 @@ export class PixelRenderer implements Renderer {
         if (r.w <= 0 || r.h <= 0) continue;
         if (r.x < this.swayX0) this.swayX0 = r.x;
         if (r.x + r.w - 1 > this.swayX1) this.swayX1 = r.x + r.w - 1;
+        if (this.lookX1 < this.lookX0) {
+          this.lookX0 = r.x;
+          this.lookY0 = r.y;
+          this.lookX1 = r.x + r.w - 1;
+          this.lookY1 = r.y + r.h - 1;
+        } else {
+          if (r.x < this.lookX0) this.lookX0 = r.x;
+          if (r.y < this.lookY0) this.lookY0 = r.y;
+          if (r.x + r.w - 1 > this.lookX1) this.lookX1 = r.x + r.w - 1;
+          if (r.y + r.h - 1 > this.lookY1) this.lookY1 = r.y + r.h - 1;
+        }
         gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, r.x);
         gl.pixelStorei(gl.UNPACK_SKIP_ROWS, r.y);
         gl.texSubImage2D(
@@ -1251,6 +1276,9 @@ export class PixelRenderer implements Renderer {
       gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
       gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
     }
+    // other arrays than last time (a new match on this renderer): nothing remembered holds
+    if (s.terrain !== this.terrain) this.terrainLooks.reset();
+    if (s.coating !== this.coating) this.coatLooks.reset();
     this.terrain = s.terrain;
     this.water.setTerrain(s.terrain);
     this.liquid.setTerrain(s.terrain, s.dirtyRects);
@@ -1824,10 +1852,23 @@ export class PixelRenderer implements Renderer {
   private scanLooks(): void {
     const f = this.lookFlags;
     const t = this.terrain;
-    this.swayLow.fill(0);
+    const x0 = this.lookX0;
+    const y0 = this.lookY0;
+    const x1 = this.lookX1;
+    const y1 = this.lookY1;
+    this.lookX1 = -1;
     const any =
-      scanCells(t, f, this.mapWidth, this.swayLooks.flex, this.swayLow, this.swayRows) |
-      scanCells(this.coating, f);
+      this.terrainLooks.scan(
+        t,
+        f,
+        x0,
+        y0,
+        x1,
+        y1,
+        this.swayLooks.flex,
+        this.swayLow,
+        this.swayRows,
+      ) | this.coatLooks.scan(this.coating, f, x0, y0, x1, y1);
     this.anyCycle = (any & 1) !== 0;
     this.anyHot = (any & 2) !== 0;
     this.scanHeat((any & (FLAG_HOT | FLAG_FLAMES | FLAG_EMIT)) !== 0);
@@ -1835,10 +1876,7 @@ export class PixelRenderer implements Renderer {
     this.flameN = 0;
     if ((any & 4) === 0) return;
     // flaming cells with air above: where the flame tongues lick up from
-    const w = this.mapWidth;
-    for (let i = w; i < t.length && this.flameN < FLAME_CAP; i++) {
-      if ((f[t[i]!]! & 4) !== 0 && t[i - w] === 0) this.flameCells[this.flameN++] = i;
-    }
+    this.flameN = this.terrainLooks.open(t, f, 4, this.flameCells);
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   SWAY_NEAR,
   SWAY_REACH,
   bend,
+  LookScan,
   scanCells,
   swayField,
   swayLooks,
@@ -237,6 +238,83 @@ describe('scanCells', () => {
       const wholeAny = swayField(t, w, h, looks, whole, new Int32Array(h));
       expect(out).toEqual(whole);
       if (wholeAny) expect(any).toBe(true);
+    }
+  });
+});
+
+describe('LookScan', () => {
+  it('gives what scanCells gives for the whole layer after any run of boxed edits', () => {
+    const flags = new Uint8Array(256);
+    const flex = new Uint8Array(256);
+    flags[3] = 1;
+    flags[7] = 4;
+    flags[9] = 2;
+    flex[5] = 60;
+    flex[7] = 30;
+    let seed = 5;
+    const rnd = (n: number): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+      return (seed >>> 8) % n;
+    };
+    for (const [w, h, odd] of [
+      [200, 60, false],
+      [130, 40, false],
+      [64, 30, true],
+    ] as const) {
+      // (an array that does not start on a word is read cell by cell)
+      const t = odd ? new Uint8Array(w * h + 1).subarray(1) : new Uint8Array(w * h);
+      t.fill(1, w * (h >> 1));
+      const scan = new LookScan(w, h);
+      const low = new Int32Array(w);
+      const rows = { top: 0, bottom: 0 };
+      const flames = new Int32Array(40);
+      let x0 = 0;
+      let x1 = -1;
+      let y0 = 0;
+      let y1 = -1;
+      for (let round = 0; round < 400; round++) {
+        // a few edits inside one box: runs of air, ground, flagged and swaying cells
+        const bx = rnd(w);
+        const by = rnd(h);
+        const bw = 1 + rnd(round % 5 === 0 ? w : 12);
+        const bh = 1 + rnd(round % 7 === 0 ? h : 6);
+        for (let k = 1 + rnd(4); k > 0; k--) {
+          const y = Math.min(h - 1, by + rnd(bh));
+          const x = Math.min(w - 1, bx + rnd(bw));
+          const len = Math.min(1 + rnd(9), Math.min(w, bx + bw) - x);
+          t.fill([0, 0, 1, 3, 5, 5, 7, 9][rnd(8)]!, y * w + x, y * w + x + len);
+        }
+        if (x1 < x0) {
+          x0 = bx;
+          y0 = by;
+          x1 = bx + bw - 1;
+          y1 = by + bh - 1;
+        } else {
+          x0 = Math.min(x0, bx);
+          y0 = Math.min(y0, by);
+          x1 = Math.max(x1, bx + bw - 1);
+          y1 = Math.max(y1, by + bh - 1);
+        }
+        // not every round is scanned: boxes add up between scans, as between look scans
+        if (round % 3 === 1) continue;
+        const any = scan.scan(t, flags, x0, y0, x1, y1, flex, low, rows);
+        x1 = -1;
+        const wantLow = new Int32Array(w);
+        const wantRows = { top: 0, bottom: 0 };
+        expect(any).toBe(scanCells(t, flags, w, flex, wantLow, wantRows));
+        expect(low).toEqual(wantLow);
+        expect(rows).toEqual(wantRows);
+        const want: number[] = [];
+        for (let i = w; i < t.length && want.length < flames.length; i++) {
+          if ((flags[t[i]!]! & 4) !== 0 && t[i - w] === 0) want.push(i);
+        }
+        const n = scan.open(t, flags, 4, flames);
+        expect(Array.from(flames.subarray(0, n))).toEqual(want);
+      }
+      // nothing changed: the same answer without a box
+      const again = { top: 0, bottom: 0 };
+      expect(scan.scan(t, flags, 0, 0, -1, -1, flex, low, again)).toBe(scanCells(t, flags));
+      expect(again).toEqual(rows);
     }
   });
 });

@@ -505,6 +505,24 @@ void main() {
   int k = int((a_ck >> 24u) & 127u);
   bool mote = (a_ck & 0x80000000u) != 0u;
   uint rgb = a_ck & 0xffffffu;
+  // Nothing to draw: say so before any of the work below. A slot whose particle has died stays
+  // in its lane until the lane's window passes it, and each pass draws only some kinds (most
+  // are plain cells of the normal pass; sparks and glitter are light only), so of the two
+  // passes over every slot most vertices end here. Which kinds light up is read off the
+  // branches below; a kind added there with a part in the additive pass must be added here.
+  bool lit = k == ${PKind.Flame} || k == ${PKind.Plasma} ||
+    (!mote && (k == ${PKind.Bang} || k == ${PKind.Fire} || k == ${PKind.Ember} ||
+               k == ${PKind.Spark} || k == ${PKind.Glitter}));
+  bool lightOnly = !mote && (k == ${PKind.Spark} || k == ${PKind.Glitter});
+  if (age < 0.0 || age >= life || (u_pass == 1 ? !lit : lightOnly)) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_local = vec2(0.0);
+    v_color = vec4(0.0);
+    v_shape = 0;
+    v_blob = vec3(0.0);
+    v_seg = vec4(0.0);
+    return;
+  }
   vec3 col = unpack(rgb);
   float t = age / life;
   // a mote's own threshold: as a cloud thins, motes wink out one by one (hard pixels, no alpha)

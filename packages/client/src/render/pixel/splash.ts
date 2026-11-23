@@ -296,12 +296,14 @@ export class WaterFx {
     const step = R > 40 ? 2 : 1;
     for (let x = cx - R; x <= cx + R; x += step) {
       if (x < 0 || x >= this.width) continue;
+      const dx = x - cx;
       for (let y = Math.max(1, cy - R); y <= Math.min(this.height - 1, cy + R); y++) {
-        if (!this.open(x, y)) continue;
-        const dx = x - cx;
+        // outside the circle nothing is done: no need to look at the map there (a wide blast's
+        // box is a fifth corners)
         const dy = y - cy;
         const d2 = dx * dx + dy * dy;
         if (d2 > R * R) continue;
+        if (!this.open(x, y)) continue;
         const d = Math.sqrt(d2);
         if (d < nearest) {
           nearest = d;

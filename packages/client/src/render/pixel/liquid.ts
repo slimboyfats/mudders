@@ -71,6 +71,12 @@ export class LiquidSurface {
    * saw them, so the rescan starts there instead of at the sky.
    */
   private readonly dirtyCol: Int16Array;
+  /** The bottom changed row of each dirty column (rows under it are as the last scan saw them). */
+  private readonly dirtyBot: Int16Array;
+  /** Scratch for a scan: per column the first and last row to look at (last -1 = none), and the find. */
+  private readonly scanFrom: Int16Array;
+  private readonly scanTo: Int16Array;
+  private readonly scanFound: Int16Array;
   private allDirty = true;
   private needScan = true;
   /** Any liquid surface at all after the last scan. */
@@ -97,6 +103,10 @@ export class LiquidSurface {
     this.hn = new Float32Array(width);
     this.v = new Float32Array(width);
     this.dirtyCol = new Int16Array(width);
+    this.dirtyBot = new Int16Array(width);
+    this.scanFrom = new Int16Array(width);
+    this.scanTo = new Int16Array(width);
+    this.scanFound = new Int16Array(width);
   }
 
   get enabled(): boolean {
@@ -108,7 +118,10 @@ export class LiquidSurface {
    * The cells to read. `changed` (the snapshot's dirty rects) limits the next rescan to the
    * columns they touch; without it, or with a new array, every column is rescanned.
    */
-  setTerrain(t: Uint8Array, changed?: readonly { x: number; w: number; y?: number }[]): void {
+  setTerrain(
+    t: Uint8Array,
+    changed?: readonly { x: number; w: number; y?: number; h?: number }[],
+  ): void {
     if (t !== this.terrain || !changed) {
       this.terrain = t;
       this.allDirty = true;
@@ -116,11 +129,22 @@ export class LiquidSurface {
       return;
     }
     const cols = this.dirtyCol;
+    const bots = this.dirtyBot;
     for (const r of changed) {
       const x1 = Math.min(this.width, r.x + r.w);
       const top = Math.max(0, r.y ?? 0) + 1;
+      const bot =
+        r.y === undefined || r.h === undefined
+          ? this.height - 1
+          : Math.min(this.height - 1, r.y + r.h - 1);
       for (let x = Math.max(0, r.x); x < x1; x++) {
-        if (cols[x] === 0 || top < cols[x]!) cols[x] = top;
+        if (cols[x] === 0) {
+          cols[x] = top;
+          bots[x] = bot;
+        } else {
+          if (top < cols[x]!) cols[x] = top;
+          if (bot > bots[x]!) bots[x] = bot;
+        }
       }
       if (x1 > r.x) this.needScan = true;
     }
@@ -149,38 +173,102 @@ export class LiquidSurface {
     const k = this.kinds;
     const all = this.allDirty;
     const cols = this.dirtyCol;
+    const from = this.scanFrom;
+    const to = this.scanTo;
+    const found = this.scanFound;
     this.allDirty = false;
     this.needScan = false;
+    // 1. which columns need a look, and over which rows
+    let yMin = hgt;
+    let yMax = -1;
+    let xMin = w;
+    let xMax = -1;
     for (let x = 0; x < w; x++) {
+      to[x] = -1;
       if (!all && cols[x] === 0) continue;
       const top = all ? 0 : cols[x]! - 1;
       cols[x] = 0;
       // a surface above everything that changed is still the first one down
       if (top > 0 && this.sy[x]! >= 0 && this.sy[x]! < top) continue;
-      // no surface above the top changed row last time, and nothing changed up there since
-      let found = -1;
-      let above = top > 0 ? t[(top - 1) * w + x]! : 0;
-      for (let y = top; y < hgt; y++) {
-        const c = t[y * w + x]!;
-        if (above === 0 && k[c] !== 0) {
-          found = y;
+      // no surface above the top changed row last time, and nothing changed up there since.
+      // Under the changed rows nothing changed either: a surface the last scan found down
+      // there is still the first one (the row right under the changed ones is looked at too,
+      // since the cell above it may have changed), and a column that had none below still has
+      // none. Only a surface that was among the changed rows and is gone sends the look on to
+      // the bottom.
+      const prev = this.sy[x]!;
+      const end = all ? hgt - 1 : Math.min(hgt - 1, this.dirtyBot[x]! + 1);
+      const last = prev >= top && prev <= end ? hgt - 1 : end;
+      from[x] = top;
+      to[x] = last;
+      found[x] = -1;
+      if (top < yMin) yMin = top;
+      if (end > yMax) yMax = end;
+      if (x < xMin) xMin = x;
+      xMax = x;
+    }
+    // 2. the look itself, a row at a time and four cells a look where the map allows: rain
+    // changes cells in every column on every tick, and a walk down each dry column was the
+    // renderer's largest single cost of a rainy tick
+    const words =
+      (w & 3) === 0 && t.byteOffset % 4 === 0
+        ? new Uint32Array(t.buffer, t.byteOffset, t.length >> 2)
+        : null;
+    // (rows down to the lowest changed one; the few columns that must look further, because
+    // their surface went, are walked on their own after)
+    for (let y = yMin; y <= yMax; y++) {
+      const row = y * w;
+      let skip = -1;
+      for (let x = xMin; x <= xMax; x++) {
+        if (words && (x & 3) === 0 && x + 3 <= xMax) {
+          const wd = words[(row + x) >> 2]!;
+          // air, or four cells with no liquid among them (a word like the last one passed is
+          // passed without asking again: the inside of the ground is long runs of one word)
+          if (
+            wd === 0 ||
+            wd === skip ||
+            (k[wd & 255]! | k[(wd >>> 8) & 255]! | k[(wd >>> 16) & 255]! | k[wd >>> 24]!) === 0
+          ) {
+            skip = wd;
+            x += 3;
+            continue;
+          }
+        }
+        if (y > to[x]! || y < from[x]!) continue;
+        if (k[t[row + x]!] !== 0 && (y === 0 || t[row - w + x] === 0)) {
+          found[x] = y;
+          to[x] = -2;
+        }
+      }
+    }
+    for (let x = xMin; x <= xMax; x++) {
+      if (to[x]! <= yMax) continue;
+      for (let y = Math.max(yMax + 1, from[x]!), i = y * w + x; y <= to[x]!; y++, i += w) {
+        if (k[t[i]!] !== 0 && t[i - w] === 0) {
+          found[x] = y;
           break;
         }
-        above = c;
       }
+    }
+    // 3. take the answers
+    for (let x = xMin; x <= xMax; x++) {
+      const last = to[x]!;
+      if (last === -1) continue;
       const prev = this.sy[x]!;
-      this.sy[x] = found;
-      if (found < 0) {
+      let f = found[x]!;
+      if (f < 0 && last >= 0 && last < hgt - 1 && prev > last) f = prev;
+      this.sy[x] = f;
+      if (f < 0) {
         this.kind[x] = 0;
         this.h[x] = 0;
         this.v[x] = 0;
         continue;
       }
-      const m = t[found * w + x]!;
+      const m = t[f * w + x]!;
       this.mat[x] = m;
       this.kind[x] = k[m]!;
       // a pool that moved a long way (drained, refilled) starts its waves afresh
-      if (prev < 0 || Math.abs(prev - found) > 3) {
+      if (prev < 0 || Math.abs(prev - f) > 3) {
         this.h[x] = 0;
         this.v[x] = 0;
       }
