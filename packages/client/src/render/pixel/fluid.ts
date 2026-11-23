@@ -66,6 +66,98 @@ const MAX_SPLATS = 24;
 export const FLUID_SLEEP_TICKS = 2400;
 
 /**
+ * The field is stepped only where something is in the air. It is cut into tiles of
+ * {@link tileSize} fluid cells; every {@link ACT_EVERY} ticks a small pass asks of each tile
+ * whether any air in it moves or carries dye, and the answer is read back without waiting for it.
+ * The passes then run in boxes around the tiles that said yes (and their neighbours), and a tile
+ * that has said no {@link ACT_HOLD} times in a row is cleared. A blast and its plume cost their
+ * own area, not the whole map's, 20 passes a tick.
+ *
+ * What a tile may hold when it is dropped: air slower than 0.01 cells a tick and under 0.02 of
+ * dye, which is below what moves a particle (`air.ts`) or wakes the turbulence and the wind in
+ * the force pass. The neighbour ring is wider than the air can cross between two looks.
+ */
+const ACT_EVERY = 4;
+const ACT_HOLD = 3;
+/** Ticks an unanswered look may stay out before the whole field is stepped instead. */
+const ACT_LOST = 120;
+/** Most boxes the passes are drawn in; more runs of tiles than this are joined into one. */
+const MAX_BOXES = 4;
+
+/** Fluid cells along a tile's side: 64 map cells at High, wider on the coarser fields. */
+export function tileSize(div: number): number {
+  return div === 1 ? 64 : 32;
+}
+
+/**
+ * The boxes to step, from the tiles' countdowns (`hold`, `tw` across and `th` down, above zero
+ * = in use): every tile in use and the ring around it, as runs of columns, each with the rows
+ * its tiles span. Writes `cover` (1 = inside a box) and returns x0, y0, x1, y1 per box in tiles
+ * (x1 and y1 past the end).
+ */
+export function activeBoxes(
+  hold: Uint8Array,
+  tw: number,
+  th: number,
+  cover: Uint8Array,
+  out: number[],
+): number {
+  let n = 0;
+  let runX0 = -1;
+  let y0 = th;
+  let y1 = 0;
+  for (let x = 0; x <= tw; x++) {
+    // rows in use in this column or the one on either side, widened by one
+    let lo = th;
+    let hi = -1;
+    if (x < tw) {
+      for (let xx = Math.max(0, x - 1); xx <= Math.min(tw - 1, x + 1); xx++) {
+        for (let y = 0; y < th; y++) {
+          if (hold[y * tw + xx]! > 0) {
+            if (y < lo) lo = y;
+            if (y > hi) hi = y;
+          }
+        }
+      }
+    }
+    if (hi >= 0) {
+      if (runX0 < 0) {
+        runX0 = x;
+        y0 = th;
+        y1 = 0;
+      }
+      y0 = Math.min(y0, Math.max(0, lo - 1));
+      y1 = Math.max(y1, Math.min(th, hi + 2));
+    } else if (runX0 >= 0) {
+      out[n * 4] = runX0;
+      out[n * 4 + 1] = y0;
+      out[n * 4 + 2] = x;
+      out[n * 4 + 3] = y1;
+      n++;
+      runX0 = -1;
+    }
+  }
+  if (n > MAX_BOXES) {
+    let a = th;
+    let b = 0;
+    for (let i = 0; i < n; i++) {
+      a = Math.min(a, out[i * 4 + 1]!);
+      b = Math.max(b, out[i * 4 + 3]!);
+    }
+    out[2] = out[(n - 1) * 4 + 2]!;
+    out[1] = a;
+    out[3] = b;
+    n = 1;
+  }
+  cover.fill(0);
+  for (let i = 0; i < n; i++) {
+    for (let y = out[i * 4 + 1]!; y < out[i * 4 + 3]!; y++)
+      cover.fill(1, y * tw + out[i * 4]!, y * tw + out[i * 4 + 2]!);
+  }
+  return n;
+}
+
+/**
  * Fire, as numbers (GLSL float literals). Lift per unit of fire per tick; how much each unit
  * swells the air per tick; what is left of it each tick, less the snuff; and the soot and heat a
  * burnt unit leaves behind.
@@ -273,6 +365,36 @@ void main() {
   o = vec4(v, 0.0, 1.0);
 }`;
 
+/**
+ * One texel per tile: is anything in the air there? Looks at 8 x 8 cells spread over the tile,
+ * shifted by `u_jit` from look to look so that nothing thin stays between them.
+ */
+const ACT_FS = `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+uniform sampler2D u_vel;
+uniform sampler2D u_dye;
+uniform int u_tile;
+uniform ivec2 u_jit;
+out vec4 o;
+void main() {
+  ivec2 t = ivec2(gl_FragCoord.xy) * u_tile + u_jit;
+  ivec2 size = textureSize(u_vel, 0);
+  int st = u_tile / 8;
+  float m = 0.0;
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 8; x++) {
+      ivec2 c = t + ivec2(x, y) * st;
+      if (c.x >= size.x || c.y >= size.y) continue;
+      vec2 v = texelFetch(u_vel, c, 0).xy;
+      vec4 d = texelFetch(u_dye, c, 0);
+      if (dot(v, v) > 0.0001 || d.x + d.y + d.z + d.w > 0.02) m = 1.0;
+    }
+  }
+  o = vec4(m);
+}`;
+
 interface Splat {
   a: [number, number, number, number];
   b: [number, number, number, number];
@@ -324,6 +446,27 @@ export class GpuFluid implements FluidSink {
    * leave it unbounded so frames replay the same however they are drawn.
    */
   maxSteps = Infinity;
+  /** Activity tiles: side in fluid cells, and how many across and down. */
+  private readonly tile: number;
+  private readonly tw: number;
+  private readonly th: number;
+  /** Per tile, looks left before it is dropped (0 = empty and cleared). */
+  private readonly hold: Uint8Array;
+  /** Per tile, 1 inside the boxes the passes run in. Outside them every field is zero. */
+  private cover: Uint8Array;
+  private coverNext: Uint8Array;
+  /** The boxes in fluid cells: x, y, width, height each. */
+  private readonly boxes: number[] = [];
+  private boxN = 0;
+  private readonly tileBoxes: number[] = [];
+  private boxesStale = false;
+  private act: Field | undefined;
+  private actBuf: WebGLBuffer | null = null;
+  private actSync: WebGLSync | null = null;
+  private actSent = 0;
+  private actNext = 0;
+  private actN = 0;
+  private readonly actPx: Uint8Array;
 
   constructor(gl: WebGL2RenderingContext, mapW: number, mapH: number, div: number, iters: number) {
     this.gl = gl;
@@ -333,11 +476,25 @@ export class GpuFluid implements FluidSink {
     this.iters = iters;
     this.w = Math.max(1, Math.ceil(mapW / div));
     this.h = Math.max(1, Math.ceil(mapH / div));
+    this.tile = tileSize(div);
+    this.tw = Math.ceil(this.w / this.tile);
+    this.th = Math.ceil(this.h / this.tile);
+    this.hold = new Uint8Array(this.tw * this.th);
+    this.cover = new Uint8Array(this.tw * this.th);
+    this.coverNext = new Uint8Array(this.tw * this.th);
+    this.actPx = new Uint8Array(this.tw * this.th * 4);
     this.ok = gl.getExtension('EXT_color_buffer_float') !== null;
     if (!this.ok) return;
-    const field = (): Field => {
+    // each field holds only the channels it uses: half or a quarter of the memory to move
+    const field = (channels: 1 | 2 | 4 = 4): Field => {
       const tex = texture(gl, gl.LINEAR);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, this.w, this.h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      const [inner, format] =
+        channels === 1
+          ? [gl.R16F, gl.RED]
+          : channels === 2
+            ? [gl.RG16F, gl.RG]
+            : [gl.RGBA16F, gl.RGBA];
+      gl.texImage2D(gl.TEXTURE_2D, 0, inner, this.w, this.h, 0, format, gl.HALF_FLOAT, null);
       const fbo = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
@@ -345,11 +502,33 @@ export class GpuFluid implements FluidSink {
       gl.clear(gl.COLOR_BUFFER_BIT);
       return { tex, fbo };
     };
-    this.vel = [field(), field()];
+    this.vel = [field(2), field(2)];
     this.dye = [field(), field()];
-    this.pressure = [field(), field()];
-    this.div1 = field();
-    this.curl = field();
+    this.pressure = [field(1), field(1)];
+    this.div1 = field(1);
+    this.curl = field(1);
+    {
+      const tex = texture(gl, gl.NEAREST);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        this.tw,
+        this.th,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        null,
+      );
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      this.act = { tex, fbo };
+      this.actBuf = gl.createBuffer();
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.actBuf);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, this.actPx.length, gl.STREAM_READ);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    }
     const pair = (i: 0 | 1): WebGLFramebuffer => {
       const fbo = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -405,6 +584,8 @@ export class GpuFluid implements FluidSink {
     mk('div', DIV_FS, ['u_vel', null, 'u_dye'], []);
     mk('pressure', PRESSURE_FS, ['u_pressure', 'u_divergence'], []);
     mk('gradient', GRADIENT_FS, ['u_pressure', 'u_vel'], []);
+    mk('act', ACT_FS, ['u_vel', 'u_dye'], ['u_tile', 'u_jit']);
+    gl.uniform1i(this.uni.act!.u_tile!, this.tile);
     gl.useProgram(was);
     this.vao = gl.createVertexArray();
   }
@@ -470,6 +651,17 @@ export class GpuFluid implements FluidSink {
     this.wipe();
   }
 
+  /** Every tile empty, and whatever look is out forgotten. */
+  private resetTiles(): void {
+    this.hold.fill(0);
+    this.cover.fill(0);
+    this.boxN = 0;
+    this.boxesStale = false;
+    if (this.actSync) this.gl.deleteSync(this.actSync);
+    this.actSync = null;
+    this.actNext = 0;
+  }
+
   private wipe(): void {
     const gl = this.gl;
     gl.clearColor(0, 0, 0, 0);
@@ -478,6 +670,7 @@ export class GpuFluid implements FluidSink {
       gl.clear(gl.COLOR_BUFFER_BIT);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.resetTiles();
   }
 
   /**
@@ -495,10 +688,16 @@ export class GpuFluid implements FluidSink {
     gl.bindVertexArray(this.vao);
     gl.activeTexture(gl.TEXTURE9);
     gl.bindTexture(gl.TEXTURE_2D, terrain);
+    gl.enable(gl.SCISSOR_TEST);
     this.runStep({
       wind: 0,
       splats: [{ a: [0, 0, 1, 0], b: [0, 0, 0, 0], fire: 0, spin: 0 }],
     });
+    this.use('act');
+    this.bind(0, this.vel![this.cur]!.tex);
+    this.bind(1, this.dye![this.cur]!.tex);
+    this.target(this.act!.fbo);
+    gl.disable(gl.SCISSOR_TEST);
     this.cur = cur;
     this.wipe();
     gl.bindVertexArray(null);
@@ -540,9 +739,21 @@ export class GpuFluid implements FluidSink {
     gl.bindVertexArray(this.vao);
     gl.activeTexture(gl.TEXTURE9);
     gl.bindTexture(gl.TEXTURE_2D, terrain);
+    gl.enable(gl.SCISSOR_TEST);
     for (const s of steps) {
+      this.collect();
       this.runStep(s);
       this.tick++;
+      if (this.boxN > 0 && !this.actSync && this.tick >= this.actNext) {
+        this.actNext = this.tick + ACT_EVERY;
+        this.look();
+      }
+    }
+    gl.disable(gl.SCISSOR_TEST);
+    if (this.boxN === 0 && steps.length > 0) {
+      // every tile is empty and cleared: asleep until the next splat
+      this.live = false;
+      this.quiet = 0;
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindVertexArray(null);
@@ -561,10 +772,143 @@ export class GpuFluid implements FluidSink {
     gl.bindTexture(gl.TEXTURE_2D, tex);
   }
 
+  /** Draw the current pass into `fbo`, inside the boxes in use. */
   private target(fbo: WebGLFramebuffer): void {
     const gl = this.gl;
+    const b = this.boxes;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    for (let i = 0; i < this.boxN; i++) {
+      gl.scissor(b[i * 4]!, b[i * 4 + 1]!, b[i * 4 + 2]!, b[i * 4 + 3]!);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+  }
+
+  /** Share of the field the passes run over just now, 0..1 (for the performance log). */
+  get share(): number {
+    if (!this.ok || !this.live) return 0;
+    let a = 0;
+    for (let i = 0; i < this.boxN; i++) a += this.boxes[i * 4 + 2]! * this.boxes[i * 4 + 3]!;
+    return a / (this.w * this.h);
+  }
+
+  /** Keep the tiles a splat reaches (x, y, signed r in fluid cells) for the next few looks. */
+  private touch(a: readonly number[]): void {
+    const t = this.tile;
+    const r = Math.abs(a[2]!);
+    const x0 = Math.max(0, Math.floor((a[0]! - r) / t));
+    const x1 = Math.min(this.tw - 1, Math.floor((a[0]! + r) / t));
+    const y0 = Math.max(0, Math.floor((a[1]! - r) / t));
+    const y1 = Math.min(this.th - 1, Math.floor((a[1]! + r) / t));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) this.hold[y * this.tw + x] = ACT_HOLD;
+    }
+    this.boxesStale = true;
+  }
+
+  /** Work the boxes out again after the tiles changed, and clear what fell outside them. */
+  private setBoxes(): void {
+    if (!this.boxesStale) return;
+    this.boxesStale = false;
+    const gl = this.gl;
+    const tw = this.tw;
+    const t = this.tile;
+    const next = this.coverNext;
+    const was = this.cover;
+    const n = activeBoxes(this.hold, tw, this.th, next, this.tileBoxes);
+    for (let i = 0; i < n * 4; i += 4) {
+      const x0 = this.tileBoxes[i]! * t;
+      const y0 = this.tileBoxes[i + 1]! * t;
+      this.boxes[i] = x0;
+      this.boxes[i + 1] = y0;
+      this.boxes[i + 2] = Math.min(this.w, this.tileBoxes[i + 2]! * t) - x0;
+      this.boxes[i + 3] = Math.min(this.h, this.tileBoxes[i + 3]! * t) - y0;
+    }
+    this.boxN = n;
+    // tiles that left the boxes go back to zero in every field, in runs along a row
+    let any = false;
+    for (let i = 0; i < next.length && !any; i++) any = was[i] === 1 && next[i] === 0;
+    if (any) {
+      gl.clearColor(0, 0, 0, 0);
+      for (const f of [...this.vel!, ...this.dye!, ...this.pressure!, this.div1, this.curl]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, f.fbo);
+        for (let y = 0; y < this.th; y++) {
+          for (let x = 0; x < tw; x++) {
+            if (was[y * tw + x] !== 1 || next[y * tw + x] !== 0) continue;
+            let e = x + 1;
+            while (e < tw && was[y * tw + e] === 1 && next[y * tw + e] === 0) e++;
+            gl.scissor(x * t, y * t, (e - x) * t, t);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            x = e;
+          }
+        }
+      }
+    }
+    this.cover = next;
+    this.coverNext = was;
+  }
+
+  /** Take one look's answer: a tile with something in it is kept, an empty one counts down. */
+  private answer(px: Uint8Array): void {
+    const hold = this.hold;
+    for (let i = 0; i < hold.length; i++) {
+      if (px[i * 4]! > 127) hold[i] = ACT_HOLD;
+      else if (hold[i]! > 0) hold[i] = hold[i]! - 1;
+    }
+    this.boxesStale = true;
+  }
+
+  /** Collect the look that is out, if the GPU has finished it. */
+  private collect(): void {
+    const sync = this.actSync;
+    if (!sync) return;
+    const gl = this.gl;
+    const st = gl.clientWaitSync(sync, 0, 0);
+    if (st === gl.TIMEOUT_EXPIRED || st === undefined) {
+      if (this.tick - this.actSent < ACT_LOST) return;
+      // no answer: step everything until one comes
+      this.hold.fill(ACT_HOLD);
+      this.boxesStale = true;
+      this.actSent = this.tick;
+      return;
+    }
+    gl.deleteSync(sync);
+    this.actSync = null;
+    if (st === gl.WAIT_FAILED) return;
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.actBuf);
+    gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, this.actPx);
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    this.answer(this.actPx);
+  }
+
+  /**
+   * Ask which tiles hold anything. A capture (no limit on steps) reads the answer at once so
+   * that it replays the same; live play leaves it with the GPU and picks it up a frame or two on.
+   */
+  private look(): void {
+    const gl = this.gl;
+    const u = this.use('act');
+    const st = this.tile >> 3;
+    this.actN++;
+    gl.uniform2i(u.u_jit!, (this.actN * 3) % st, (this.actN * 5) % st);
+    this.bind(0, this.vel![this.cur]!.tex);
+    this.bind(1, this.dye![this.cur]!.tex);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, this.tw, this.th);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.act!.fbo);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (this.maxSteps === Infinity) {
+      gl.readPixels(0, 0, this.tw, this.th, gl.RGBA, gl.UNSIGNED_BYTE, this.actPx);
+      this.answer(this.actPx);
+    } else {
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, this.actBuf);
+      gl.readPixels(0, 0, this.tw, this.th, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      this.actSync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      this.actSent = this.tick;
+      gl.flush();
+    }
+    gl.viewport(0, 0, this.w, this.h);
+    gl.enable(gl.SCISSOR_TEST);
   }
 
   private runStep(s: Step): void {
@@ -576,8 +920,10 @@ export class GpuFluid implements FluidSink {
     let nxt = cur ^ 1;
     // 1. pour the tick's splats in (velocity and dye together)
     if (s.splats.length > 0) {
-      const u = this.use('splat');
       const n = s.splats.length;
+      for (let i = 0; i < n; i++) this.touch(s.splats[i]!.a);
+      this.setBoxes();
+      const u = this.use('splat');
       for (let i = 0; i < n; i++) {
         this.sA.set(s.splats[i]!.a, i * 4);
         this.sB.set(s.splats[i]!.b, i * 4);
@@ -593,7 +939,8 @@ export class GpuFluid implements FluidSink {
       this.target(this.pair![nxt]!);
       cur = nxt;
       nxt = cur ^ 1;
-    }
+    } else this.setBoxes();
+    if (this.boxN === 0) return;
     // 2. curl, then vorticity confinement with the body forces
     {
       this.use('curl');
@@ -659,7 +1006,10 @@ export class GpuFluid implements FluidSink {
       gl.deleteTexture(f.tex);
       gl.deleteFramebuffer(f.fbo);
     }
-    for (const f of [this.div1, this.curl]) {
+    if (this.actSync) gl.deleteSync(this.actSync);
+    this.actSync = null;
+    gl.deleteBuffer(this.actBuf);
+    for (const f of [this.div1, this.curl, this.act]) {
       if (f) {
         gl.deleteTexture(f.tex);
         gl.deleteFramebuffer(f.fbo);
